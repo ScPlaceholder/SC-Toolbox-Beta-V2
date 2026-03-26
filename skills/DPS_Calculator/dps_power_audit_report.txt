@@ -1,0 +1,309 @@
+DPS Calculator — PowerAllocator Comprehensive Audit
+Date: 2026-03-23 17:33:44
+Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1\skills\DPS_Calculator\.erkul_cache.json
+Ships in cache: 208
+Import OK: True
+
+20-ship audit mapping:
+  Aurora MR                      -> Aurora MR                      OK
+  Gladius                        -> Gladius                        OK
+  Arrow                          -> Arrow                          OK
+  Avenger Titan                  -> Avenger Titan                  OK
+  Cutlass Black                  -> Cutlass Black                  OK
+  Cutlass Steel                  -> Cutlass Steel                  OK
+  Freelancer                     -> Freelancer                     OK
+  Constellation Andromeda        -> Constellation Andromeda        OK
+  Vanguard Warden                -> Vanguard Warden                OK
+  Sabre                          -> Sabre                          OK
+  Buccaneer                      -> Buccaneer                      OK
+  Hurricane                      -> Hurricane                      OK
+  Redeemer                       -> Redeemer                       OK
+  Hammerhead                     -> Hammerhead                     OK
+  A2 Hercules Starlifter         -> A2 Hercules Starlifter         OK
+  Polaris                        -> Polaris                        OK
+  Defender                       -> Defender                       OK
+  Eclipse                        -> Eclipse                        OK
+  Scorpius                       -> Scorpius                       OK
+  F7C Hornet Mk II               -> F7C Hornet Mk II               OK
+
+==========================================================================================
+  PHASE 1: PowerAllocator Column Generation (all ships)
+==========================================================================================
+Testing 208 ships...
+
+Category presence across all ships:
+  weaponGun       : 202 ships
+  thruster        : 182 ships
+  shield          : 190 ships
+  radar           : 192 ships
+  lifeSupport     : 180 ships
+  cooler          : 203 ships
+  quantumDrive    : 158 ships
+  utility         : 208 ships
+
+No flags raised.
+
+Total ships scanned: 208
+Total flags: 0
+
+==========================================================================================
+  PHASE 2: Pip Bar Interaction Simulation (20 ships)
+==========================================================================================
+
+  Ship: Aurora MR
+    Default: PP=15, draw=8.0, consumption=53.3%, EM=6955.0, IR=2601.3
+    weapon_ratio=0.500, shield_ratio=0.333
+    Weapons=0: EM=5964.3, weapon_ratio=0.000
+    Shields=0: EM=5120.0, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Gladius
+    Default: PP=16, draw=9.0, consumption=56.2%, EM=8459.2, IR=3474.6
+    weapon_ratio=0.500, shield_ratio=0.333
+    Weapons=0: EM=7340.5, weapon_ratio=0.000
+    Shields=0: EM=6686.6, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Arrow
+    Default: PP=16, draw=8.0, consumption=50.0%, EM=6701.7, IR=2711.8
+    weapon_ratio=0.500, shield_ratio=0.333
+    Weapons=0: EM=5711.7, weapon_ratio=0.000
+    Shields=0: EM=5917.3, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Avenger Titan
+    Default: PP=15, draw=9.0, consumption=60.0%, EM=8530.9, IR=3452.8
+    weapon_ratio=0.500, shield_ratio=0.333
+    Weapons=0: EM=7441.1, weapon_ratio=0.000
+    Shields=0: EM=6512.4, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Cutlass Black
+    Default: PP=18, draw=9.0, consumption=50.0%, EM=6601.3, IR=2402.2
+    weapon_ratio=0.500, shield_ratio=0.333
+    Weapons=0: EM=5363.0, weapon_ratio=0.000
+    Shields=0: EM=5868.4, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Cutlass Steel
+    Default: PP=20, draw=12.0, consumption=60.0%, EM=10197.7, IR=3776.0
+    weapon_ratio=0.500, shield_ratio=0.500
+    Weapons=0: EM=8712.7, weapon_ratio=0.000
+    Shields=0: EM=8630.2, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Freelancer
+    Default: PP=36, draw=25.0, consumption=69.4%, EM=20481.1, IR=7117.6
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=18004.4, weapon_ratio=0.000
+    Shields=0: EM=12716.1, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Constellation Andromeda
+    Default: PP=36, draw=21.0, consumption=58.3%, EM=17718.6, IR=6147.1
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=14416.3, weapon_ratio=0.000
+    Shields=0: EM=14267.4, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Vanguard Warden
+    Default: PP=20, draw=14.0, consumption=70.0%, EM=15533.1, IR=5968.0
+    weapon_ratio=0.500, shield_ratio=0.500
+    Weapons=0: EM=13552.1, weapon_ratio=0.000
+    Shields=0: EM=11351.0, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Sabre
+    Default: PP=26, draw=15.0, consumption=57.7%, EM=5670.6, IR=3074.8
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=5070.6, weapon_ratio=0.000
+    Shields=0: EM=5070.6, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Buccaneer
+    Default: PP=17, draw=10.0, consumption=58.8%, EM=8717.9, IR=3170.9
+    weapon_ratio=0.500, shield_ratio=0.500
+    Weapons=0: EM=7727.4, weapon_ratio=0.000
+    Shields=0: EM=7903.9, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Hurricane
+    Default: PP=16, draw=9.0, consumption=56.2%, EM=7979.8, IR=3288.4
+    weapon_ratio=0.500, shield_ratio=0.500
+    Weapons=0: EM=6494.8, weapon_ratio=0.000
+    Shields=0: EM=6412.3, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Redeemer
+    Default: PP=48, draw=24.0, consumption=50.0%, EM=23006.7, IR=9101.7
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=19040.0, weapon_ratio=0.000
+    Shields=0: EM=15740.0, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Hammerhead
+    Default: PP=48, draw=28.0, consumption=58.3%, EM=26710.1, IR=9901.4
+    weapon_ratio=0.900, shield_ratio=0.800
+    Weapons=0: EM=22247.6, weapon_ratio=0.000
+    Shields=0: EM=19370.6, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: A2 Hercules Starlifter
+    Default: PP=48, draw=30.0, consumption=62.5%, EM=27722.7, IR=10605.7
+    weapon_ratio=0.800, shield_ratio=0.800
+    Weapons=0: EM=23756.0, weapon_ratio=0.000
+    Shields=0: EM=17570.3, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Polaris
+    Default: PP=27, draw=15.0, consumption=55.6%, EM=10330.6, IR=2732.8
+    weapon_ratio=0.500, shield_ratio=0.500
+    Weapons=0: EM=8523.2, weapon_ratio=0.000
+    Shields=0: EM=8236.4, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Defender
+    Default: PP=28, draw=17.0, consumption=60.7%, EM=14646.0, IR=6405.9
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=12396.0, weapon_ratio=0.000
+    Shields=0: EM=11326.0, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Eclipse
+    Default: PP=13, draw=9.0, consumption=69.2%, EM=2587.8, IR=953.2
+    weapon_ratio=0.500, shield_ratio=1.000
+    Weapons=0: EM=2287.8, weapon_ratio=0.000
+    Shields=0: EM=1987.8, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: Scorpius
+    Default: PP=32, draw=17.0, consumption=53.1%, EM=17318.0, IR=6405.9
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=14348.0, weapon_ratio=0.000
+    Shields=0: EM=13688.0, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+  Ship: F7C Hornet Mk II
+    Default: PP=32, draw=19.0, consumption=59.4%, EM=20414.6, IR=7721.2
+    weapon_ratio=1.000, shield_ratio=1.000
+    Weapons=0: EM=18177.2, weapon_ratio=0.000
+    Shields=0: EM=14256.1, shield_ratio=0.000
+    NAV mode: QD_active=True, WPN_disabled=True, SHD_disabled=True
+    SCM mode: QD_off=True, WPN_on=True, SHD_on=True
+
+
+No flags raised.
+Total flags: 0
+
+==========================================================================================
+  PHASE 3: Signature Accuracy Verification (20 ships)
+==========================================================================================
+
+  Aurora MR:
+    EM: PA=6955.0, manual=6955.0 -> OK
+    IR: PA=2601.3, manual=2601.3 -> OK
+  Gladius:
+    EM: PA=8459.2, manual=8459.2 -> OK
+    IR: PA=3474.6, manual=3474.6 -> OK
+  Arrow:
+    EM: PA=6701.7, manual=6701.7 -> OK
+    IR: PA=2711.8, manual=2711.8 -> OK
+  Avenger Titan:
+    EM: PA=8530.9, manual=8530.9 -> OK
+    IR: PA=3452.8, manual=3452.8 -> OK
+  Cutlass Black:
+    EM: PA=6601.3, manual=6601.3 -> OK
+    IR: PA=2402.2, manual=2402.2 -> OK
+  Cutlass Steel:
+    EM: PA=10197.7, manual=10197.7 -> OK
+    IR: PA=3776.0, manual=3776.0 -> OK
+  Freelancer:
+    EM: PA=20481.1, manual=20481.1 -> OK
+    IR: PA=7117.6, manual=7117.6 -> OK
+  Constellation Andromeda:
+    EM: PA=17718.6, manual=17718.6 -> OK
+    IR: PA=6147.1, manual=6147.1 -> OK
+  Vanguard Warden:
+    EM: PA=15533.1, manual=15533.1 -> OK
+    IR: PA=5968.0, manual=5968.0 -> OK
+  Sabre:
+    EM: PA=5670.6, manual=5670.6 -> OK
+    IR: PA=3074.8, manual=3074.8 -> OK
+  Buccaneer:
+    EM: PA=8717.9, manual=8717.9 -> OK
+    IR: PA=3170.9, manual=3170.9 -> OK
+  Hurricane:
+    EM: PA=7979.8, manual=7979.8 -> OK
+    IR: PA=3288.4, manual=3288.4 -> OK
+  Redeemer:
+    EM: PA=23006.7, manual=23006.7 -> OK
+    IR: PA=9101.7, manual=9101.7 -> OK
+  Hammerhead:
+    EM: PA=26710.1, manual=26710.1 -> OK
+    IR: PA=9901.4, manual=9901.4 -> OK
+  A2 Hercules Starlifter:
+    EM: PA=27722.7, manual=27722.7 -> OK
+    IR: PA=10605.7, manual=10605.7 -> OK
+  Polaris:
+    EM: PA=10330.6, manual=10330.6 -> OK
+    IR: PA=2732.8, manual=2732.8 -> OK
+  Defender:
+    EM: PA=14646.0, manual=14646.0 -> OK
+    IR: PA=6405.9, manual=6405.9 -> OK
+  Eclipse:
+    EM: PA=2587.8, manual=2587.8 -> OK
+    IR: PA=953.2, manual=953.2 -> OK
+  Scorpius:
+    EM: PA=17318.0, manual=17318.0 -> OK
+    IR: PA=6405.9, manual=6405.9 -> OK
+  F7C Hornet Mk II:
+    EM: PA=20414.6, manual=20414.6 -> OK
+    IR: PA=7721.2, manual=7721.2 -> OK
+
+No flags raised — manual computation matches PowerAllocator exactly.
+Total flags: 0
+
+==========================================================================================
+  PHASE 4: Power Budget Validation (all ships)
+==========================================================================================
+Testing 208 ships...
+
+
+No flags raised.
+Total ships scanned: 208
+Total flags: 0
+
+==========================================================================================
+  PHASE 5: Mode Switch Behavior (all ships)
+==========================================================================================
+Testing 208 ships...
+
+
+No flags raised — all ships toggle SCM/NAV correctly.
+Total ships scanned: 208
+Total flags: 0
+
+==========================================================================================
+  SUMMARY
+==========================================================================================
+Audit completed in 9.3s
+Total ships in cache: 208

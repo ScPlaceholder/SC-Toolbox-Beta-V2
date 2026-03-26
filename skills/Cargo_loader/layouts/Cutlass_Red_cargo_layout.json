@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "ship": "Cutlass Red",
+  "gridW": 4,
+  "gridZ": 3,
+  "gridH": 2,
+  "totalCapacity": 12,
+  "totalUsed": 12,
+  "containers": {
+    "1": 4,
+    "2": 4,
+    "4": 0,
+    "8": 0,
+    "16": 0,
+    "24": 0,
+    "32": 0
+  },
+  "placements": [
+    {
+      "id": "fff5a922-f7a6-4a19-866c-687f0bb6e757",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "32fc7f6b-891a-47bd-b63a-ceb7873eb886",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "9d5390f7-6c1c-4843-a99a-f4963a0badd3",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "5750d19d-41ea-4dc1-9219-6b344f671ad5",
+      "scu": 1,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 3,
+        "y": 0,
+        "z": 2
+      },
+      "rotation": 0
+    },
+    {
+      "id": "8c40df21-fc83-4fe8-aab2-d246cfeecf82",
+      "scu": 1,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 3,
+        "y": 1,
+        "z": 2
+      },
+      "rotation": 0
+    },
+    {
+      "id": "7ae85951-9819-40b1-b0eb-c9833bd14cdb",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "0c0d5987-ab5c-4e0c-bd8a-3660183b4c64",
+      "scu": 1,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      },
+      "rotation": 0
+    },
+    {
+      "id": "a376ef66-5199-4712-b048-acf4d4b347b4",
+      "scu": 1,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 2
+      },
+      "rotation": 0
+    }
+  ]
+}

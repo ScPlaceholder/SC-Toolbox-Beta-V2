@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "ship": "SRV",
+  "gridW": 4,
+  "gridZ": 3,
+  "gridH": 1,
+  "totalCapacity": 12,
+  "totalUsed": 12,
+  "containers": {
+    "1": 0,
+    "2": 2,
+    "4": 2,
+    "8": 0,
+    "16": 0,
+    "24": 0,
+    "32": 0
+  },
+  "placements": [
+    {
+      "id": "a9e9ab86-4f53-4f9d-bd9d-bbd243366d08",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "9e9ba5d3-e5ca-4842-bb17-d7a89c4bd466",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "be4288f5-00bf-4c83-924d-cdc112fa4b2b",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      },
+      "rotation": 90
+    },
+    {
+      "id": "723fb1dd-593b-47bf-9424-ec4a5bc031a5",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 2,
+        "y": 0,
+        "z": 2
+      },
+      "rotation": 90
+    }
+  ]
+}

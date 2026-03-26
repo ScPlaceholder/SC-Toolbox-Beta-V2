@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "ship": "Freelancer Mis",
+  "gridW": 4,
+  "gridZ": 9,
+  "gridH": 3,
+  "totalCapacity": 36,
+  "totalUsed": 36,
+  "containers": {
+    "1": 0,
+    "2": 6,
+    "4": 2,
+    "8": 0,
+    "16": 1,
+    "24": 0,
+    "32": 0
+  },
+  "placements": [
+    {
+      "id": "b8a1a26d-8c97-4adb-9c54-aaf30539f94c",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "6a548c3b-2cc2-460d-9d36-1bc6ce1a2ad2",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "13c00bdf-0c05-4912-bea1-4d0f9085a0ea",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 2,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "8522a371-1ddf-4acd-b768-46dd282cfb28",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "659490d2-81fc-4cac-8240-f0cf222021f0",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "fd4ec1f1-3ddf-45b9-9e58-8f03ab6fdda3",
+      "scu": 2,
+      "dims": {
+        "w": 1,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 3,
+        "y": 2,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "42e33f2b-f3ff-4a00-87d5-8878e09c3a77",
+      "scu": 16,
+      "dims": {
+        "w": 2,
+        "h": 2,
+        "l": 4
+      },
+      "pos": {
+        "x": 1,
+        "y": 0,
+        "z": 5
+      },
+      "rotation": 0
+    },
+    {
+      "id": "9fc0ecb1-1928-44a5-a06f-8ecf65e4c29a",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 1,
+        "y": 2,
+        "z": 5
+      },
+      "rotation": 0
+    },
+    {
+      "id": "c9cb76da-4f20-4fe6-aa90-eca46945833b",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 1,
+        "y": 2,
+        "z": 7
+      },
+      "rotation": 0
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+=== DPS CALCULATOR LOADOUT AUDIT ===
+Generated: 2026-03-23 17:31:27
+
+Ships in cache: 208
+Weapons indexed: 135 by ref, 133 by name
+Missiles indexed: 61 by ref, 61 by name
+Shields indexed: 64 by ref, 63 by name
+Coolers indexed: 73 by ref, 72 by name
+Radars indexed: 19 by ref, 19 by name
+PowerPlants indexed: 75 by ref, 74 by name
+QuantumDrives indexed: 57 by ref, 57 by name
+
+--- PHASE 1: WEAPON SLOT EXTRACTION ---
+Total gun slots: 465
+  With stock weapon (non-empty local_ref): resolved 423
+Total turret slots: 289
+  With stock weapon (non-empty local_ref): resolved 280
+Total missile slots: 410
+  With stock missile (non-empty local_ref): resolved 377
+
+GUN/TURRET RESOLUTION FAILURES (25):
+  Avenger Titan Renegade         | Gun Class1 Left Wing           | ref=misl_s02_cs_fski_tempest
+  Avenger Titan Renegade         | Gun Class1 Right Wing          | ref=misl_s02_em_taln_dominator
+  C1 Spirit                      | Turret Rear                    | ref=8c16ee3d-78fb-4fef-a369-b3d42952ec33
+  Constellation Taurus           | Turret Base Lower / Left       | ref=8c16ee3d-78fb-4fef-a369-b3d42952ec33
+  Cyclone AA                     | Module Attach / Emp            | ref=tmbl_emp_device_s1
+  F7C Hornet Mk I                | Class 4 Center                 | ref=8661bcd6-9247-4376-8509-11af3d24a44c
+  F7C Hornet Wildfire Mk I       | Class 4 Center                 | ref=18895043-42c5-4f1d-a5e8-4cf7c78bd69f
+  F7C-M Hornet Heartseeker Mk II | Center                         | ref=4b2e4ce4-ac79-4923-bfdd-ccce02129b27
+  F7C-R Hornet Tracker Mk I      | Class 4 Center                 | ref=umnt_anvl_s5_rotodome
+  F7C-R Hornet Tracker Mk II     | Center                         | ref=umnt_anvl_s5_rotodome_mk2
+  F7C-S Hornet Ghost Mk I        | Class 4 Center                 | ref=umnt_anvl_s5_cap
+  F7C-S Hornet Ghost Mk II       | Center                         | ref=167138ef-b585-4a7b-8808-a70ba93d0390
+  Golem OX                       | Turret                         | ref=f627cdcb-5597-4d05-b96d-80129104aba2
+  MPUV Tractor                   | Turret                         | ref=grin_tractorbeam_s1
+  Mustang Gamma                  | Nose                           | ref=cnou_mustang_gamma_scoop_front
+  Mustang Omega                  | Nose                           | ref=cnou_mustang_gamma_scoop_front
+  Nomad                          | Turret                         | ref=34f8a503-41bc-4245-baea-e824c8a39411
+  RAFT                           | Right                          | ref=80ae6d83-7d8a-4357-b109-a0154418bae5
+  RAFT                           | Left                           | ref=80ae6d83-7d8a-4357-b109-a0154418bae5
+  Reliant Kore                   | Wing Tip S3 Right              | ref=grin_tractorbeam_s2
+  Reliant Mako                   | Wing Tip S3 Left               | ref=umnt_misc_s03_pl01
+  Reliant Mako                   | Wing Tip S3 Right              | ref=misc_reliant_mako_camera_mount
+  Reliant Sen                    | Wing Tip S3 Left               | ref=umnt_misc_s03_pl01
+  Reliant Sen                    | Wing Tip S3 Right              | ref=misc_reliant_sen_sensor_mount
+  Storm AA                       | Primary Turret                 | ref=gmisl_s01_ir_behr_marksman
+
+MISSILE RESOLUTION FAILURES (31):
+  Glaive                         | Blade Wing Right               | ref=vncl_missilerack_blade
+  Perseus                        | Torpedo Storage Left 01        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 02        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 03        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 04        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 05        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 06        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 07        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 08        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 09        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Left 10        | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 01       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 02       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 03       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 04       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 05       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 06       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 07       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 08       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 09       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Perseus                        | Torpedo Storage Right 10       | ref=b6205a2d-563c-415d-9e8f-7873283aea8b
+  Reliant Kore                   | Left Wing Missile Launcher     | ref=misc_reliant_missile_cap_left
+  Reliant Kore                   | Right Wing Missile Launcher    | ref=misc_reliant_missile_cap_right
+  Reliant Mako                   | Left Wing Missile Launcher     | ref=misc_reliant_missile_cap_left
+  Reliant Mako                   | Right Wing Missile Launcher    | ref=misc_reliant_missile_cap_right
+  Reliant Sen                    | Left Wing Missile Launcher     | ref=misc_reliant_missile_cap_left
+  Reliant Sen                    | Right Wing Missile Launcher    | ref=misc_reliant_missile_cap_right
+  Scythe                         | Blade Wing Right               | ref=vncl_missilerack_blade
+  Starfarer                      | Fuel Intake                    | ref=intk_misc_starfarer_nose_scitem
+  Talon                          | Leg Blankingplate Right        | ref=mrck_s04_espr_talon_cap_r
+  Talon                          | Leg Blankingplate Left         | ref=mrck_s04_espr_talon_cap
+
+--- PHASE 2: STOCK LOADOUT COMPLETENESS ---
+Shield         : 329/329 resolved (100.0%)
+Cooler         : 347/347 resolved (100.0%)
+Radar          : 202/213 resolved (94.8%)
+PowerPlant     : 258/259 resolved (99.6%)
+QuantumDrive   : 158/158 resolved (100.0%)
+
+Radar RESOLUTION FAILURES (10):
+  MOLE                           | Radar Cab Front                | ref=radr_s02_fake
+  MOLE                           | Radar Cab Left                 | ref=radr_s02_fake
+  MOLE                           | Radar Cab Right                | ref=radr_s02_fake
+  MOLE Carbon                    | Radar Cab Front                | ref=radr_s02_fake
+  MOLE Carbon                    | Radar Cab Left                 | ref=radr_s02_fake
+  MOLE Carbon                    | Radar Cab Right                | ref=radr_s02_fake
+  MOLE Talus                     | Radar Cab Front                | ref=radr_s02_fake
+  MOLE Talus                     | Radar Cab Left                 | ref=radr_s02_fake
+  MOLE Talus                     | Radar Cab Right                | ref=radr_s02_fake
+  ROC-DS                         | Radar Turret                   | ref=radr_s00_fake
+
+--- PHASE 3: DUPLICATE SLOTS ---
+Duplicate slot IDs found: 0
+Gun/missile overlaps found: 0
+
+--- PHASE 4: SIZE VALIDATION ---
+Size violations found: 205
+Ship                           | Slot                           | Type         | Component                 | Sz | Max
+--------------------------------------------------------------------------------------------------------------------------------------------
+325a                           | Nose                           | weapon       | M6A                       |  4 |  3
+325a                           | Cargo Door Front               | missile      | Arrester III              |  3 |  1
+A1 Spirit                      | Turret Rear                    | weapon       | CF-227 Badger             |  2 |  1
+Apollo Medivac                 | Left                           | weapon       | CF-447 Rhino              |  4 |  1
+Apollo Medivac                 | Right                          | weapon       | CF-447 Rhino              |  4 |  1
+Apollo Medivac                 | Turret                         | weapon       | Mantis GT-220             |  3 |  1
+Apollo Medivac                 | Missile Left                   | missile      | Ignite II                 |  2 |  1
+Apollo Medivac                 | Missile Right                  | missile      | Ignite II                 |  2 |  1
+Apollo Medivac                 | Shield Generator 01            | Shield       | STOP                      |  2 |  1
+Apollo Medivac                 | Shield Generator 02            | Shield       | STOP                      |  2 |  1
+Apollo Medivac                 | Shield Generator 03            | Shield       | STOP                      |  2 |  1
+Apollo Medivac                 | Shield Generator 04            | Shield       | STOP                      |  2 |  1
+Apollo Medivac                 | Cooler 01                      | Cooler       | ColdSnap                  |  2 |  1
+Apollo Medivac                 | Cooler 02                      | Cooler       | ColdSnap                  |  2 |  1
+Apollo Medivac                 | Radar                          | Radar        | Chernykh                  |  2 |  1
+Apollo Medivac                 | Power Plant 01                 | PowerPlant   | FullForce                 |  2 |  1
+Apollo Medivac                 | Power Plant 02                 | PowerPlant   | FullForce                 |  2 |  1
+Apollo Medivac                 | Quantum Drive                  | QuantumDrive | Odyssey                   |  2 |  1
+Apollo Triage                  | Left                           | weapon       | CF-447 Rhino              |  4 |  1
+Apollo Triage                  | Right                          | weapon       | CF-447 Rhino              |  4 |  1
+Apollo Triage                  | Turret                         | weapon       | M5A                       |  3 |  1
+Apollo Triage                  | Missile Left                   | missile      | Ignite II                 |  2 |  1
+Apollo Triage                  | Missile Right                  | missile      | Ignite II                 |  2 |  1
+Apollo Triage                  | Shield Generator 01            | Shield       | STOP                      |  2 |  1
+Apollo Triage                  | Shield Generator 02            | Shield       | STOP                      |  2 |  1
+Apollo Triage                  | Shield Generator 03            | Shield       | STOP                      |  2 |  1
+Apollo Triage                  | Shield Generator 04            | Shield       | STOP                      |  2 |  1
+Apollo Triage                  | Cooler 01                      | Cooler       | ColdSnap                  |  2 |  1
+Apollo Triage                  | Cooler 02                      | Cooler       | ColdSnap                  |  2 |  1
+Apollo Triage                  | Radar                          | Radar        | Chernykh                  |  2 |  1
+Apollo Triage                  | Power Plant 01                 | PowerPlant   | FullForce                 |  2 |  1
+Apollo Triage                  | Power Plant 02                 | PowerPlant   | FullForce                 |  2 |  1
+Apollo Triage                  | Quantum Drive                  | QuantumDrive | Odyssey                   |  2 |  1
+Clipper                        | Missile Rack Left 1            | missile      | Arrester III              |  3 |  1
+Clipper                        | Missile Rack Left 2            | missile      | Ignite II                 |  2 |  1
+Clipper                        | Missile Rack Right 1           | missile      | Arrester III              |  3 |  1
+Clipper                        | Missile Rack Right 2           | missile      | Arrester III              |  3 |  1
+Clipper                        | Missile Rack Right 3           | missile      | Ignite II                 |  2 |  1
+Corsair                        | Manned Turret Left / Left      | weapon       | CF-227 Badger             |  2 |  1
+Corsair                        | Manned Turret Left / Right     | weapon       | CF-227 Badger             |  2 |  1
+Corsair                        | Manned Turret Right / Left     | weapon       | CF-227 Badger             |  2 |  1
+Corsair                        | Manned Turret Right / Right    | weapon       | CF-227 Badger             |  2 |  1
+Corsair                        | Cheek Left                     | weapon       | M6A                       |  4 |  1
+Corsair                        | Cheek Right                    | weapon       | M6A                       |  4 |  1
+Corsair                        | Chin Right                     | weapon       | M6A                       |  4 |  1
+Corsair                        | Chin Left                      | weapon       | M6A                       |  4 |  1
+Corsair                        | Wing Bottom                    | weapon       | M7A                       |  5 |  1
+Corsair                        | Wing Top                       | weapon       | M7A                       |  5 |  1
+Corsair                        | Tail Turret                    | weapon       | CF-227 Badger             |  2 |  1
+Corsair                        | Wing Right Missile Mount A     | missile      | Arrester III              |  3 |  1
+Corsair                        | Wing Right Missile Mount B     | missile      | Arrester III              |  3 |  1
+Corsair                        | Wing Right Missile Mount C     | missile      | Arrester III              |  3 |  1
+Corsair                        | Wing Right Missile Mount D     | missile      | Arrester III              |  3 |  1
+Corsair                        | Shield Generator A             | Shield       | 5CA 'Akura'               |  3 |  1
+Corsair                        | Cooler A                       | Cooler       | Frost-Star EX             |  2 |  1
+Corsair                        | Cooler B                       | Cooler       | Frost-Star EX             |  2 |  1
+Corsair                        | Radar                          | Radar        | Chernykh                  |  2 |  1
+Corsair                        | Power Plant A                  | PowerPlant   | DayBreak                  |  2 |  1
+Corsair                        | Power Plant B                  | PowerPlant   | DayBreak                  |  2 |  1
+Corsair                        | Quantum Drive                  | QuantumDrive | Torrent                   |  2 |  1
+... and 145 more
+
+--- PHASE 5: DPS TOTALS SPOT CHECK ---
+Ship                           |    Raw DPS |    Sus DPS |    Msl Dmg |  Shield HP | Guns | Msls | Shds
+-----------------------------------------------------------------------------------------------------------------------------
+Aurora MR                      |        437 |        224 |      1,140 |      3,960 |    2 |    1 |    2
+Gladius                        |      1,598 |        957 |      9,810 |      5,808 |    3 |    4 |    2
+Arrow                          |      1,293 |        752 |      9,558 |      2,904 |    3 |    4 |    1
+Avenger Titan                  |      2,360 |      1,459 |      4,757 |      3,960 |    3 |    2 |    2
+Cutlass Black                  |      3,196 |      1,914 |     13,446 |      6,300 |    6 |    6 |    1
+Cutlass Steel                  |      3,524 |      2,081 |     13,446 |      9,240 |    7 |    6 |    1
+Freelancer                     |      2,459 |      1,414 |      9,810 |     26,250 |    4 |    4 |    3
+Constellation Andromeda        |      7,092 |      3,643 |     12,791 |     62,500 |    8 |    8 |    1
+Vanguard Warden                |      4,427 |      3,202 |      9,832 |     18,480 |    7 |    4 |    2
+Sabre                          |      2,182 |      1,164 |      5,803 |      3,388 |    4 |    2 |    2
+Buccaneer                      |      2,760 |      1,799 |      4,049 |      1,980 |    5 |    2 |    1
+Hurricane                      |      3,818 |      1,993 |      9,515 |      9,240 |    6 |    4 |    1
+Redeemer                       |      6,973 |      5,669 |      4,115 |     18,480 |    8 |    2 |    2
+Hammerhead                     |     19,629 |      9,947 |     22,983 |     90,000 |   24 |    8 |    2
+A2 Hercules Starlifter         |     11,166 |      6,372 |          0 |    198,000 |    9 |    0 |    3
+Polaris                        |     17,135 |     11,136 |  3,005,053 |    648,000 |   19 |    6 |    1
+Defender                       |      6,075 |      3,775 |      4,757 |      6,720 |    4 |    2 |    1
+Eclipse                        |        656 |        335 |    395,620 |      3,388 |    2 |    1 |    2
+Scorpius                       |      2,182 |      1,164 |      6,681 |      9,240 |    4 |    4 |    1
+F7C Hornet Mk II               |      2,532 |      1,756 |      2,280 |      5,808 |    2 |    2 |    2
+
+=== SUMMARY ===
+Ships audited: 208
+Phase 1 - Gun slots: 465, Turret slots: 289, Missile slots: 410
+  Gun resolution failures: 25
+  Missile resolution failures: 31
+Phase 2 - Component resolution:
+  Shield         : 329/329 resolved, 0 failures
+  Cooler         : 347/347 resolved, 0 failures
+  Radar          : 202/213 resolved, 10 failures
+  PowerPlant     : 258/259 resolved, 0 failures
+  QuantumDrive   : 158/158 resolved, 0 failures
+Phase 3 - Duplicate slots: 0, Gun/missile overlaps: 0
+Phase 4 - Size violations: 205
+Phase 5 - Spot-checked 20 ships
+Audit completed in 0.79s

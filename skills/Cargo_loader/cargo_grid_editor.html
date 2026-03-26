@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cargo Grid Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1117;
+  color: #d0d8f0;
+  font-family: Consolas, monospace;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+#app { display: flex; flex: 1; overflow: hidden; }
+
+/* ── LEFT PANEL ── */
+#panel {
+  width: 224px;
+  min-width: 224px;
+  background: #181c26;
+  border-right: 1px solid #2a3050;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 10px 8px 20px;
+  gap: 14px;
+}
+#panel h1 {
+  font-size: 11px;
+  color: #44aaff;
+  letter-spacing: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a3050;
+}
+.section-title {
+  font-size: 9px;
+  color: #6a7490;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+/* palette cards */
+.palette-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid #2a3050;
+  background: #1e2333;
+  cursor: pointer;
+  margin-bottom: 3px;
+}
+.palette-card:hover  { border-color: #44aaff66; }
+.palette-card.sel    { border-color: #44aaff;   background: #1a253f; }
+.swatch      { width:14px; height:14px; border-radius:2px; flex-shrink:0; }
+.card-label  { font-size:11px; color:#d0d8f0; font-weight:bold; }
+.card-dims   { font-size:9px; color:#6a7490; margin-left:auto; }
+
+/* buttons */
+.btn-row { display:flex; gap:5px; margin-bottom:4px; }
+.tbtn {
+  flex: 1;
+  padding: 6px 4px;
+  background: #1e2333;
+  border: 1px solid #2a3050;
+  color: #d0d8f0;
+  font-family: Consolas, monospace;
+  font-size: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tbtn:hover        { border-color:#44aaff66; }
+.tbtn.del-on       { border-color:#ff6644; color:#ff6644; background:#2a1a18; }
+.tbtn.sel-on       { border-color:#44aaff; color:#44aaff; background:#1a253f; }
+.tbtn.accent       { color:#44aaff; }
+.tbtn.accent:hover { border-color:#44aaff; }
+
+/* text / number inputs */
+.field {
+  width: 100%;
+  background: #0f1117;
+  border: 1px solid #2a3050;
+  border-radius: 4px;
+  color: #d0d8f0;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  padding: 5px 7px;
+  outline: none;
+}
+.field:focus { border-color: #44aaff66; }
+
+/* grid-dim row */
+.dim-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 5px;
+}
+.dim-cell { display:flex; flex-direction:column; gap:3px; }
+.dim-lbl  { font-size:9px; color:#6a7490; text-align:center; }
+.dim-inp  {
+  width:100%; text-align:center;
+  background:#0f1117; border:1px solid #2a3050; border-radius:4px;
+  color:#d0d8f0; font-family:Consolas,monospace; font-size:11px;
+  padding:4px 2px; outline:none;
+}
+.dim-inp:focus { border-color:#44aaff66; }
+
+/* capacity */
+.cap-top { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+.cap-inp {
+  width: 62px; text-align:right;
+  background:#0f1117; border:1px solid #2a3050; border-radius:4px;
+  color:#d0d8f0; font-family:Consolas,monospace; font-size:11px;
+  padding:3px 5px; outline:none;
+}
+.cap-inp:focus { border-color:#44aaff66; }
+#cap-wrap { height:8px; background:#0f1117; border-radius:4px; overflow:hidden;
+            margin-bottom:4px; border:1px solid #2a3050; }
+#cap-bar  { height:100%; background:#33dd99; transition:width .15s, background .15s; }
+#cap-lbl  { font-size:11px; color:#6a7490; text-align:right; }
+
+/* summary */
+#summary { font-size:11px; line-height:1.85; }
+.sum-row { display:flex; justify-content:space-between; }
+.dot { width:8px; height:8px; border-radius:50%; display:inline-block;
+       margin-right:5px; vertical-align:middle; }
+
+/* scan */
+#scan-status { font-size:10px; color:#6a7490; margin-top:4px; min-height:14px; word-break:break-word; }
+#scan-status.error { color:#ff6644; }
+#scan-status.ok    { color:#33dd99; }
+#scan-thumb { max-width:100%; max-height:80px; border-radius:4px; margin-top:4px; display:none; border:1px solid #2a3050; }
+
+/* ── CANVAS AREA ── */
+#canvas-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+#cvs { flex:1; display:block; background:#0f1117; cursor:crosshair; }
+#cvs.del-cursor { cursor:not-allowed; }
+#cvs.sel-cursor { cursor:crosshair; }
+
+#toolbar {
+  height: 28px;
+  background: #141826;
+  border-top: 1px solid #2a3050;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 14px;
+  font-size: 10px;
+  color: #6a7490;
+  flex-shrink: 0;
+}
+kbd {
+  background:#1e2333; border:1px solid #2a3050; border-radius:3px;
+  padding:1px 5px; font-family:Consolas; font-size:9px; color:#d0d8f0;
+}
+#legend { margin-left:auto; display:flex; gap:6px; align-items:center; }
+.leg { display:flex; align-items:center; gap:3px; font-size:9px; color:#6a7490; }
+.leg-dot { width:10px; height:10px; border-radius:2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══════════════════════ LEFT PANEL ══════════════════════ -->
+<div id="panel">
+  <h1>⬡ CARGO GRID EDITOR</h1>
+
+  <!-- SHIP NAME -->
+  <div>
+    <div class="section-title">SHIP NAME</div>
+    <input id="ship-name" class="field" type="text" placeholder="e.g. Caterpillar"
+           value="Custom" oninput="shipName=this.value">
+  </div>
+
+  <!-- GRID DIMENSIONS -->
+  <div>
+    <div class="section-title">GRID DIMENSIONS</div>
+    <div class="dim-row">
+      <div class="dim-cell"><div class="dim-lbl">WIDTH (X)</div>
+        <input id="g-w" class="dim-inp" type="number" min="1" max="128" value="100"></div>
+      <div class="dim-cell"><div class="dim-lbl">DEPTH (Z)</div>
+        <input id="g-z" class="dim-inp" type="number" min="1" max="128" value="100"></div>
+      <div class="dim-cell"><div class="dim-lbl">HEIGHT (Y)</div>
+        <input id="g-h" class="dim-inp" type="number" min="1" max="32"  value="4"></div>
+    </div>
+    <div class="btn-row">
+      <button class="tbtn accent" onclick="applyGrid()">↺ Apply Grid</button>
+    </div>
+  </div>
+
+  <!-- CRATE PALETTE -->
+  <div>
+    <div class="section-title">CRATE PALETTE</div>
+    <div id="palette"></div>
+  </div>
+
+  <!-- TOOLS -->
+  <div>
+    <div class="section-title">TOOLS</div>
+    <div class="btn-row">
+      <button class="tbtn" id="btn-rot" onclick="rotateCrate()">[R] Rotate</button>
+      <button class="tbtn" id="btn-del" onclick="toggleDelete()">[D] Delete</button>
+    </div>
+    <div class="btn-row">
+      <button class="tbtn" id="btn-sel" onclick="toggleSelect()">[S] Select</button>
+      <button class="tbtn" onclick="clearAll()">[C] Clear All</button>
+    </div>
+    <div class="btn-row">
+      <button class="tbtn accent" id="btn-view" onclick="rotateView(1)">[Q/T] View: NE</button>
+    </div>
+  </div>
+
+  <!-- SELECTION -->
+  <div id="sel-tools" style="display:none">
+    <div class="section-title">SELECTION</div>
+    <div class="btn-row">
+      <button class="tbtn accent" onclick="copySelected()">Ctrl+C Copy</button>
+      <button class="tbtn accent" onclick="pasteClipboard()">Ctrl+V Paste</button>
+    </div>
+    <div class="btn-row">
+      <button class="tbtn" onclick="deleteSelected()">Del Selected</button>
+      <button class="tbtn" onclick="deselectAll()">Esc Deselect</button>
+    </div>
+    <div id="sel-count" style="font-size:10px;color:#6a7490;margin-top:4px">0 selected</div>
+  </div>
+
+  <!-- I / O -->
+  <div>
+    <div class="section-title">I / O</div>
+    <div class="btn-row">
+      <button class="tbtn accent" onclick="triggerImport()">📂 Import</button>
+      <button class="tbtn accent" onclick="exportJSON()">[E] Export</button>
+    </div>
+    <input type="file" id="file-in" accept=".json" style="display:none" onchange="handleImport(event)">
+  </div>
+
+  <!-- IMAGE SCAN -->
+  <div>
+    <div class="section-title">IMAGE SCAN</div>
+    <label class="tbtn accent" style="display:block;text-align:center;margin-bottom:4px;cursor:pointer">
+      📷 Load Image
+      <input type="file" id="scan-file-in" accept="image/*" style="display:none" onchange="handleScanFile(event)">
+    </label>
+    <button class="tbtn" style="width:100%;margin-bottom:4px" onclick="clearScanImage()">Clear</button>
+    <img id="scan-thumb">
+    <div id="scan-status"></div>
+  </div>
+
+  <!-- CAPACITY -->
+  <div>
+    <div class="section-title">CAPACITY</div>
+    <div class="cap-top">
+      <input id="cap-input" class="cap-inp" type="number" min="1" value="576"
+             title="Max SCU capacity" onchange="applyCapacity()">
+      <span style="font-size:10px;color:#6a7490">SCU max</span>
+    </div>
+    <div id="cap-wrap"><div id="cap-bar" style="width:0%"></div></div>
+    <div id="cap-lbl">0 / 576 SCU</div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div>
+    <div class="section-title">SUMMARY</div>
+    <div id="summary"><span style="color:#6a7490">Empty</span></div>
+  </div>
+</div><!-- #panel -->
+
+<!-- ══════════════════════ CANVAS AREA ══════════════════════ -->
+<div id="canvas-wrap">
+  <canvas id="cvs"></canvas>
+  <!-- Hidden paste target — canvas can't receive paste events natively -->
+  <div id="paste-target" contenteditable="true" tabindex="-1"
+       style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;overflow:hidden;"></div>
+  <div id="toolbar">
+    <span><kbd>R</kbd> Rotate</span>
+    <span><kbd>D</kbd> Delete</span>
+    <span><kbd>S</kbd> Select</span>
+    <span><kbd>Q</kbd>/<kbd>T</kbd> View</span>
+    <span><kbd>Ctrl+C</kbd> Copy</span>
+    <span><kbd>Ctrl+V</kbd> Paste</span>
+    <span><kbd>Wheel</kbd> Zoom</span>
+    <span><kbd>RMB</kbd> Pan</span>
+    <div id="legend"></div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  MUTABLE GRID SETTINGS  (changed via the panel inputs)
+// ═══════════════════════════════════════════════════════════════════════════
+let gridW         = 100;    // world X units
+let gridZ         = 100;    // world Z units (depth)
+let gridH         = 4;      // world Y units (max stack height)
+let totalCapacity = 0;      // SCU cap shown in progress bar
+let shipName      = 'Custom';
+
+// ─── Container base dimensions: {w=X-span, h=Y-span, l=Z-span} ──────────
+// Rotation 0°/180° = base; 90°/270° = swap w↔l (h unchanged).
+// Derived from cargo_app.py CONTAINER_DIMS (L,W,H) with long axis defaulting to Z.
+const BASE_DIMS = {
+  1:  {w:1, h:1, l:1},
+  2:  {w:1, h:1, l:2},   // long along Z
+  4:  {w:2, h:1, l:2},   // flat — h locked at 1 always
+  8:  {w:2, h:2, l:2},
+  16: {w:2, h:2, l:4},
+  24: {w:2, h:2, l:6},
+  32: {w:2, h:2, l:8},
+};
+
+const SIZES    = [1, 2, 4, 8, 16, 24, 32];
+const CONT_COL = { 1:'#2196f3', 2:'#00bcd4', 4:'#4caf50', 8:'#ff9800',
+                   16:'#9c27b0', 24:'#c8a882', 32:'#e91e63' };
+const DIM_LABEL = { 1:'1×1×1', 2:'1×2×1', 4:'2×2×1', 8:'2×2×2',
+                    16:'2×4×2', 24:'2×6×2', 32:'2×8×2' };
+
+// Shading factors for the three visible isometric faces
+const SH_TOP   = 1.00;   // top    — brightest
+const SH_RIGHT = 0.72;   // +X wall
+const SH_FRONT = 0.50;   // +Z wall — darkest
+const SH_EDGE  = 0.30;   // outline stroke
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RUNTIME STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let cell       = 16;      // pixels per grid unit (zoom level)
+let panX       = 0;       // screen X of world origin (updated by pan/zoom)
+let panY       = 0;       // screen Y of world origin
+let panInit    = false;   // whether initPan() has been called once
+
+let activeSCU  = 24;
+let rotation   = 0;       // current yaw: 0 | 90 | 180 | 270
+let deleteMode = false;
+let selectMode = false;    // rubber-band select mode
+
+let placements = [];       // [{id, scu, x, y, z, w, h, l, rotation}]
+let occupied   = new Map();// "x,y,z" → placement.id
+
+// Hover / pan tracking
+let hoverGX = null, hoverGZ = null;  // snapped grid cell (null = off-grid)
+let isPanning=false, pSX=0,pSY=0,pOX=0,pOY=0;
+
+// View rotation (isometric camera angle): 0=NE, 1=SE, 2=SW, 3=NW
+let viewAngle = 0;
+const VIEW_LABELS = ['NE','SE','SW','NW'];
+
+// Selection state
+let selected    = new Set();   // set of placement ids
+let clipboard   = [];          // copied placements (relative positions)
+let isSelecting = false;       // rubber-band drag active
+let selStartSX  = 0, selStartSY = 0;  // screen coords of drag start
+let selCurSX    = 0, selCurSY   = 0;  // current drag position
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ISOMETRIC PROJECTION
+//  Exactly matches cargo_app.py iso_pt():
+//    sx = ox + (wx - wz) * cell
+//    sy = oy + (wx + wz) * cell * 0.5 - wy * cell
+//  Camera at (+∞X, +∞Y, +∞Z) — visible faces: top, +X wall, +Z wall.
+// ═══════════════════════════════════════════════════════════════════════════
+// Transform world coords based on viewAngle before projecting.
+// viewAngle 0 (NE): identity — camera at +X +Z
+// viewAngle 1 (SE): rotate 90° CW  → (wx,wz) → (wz, gridW-1-wx)  [mirrored: (gridZ-1-wz, wx)]
+// viewAngle 2 (SW): rotate 180°    → (wx,wz) → (gridW-1-wx, gridZ-1-wz)
+// viewAngle 3 (NW): rotate 270° CW → (wx,wz) → (gridZ-1-wz, wx)  [mirrored: (wz, gridW-1-wx)]
+function viewTransform(wx, wz) {
+  switch (viewAngle) {
+    case 0: return { vx: wx, vz: wz };
+    case 1: return { vx: wz, vz: gridW - wx };
+    case 2: return { vx: gridW - wx, vz: gridZ - wz };
+    case 3: return { vx: gridZ - wz, vz: wx };
+  }
+}
+function viewTransformInv(vx, vz) {
+  switch (viewAngle) {
+    case 0: return { wx: vx, wz: vz };
+    case 1: return { wx: gridW - vz, wz: vx };
+    case 2: return { wx: gridW - vx, wz: gridZ - vz };
+    case 3: return { wx: vz, wz: gridZ - vx };
+  }
+}
+function viewExtentX() { return (viewAngle % 2 === 0) ? gridW : gridZ; }
+function viewExtentZ() { return (viewAngle % 2 === 0) ? gridZ : gridW; }
+
+function iso(wx, wy, wz) {
+  const {vx, vz} = viewTransform(wx, wz);
+  return {
+    x: panX + (vx - vz) * cell,
+    y: panY + (vx + vz) * cell * 0.5 - wy * cell,
+  };
+}
+
+// Inverse iso at wy = 0 (ground plane) → returns WORLD coords
+function isoInv(sx, sy) {
+  const A = (sx - panX) / cell;
+  const B = (sy - panY) * 2 / cell;
+  const vx = (A + B) * 0.5;
+  const vz = (B - A) * 0.5;
+  return viewTransformInv(vx, vz);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  COLOUR HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function hexRGB(h) { const n=parseInt(h.replace('#',''),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rgbHex(r,g,b) {
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+function shade(hex, f) { const [r,g,b]=hexRGB(hex); return rgbHex(r*f,g*f,b*f); }
+function luma(hex)     { const [r,g,b]=hexRGB(hex); return 0.299*r+0.587*g+0.114*b; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CRATE DIMS WITH ROTATION
+//  0° / 180° → base dims unchanged
+//  90° / 270° → swap w ↔ l  (h never changes — keeps 4 SCU flat)
+// ═══════════════════════════════════════════════════════════════════════════
+function rotatedDims(scu, rot) {
+  const b = BASE_DIMS[scu];
+  return (rot === 90 || rot === 270) ? {w:b.l, h:b.h, l:b.w} : {w:b.w, h:b.h, l:b.l};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OCCUPIED-CELL MAP
+// ═══════════════════════════════════════════════════════════════════════════
+function setCells(id, x,y,z,w,h,l, val) {
+  for (let dx=0;dx<w;dx++) for (let dy=0;dy<h;dy++) for (let dz=0;dz<l;dz++) {
+    const k=`${x+dx},${y+dy},${z+dz}`;
+    if (val===null) occupied.delete(k); else occupied.set(k,val);
+  }
+}
+function cellsBlocked(x,y,z,w,h,l, skipId=null) {
+  for (let dx=0;dx<w;dx++) for (let dy=0;dy<h;dy++) for (let dz=0;dz<l;dz++) {
+    const v=occupied.get(`${x+dx},${y+dy},${z+dz}`);
+    if (v!==undefined && v!==skipId) return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SNAPPING  — improved center-offset + grid clamp
+//
+//  Rather than snapping the crate's min-corner to Math.floor(cursor), we:
+//  1. Offset the raw world coords by half the crate footprint so the crate's
+//     CENTER follows the cursor, then round to the nearest cell boundary.
+//  2. Clamp so the crate never sticks out of the grid — the ghost is always
+//     shown at a legal position, green = clear, red = height-blocked.
+// ═══════════════════════════════════════════════════════════════════════════
+function computeSnap(wx, wz) {
+  const {w, l} = rotatedDims(activeSCU, rotation);
+  const gx = Math.round(wx - w * 0.5);  // center crate on cursor X
+  const gz = Math.round(wz - l * 0.5);  // center crate on cursor Z
+  return {
+    gx: Math.max(0, Math.min(gridW - w, gx)),
+    gz: Math.max(0, Math.min(gridZ - l, gz)),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STACKING — lowest Y where crate (w,h,l) fits at (x,z)
+// ═══════════════════════════════════════════════════════════════════════════
+function findY(x, z, w, h, l) {
+  for (let y=0; y+h<=gridH; y++) {
+    if (!cellsBlocked(x,y,z,w,h,l)) return y;
+  }
+  return -1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PLACEMENT & DELETION
+// ═══════════════════════════════════════════════════════════════════════════
+function placeCrate(gx, gz) {
+  if (gx === null || gz === null) return false;
+  const {w,h,l} = rotatedDims(activeSCU, rotation);
+  // Bounds guard (should already be clamped by computeSnap, but be safe)
+  if (gx<0 || gz<0 || gx+w>gridW || gz+l>gridZ) return false;
+  const y = findY(gx, gz, w, h, l);
+  if (y < 0) return false;
+  const id = crypto.randomUUID();
+  placements.push({id, scu:activeSCU, x:gx, y, z:gz, w, h, l, rotation});
+  setCells(id, gx, y, gz, w, h, l, id);
+  refreshUI(); render();
+  return true;
+}
+
+function deleteAt(sx, sy) {
+  // Walk sorted list in reverse (front-to-back) to hit topmost crate first
+  const sorted = sortedPlacements();
+  for (let i=sorted.length-1; i>=0; i--) {
+    if (hitTest(sx, sy, sorted[i])) { removePlacement(sorted[i].id); return; }
+  }
+}
+
+function removePlacement(id) {
+  const i = placements.findIndex(p=>p.id===id);
+  if (i<0) return;
+  const p = placements[i];
+  setCells(null, p.x, p.y, p.z, p.w, p.h, p.l, null);
+  placements.splice(i,1);
+  refreshUI(); render();
+}
+
+// Point-in-polygon ray-cast (2-D screen space)
+function pip(px, py, pts) {
+  let inside=false;
+  for (let i=0,j=pts.length-1; i<pts.length; j=i++) {
+    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
+    if (((yi>py)!==(yj>py)) && (px<(xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function hitTest(sx, sy, p) {
+  const {x,y,z,w,h,l}=p;
+  // Top face always visible
+  const faces = [
+    [iso(x,y+h,z), iso(x+w,y+h,z), iso(x+w,y+h,z+l), iso(x,y+h,z+l)],
+  ];
+  // Add the two visible wall faces based on viewAngle
+  const walls = [
+    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)],   // 0: +X
+     [iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)]],  // 0: +Z
+    [[iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)],   // 1: +Z
+     [iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)]],          // 1: -X
+    [[iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)],           // 2: -X
+     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)]],          // 2: -Z
+    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)],           // 3: -Z
+     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)]],  // 3: +X
+  ][viewAngle];
+  faces.push(walls[0], walls[1]);
+  return faces.some(f=>pip(sx,sy,f));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PAINTER'S ALGORITHM
+//  Original integer-based sort adapted for view rotation.
+//  Primary key: sum of near+far edges in view-space X and Z.
+//  Tiebreakers: Y (bottom-up), then view-space Z origin, then X origin.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// View-space origin — the "back-left" corner changes per viewAngle:
+//   0: (x, z)       1: (x+w, z)      2: (x+w, z+l)    3: (x, z+l)
+function viewOrigin(x, z, w, l) {
+  switch (viewAngle) {
+    case 0: return viewTransform(x, z);
+    case 1: return viewTransform(x+w, z);
+    case 2: return viewTransform(x+w, z+l);
+    case 3: return viewTransform(x, z+l);
+  }
+}
+
+function sortedPlacements() {
+  // Topological sort based on isometric occlusion.
+  // For each pair, determine if A must be drawn before B (A is behind B).
+  // A is behind B in NE view if A is entirely to the left (lower vx),
+  // entirely behind (lower vz), or entirely below (lower y) AND they
+  // overlap in the other two projected axes.
+  const arr = [...placements];
+  const n = arr.length;
+  if (n <= 1) return arr;
+
+  // Precompute view-space bounds for each box
+  const bounds = arr.map(p => {
+    const o = viewOrigin(p.x, p.z, p.w, p.l);
+    // View-space extents depend on angle
+    const vw = (viewAngle % 2 === 0) ? p.w : p.l;
+    const vl = (viewAngle % 2 === 0) ? p.l : p.w;
+    return { vx: o.vx, vz: o.vz, vw, vl, y: p.y, h: p.h };
+  });
+
+  function rangeOverlap(a0, a1, b0, b1) { return a0 < b1 && b0 < a1; }
+
+  // Build adjacency: edges[i] = set of j where i must be drawn before j
+  const inDeg = new Int32Array(n);
+  const adj = Array.from({length: n}, () => []);
+
+  for (let i = 0; i < n; i++) {
+    const A = bounds[i];
+    for (let j = i + 1; j < n; j++) {
+      const B = bounds[j];
+      // Check if A behind B (A drawn first)
+      const aBeforeB =
+        (A.vx + A.vw <= B.vx && rangeOverlap(A.vz, A.vz+A.vl, B.vz, B.vz+B.vl) && rangeOverlap(A.y, A.y+A.h, B.y, B.y+B.h)) ||
+        (A.vz + A.vl <= B.vz && rangeOverlap(A.vx, A.vx+A.vw, B.vx, B.vx+B.vw) && rangeOverlap(A.y, A.y+A.h, B.y, B.y+B.h)) ||
+        (A.y + A.h <= B.y && rangeOverlap(A.vx, A.vx+A.vw, B.vx, B.vx+B.vw) && rangeOverlap(A.vz, A.vz+A.vl, B.vz, B.vz+B.vl));
+      // Check if B behind A (B drawn first)
+      const bBeforeA =
+        (B.vx + B.vw <= A.vx && rangeOverlap(B.vz, B.vz+B.vl, A.vz, A.vz+A.vl) && rangeOverlap(B.y, B.y+B.h, A.y, A.y+A.h)) ||
+        (B.vz + B.vl <= A.vz && rangeOverlap(B.vx, B.vx+B.vw, A.vx, A.vx+A.vw) && rangeOverlap(B.y, B.y+B.h, A.y, A.y+A.h)) ||
+        (B.y + B.h <= A.y && rangeOverlap(B.vx, B.vx+B.vw, A.vx, A.vx+A.vw) && rangeOverlap(B.vz, B.vz+B.vl, A.vz, A.vz+A.vl));
+
+      if (aBeforeB && !bBeforeA) { adj[i].push(j); inDeg[j]++; }
+      else if (bBeforeA && !aBeforeB) { adj[j].push(i); inDeg[i]++; }
+    }
+  }
+
+  // Kahn's algorithm
+  const queue = [];
+  for (let i = 0; i < n; i++) if (inDeg[i] === 0) queue.push(i);
+  const result = [];
+  while (queue.length) {
+    const u = queue.shift();
+    result.push(arr[u]);
+    for (const v of adj[u]) { if (--inDeg[v] === 0) queue.push(v); }
+  }
+  // If cycle detected (shouldn't happen with non-overlapping boxes), append remaining
+  if (result.length < n) {
+    const inResult = new Set(result);
+    for (const p of arr) if (!inResult.has(p)) result.push(p);
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  cvs.width  = wrap.clientWidth;
+  cvs.height = wrap.clientHeight - 28;
+  if (!panInit) { initPan(); panInit=true; }
+  render();
+}
+
+function initPan() {
+  const extW = viewExtentX();
+  const extZ = viewExtentZ();
+  const screenW = (extW + extZ) * cell;
+  panX = Math.round(cvs.width  * 0.5 + extZ * cell * 0.5 - screenW * 0.5 + extZ * cell);
+  panY = Math.round(cvs.height * 0.12 + gridH * cell);
+}
+
+function render() {
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle='#0f1117';
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+  drawGround();
+  for (const p of sortedPlacements()) {
+    drawBox(p.x, p.y, p.z, p.w, p.h, p.l, CONT_COL[p.scu], p.scu, 1.0, selected.has(p.id));
+  }
+  drawGhost();
+  drawSelectionRect();
+  drawGridInfo();
+}
+
+// ── Rubber-band selection rectangle ───────────────────────────────────────
+function drawSelectionRect() {
+  if (!isSelecting) return;
+  const x = Math.min(selStartSX, selCurSX);
+  const y = Math.min(selStartSY, selCurSY);
+  const w = Math.abs(selCurSX - selStartSX);
+  const h = Math.abs(selCurSY - selStartSY);
+  ctx.save();
+  ctx.strokeStyle = '#44aaff';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(68,170,255,0.08)';
+  ctx.fillRect(x, y, w, h);
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ── Ground grid — uses world coords so iso() handles view transform ───────
+function drawGround() {
+  ctx.strokeStyle='#1e2740'; ctx.lineWidth=0.5;
+  for (let z=0; z<=gridZ; z++) {
+    const a=iso(0,0,z), b=iso(gridW,0,z);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  for (let x=0; x<=gridW; x++) {
+    const a=iso(x,0,0), b=iso(x,0,gridZ);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  // Boundary outline
+  ctx.strokeStyle='#2a3050'; ctx.lineWidth=1.2;
+  const c1=iso(0,0,0), c2=iso(gridW,0,0), c3=iso(gridW,0,gridZ), c4=iso(0,0,gridZ);
+  ctx.beginPath();
+  ctx.moveTo(c1.x,c1.y); ctx.lineTo(c2.x,c2.y); ctx.lineTo(c3.x,c3.y); ctx.lineTo(c4.x,c4.y);
+  ctx.closePath(); ctx.stroke();
+}
+
+// ── Isometric box — three visible faces (view-angle aware) ────────────────
+function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
+  const edge = shade(baseCol, SH_EDGE);
+
+  function face(pts, fill) {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x,pts[0].y);
+    for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=edge; ctx.lineWidth=0.6; ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+
+  // TOP face — always visible
+  face([iso(wx,wy+dh,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)],
+       shade(baseCol, SH_TOP));
+
+  // Wall faces depend on view angle — always draw the two walls facing the camera.
+  // In view-space, the camera is at +vx +vz, so we see the max-vx wall and max-vz wall.
+  // Map those back to world walls:
+  //   viewAngle 0 (NE): camera +X +Z → wallA = +X wall, wallB = +Z wall
+  //   viewAngle 1 (SE): camera +Z -X → wallA = +Z wall, wallB = -X wall
+  //   viewAngle 2 (SW): camera -X -Z → wallA = -X wall, wallB = -Z wall
+  //   viewAngle 3 (NW): camera -Z +X → wallA = -Z wall, wallB = +X wall
+
+  const wallA_pts = [  // "right" wall in view-space (medium shade)
+    [// viewAngle 0: +X wall
+     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)]],
+    [// viewAngle 1: +Z wall
+     [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)]],
+    [// viewAngle 2: -X wall (x=wx)
+     [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
+    [// viewAngle 3: -Z wall (z=wz)
+     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
+  ][viewAngle][0];
+
+  const wallB_pts = [  // "front" wall in view-space (dark shade)
+    [// viewAngle 0: +Z wall
+     [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)]],
+    [// viewAngle 1: -X wall (x=wx)
+     [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
+    [// viewAngle 2: -Z wall (z=wz)
+     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
+    [// viewAngle 3: +X wall (x=wx+dw)
+     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)]],
+  ][viewAngle][0];
+
+  face(wallA_pts, shade(baseCol, SH_RIGHT));
+  face(wallB_pts, shade(baseCol, SH_FRONT));
+
+  // Selection highlight — bright border overlay
+  if (highlight) {
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = '#44aaff';
+    ctx.lineWidth = 2.0;
+    // Outline the top face
+    const top = [iso(wx,wy+dh,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)];
+    ctx.beginPath();
+    ctx.moveTo(top[0].x,top[0].y);
+    for (let i=1;i<top.length;i++) ctx.lineTo(top[i].x,top[i].y);
+    ctx.closePath(); ctx.stroke();
+    // Outline both walls
+    ctx.beginPath(); ctx.moveTo(wallA_pts[0].x,wallA_pts[0].y);
+    for (let i=1;i<wallA_pts.length;i++) ctx.lineTo(wallA_pts[i].x,wallA_pts[i].y);
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wallB_pts[0].x,wallB_pts[0].y);
+    for (let i=1;i<wallB_pts.length;i++) ctx.lineTo(wallB_pts[i].x,wallB_pts[i].y);
+    ctx.closePath(); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // SCU label — pick the larger visible wall face for label placement
+  if (labelVal !== null && cell >= 10) {
+    const fc = wallB_pts; // use "front" wall for label
+    const cx = (fc[0].x+fc[1].x+fc[2].x+fc[3].x)/4;
+    const cy = (fc[0].y+fc[1].y+fc[2].y+fc[3].y)/4;
+    const fw = Math.abs(fc[1].x-fc[0].x) + Math.abs(fc[2].x-fc[3].x);
+    const fh = Math.abs(fc[2].y-fc[1].y) + Math.abs(fc[3].y-fc[0].y);
+    if (fw>=16 && fh>=12) {
+      ctx.globalAlpha  = 0.85;
+      ctx.fillStyle    = luma(baseCol)>110 ? '#0008' : '#fff9';
+      ctx.font         = `bold ${Math.max(8,Math.min(12,cell*0.62))}px Consolas`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(labelVal), cx, cy);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// ── Ghost preview ──────────────────────────────────────────────────────────
+function drawGhost() {
+  if (deleteMode || selectMode || hoverGX===null) return;
+  const {w,h,l} = rotatedDims(activeSCU, rotation);
+  const x=hoverGX, z=hoverGZ;
+  const y = findY(x, z, w, h, l);
+  const ok = y >= 0;
+  drawBox(x, ok?y:0, z, w, h, l, ok?'#33dd99':'#ff6644', null, 0.38, false);
+}
+
+// ── Grid info overlay (bottom-right of grid) ──────────────────────────────
+function drawGridInfo() {
+  ctx.save();
+  ctx.font='10px Consolas'; ctx.fillStyle='#2a3050';
+  ctx.textAlign='right'; ctx.textBaseline='bottom';
+  ctx.fillText(`${gridW}×${gridZ}×${gridH}  ${shipName}  View: ${VIEW_LABELS[viewAngle]}`, cvs.width-8, cvs.height-6);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UI PANEL — palette, summary, capacity
+// ═══════════════════════════════════════════════════════════════════════════
+function buildPalette() {
+  const el=document.getElementById('palette');
+  el.innerHTML='';
+  SIZES.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='palette-card'+(s===activeSCU?' sel':'');
+    d.id=`pc${s}`;
+    d.innerHTML=`<span class="swatch" style="background:${CONT_COL[s]}"></span>
+                 <span class="card-label">${s} SCU</span>
+                 <span class="card-dims">${DIM_LABEL[s]}</span>`;
+    d.addEventListener('click',()=>selectSCU(s));
+    el.appendChild(d);
+  });
+  document.getElementById('legend').innerHTML=SIZES.map(s=>
+    `<span class="leg"><span class="leg-dot" style="background:${CONT_COL[s]}"></span>${s}</span>`
+  ).join('');
+}
+
+function selectSCU(s) {
+  activeSCU=s; rotation=0;
+  document.querySelectorAll('.palette-card').forEach(c=>c.classList.remove('sel'));
+  document.getElementById(`pc${s}`).classList.add('sel');
+  refreshUI();
+}
+
+function refreshUI() {
+  const counts={};  SIZES.forEach(s=>counts[s]=0);
+  placements.forEach(p=>counts[p.scu]++);
+  const used=placements.reduce((s,p)=>s+p.scu,0);
+  const pct=Math.min(100,(used/totalCapacity)*100);
+
+  document.getElementById('cap-bar').style.width     =pct+'%';
+  document.getElementById('cap-bar').style.background=pct>=100?'#ff6644':pct>=80?'#ffbb33':'#33dd99';
+  document.getElementById('cap-lbl').textContent=`${used} / ${totalCapacity} SCU`;
+
+  const rows=SIZES.filter(s=>counts[s]>0).map(s=>
+    `<div class="sum-row">
+       <span><span class="dot" style="background:${CONT_COL[s]}"></span>${s} SCU × ${counts[s]}</span>
+       <span style="color:#6a7490">${s*counts[s]}</span>
+     </div>`);
+  document.getElementById('summary').innerHTML=rows.length
+    ?rows.join(''):'<span style="color:#6a7490">Empty</span>';
+
+  // Show current dims on rotate button
+  const d=rotatedDims(activeSCU,rotation);
+  document.getElementById('btn-rot').textContent=`[R] ${d.w}×${d.l}×${d.h}`;
+
+  // Selection panel visibility and count
+  const selPanel = document.getElementById('sel-tools');
+  if (selPanel) {
+    selPanel.style.display = (selected.size > 0 || selectMode) ? 'block' : 'none';
+    document.getElementById('sel-count').textContent = `${selected.size} selected`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GRID / CAPACITY CHANGE HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+function applyGrid() {
+  const nw=parseInt(document.getElementById('g-w').value);
+  const nz=parseInt(document.getElementById('g-z').value);
+  const nh=parseInt(document.getElementById('g-h').value);
+  if ([nw,nz,nh].some(v=>isNaN(v)||v<1)) { alert('All dimensions must be ≥ 1.'); return; }
+  if (placements.length>0 &&
+      !confirm(`Resize grid to ${nw}×${nz}×${nh}?\nThis will clear all ${placements.length} placed crates.`))
+    return;
+  gridW=nw; gridZ=nz; gridH=nh;
+  placements=[]; occupied.clear();
+  panInit=false;             // force re-centering on next resize/render
+  resizeCanvas();
+}
+
+function applyCapacity() {
+  const v=parseInt(document.getElementById('cap-input').value);
+  if (!isNaN(v) && v>=1) { totalCapacity=v; refreshUI(); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOOL ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function rotateCrate()  { rotation=(rotation+90)%360; refreshUI(); render(); }
+function toggleDelete() {
+  deleteMode=!deleteMode;
+  if (deleteMode) { selectMode=false; document.getElementById('btn-sel').classList.remove('sel-on'); }
+  document.getElementById('btn-del').classList.toggle('del-on',deleteMode);
+  cvs.classList.toggle('del-cursor',deleteMode);
+}
+function toggleSelect() {
+  selectMode=!selectMode;
+  if (selectMode) { deleteMode=false; document.getElementById('btn-del').classList.remove('del-on'); cvs.classList.remove('del-cursor'); }
+  document.getElementById('btn-sel').classList.toggle('sel-on',selectMode);
+  cvs.classList.toggle('sel-cursor',selectMode);
+}
+function clearAll() {
+  if (!placements.length||!confirm('Clear all crates?')) return;
+  placements=[]; occupied.clear(); selected.clear(); refreshUI(); render();
+}
+function triggerImport() { document.getElementById('file-in').click(); }
+
+// ── View Rotation ─────────────────────────────────────────────────────────
+function rotateView(dir) {
+  viewAngle = (viewAngle + dir + 4) % 4;
+  document.getElementById('btn-view').textContent = `[Q/T] View: ${VIEW_LABELS[viewAngle]}`;
+  panInit = false;
+  initPan();
+  render();
+}
+
+// ── Selection helpers ─────────────────────────────────────────────────────
+function selectAll() {
+  placements.forEach(p => selected.add(p.id));
+  render();
+}
+function deselectAll() {
+  selected.clear();
+  render();
+}
+function deleteSelected() {
+  if (!selected.size) return;
+  const ids = new Set(selected);
+  for (const id of ids) removePlacement(id);
+  selected.clear();
+  refreshUI(); render();
+}
+
+// Get bounding box of selected placements (in world coords)
+function getSelectionBounds() {
+  let minX=Infinity, minY=Infinity, minZ=Infinity;
+  for (const p of placements) {
+    if (!selected.has(p.id)) continue;
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    minZ = Math.min(minZ, p.z);
+  }
+  return {minX, minY, minZ};
+}
+
+// ── Copy / Paste ──────────────────────────────────────────────────────────
+function copySelected() {
+  if (!selected.size) return;
+  const {minX, minY, minZ} = getSelectionBounds();
+  clipboard = [];
+  for (const p of placements) {
+    if (!selected.has(p.id)) continue;
+    clipboard.push({
+      scu: p.scu, w: p.w, h: p.h, l: p.l, rotation: p.rotation,
+      dx: p.x - minX, dy: p.y - minY, dz: p.z - minZ,
+    });
+  }
+}
+
+function pasteClipboard() {
+  if (!clipboard.length) return;
+  // Paste at current hover position, or at origin
+  const baseX = hoverGX !== null ? hoverGX : 0;
+  const baseZ = hoverGZ !== null ? hoverGZ : 0;
+  selected.clear();
+  let anyPlaced = false;
+  for (const c of clipboard) {
+    const px = baseX + c.dx;
+    const pz = baseZ + c.dz;
+    if (px < 0 || pz < 0 || px + c.w > gridW || pz + c.l > gridZ) continue;
+    const py = findY(px, pz, c.w, c.h, c.l);
+    if (py < 0) continue;
+    const id = crypto.randomUUID();
+    placements.push({id, scu:c.scu, x:px, y:py, z:pz, w:c.w, h:c.h, l:c.l, rotation:c.rotation});
+    setCells(id, px, py, pz, c.w, c.h, c.l, id);
+    selected.add(id);
+    anyPlaced = true;
+  }
+  if (anyPlaced) { refreshUI(); render(); }
+}
+
+// ── Rubber-band selection logic ───────────────────────────────────────────
+function getBoxScreenCenter(p) {
+  // Use the center of the top face as the screen representative point
+  const cx = p.x + p.w * 0.5;
+  const cy = p.y + p.h;
+  const cz = p.z + p.l * 0.5;
+  return iso(cx, cy, cz);
+}
+
+function computeSelectionFromRect(sx1, sy1, sx2, sy2) {
+  const rx = Math.min(sx1, sx2), ry = Math.min(sy1, sy2);
+  const rw = Math.abs(sx2 - sx1), rh = Math.abs(sy2 - sy1);
+  selected.clear();
+  for (const p of placements) {
+    const sc = getBoxScreenCenter(p);
+    if (sc.x >= rx && sc.x <= rx+rw && sc.y >= ry && sc.y <= ry+rh) {
+      selected.add(p.id);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function exportJSON() {
+  const counts={}; SIZES.forEach(s=>counts[s]=0);
+  placements.forEach(p=>counts[p.scu]++);
+  const containers={};
+  SIZES.forEach(s=>containers[String(s)]=counts[s]);
+  const data={
+    schemaVersion: 1,
+    ship:          document.getElementById('ship-name').value.trim() || 'Custom',
+    gridW, gridZ, gridH,
+    totalCapacity,
+    totalUsed:     placements.reduce((s,p)=>s+p.scu,0),
+    containers,
+    placements:    placements.map(p=>({
+      id:p.id, scu:p.scu,
+      dims:{w:p.w,h:p.h,l:p.l},
+      pos:{x:p.x,y:p.y,z:p.z},
+      rotation:p.rotation,
+    })),
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const shipSlug = (data.ship || 'Custom').replace(/[^a-zA-Z0-9]+/g, '_');
+  a.href=url; a.download=`${shipSlug}_cargo_layout.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function handleImport(e) {
+  const file=e.target.files[0]; if (!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try {
+      const data=JSON.parse(ev.target.result);
+      if (data.schemaVersion!==1) { alert('Unsupported schemaVersion (expected 1)'); return; }
+
+      // Restore grid settings if present
+      if (data.gridW)         { gridW=data.gridW; document.getElementById('g-w').value=gridW; }
+      if (data.gridZ)         { gridZ=data.gridZ; document.getElementById('g-z').value=gridZ; }
+      if (data.gridH)         { gridH=data.gridH; document.getElementById('g-h').value=gridH; }
+      if (data.totalCapacity) { totalCapacity=data.totalCapacity;
+                                document.getElementById('cap-input').value=totalCapacity; }
+      if (data.ship)          { shipName=data.ship;
+                                document.getElementById('ship-name').value=shipName; }
+
+      placements=[]; occupied.clear();
+      for (const p of (data.placements||[])) {
+        const {w,h,l}=p.dims, {x,y,z}=p.pos;
+        if (x<0||y<0||z<0||x+w>gridW||z+l>gridZ||y+h>gridH) continue;
+        if (cellsBlocked(x,y,z,w,h,l)) continue;
+        const id=p.id||crypto.randomUUID();
+        placements.push({id,scu:p.scu,x,y,z,w,h,l,rotation:p.rotation||0});
+        setCells(id,x,y,z,w,h,l,id);
+      }
+      panInit=false; resizeCanvas();
+      refreshUI();
+    } catch(err) { alert('Import failed: '+err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IMAGE SCAN — stores image for Claude Code to analyze
+// ═══════════════════════════════════════════════════════════════════════════
+window._scanImageData = null;  // base64 data URL, readable by Claude Code
+
+// ── Scan prompt — Claude Code reads this and follows it exactly ────────────
+window._scanPrompt = `
+You are analyzing a Star Citizen cargo grid screenshot from sc-cargo.space.
+Your job is to produce a precise JSON layout that the cargo grid editor can
+inject. Read the ENTIRE prompt before you start.
+
+═══════════════════════════════════════════════════════════════
+COORDINATE SYSTEM
+═══════════════════════════════════════════════════════════════
+The editor uses isometric projection with this world space:
+  X  = left↔right  (increases rightward in world, goes right+down on screen)
+  Y  = height       (increases upward in world, goes straight up on screen)
+  Z  = front↔back   (increases toward camera/front, goes left+down on screen)
+
+All coordinates are integers in SCU-unit grid cells.
+
+═══════════════════════════════════════════════════════════════
+CONTAINER DIMENSIONS  (w=X, h=Y, l=Z)  rotation 0° = base
+═══════════════════════════════════════════════════════════════
+  1 SCU:  w=1 h=1 l=1
+  2 SCU:  w=1 h=1 l=2   (rotation 90° → w=2 h=1 l=1)
+  4 SCU:  w=2 h=1 l=2   (ALWAYS h=1, flat crate — never rotated vertically)
+  8 SCU:  w=2 h=2 l=2   (cube — all rotations equivalent)
+ 16 SCU:  w=2 h=2 l=4   (rotation 90° → w=4 h=2 l=2)
+ 24 SCU:  w=2 h=2 l=6   (rotation 90° → w=6 h=2 l=2)
+ 32 SCU:  w=2 h=2 l=8   (rotation 90° → w=8 h=2 l=2)
+
+═══════════════════════════════════════════════════════════════
+STEP 1 — IDENTIFY CLUSTERS (CRITICAL — DO THIS FIRST)
+═══════════════════════════════════════════════════════════════
+A "cluster" is a group of containers that are physically touching
+or directly adjacent (no visible gap between them).
+
+DO NOT treat the entire cargo area as one block.
+DO NOT assume all containers are in one continuous region.
+
+For each cluster:
+  a) Note its screen position (top-left corner relative to other clusters)
+  b) Count containers along each axis: X-count, Y-count (layers), Z-count
+  c) Determine the container SCU size from visual proportions
+  d) Note any GAPS — visible empty floor/hull between clusters
+
+═══════════════════════════════════════════════════════════════
+STEP 2 — MEASURE GAPS BETWEEN CLUSTERS
+═══════════════════════════════════════════════════════════════
+If there is a visible gap between two clusters, measure it in
+container-widths. A gap of one 8-SCU container width = 2 grid units.
+
+Example — two clusters of 8-SCU with a 2-unit gap between them
+in X: cluster A at x=0, cluster B at x=2+gap_width.
+
+Report your gap measurements before producing JSON.
+
+═══════════════════════════════════════════════════════════════
+STEP 3 — ASSIGN WORLD COORDINATES
+═══════════════════════════════════════════════════════════════
+Place cluster A at origin (x=0, y=0, z=0).
+Place subsequent clusters using measured offsets.
+
+For EACH container in EACH cluster, emit one placement entry:
+{
+  "scu": <size>,
+  "x": <world X of container min corner>,
+  "y": <world Y of container min corner>,
+  "z": <world Z of container min corner>,
+  "rotation": <0 or 90>
+}
+
+Stack containers correctly:
+  - Layer 0 (floor): y=0
+  - Layer 1 (on top of 8-SCU floor layer): y=2
+  - Layer 2 (third layer): y=4
+
+═══════════════════════════════════════════════════════════════
+STEP 4 — SET GRID DIMENSIONS
+═══════════════════════════════════════════════════════════════
+gridW = total X span (rightmost container x + w)
+gridZ = total Z span (frontmost container z + l)
+gridH = total Y span (topmost container y + h)
+
+Include ALL clusters in these bounds — gaps are just empty cells.
+
+═══════════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════
+Think step by step. After your analysis, call applyScanResult()
+with this exact structure:
+
+applyScanResult({
+  "gridW": <int>,
+  "gridZ": <int>,
+  "gridH": <int>,
+  "placements": [
+    { "scu": 8, "x": 0, "y": 0, "z": 0, "rotation": 0 },
+    ...one entry per individual container...
+  ]
+});
+
+RULES:
+- One entry per physical container. 20 containers = 20 entries.
+- No two containers may overlap (check x+w, y+h, z+l bounds).
+- Gaps between clusters are represented by coordinate offsets, NOT
+  by inserting placeholder entries.
+- Do NOT merge multiple containers into one entry.
+- Do NOT guess — if you cannot determine a measurement, say so
+  and ask before producing JSON.
+`;
+// ─────────────────────────────────────────────────────────────────────────
+
+function setScanStatus(msg, cls) {
+  const el = document.getElementById('scan-status');
+  el.textContent = msg;
+  el.className = cls || '';
+}
+
+function triggerScanUpload() {
+  document.getElementById('scan-file-in').click();
+}
+
+function handleScanFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadScanImage(ev.target.result);
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function loadScanImage(dataUrl) {
+  window._scanImageData = dataUrl;
+  const thumb = document.getElementById('scan-thumb');
+  thumb.src = dataUrl;
+  thumb.style.display = 'block';
+  setScanStatus('Image loaded — tell Claude Code: "scan cargo" (prompt is in window._scanPrompt)', 'ok');
+}
+
+function clearScanImage() {
+  window._scanImageData = null;
+  const thumb = document.getElementById('scan-thumb');
+  thumb.src = '';
+  thumb.style.display = 'none';
+  setScanStatus('', '');
+}
+
+function applyScanResult(data) {
+  if (!data.placements || !Array.isArray(data.placements)) {
+    setScanStatus('No placements found in response', 'error');
+    return;
+  }
+
+  // Apply grid dimensions
+  if (data.gridW) { gridW = data.gridW; document.getElementById('g-w').value = gridW; }
+  if (data.gridZ) { gridZ = data.gridZ; document.getElementById('g-z').value = gridZ; }
+  if (data.gridH) { gridH = data.gridH; document.getElementById('g-h').value = gridH; }
+
+  placements = []; occupied.clear(); selected.clear();
+
+  let placed = 0, skipped = 0;
+  for (const p of data.placements) {
+    const scu = p.scu;
+    if (!BASE_DIMS[scu]) { skipped++; continue; }
+    const rot = p.rotation || 0;
+    const {w, h, l} = rotatedDims(scu, rot);
+    const x = p.x || 0, y = p.y || 0, z = p.z || 0;
+    if (x < 0 || y < 0 || z < 0 || x+w > gridW || z+l > gridZ || y+h > gridH) { skipped++; continue; }
+    if (cellsBlocked(x, y, z, w, h, l)) { skipped++; continue; }
+    const id = crypto.randomUUID();
+    placements.push({id, scu, x, y, z, w, h, l, rotation: rot});
+    setCells(id, x, y, z, w, h, l, id);
+    placed++;
+  }
+
+  panInit = false; resizeCanvas(); refreshUI();
+  const totalSCU = placements.reduce((s, p) => s + p.scu, 0);
+  setScanStatus(`Placed ${placed} boxes (${totalSCU} SCU)${skipped ? `, ${skipped} skipped` : ''}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EVENT HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+cvs.addEventListener('mousemove', e=>{
+  const r=cvs.getBoundingClientRect();
+  const sx=e.clientX-r.left, sy=e.clientY-r.top;
+
+  if (isPanning) {
+    panX=pOX+(e.clientX-pSX); panY=pOY+(e.clientY-pSY);
+    render(); return;
+  }
+
+  if (isSelecting) {
+    selCurSX = sx; selCurSY = sy;
+    computeSelectionFromRect(selStartSX, selStartSY, selCurSX, selCurSY);
+    render(); return;
+  }
+
+  const {wx,wz}=isoInv(sx,sy);
+  const snap=computeSnap(wx,wz);
+  hoverGX=snap.gx; hoverGZ=snap.gz;
+  render();
+});
+
+cvs.addEventListener('mouseleave', ()=>{ hoverGX=null; hoverGZ=null; render(); });
+
+// Direct paste handler on the paste target element
+document.getElementById('paste-target').addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = items[i].getAsFile();
+      const reader = new FileReader();
+      reader.onload = ev => loadScanImage(ev.target.result);
+      reader.readAsDataURL(file);
+      // Clear contenteditable to prevent lingering pasted content
+      setTimeout(() => { document.getElementById('paste-target').innerHTML = ''; }, 50);
+      return;
+    }
+  }
+});
+
+// Also focus paste target when clicking anywhere in canvas-wrap
+document.getElementById('canvas-wrap').addEventListener('mousedown', () => {
+  document.getElementById('paste-target').style.pointerEvents = 'auto';
+  document.getElementById('paste-target').focus();
+  document.getElementById('paste-target').style.pointerEvents = 'none';
+}, true);
+
+cvs.addEventListener('mousedown', e=>{
+  if (e.button===1||e.button===2) {
+    isPanning=true; pSX=e.clientX; pSY=e.clientY; pOX=panX; pOY=panY;
+    e.preventDefault(); return;
+  }
+  if (e.button===0) {
+    const r=cvs.getBoundingClientRect();
+    const sx=e.clientX-r.left, sy=e.clientY-r.top;
+    if (selectMode) {
+      // Start rubber-band selection
+      isSelecting=true;
+      selStartSX=sx; selStartSY=sy;
+      selCurSX=sx;   selCurSY=sy;
+      if (!e.shiftKey) selected.clear();
+      return;
+    }
+    if (deleteMode) deleteAt(sx, sy);
+    else            placeCrate(hoverGX, hoverGZ);
+  }
+});
+
+cvs.addEventListener('mouseup', e=>{
+  if (e.button===1||e.button===2) { isPanning=false; return; }
+  if (e.button===0 && isSelecting) {
+    isSelecting=false;
+    refreshUI(); render();
+  }
+});
+cvs.addEventListener('contextmenu', e=>e.preventDefault());
+
+// Zoom — keep cursor world position fixed
+cvs.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const r=cvs.getBoundingClientRect();
+  const sx=e.clientX-r.left, sy=e.clientY-r.top;
+  const old=cell;
+  cell=Math.max(4,Math.min(56, cell*(e.deltaY<0?1.12:1/1.12)));
+  panX=sx-(sx-panX)*(cell/old);
+  panY=sy-(sy-panY)*(cell/old);
+  // Re-snap hover at new zoom level
+  const {wx,wz}=isoInv(sx,sy);
+  const snap=computeSnap(wx,wz); hoverGX=snap.gx; hoverGZ=snap.gz;
+  refreshUI(); render();
+},{passive:false});
+
+// Clipboard paste — image scan (listen on window to catch all paste events)
+window.addEventListener('paste', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = items[i].getAsFile();
+      const reader = new FileReader();
+      reader.onload = ev => loadScanImage(ev.target.result);
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+}, true);  // useCapture=true to fire before contenteditable consumes it
+
+document.addEventListener('keydown', e=>{
+  if (e.target.tagName==='INPUT') return;
+  const key = e.key.toUpperCase();
+
+  // Ctrl shortcuts
+  if ((e.ctrlKey || e.metaKey) && key === 'C') { e.preventDefault(); copySelected(); return; }
+  if ((e.ctrlKey || e.metaKey) && key === 'V') { if (clipboard.length) { e.preventDefault(); pasteClipboard(); } return; }
+  if ((e.ctrlKey || e.metaKey) && key === 'A') { e.preventDefault(); selectAll(); return; }
+
+  switch(key) {
+    case 'R': rotateCrate();  break;
+    case 'D': toggleDelete(); break;
+    case 'C': clearAll();     break;
+    case 'E': exportJSON();   break;
+    case 'S': toggleSelect(); break;
+    case 'Q': rotateView(-1); break;  // rotate view CCW
+    case 'T': rotateView(1);  break;  // rotate view CW
+    case 'DELETE':
+    case 'BACKSPACE': deleteSelected(); break;
+    case 'ESCAPE':    deselectAll();    break;
+  }
+});
+
+window.addEventListener('resize', resizeCanvas);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+buildPalette();
+refreshUI();
+resizeCanvas();
+</script>
+</body>
+</html>
