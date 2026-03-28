@@ -1,0 +1,1687 @@
+07:58:03.269 [INFO] dps_calc: ============================================================
+07:58:03.269 [INFO] dps_calc: DPS Calculator starting  (PID 62072)
+07:58:03.269 [INFO] dps_calc: argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_42908.jsonl']
+07:58:03.269 [INFO] dps_calc: cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+07:58:03.269 [INFO] dps_calc: Parsing CLI args...
+07:58:03.269 [INFO] dps_calc: CLI args parsed: x=100 y=100 w=1300 h=800
+07:58:03.269 [INFO] dps_calc: Creating QApplication...
+07:58:03.317 [DEBUG] shared.qt.fonts: Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+07:58:03.317 [INFO] dps_calc: QApplication created OK
+07:58:03.317 [INFO] dps_calc: Creating DpsCalcApp window...
+07:58:03.322 [INFO] dps_ui.app: DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+07:58:03.322 [INFO] dps_ui.app:   SCWindow.__init__ OK
+07:58:03.322 [INFO] dps_ui.app:   Building UI...
+07:58:03.323 [DEBUG] dps_ui.app: _build_ui START
+07:58:03.323 [DEBUG] dps_ui.app:   Creating title bar...
+07:58:03.397 [DEBUG] dps_ui.app:   Creating header OK
+07:58:03.397 [DEBUG] dps_ui.app:   Creating left panel...
+07:58:03.500 [DEBUG] dps_ui.app:   Left panel OK
+07:58:03.509 [DEBUG] dps_ui.app:   Center panel + tabs OK
+07:58:03.512 [DEBUG] dps_ui.app:   Right panel OK
+07:58:03.512 [DEBUG] dps_ui.app:   Right panel placeholder OK
+07:58:03.513 [DEBUG] dps_ui.app: _build_ui DONE
+07:58:03.513 [INFO] dps_ui.app:   UI built OK
+07:58:03.513 [INFO] dps_ui.app:   Geometry restored
+07:58:03.513 [INFO] dps_ui.app:   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_42908.jsonl
+07:58:03.514 [INFO] dps_ui.app:   IPC watcher started
+07:58:03.514 [INFO] dps_ui.app:   Starting data load...
+07:58:03.514 [INFO] data.repository: Data load thread started (tid=Thread-1 (_run))
+07:58:03.514 [INFO] dps_ui.app: DpsCalcApp.__init__ DONE
+07:58:03.514 [INFO] dps_calc: DpsCalcApp window created OK
+07:58:03.634 [INFO] dps_calc: Window shown, entering event loop
+08:06:14.559 [INFO] dps_calc (PID 72792): ============================================================
+08:06:14.559 [INFO] dps_calc (PID 72792): DPS Calculator starting  (PID 72792)
+08:06:14.559 [INFO] dps_calc (PID 72792): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_59924.jsonl']
+08:06:14.559 [INFO] dps_calc (PID 72792): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:06:14.946 [INFO] dps_calc (PID 72792): Parsing CLI args...
+08:06:14.947 [INFO] dps_calc (PID 72792): CLI args parsed: x=100 y=100 w=1300 h=800
+08:06:14.947 [INFO] dps_calc (PID 72792): Creating QApplication...
+08:06:14.987 [DEBUG] shared.qt.fonts (PID 72792): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:06:14.987 [INFO] dps_calc (PID 72792): QApplication created OK
+08:06:14.987 [INFO] dps_calc (PID 72792): Creating DpsCalcApp window...
+08:06:14.991 [INFO] dps_ui.app (PID 72792): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:06:14.992 [INFO] dps_ui.app (PID 72792):   SCWindow.__init__ OK
+08:06:14.992 [INFO] dps_ui.app (PID 72792):   Building UI...
+08:06:14.992 [DEBUG] dps_ui.app (PID 72792): _build_ui START
+08:06:14.992 [DEBUG] dps_ui.app (PID 72792):   Creating title bar...
+08:06:15.050 [DEBUG] dps_ui.app (PID 72792):   Creating header OK
+08:06:15.050 [DEBUG] dps_ui.app (PID 72792):   Creating left panel...
+08:06:15.157 [DEBUG] dps_ui.app (PID 72792):   Left panel OK
+08:06:15.166 [DEBUG] dps_ui.app (PID 72792):   Center panel + tabs OK
+08:06:15.169 [DEBUG] dps_ui.app (PID 72792):   Right panel OK
+08:06:15.169 [DEBUG] dps_ui.app (PID 72792):   Right panel placeholder OK
+08:06:15.170 [DEBUG] dps_ui.app (PID 72792): _build_ui DONE
+08:06:15.171 [INFO] dps_ui.app (PID 72792):   UI built OK
+08:06:15.171 [INFO] dps_ui.app (PID 72792):   Geometry restored
+08:06:15.171 [INFO] dps_ui.app (PID 72792):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:06:15.171 [INFO] dps_ui.app (PID 72792):   IPC watcher started
+08:06:15.171 [INFO] dps_ui.app (PID 72792):   Starting data load...
+08:06:15.171 [INFO] data.repository (PID 72792): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:06:15.171 [INFO] data.repository (PID 72792):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:06:15.171 [INFO] dps_ui.app (PID 72792): DpsCalcApp.__init__ DONE
+08:06:15.171 [INFO] dps_calc (PID 72792): DpsCalcApp window created OK
+08:06:15.171 [INFO] data.repository (PID 72792):   Cache file exists: True
+08:06:15.290 [INFO] dps_calc (PID 72792): Window shown, entering event loop
+08:06:15.291 [INFO] data.repository (PID 72792):   Cache file size: 19.8 MB
+08:06:15.291 [INFO] data.repository (PID 72792):   Calling self._cache.load()...
+08:06:15.291 [DEBUG] data.cache (PID 72792): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:06:39.194 [INFO] dps_calc (PID 79260): ============================================================
+08:06:39.194 [INFO] dps_calc (PID 79260): DPS Calculator starting  (PID 79260)
+08:06:39.195 [INFO] dps_calc (PID 79260): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_59924.jsonl']
+08:06:39.195 [INFO] dps_calc (PID 79260): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:06:39.601 [INFO] dps_calc (PID 79260): Parsing CLI args...
+08:06:39.602 [INFO] dps_calc (PID 79260): CLI args parsed: x=100 y=100 w=1300 h=800
+08:06:39.602 [INFO] dps_calc (PID 79260): Creating QApplication...
+08:06:39.645 [DEBUG] shared.qt.fonts (PID 79260): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:06:39.645 [INFO] dps_calc (PID 79260): QApplication created OK
+08:06:39.645 [INFO] dps_calc (PID 79260): Creating DpsCalcApp window...
+08:06:39.649 [INFO] dps_ui.app (PID 79260): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:06:39.650 [INFO] dps_ui.app (PID 79260):   SCWindow.__init__ OK
+08:06:39.650 [INFO] dps_ui.app (PID 79260):   Building UI...
+08:06:39.650 [DEBUG] dps_ui.app (PID 79260): _build_ui START
+08:06:39.650 [DEBUG] dps_ui.app (PID 79260):   Creating title bar...
+08:06:39.709 [DEBUG] dps_ui.app (PID 79260):   Creating header OK
+08:06:39.709 [DEBUG] dps_ui.app (PID 79260):   Creating left panel...
+08:06:39.841 [DEBUG] dps_ui.app (PID 79260):   Left panel OK
+08:06:39.850 [DEBUG] dps_ui.app (PID 79260):   Center panel + tabs OK
+08:06:39.853 [DEBUG] dps_ui.app (PID 79260):   Right panel OK
+08:06:39.853 [DEBUG] dps_ui.app (PID 79260):   Right panel placeholder OK
+08:06:39.854 [DEBUG] dps_ui.app (PID 79260): _build_ui DONE
+08:06:39.854 [INFO] dps_ui.app (PID 79260):   UI built OK
+08:06:39.854 [INFO] dps_ui.app (PID 79260):   Geometry restored
+08:06:39.854 [INFO] dps_ui.app (PID 79260):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:06:39.854 [INFO] dps_ui.app (PID 79260):   IPC watcher started
+08:06:39.854 [INFO] dps_ui.app (PID 79260):   Starting data load...
+08:06:39.854 [INFO] data.repository (PID 79260): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:06:39.855 [INFO] data.repository (PID 79260):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:06:39.855 [INFO] dps_ui.app (PID 79260): DpsCalcApp.__init__ DONE
+08:06:39.855 [INFO] dps_calc (PID 79260): DpsCalcApp window created OK
+08:06:39.945 [INFO] data.repository (PID 79260):   Cache file exists: True
+08:06:39.973 [INFO] dps_calc (PID 79260): Window shown, entering event loop
+08:06:39.973 [INFO] data.repository (PID 79260):   Cache file size: 19.8 MB
+08:06:39.974 [INFO] data.repository (PID 79260):   Calling self._cache.load()...
+08:06:39.974 [DEBUG] data.cache (PID 79260): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:06:43.374 [INFO] dps_calc (PID 64232): ============================================================
+08:06:43.375 [INFO] dps_calc (PID 64232): DPS Calculator starting  (PID 64232)
+08:06:43.375 [INFO] dps_calc (PID 64232): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_59924.jsonl']
+08:06:43.375 [INFO] dps_calc (PID 64232): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:06:43.789 [INFO] dps_calc (PID 64232): Parsing CLI args...
+08:06:43.790 [INFO] dps_calc (PID 64232): CLI args parsed: x=100 y=100 w=1300 h=800
+08:06:43.790 [INFO] dps_calc (PID 64232): Creating QApplication...
+08:06:43.833 [DEBUG] shared.qt.fonts (PID 64232): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:06:43.833 [INFO] dps_calc (PID 64232): QApplication created OK
+08:06:43.833 [INFO] dps_calc (PID 64232): Creating DpsCalcApp window...
+08:06:43.837 [INFO] dps_ui.app (PID 64232): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:06:43.838 [INFO] dps_ui.app (PID 64232):   SCWindow.__init__ OK
+08:06:43.838 [INFO] dps_ui.app (PID 64232):   Building UI...
+08:06:43.838 [DEBUG] dps_ui.app (PID 64232): _build_ui START
+08:06:43.838 [DEBUG] dps_ui.app (PID 64232):   Creating title bar...
+08:06:43.874 [DEBUG] dps_ui.app (PID 64232):   Creating header OK
+08:06:43.874 [DEBUG] dps_ui.app (PID 64232):   Creating left panel...
+08:06:44.011 [DEBUG] dps_ui.app (PID 64232):   Left panel OK
+08:06:44.019 [DEBUG] dps_ui.app (PID 64232):   Center panel + tabs OK
+08:06:44.022 [DEBUG] dps_ui.app (PID 64232):   Right panel OK
+08:06:44.022 [DEBUG] dps_ui.app (PID 64232):   Right panel placeholder OK
+08:06:44.023 [DEBUG] dps_ui.app (PID 64232): _build_ui DONE
+08:06:44.023 [INFO] dps_ui.app (PID 64232):   UI built OK
+08:06:44.023 [INFO] dps_ui.app (PID 64232):   Geometry restored
+08:06:44.023 [INFO] dps_ui.app (PID 64232):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:06:44.023 [INFO] dps_ui.app (PID 64232):   IPC watcher started
+08:06:44.023 [INFO] dps_ui.app (PID 64232):   Starting data load...
+08:06:44.023 [INFO] data.repository (PID 64232): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:06:44.024 [INFO] data.repository (PID 64232):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:06:44.024 [INFO] dps_ui.app (PID 64232): DpsCalcApp.__init__ DONE
+08:06:44.024 [INFO] dps_calc (PID 64232): DpsCalcApp window created OK
+08:06:44.024 [INFO] data.repository (PID 64232):   Cache file exists: True
+08:06:44.145 [INFO] dps_calc (PID 64232): Window shown, entering event loop
+08:06:44.146 [INFO] data.repository (PID 64232):   Cache file size: 19.8 MB
+08:06:44.146 [INFO] data.repository (PID 64232):   Calling self._cache.load()...
+08:06:44.146 [DEBUG] data.cache (PID 64232): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:06:48.047 [INFO] dps_calc (PID 77436): ============================================================
+08:06:48.047 [INFO] dps_calc (PID 77436): DPS Calculator starting  (PID 77436)
+08:06:48.047 [INFO] dps_calc (PID 77436): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_59924.jsonl']
+08:06:48.047 [INFO] dps_calc (PID 77436): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:06:48.448 [INFO] dps_calc (PID 77436): Parsing CLI args...
+08:06:48.449 [INFO] dps_calc (PID 77436): CLI args parsed: x=100 y=100 w=1300 h=800
+08:06:48.449 [INFO] dps_calc (PID 77436): Creating QApplication...
+08:06:48.498 [DEBUG] shared.qt.fonts (PID 77436): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:06:48.499 [INFO] dps_calc (PID 77436): QApplication created OK
+08:06:48.499 [INFO] dps_calc (PID 77436): Creating DpsCalcApp window...
+08:06:48.503 [INFO] dps_ui.app (PID 77436): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:06:48.504 [INFO] dps_ui.app (PID 77436):   SCWindow.__init__ OK
+08:06:48.504 [INFO] dps_ui.app (PID 77436):   Building UI...
+08:06:48.504 [DEBUG] dps_ui.app (PID 77436): _build_ui START
+08:06:48.504 [DEBUG] dps_ui.app (PID 77436):   Creating title bar...
+08:06:48.541 [DEBUG] dps_ui.app (PID 77436):   Creating header OK
+08:06:48.541 [DEBUG] dps_ui.app (PID 77436):   Creating left panel...
+08:06:48.679 [DEBUG] dps_ui.app (PID 77436):   Left panel OK
+08:06:48.687 [DEBUG] dps_ui.app (PID 77436):   Center panel + tabs OK
+08:06:48.690 [DEBUG] dps_ui.app (PID 77436):   Right panel OK
+08:06:48.690 [DEBUG] dps_ui.app (PID 77436):   Right panel placeholder OK
+08:06:48.691 [DEBUG] dps_ui.app (PID 77436): _build_ui DONE
+08:06:48.691 [INFO] dps_ui.app (PID 77436):   UI built OK
+08:06:48.691 [INFO] dps_ui.app (PID 77436):   Geometry restored
+08:06:48.691 [INFO] dps_ui.app (PID 77436):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:06:48.691 [INFO] dps_ui.app (PID 77436):   IPC watcher started
+08:06:48.691 [INFO] dps_ui.app (PID 77436):   Starting data load...
+08:06:48.691 [INFO] data.repository (PID 77436): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:06:48.692 [INFO] data.repository (PID 77436):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:06:48.692 [INFO] dps_ui.app (PID 77436): DpsCalcApp.__init__ DONE
+08:06:48.692 [INFO] dps_calc (PID 77436): DpsCalcApp window created OK
+08:06:48.785 [INFO] data.repository (PID 77436):   Cache file exists: True
+08:06:48.812 [INFO] dps_calc (PID 77436): Window shown, entering event loop
+08:06:48.812 [INFO] data.repository (PID 77436):   Cache file size: 19.8 MB
+08:06:48.812 [INFO] data.repository (PID 77436):   Calling self._cache.load()...
+08:06:48.812 [DEBUG] data.cache (PID 77436): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:07:34.144 [INFO] dps_calc (PID 76184): ============================================================
+08:07:34.144 [INFO] dps_calc (PID 76184): DPS Calculator starting  (PID 76184)
+08:07:34.144 [INFO] dps_calc (PID 76184): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_59924.jsonl']
+08:07:34.144 [INFO] dps_calc (PID 76184): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:07:34.543 [INFO] dps_calc (PID 76184): Parsing CLI args...
+08:07:34.543 [INFO] dps_calc (PID 76184): CLI args parsed: x=100 y=100 w=1300 h=800
+08:07:34.543 [INFO] dps_calc (PID 76184): Creating QApplication...
+08:07:34.586 [DEBUG] shared.qt.fonts (PID 76184): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:07:34.586 [INFO] dps_calc (PID 76184): QApplication created OK
+08:07:34.586 [INFO] dps_calc (PID 76184): Creating DpsCalcApp window...
+08:07:34.590 [INFO] dps_ui.app (PID 76184): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:07:34.591 [INFO] dps_ui.app (PID 76184):   SCWindow.__init__ OK
+08:07:34.591 [INFO] dps_ui.app (PID 76184):   Building UI...
+08:07:34.591 [DEBUG] dps_ui.app (PID 76184): _build_ui START
+08:07:34.591 [DEBUG] dps_ui.app (PID 76184):   Creating title bar...
+08:07:34.674 [DEBUG] dps_ui.app (PID 76184):   Creating header OK
+08:07:34.675 [DEBUG] dps_ui.app (PID 76184):   Creating left panel...
+08:07:34.764 [DEBUG] dps_ui.app (PID 76184):   Left panel OK
+08:07:34.773 [DEBUG] dps_ui.app (PID 76184):   Center panel + tabs OK
+08:07:34.775 [DEBUG] dps_ui.app (PID 76184):   Right panel OK
+08:07:34.775 [DEBUG] dps_ui.app (PID 76184):   Right panel placeholder OK
+08:07:34.776 [DEBUG] dps_ui.app (PID 76184): _build_ui DONE
+08:07:34.776 [INFO] dps_ui.app (PID 76184):   UI built OK
+08:07:34.777 [INFO] dps_ui.app (PID 76184):   Geometry restored
+08:07:34.777 [INFO] dps_ui.app (PID 76184):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:07:34.777 [INFO] dps_ui.app (PID 76184):   IPC watcher started
+08:07:34.777 [INFO] dps_ui.app (PID 76184):   Starting data load...
+08:07:34.777 [INFO] data.repository (PID 76184): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:07:34.777 [INFO] data.repository (PID 76184):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:07:34.777 [INFO] dps_ui.app (PID 76184): DpsCalcApp.__init__ DONE
+08:07:34.778 [INFO] dps_calc (PID 76184): DpsCalcApp window created OK
+08:07:34.777 [INFO] data.repository (PID 76184):   Cache file exists: True
+08:07:34.891 [INFO] dps_calc (PID 76184): Window shown, entering event loop
+08:07:34.891 [INFO] data.repository (PID 76184):   Cache file size: 19.8 MB
+08:07:34.891 [INFO] data.repository (PID 76184):   Calling self._cache.load()...
+08:07:34.891 [DEBUG] data.cache (PID 76184): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:07:34.892 [DEBUG] shared.ipc (PID 76184): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_59924.jsonl
+08:12:42.595 [INFO] dps_calc (PID 61536): ============================================================
+08:12:42.595 [INFO] dps_calc (PID 61536): DPS Calculator starting  (PID 61536)
+08:12:42.595 [INFO] dps_calc (PID 61536): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_85932.jsonl']
+08:12:42.595 [INFO] dps_calc (PID 61536): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:12:43.121 [INFO] dps_calc (PID 61536): Parsing CLI args...
+08:12:43.122 [INFO] dps_calc (PID 61536): CLI args parsed: x=100 y=100 w=1300 h=800
+08:12:43.122 [INFO] dps_calc (PID 61536): Creating QApplication...
+08:12:43.165 [DEBUG] shared.qt.fonts (PID 61536): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:12:43.165 [INFO] dps_calc (PID 61536): QApplication created OK
+08:12:43.165 [INFO] dps_calc (PID 61536): Creating DpsCalcApp window...
+08:12:43.217 [INFO] dps_ui.app (PID 61536): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:12:43.217 [INFO] dps_ui.app (PID 61536):   SCWindow.__init__ OK
+08:12:43.218 [INFO] dps_ui.app (PID 61536):   Building UI...
+08:12:43.218 [DEBUG] dps_ui.app (PID 61536): _build_ui START
+08:12:43.218 [DEBUG] dps_ui.app (PID 61536):   Creating title bar...
+08:12:43.293 [DEBUG] dps_ui.app (PID 61536):   Creating header OK
+08:12:43.294 [DEBUG] dps_ui.app (PID 61536):   Creating left panel...
+08:12:43.379 [DEBUG] dps_ui.app (PID 61536):   Left panel OK
+08:12:43.387 [DEBUG] dps_ui.app (PID 61536):   Center panel + tabs OK
+08:12:43.389 [DEBUG] dps_ui.app (PID 61536):   Right panel OK
+08:12:43.390 [DEBUG] dps_ui.app (PID 61536):   Right panel placeholder OK
+08:12:43.391 [DEBUG] dps_ui.app (PID 61536): _build_ui DONE
+08:12:43.391 [INFO] dps_ui.app (PID 61536):   UI built OK
+08:12:43.391 [INFO] dps_ui.app (PID 61536):   Geometry restored
+08:12:43.391 [INFO] dps_ui.app (PID 61536):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_85932.jsonl
+08:12:43.391 [INFO] dps_ui.app (PID 61536):   IPC watcher started
+08:12:43.391 [INFO] dps_ui.app (PID 61536):   Starting data load...
+08:12:43.391 [INFO] data.repository (PID 61536): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:12:43.391 [INFO] data.repository (PID 61536):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:12:43.392 [INFO] dps_ui.app (PID 61536): DpsCalcApp.__init__ DONE
+08:12:43.392 [INFO] dps_calc (PID 61536): DpsCalcApp window created OK
+08:12:43.392 [INFO] data.repository (PID 61536):   Cache file exists: True
+08:12:43.511 [INFO] dps_calc (PID 61536): Window shown, entering event loop
+08:12:43.511 [INFO] data.repository (PID 61536):   Cache file size: 19.8 MB
+08:12:43.511 [INFO] data.repository (PID 61536):   Calling self._cache.load()...
+08:12:43.511 [DEBUG] data.cache (PID 61536): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:12:43.661 [DEBUG] data.cache (PID 61536): Cache: json.load() took 0.149s
+08:12:43.661 [DEBUG] data.cache (PID 61536): Cache: valid (age=2845s, ttl=7200s)
+08:12:43.661 [INFO] data.repository (PID 61536):   self._cache.load() returned: data
+08:12:43.661 [INFO] data.repository (PID 61536):   Using cached data
+08:12:43.793 [INFO] data.repository (PID 61536):   Game version: 
+08:12:43.795 [INFO] data.repository (PID 61536):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:12:43.796 [INFO] data.repository (PID 61536):   Data swap complete, loaded=True
+08:12:43.796 [INFO] data.repository (PID 61536):   Firing on_done callback...
+08:12:43.796 [INFO] data.repository (PID 61536):   on_done callback fired
+08:12:43.819 [DEBUG] dps_ui.app (PID 61536): _CallbackProxy dispatching _on_data_loaded
+08:12:43.819 [INFO] dps_ui.app (PID 61536): _on_data_loaded called (error=None, loaded=True)
+08:12:43.819 [INFO] dps_ui.app (PID 61536):   208 ships loaded
+08:12:43.819 [INFO] dps_ui.app (PID 61536):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:12:43.819 [INFO] dps_ui.app (PID 61536): _on_data_loaded DONE
+08:12:43.836 [DEBUG] urllib3.connectionpool (PID 61536): Starting new HTTPS connection (1): server.erkul.games:443
+08:12:44.156 [DEBUG] urllib3.connectionpool (PID 61536): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:12:44.157 [DEBUG] urllib3.connectionpool (PID 61536): Starting new HTTPS connection (1): server.erkul.games:443
+08:12:44.455 [DEBUG] urllib3.connectionpool (PID 61536): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:13:07.703 [DEBUG] shared.ipc (PID 61536): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_85932.jsonl
+08:13:51.880 [INFO] dps_calc (PID 88196): ============================================================
+08:13:51.880 [INFO] dps_calc (PID 88196): DPS Calculator starting  (PID 88196)
+08:13:51.880 [INFO] dps_calc (PID 88196): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_101084.jsonl']
+08:13:51.880 [INFO] dps_calc (PID 88196): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:13:52.268 [INFO] dps_calc (PID 88196): Parsing CLI args...
+08:13:52.269 [INFO] dps_calc (PID 88196): CLI args parsed: x=100 y=100 w=1300 h=800
+08:13:52.269 [INFO] dps_calc (PID 88196): Creating QApplication...
+08:13:52.311 [DEBUG] shared.qt.fonts (PID 88196): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:13:52.311 [INFO] dps_calc (PID 88196): QApplication created OK
+08:13:52.311 [INFO] dps_calc (PID 88196): Creating DpsCalcApp window...
+08:13:52.315 [INFO] dps_ui.app (PID 88196): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:13:52.316 [INFO] dps_ui.app (PID 88196):   SCWindow.__init__ OK
+08:13:52.316 [INFO] dps_ui.app (PID 88196):   Building UI...
+08:13:52.316 [DEBUG] dps_ui.app (PID 88196): _build_ui START
+08:13:52.316 [DEBUG] dps_ui.app (PID 88196):   Creating title bar...
+08:13:52.352 [DEBUG] dps_ui.app (PID 88196):   Creating header OK
+08:13:52.352 [DEBUG] dps_ui.app (PID 88196):   Creating left panel...
+08:13:52.488 [DEBUG] dps_ui.app (PID 88196):   Left panel OK
+08:13:52.497 [DEBUG] dps_ui.app (PID 88196):   Center panel + tabs OK
+08:13:52.499 [DEBUG] dps_ui.app (PID 88196):   Right panel OK
+08:13:52.500 [DEBUG] dps_ui.app (PID 88196):   Right panel placeholder OK
+08:13:52.501 [DEBUG] dps_ui.app (PID 88196): _build_ui DONE
+08:13:52.501 [INFO] dps_ui.app (PID 88196):   UI built OK
+08:13:52.501 [INFO] dps_ui.app (PID 88196):   Geometry restored
+08:13:52.501 [INFO] dps_ui.app (PID 88196):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_101084.jsonl
+08:13:52.501 [INFO] dps_ui.app (PID 88196):   IPC watcher started
+08:13:52.501 [INFO] dps_ui.app (PID 88196):   Starting data load...
+08:13:52.501 [INFO] data.repository (PID 88196): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:13:52.501 [INFO] data.repository (PID 88196):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:13:52.501 [INFO] dps_ui.app (PID 88196): DpsCalcApp.__init__ DONE
+08:13:52.502 [INFO] dps_calc (PID 88196): DpsCalcApp window created OK
+08:13:52.502 [INFO] data.repository (PID 88196):   Cache file exists: True
+08:13:52.625 [INFO] dps_calc (PID 88196): Window shown, entering event loop
+08:13:52.625 [INFO] data.repository (PID 88196):   Cache file size: 19.8 MB
+08:13:52.625 [INFO] data.repository (PID 88196):   Calling self._cache.load()...
+08:13:52.625 [DEBUG] data.cache (PID 88196): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:13:52.771 [DEBUG] data.cache (PID 88196): Cache: json.load() took 0.146s
+08:13:52.771 [DEBUG] data.cache (PID 88196): Cache: valid (age=2914s, ttl=7200s)
+08:13:52.772 [INFO] data.repository (PID 88196):   self._cache.load() returned: data
+08:13:52.772 [INFO] data.repository (PID 88196):   Using cached data
+08:13:52.904 [INFO] data.repository (PID 88196):   Game version: 
+08:13:52.906 [INFO] data.repository (PID 88196):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:13:52.906 [INFO] data.repository (PID 88196):   Data swap complete, loaded=True
+08:13:52.906 [INFO] data.repository (PID 88196):   Firing on_done callback...
+08:13:52.906 [INFO] data.repository (PID 88196):   on_done callback fired
+08:13:52.907 [DEBUG] dps_ui.app (PID 88196): _CallbackProxy dispatching _on_data_loaded
+08:13:52.907 [INFO] dps_ui.app (PID 88196): _on_data_loaded called (error=None, loaded=True)
+08:13:52.907 [INFO] dps_ui.app (PID 88196):   208 ships loaded
+08:13:52.907 [INFO] dps_ui.app (PID 88196):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:13:52.907 [INFO] dps_ui.app (PID 88196): _on_data_loaded DONE
+08:13:52.914 [DEBUG] urllib3.connectionpool (PID 88196): Starting new HTTPS connection (1): server.erkul.games:443
+08:13:53.213 [DEBUG] urllib3.connectionpool (PID 88196): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:13:53.214 [DEBUG] urllib3.connectionpool (PID 88196): Starting new HTTPS connection (1): server.erkul.games:443
+08:13:53.493 [DEBUG] urllib3.connectionpool (PID 88196): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:14:02.740 [DEBUG] shared.ipc (PID 88196): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_101084.jsonl
+08:36:35.684 [INFO] dps_calc (PID 99768): ============================================================
+08:36:35.684 [INFO] dps_calc (PID 99768): DPS Calculator starting  (PID 99768)
+08:36:35.685 [INFO] dps_calc (PID 99768): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_54748.jsonl']
+08:36:35.685 [INFO] dps_calc (PID 99768): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:36:36.177 [INFO] dps_calc (PID 99768): Parsing CLI args...
+08:36:36.178 [INFO] dps_calc (PID 99768): CLI args parsed: x=100 y=100 w=1300 h=800
+08:36:36.178 [INFO] dps_calc (PID 99768): Creating QApplication...
+08:36:36.225 [DEBUG] shared.qt.fonts (PID 99768): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:36:36.226 [INFO] dps_calc (PID 99768): QApplication created OK
+08:36:36.226 [INFO] dps_calc (PID 99768): Creating DpsCalcApp window...
+08:36:36.229 [INFO] dps_ui.app (PID 99768): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:36:36.230 [INFO] dps_ui.app (PID 99768):   SCWindow.__init__ OK
+08:36:36.230 [INFO] dps_ui.app (PID 99768):   Building UI...
+08:36:36.230 [DEBUG] dps_ui.app (PID 99768): _build_ui START
+08:36:36.230 [DEBUG] dps_ui.app (PID 99768):   Creating title bar...
+08:36:36.261 [DEBUG] dps_ui.app (PID 99768):   Creating header OK
+08:36:36.262 [DEBUG] dps_ui.app (PID 99768):   Creating left panel...
+08:36:36.400 [DEBUG] dps_ui.app (PID 99768):   Left panel OK
+08:36:36.409 [DEBUG] dps_ui.app (PID 99768):   Center panel + tabs OK
+08:36:36.411 [DEBUG] dps_ui.app (PID 99768):   Right panel OK
+08:36:36.412 [DEBUG] dps_ui.app (PID 99768):   Right panel placeholder OK
+08:36:36.413 [DEBUG] dps_ui.app (PID 99768): _build_ui DONE
+08:36:36.413 [INFO] dps_ui.app (PID 99768):   UI built OK
+08:36:36.413 [INFO] dps_ui.app (PID 99768):   Geometry restored
+08:36:36.413 [INFO] dps_ui.app (PID 99768):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_54748.jsonl
+08:36:36.413 [INFO] dps_ui.app (PID 99768):   IPC watcher started
+08:36:36.413 [INFO] dps_ui.app (PID 99768):   Starting data load...
+08:36:36.413 [INFO] data.repository (PID 99768): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:36:36.413 [INFO] data.repository (PID 99768):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:36:36.413 [INFO] dps_ui.app (PID 99768): DpsCalcApp.__init__ DONE
+08:36:36.413 [INFO] dps_calc (PID 99768): DpsCalcApp window created OK
+08:36:36.413 [INFO] data.repository (PID 99768):   Cache file exists: True
+08:36:36.532 [INFO] dps_calc (PID 99768): Window shown, entering event loop
+08:36:36.532 [INFO] data.repository (PID 99768):   Cache file size: 19.8 MB
+08:36:36.532 [INFO] data.repository (PID 99768):   Calling self._cache.load()...
+08:36:36.532 [DEBUG] data.cache (PID 99768): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:37:07.247 [INFO] dps_calc (PID 75340): ============================================================
+08:37:07.247 [INFO] dps_calc (PID 75340): DPS Calculator starting  (PID 75340)
+08:37:07.247 [INFO] dps_calc (PID 75340): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_92660.jsonl']
+08:37:07.247 [INFO] dps_calc (PID 75340): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:37:07.628 [INFO] dps_calc (PID 75340): Parsing CLI args...
+08:37:07.628 [INFO] dps_calc (PID 75340): CLI args parsed: x=100 y=100 w=1300 h=800
+08:37:07.628 [INFO] dps_calc (PID 75340): Creating QApplication...
+08:37:07.673 [DEBUG] shared.qt.fonts (PID 75340): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:37:07.673 [INFO] dps_calc (PID 75340): QApplication created OK
+08:37:07.673 [INFO] dps_calc (PID 75340): Creating DpsCalcApp window...
+08:37:07.677 [INFO] dps_ui.app (PID 75340): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:37:07.678 [INFO] dps_ui.app (PID 75340):   SCWindow.__init__ OK
+08:37:07.678 [INFO] dps_ui.app (PID 75340):   Building UI...
+08:37:07.678 [DEBUG] dps_ui.app (PID 75340): _build_ui START
+08:37:07.678 [DEBUG] dps_ui.app (PID 75340):   Creating title bar...
+08:37:07.758 [DEBUG] dps_ui.app (PID 75340):   Creating header OK
+08:37:07.758 [DEBUG] dps_ui.app (PID 75340):   Creating left panel...
+08:37:07.862 [DEBUG] dps_ui.app (PID 75340):   Left panel OK
+08:37:07.871 [DEBUG] dps_ui.app (PID 75340):   Center panel + tabs OK
+08:37:07.874 [DEBUG] dps_ui.app (PID 75340):   Right panel OK
+08:37:07.874 [DEBUG] dps_ui.app (PID 75340):   Right panel placeholder OK
+08:37:07.875 [DEBUG] dps_ui.app (PID 75340): _build_ui DONE
+08:37:07.875 [INFO] dps_ui.app (PID 75340):   UI built OK
+08:37:07.875 [INFO] dps_ui.app (PID 75340):   Geometry restored
+08:37:07.875 [INFO] dps_ui.app (PID 75340):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_92660.jsonl
+08:37:07.875 [INFO] dps_ui.app (PID 75340):   IPC watcher started
+08:37:07.875 [INFO] dps_ui.app (PID 75340):   Starting data load...
+08:37:07.875 [INFO] data.repository (PID 75340): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:37:07.876 [INFO] data.repository (PID 75340):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:37:07.876 [INFO] dps_ui.app (PID 75340): DpsCalcApp.__init__ DONE
+08:37:07.876 [INFO] dps_calc (PID 75340): DpsCalcApp window created OK
+08:37:07.876 [INFO] data.repository (PID 75340):   Cache file exists: True
+08:37:07.995 [INFO] dps_calc (PID 75340): Window shown, entering event loop
+08:37:07.995 [INFO] data.repository (PID 75340):   Cache file size: 19.8 MB
+08:37:07.996 [INFO] data.repository (PID 75340):   Calling self._cache.load()...
+08:37:07.996 [DEBUG] data.cache (PID 75340): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:37:35.943 [INFO] dps_calc (PID 73908): ============================================================
+08:37:35.943 [INFO] dps_calc (PID 73908): DPS Calculator starting  (PID 73908)
+08:37:35.943 [INFO] dps_calc (PID 73908): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_92660.jsonl']
+08:37:35.943 [INFO] dps_calc (PID 73908): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:37:36.341 [INFO] dps_calc (PID 73908): Parsing CLI args...
+08:37:36.341 [INFO] dps_calc (PID 73908): CLI args parsed: x=100 y=100 w=1300 h=800
+08:37:36.341 [INFO] dps_calc (PID 73908): Creating QApplication...
+08:37:36.392 [DEBUG] shared.qt.fonts (PID 73908): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:37:36.393 [INFO] dps_calc (PID 73908): QApplication created OK
+08:37:36.393 [INFO] dps_calc (PID 73908): Creating DpsCalcApp window...
+08:37:36.397 [INFO] dps_ui.app (PID 73908): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:37:36.397 [INFO] dps_ui.app (PID 73908):   SCWindow.__init__ OK
+08:37:36.397 [INFO] dps_ui.app (PID 73908):   Building UI...
+08:37:36.397 [DEBUG] dps_ui.app (PID 73908): _build_ui START
+08:37:36.397 [DEBUG] dps_ui.app (PID 73908):   Creating title bar...
+08:37:36.453 [DEBUG] dps_ui.app (PID 73908):   Creating header OK
+08:37:36.453 [DEBUG] dps_ui.app (PID 73908):   Creating left panel...
+08:37:36.561 [DEBUG] dps_ui.app (PID 73908):   Left panel OK
+08:37:36.569 [DEBUG] dps_ui.app (PID 73908):   Center panel + tabs OK
+08:37:36.572 [DEBUG] dps_ui.app (PID 73908):   Right panel OK
+08:37:36.572 [DEBUG] dps_ui.app (PID 73908):   Right panel placeholder OK
+08:37:36.573 [DEBUG] dps_ui.app (PID 73908): _build_ui DONE
+08:37:36.573 [INFO] dps_ui.app (PID 73908):   UI built OK
+08:37:36.573 [INFO] dps_ui.app (PID 73908):   Geometry restored
+08:37:36.573 [INFO] dps_ui.app (PID 73908):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_92660.jsonl
+08:37:36.573 [INFO] dps_ui.app (PID 73908):   IPC watcher started
+08:37:36.573 [INFO] dps_ui.app (PID 73908):   Starting data load...
+08:37:36.573 [INFO] data.repository (PID 73908): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:37:36.574 [INFO] data.repository (PID 73908):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:37:36.574 [INFO] dps_ui.app (PID 73908): DpsCalcApp.__init__ DONE
+08:37:36.574 [INFO] dps_calc (PID 73908): DpsCalcApp window created OK
+08:37:36.574 [INFO] data.repository (PID 73908):   Cache file exists: True
+08:37:36.697 [INFO] dps_calc (PID 73908): Window shown, entering event loop
+08:37:36.697 [INFO] data.repository (PID 73908):   Cache file size: 19.8 MB
+08:37:36.697 [INFO] data.repository (PID 73908):   Calling self._cache.load()...
+08:37:36.697 [DEBUG] data.cache (PID 73908): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:37:53.950 [INFO] dps_calc (PID 70764): ============================================================
+08:37:53.950 [INFO] dps_calc (PID 70764): DPS Calculator starting  (PID 70764)
+08:37:53.950 [INFO] dps_calc (PID 70764): argv: ['dps_calc_app.py']
+08:37:53.950 [INFO] dps_calc (PID 70764): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:37:54.346 [INFO] dps_calc (PID 70764):   Killing stale DPS process PID 96080
+08:41:42.728 [INFO] dps_calc (PID 59048): ============================================================
+08:41:42.728 [INFO] dps_calc (PID 59048): DPS Calculator starting  (PID 59048)
+08:41:42.728 [INFO] dps_calc (PID 59048): argv: ['dps_calc_app.py', '100', '100', '800', '600', '0.95', 'nul']
+08:41:42.728 [INFO] dps_calc (PID 59048): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:41:43.112 [INFO] dps_calc (PID 59048):   Killing stale DPS process PID 70672
+08:42:49.803 [INFO] dps_calc (PID 82276): ============================================================
+08:42:49.803 [INFO] dps_calc (PID 82276): DPS Calculator starting  (PID 82276)
+08:42:49.803 [INFO] dps_calc (PID 82276): argv: ['dps_calc_app.py', '100', '100', '800', '600', '0.95', 'nul']
+08:42:49.803 [INFO] dps_calc (PID 82276): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:42:50.198 [INFO] dps_calc (PID 82276): Parsing CLI args...
+08:42:50.198 [INFO] dps_calc (PID 82276): CLI args parsed: x=100 y=100 w=800 h=600
+08:42:50.198 [INFO] dps_calc (PID 82276): Creating QApplication...
+08:42:50.243 [DEBUG] shared.qt.fonts (PID 82276): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:42:50.243 [INFO] dps_calc (PID 82276): QApplication created OK
+08:42:50.243 [INFO] dps_calc (PID 82276): Creating DpsCalcApp window...
+08:42:50.247 [INFO] dps_ui.app (PID 82276): DpsCalcApp.__init__ START (x=100 y=100 w=800 h=600)
+08:42:50.248 [INFO] dps_ui.app (PID 82276):   SCWindow.__init__ OK
+08:42:50.248 [INFO] dps_ui.app (PID 82276):   Building UI...
+08:42:50.248 [DEBUG] dps_ui.app (PID 82276): _build_ui START
+08:42:50.248 [DEBUG] dps_ui.app (PID 82276):   Creating title bar...
+08:42:50.286 [DEBUG] dps_ui.app (PID 82276):   Creating header OK
+08:42:50.286 [DEBUG] dps_ui.app (PID 82276):   Creating left panel...
+08:42:50.430 [DEBUG] dps_ui.app (PID 82276):   Left panel OK
+08:42:50.439 [DEBUG] dps_ui.app (PID 82276):   Center panel + tabs OK
+08:42:50.441 [DEBUG] dps_ui.app (PID 82276):   Right panel OK
+08:42:50.441 [DEBUG] dps_ui.app (PID 82276):   Right panel placeholder OK
+08:42:50.442 [DEBUG] dps_ui.app (PID 82276): _build_ui DONE
+08:42:50.442 [INFO] dps_ui.app (PID 82276):   UI built OK
+08:42:50.443 [INFO] dps_ui.app (PID 82276):   Geometry restored
+08:42:50.443 [INFO] dps_ui.app (PID 82276):   Starting IPC watcher for nul
+08:42:50.443 [INFO] dps_ui.app (PID 82276):   IPC watcher started
+08:42:50.443 [INFO] dps_ui.app (PID 82276):   Starting data load...
+08:42:50.443 [INFO] data.repository (PID 82276): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:42:50.443 [INFO] data.repository (PID 82276):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:42:50.443 [INFO] dps_ui.app (PID 82276): DpsCalcApp.__init__ DONE
+08:42:50.443 [INFO] dps_calc (PID 82276): DpsCalcApp window created OK
+08:42:50.443 [INFO] data.repository (PID 82276):   Cache file exists: True
+08:42:50.567 [INFO] dps_calc (PID 82276): Window shown, entering event loop
+08:42:50.567 [INFO] data.repository (PID 82276):   Cache file size: 19.8 MB
+08:42:50.568 [INFO] data.repository (PID 82276):   Calling self._cache.load()...
+08:42:50.568 [DEBUG] data.cache (PID 82276): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:42:50.698 [DEBUG] data.cache (PID 82276): Cache: json.load() took 0.131s
+08:42:50.699 [DEBUG] data.cache (PID 82276): Cache: valid (age=4652s, ttl=7200s)
+08:42:50.699 [INFO] data.repository (PID 82276):   self._cache.load() returned: data
+08:42:50.699 [INFO] data.repository (PID 82276):   Using cached data
+08:42:50.830 [INFO] data.repository (PID 82276):   Game version: 
+08:42:50.832 [INFO] data.repository (PID 82276):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:42:50.832 [INFO] data.repository (PID 82276):   Data swap complete, loaded=True
+08:42:50.832 [INFO] data.repository (PID 82276):   Firing on_done callback...
+08:42:50.833 [INFO] data.repository (PID 82276):   on_done callback fired
+08:42:50.833 [DEBUG] dps_ui.app (PID 82276): _CallbackProxy dispatching _on_data_loaded
+08:42:50.833 [INFO] dps_ui.app (PID 82276): _on_data_loaded called (error=None, loaded=True)
+08:42:50.833 [INFO] dps_ui.app (PID 82276):   208 ships loaded
+08:42:50.833 [INFO] dps_ui.app (PID 82276):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:42:50.834 [INFO] dps_ui.app (PID 82276): _on_data_loaded DONE
+08:42:50.837 [DEBUG] urllib3.connectionpool (PID 82276): Starting new HTTPS connection (1): server.erkul.games:443
+08:42:51.193 [DEBUG] urllib3.connectionpool (PID 82276): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:42:51.194 [DEBUG] urllib3.connectionpool (PID 82276): Starting new HTTPS connection (1): server.erkul.games:443
+08:42:51.472 [DEBUG] urllib3.connectionpool (PID 82276): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:43:41.219 [INFO] dps_calc (PID 68912): ============================================================
+08:43:41.219 [INFO] dps_calc (PID 68912): DPS Calculator starting  (PID 68912)
+08:43:41.219 [INFO] dps_calc (PID 68912): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_75116.jsonl']
+08:43:41.219 [INFO] dps_calc (PID 68912): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:43:41.593 [INFO] dps_calc (PID 68912):   Killing stale DPS process PID 81952
+08:43:41.919 [INFO] dps_calc (PID 68912):   Killing stale DPS process PID 82276
+08:43:42.274 [INFO] dps_calc (PID 68912): Parsing CLI args...
+08:43:42.275 [INFO] dps_calc (PID 68912): CLI args parsed: x=100 y=100 w=1300 h=800
+08:43:42.275 [INFO] dps_calc (PID 68912): Creating QApplication...
+08:43:42.324 [DEBUG] shared.qt.fonts (PID 68912): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:43:42.324 [INFO] dps_calc (PID 68912): QApplication created OK
+08:43:42.324 [INFO] dps_calc (PID 68912): Creating DpsCalcApp window...
+08:43:42.327 [INFO] dps_ui.app (PID 68912): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:43:42.328 [INFO] dps_ui.app (PID 68912):   SCWindow.__init__ OK
+08:43:42.328 [INFO] dps_ui.app (PID 68912):   Building UI...
+08:43:42.328 [DEBUG] dps_ui.app (PID 68912): _build_ui START
+08:43:42.328 [DEBUG] dps_ui.app (PID 68912):   Creating title bar...
+08:43:42.409 [DEBUG] dps_ui.app (PID 68912):   Creating header OK
+08:43:42.409 [DEBUG] dps_ui.app (PID 68912):   Creating left panel...
+08:43:42.491 [DEBUG] dps_ui.app (PID 68912):   Left panel OK
+08:43:42.502 [DEBUG] dps_ui.app (PID 68912):   Center panel + tabs OK
+08:43:42.505 [DEBUG] dps_ui.app (PID 68912):   Right panel OK
+08:43:42.505 [DEBUG] dps_ui.app (PID 68912):   Right panel placeholder OK
+08:43:42.506 [DEBUG] dps_ui.app (PID 68912): _build_ui DONE
+08:43:42.506 [INFO] dps_ui.app (PID 68912):   UI built OK
+08:43:42.506 [INFO] dps_ui.app (PID 68912):   Geometry restored
+08:43:42.506 [INFO] dps_ui.app (PID 68912):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_75116.jsonl
+08:43:42.506 [INFO] dps_ui.app (PID 68912):   IPC watcher started
+08:43:42.506 [INFO] dps_ui.app (PID 68912):   Starting data load...
+08:43:42.506 [INFO] data.repository (PID 68912): Data load thread started (tid=Thread-7 (_run), daemon=True)
+08:43:42.507 [INFO] data.repository (PID 68912):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:43:42.507 [INFO] dps_ui.app (PID 68912): DpsCalcApp.__init__ DONE
+08:43:42.507 [INFO] dps_calc (PID 68912): DpsCalcApp window created OK
+08:43:42.507 [INFO] data.repository (PID 68912):   Cache file exists: True
+08:43:42.630 [INFO] dps_calc (PID 68912): Window shown, entering event loop
+08:43:42.631 [INFO] data.repository (PID 68912):   Cache file size: 19.8 MB
+08:43:42.631 [INFO] data.repository (PID 68912):   Calling self._cache.load()...
+08:43:42.631 [DEBUG] data.cache (PID 68912): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:43:42.778 [DEBUG] data.cache (PID 68912): Cache: json.load() took 0.147s
+08:43:42.778 [DEBUG] data.cache (PID 68912): Cache: valid (age=4704s, ttl=7200s)
+08:43:42.778 [INFO] data.repository (PID 68912):   self._cache.load() returned: data
+08:43:42.778 [INFO] data.repository (PID 68912):   Using cached data
+08:43:42.914 [INFO] data.repository (PID 68912):   Game version: 
+08:43:42.916 [INFO] data.repository (PID 68912):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:43:42.917 [INFO] data.repository (PID 68912):   Data swap complete, loaded=True
+08:43:42.917 [INFO] data.repository (PID 68912):   Firing on_done callback...
+08:43:42.917 [INFO] data.repository (PID 68912):   on_done callback fired
+08:43:42.919 [DEBUG] dps_ui.app (PID 68912): _CallbackProxy dispatching _on_data_loaded
+08:43:42.919 [INFO] dps_ui.app (PID 68912): _on_data_loaded called (error=None, loaded=True)
+08:43:42.919 [INFO] dps_ui.app (PID 68912):   208 ships loaded
+08:43:42.920 [INFO] dps_ui.app (PID 68912):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:43:42.920 [INFO] dps_ui.app (PID 68912): _on_data_loaded DONE
+08:43:42.942 [DEBUG] urllib3.connectionpool (PID 68912): Starting new HTTPS connection (1): server.erkul.games:443
+08:43:43.254 [DEBUG] urllib3.connectionpool (PID 68912): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:43:43.255 [DEBUG] urllib3.connectionpool (PID 68912): Starting new HTTPS connection (1): server.erkul.games:443
+08:43:43.561 [DEBUG] urllib3.connectionpool (PID 68912): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:47:03.364 [WARNING] shared.qt.ipc_thread (PID 68912): IPCWatcher: file deleted: C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_75116.jsonl
+08:47:05.368 [INFO] shared.qt.ipc_thread (PID 68912): IPCWatcher: file missing too long, stopping
+08:47:20.957 [INFO] dps_calc (PID 104112): ============================================================
+08:47:20.957 [INFO] dps_calc (PID 104112): DPS Calculator starting  (PID 104112)
+08:47:20.957 [INFO] dps_calc (PID 104112): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_67620.jsonl']
+08:47:20.957 [INFO] dps_calc (PID 104112): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:47:21.413 [INFO] dps_calc (PID 104112):   Killing stale DPS process PID 68912
+08:47:21.753 [INFO] dps_calc (PID 104112): Parsing CLI args...
+08:47:21.754 [INFO] dps_calc (PID 104112): CLI args parsed: x=100 y=100 w=1300 h=800
+08:47:21.754 [INFO] dps_calc (PID 104112): Creating QApplication...
+08:47:21.803 [DEBUG] shared.qt.fonts (PID 104112): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:47:21.803 [INFO] dps_calc (PID 104112): QApplication created OK
+08:47:21.803 [INFO] dps_calc (PID 104112): Creating DpsCalcApp window...
+08:47:21.807 [INFO] dps_ui.app (PID 104112): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:47:21.807 [INFO] dps_ui.app (PID 104112):   SCWindow.__init__ OK
+08:47:21.807 [INFO] dps_ui.app (PID 104112):   Building UI...
+08:47:21.807 [DEBUG] dps_ui.app (PID 104112): _build_ui START
+08:47:21.807 [DEBUG] dps_ui.app (PID 104112):   Creating title bar...
+08:47:21.836 [DEBUG] dps_ui.app (PID 104112):   Creating header OK
+08:47:21.836 [DEBUG] dps_ui.app (PID 104112):   Creating left panel...
+08:47:21.973 [DEBUG] dps_ui.app (PID 104112):   Left panel OK
+08:47:21.982 [DEBUG] dps_ui.app (PID 104112):   Center panel + tabs OK
+08:47:21.984 [DEBUG] dps_ui.app (PID 104112):   Right panel OK
+08:47:21.985 [DEBUG] dps_ui.app (PID 104112):   Right panel placeholder OK
+08:47:21.986 [DEBUG] dps_ui.app (PID 104112): _build_ui DONE
+08:47:21.986 [INFO] dps_ui.app (PID 104112):   UI built OK
+08:47:21.986 [INFO] dps_ui.app (PID 104112):   Geometry restored
+08:47:21.986 [INFO] dps_ui.app (PID 104112):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:47:21.986 [INFO] dps_ui.app (PID 104112):   IPC watcher started
+08:47:21.986 [INFO] dps_ui.app (PID 104112):   Starting data load...
+08:47:21.986 [INFO] data.repository (PID 104112): Data load thread started (tid=Thread-5 (_run), daemon=True)
+08:47:21.986 [INFO] data.repository (PID 104112):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:47:21.986 [INFO] dps_ui.app (PID 104112): DpsCalcApp.__init__ DONE
+08:47:21.987 [INFO] dps_calc (PID 104112): DpsCalcApp window created OK
+08:47:21.986 [INFO] data.repository (PID 104112):   Cache file exists: True
+08:47:22.121 [INFO] dps_calc (PID 104112): Window shown, entering event loop
+08:47:22.121 [INFO] data.repository (PID 104112):   Cache file size: 19.8 MB
+08:47:22.122 [INFO] data.repository (PID 104112):   Calling self._cache.load()...
+08:47:22.122 [DEBUG] data.cache (PID 104112): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:47:28.145 [INFO] dps_calc (PID 100704): ============================================================
+08:47:28.145 [INFO] dps_calc (PID 100704): DPS Calculator starting  (PID 100704)
+08:47:28.146 [INFO] dps_calc (PID 100704): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_67620.jsonl']
+08:47:28.146 [INFO] dps_calc (PID 100704): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:47:28.520 [INFO] dps_calc (PID 100704): Parsing CLI args...
+08:47:28.521 [INFO] dps_calc (PID 100704): CLI args parsed: x=100 y=100 w=1300 h=800
+08:47:28.521 [INFO] dps_calc (PID 100704): Creating QApplication...
+08:47:28.572 [DEBUG] shared.qt.fonts (PID 100704): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:47:28.573 [INFO] dps_calc (PID 100704): QApplication created OK
+08:47:28.573 [INFO] dps_calc (PID 100704): Creating DpsCalcApp window...
+08:47:28.576 [INFO] dps_ui.app (PID 100704): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:47:28.577 [INFO] dps_ui.app (PID 100704):   SCWindow.__init__ OK
+08:47:28.577 [INFO] dps_ui.app (PID 100704):   Building UI...
+08:47:28.577 [DEBUG] dps_ui.app (PID 100704): _build_ui START
+08:47:28.577 [DEBUG] dps_ui.app (PID 100704):   Creating title bar...
+08:47:28.656 [DEBUG] dps_ui.app (PID 100704):   Creating header OK
+08:47:28.656 [DEBUG] dps_ui.app (PID 100704):   Creating left panel...
+08:47:28.744 [DEBUG] dps_ui.app (PID 100704):   Left panel OK
+08:47:28.753 [DEBUG] dps_ui.app (PID 100704):   Center panel + tabs OK
+08:47:28.756 [DEBUG] dps_ui.app (PID 100704):   Right panel OK
+08:47:28.756 [DEBUG] dps_ui.app (PID 100704):   Right panel placeholder OK
+08:47:28.758 [DEBUG] dps_ui.app (PID 100704): _build_ui DONE
+08:47:28.758 [INFO] dps_ui.app (PID 100704):   UI built OK
+08:47:28.758 [INFO] dps_ui.app (PID 100704):   Geometry restored
+08:47:28.758 [INFO] dps_ui.app (PID 100704):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:47:28.758 [INFO] dps_ui.app (PID 100704):   IPC watcher started
+08:47:28.758 [INFO] dps_ui.app (PID 100704):   Starting data load...
+08:47:28.758 [INFO] data.repository (PID 100704): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:47:28.758 [INFO] data.repository (PID 100704):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:47:28.758 [INFO] dps_ui.app (PID 100704): DpsCalcApp.__init__ DONE
+08:47:28.758 [INFO] dps_calc (PID 100704): DpsCalcApp window created OK
+08:47:28.758 [INFO] data.repository (PID 100704):   Cache file exists: True
+08:47:28.881 [INFO] dps_calc (PID 100704): Window shown, entering event loop
+08:47:28.881 [INFO] data.repository (PID 100704):   Cache file size: 19.8 MB
+08:47:28.881 [INFO] data.repository (PID 100704):   Calling self._cache.load()...
+08:47:28.881 [DEBUG] data.cache (PID 100704): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:48:11.272 [INFO] dps_calc (PID 76244): ============================================================
+08:48:11.273 [INFO] dps_calc (PID 76244): DPS Calculator starting  (PID 76244)
+08:48:11.273 [INFO] dps_calc (PID 76244): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_67620.jsonl']
+08:48:11.273 [INFO] dps_calc (PID 76244): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:48:11.644 [INFO] dps_calc (PID 76244): Parsing CLI args...
+08:48:11.645 [INFO] dps_calc (PID 76244): CLI args parsed: x=100 y=100 w=1300 h=800
+08:48:11.645 [INFO] dps_calc (PID 76244): Creating QApplication...
+08:48:11.688 [DEBUG] shared.qt.fonts (PID 76244): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:48:11.688 [INFO] dps_calc (PID 76244): QApplication created OK
+08:48:11.688 [INFO] dps_calc (PID 76244): Creating DpsCalcApp window...
+08:48:11.692 [INFO] dps_ui.app (PID 76244): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:48:11.693 [INFO] dps_ui.app (PID 76244):   SCWindow.__init__ OK
+08:48:11.693 [INFO] dps_ui.app (PID 76244):   Building UI...
+08:48:11.693 [DEBUG] dps_ui.app (PID 76244): _build_ui START
+08:48:11.693 [DEBUG] dps_ui.app (PID 76244):   Creating title bar...
+08:48:11.767 [DEBUG] dps_ui.app (PID 76244):   Creating header OK
+08:48:11.767 [DEBUG] dps_ui.app (PID 76244):   Creating left panel...
+08:48:11.869 [DEBUG] dps_ui.app (PID 76244):   Left panel OK
+08:48:11.877 [DEBUG] dps_ui.app (PID 76244):   Center panel + tabs OK
+08:48:11.879 [DEBUG] dps_ui.app (PID 76244):   Right panel OK
+08:48:11.879 [DEBUG] dps_ui.app (PID 76244):   Right panel placeholder OK
+08:48:11.880 [DEBUG] dps_ui.app (PID 76244): _build_ui DONE
+08:48:11.881 [INFO] dps_ui.app (PID 76244):   UI built OK
+08:48:11.881 [INFO] dps_ui.app (PID 76244):   Geometry restored
+08:48:11.881 [INFO] dps_ui.app (PID 76244):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:11.881 [INFO] dps_ui.app (PID 76244):   IPC watcher started
+08:48:11.881 [INFO] dps_ui.app (PID 76244):   Starting data load...
+08:48:11.881 [INFO] data.repository (PID 76244): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:48:11.881 [INFO] data.repository (PID 76244):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:48:11.881 [INFO] dps_ui.app (PID 76244): DpsCalcApp.__init__ DONE
+08:48:11.881 [INFO] dps_calc (PID 76244): DpsCalcApp window created OK
+08:48:11.881 [INFO] data.repository (PID 76244):   Cache file exists: True
+08:48:11.999 [INFO] dps_calc (PID 76244): Window shown, entering event loop
+08:48:11.999 [INFO] data.repository (PID 76244):   Cache file size: 19.8 MB
+08:48:11.999 [INFO] data.repository (PID 76244):   Calling self._cache.load()...
+08:48:11.999 [DEBUG] data.cache (PID 76244): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:48:29.053 [INFO] dps_calc (PID 73460): ============================================================
+08:48:29.053 [INFO] dps_calc (PID 73460): DPS Calculator starting  (PID 73460)
+08:48:29.053 [INFO] dps_calc (PID 73460): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_67620.jsonl']
+08:48:29.053 [INFO] dps_calc (PID 73460): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:48:29.440 [INFO] dps_calc (PID 73460): Parsing CLI args...
+08:48:29.440 [INFO] dps_calc (PID 73460): CLI args parsed: x=100 y=100 w=1300 h=800
+08:48:29.440 [INFO] dps_calc (PID 73460): Creating QApplication...
+08:48:29.483 [DEBUG] shared.qt.fonts (PID 73460): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:48:29.483 [INFO] dps_calc (PID 73460): QApplication created OK
+08:48:29.483 [INFO] dps_calc (PID 73460): Creating DpsCalcApp window...
+08:48:29.487 [INFO] dps_ui.app (PID 73460): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:48:29.488 [INFO] dps_ui.app (PID 73460):   SCWindow.__init__ OK
+08:48:29.488 [INFO] dps_ui.app (PID 73460):   Building UI...
+08:48:29.488 [DEBUG] dps_ui.app (PID 73460): _build_ui START
+08:48:29.488 [DEBUG] dps_ui.app (PID 73460):   Creating title bar...
+08:48:29.550 [DEBUG] dps_ui.app (PID 73460):   Creating header OK
+08:48:29.550 [DEBUG] dps_ui.app (PID 73460):   Creating left panel...
+08:48:29.648 [DEBUG] dps_ui.app (PID 73460):   Left panel OK
+08:48:29.657 [DEBUG] dps_ui.app (PID 73460):   Center panel + tabs OK
+08:48:29.660 [DEBUG] dps_ui.app (PID 73460):   Right panel OK
+08:48:29.660 [DEBUG] dps_ui.app (PID 73460):   Right panel placeholder OK
+08:48:29.661 [DEBUG] dps_ui.app (PID 73460): _build_ui DONE
+08:48:29.661 [INFO] dps_ui.app (PID 73460):   UI built OK
+08:48:29.661 [INFO] dps_ui.app (PID 73460):   Geometry restored
+08:48:29.661 [INFO] dps_ui.app (PID 73460):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:29.661 [INFO] dps_ui.app (PID 73460):   IPC watcher started
+08:48:29.662 [INFO] dps_ui.app (PID 73460):   Starting data load...
+08:48:29.662 [INFO] data.repository (PID 73460): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:48:29.662 [INFO] data.repository (PID 73460):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:48:29.662 [INFO] dps_ui.app (PID 73460): DpsCalcApp.__init__ DONE
+08:48:29.662 [INFO] dps_calc (PID 73460): DpsCalcApp window created OK
+08:48:29.662 [INFO] data.repository (PID 73460):   Cache file exists: True
+08:48:29.777 [INFO] dps_calc (PID 73460): Window shown, entering event loop
+08:48:29.777 [INFO] data.repository (PID 73460):   Cache file size: 19.8 MB
+08:48:29.777 [INFO] data.repository (PID 73460):   Calling self._cache.load()...
+08:48:29.777 [DEBUG] data.cache (PID 73460): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:48:29.778 [DEBUG] shared.ipc (PID 73460): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:29.919 [DEBUG] data.cache (PID 73460): Cache: json.load() took 0.142s
+08:48:29.919 [DEBUG] data.cache (PID 73460): Cache: valid (age=4991s, ttl=7200s)
+08:48:29.919 [INFO] data.repository (PID 73460):   self._cache.load() returned: data
+08:48:29.919 [INFO] data.repository (PID 73460):   Using cached data
+08:48:30.052 [INFO] data.repository (PID 73460):   Game version: 
+08:48:30.055 [INFO] data.repository (PID 73460):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:48:30.055 [INFO] data.repository (PID 73460):   Data swap complete, loaded=True
+08:48:30.055 [INFO] data.repository (PID 73460):   Firing on_done callback...
+08:48:30.055 [INFO] data.repository (PID 73460):   on_done callback fired
+08:48:30.056 [DEBUG] dps_ui.app (PID 73460): _CallbackProxy dispatching _on_data_loaded
+08:48:30.056 [INFO] dps_ui.app (PID 73460): _on_data_loaded called (error=None, loaded=True)
+08:48:30.056 [INFO] dps_ui.app (PID 73460):   208 ships loaded
+08:48:30.056 [INFO] dps_ui.app (PID 73460):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:48:30.057 [INFO] dps_ui.app (PID 73460): _on_data_loaded DONE
+08:48:30.058 [DEBUG] urllib3.connectionpool (PID 73460): Starting new HTTPS connection (1): server.erkul.games:443
+08:48:30.455 [DEBUG] urllib3.connectionpool (PID 73460): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:48:30.456 [DEBUG] urllib3.connectionpool (PID 73460): Starting new HTTPS connection (1): server.erkul.games:443
+08:48:30.457 [DEBUG] shared.ipc (PID 73460): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:30.805 [DEBUG] urllib3.connectionpool (PID 73460): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:48:32.664 [DEBUG] shared.ipc (PID 73460): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:33.267 [DEBUG] shared.ipc (PID 73460): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:48:35.475 [DEBUG] shared.ipc (PID 73460): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_67620.jsonl
+08:49:06.558 [INFO] dps_calc (PID 34948): ============================================================
+08:49:06.559 [INFO] dps_calc (PID 34948): DPS Calculator starting  (PID 34948)
+08:49:06.559 [INFO] dps_calc (PID 34948): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_78108.jsonl']
+08:49:06.559 [INFO] dps_calc (PID 34948): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:49:06.943 [INFO] dps_calc (PID 34948): Parsing CLI args...
+08:49:06.944 [INFO] dps_calc (PID 34948): CLI args parsed: x=100 y=100 w=1300 h=800
+08:49:06.944 [INFO] dps_calc (PID 34948): Creating QApplication...
+08:49:06.987 [DEBUG] shared.qt.fonts (PID 34948): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:49:06.987 [INFO] dps_calc (PID 34948): QApplication created OK
+08:49:06.987 [INFO] dps_calc (PID 34948): Creating DpsCalcApp window...
+08:49:06.991 [INFO] dps_ui.app (PID 34948): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:49:06.991 [INFO] dps_ui.app (PID 34948):   SCWindow.__init__ OK
+08:49:06.992 [INFO] dps_ui.app (PID 34948):   Building UI...
+08:49:06.992 [DEBUG] dps_ui.app (PID 34948): _build_ui START
+08:49:06.992 [DEBUG] dps_ui.app (PID 34948):   Creating title bar...
+08:49:07.030 [DEBUG] dps_ui.app (PID 34948):   Creating header OK
+08:49:07.030 [DEBUG] dps_ui.app (PID 34948):   Creating left panel...
+08:49:07.167 [DEBUG] dps_ui.app (PID 34948):   Left panel OK
+08:49:07.176 [DEBUG] dps_ui.app (PID 34948):   Center panel + tabs OK
+08:49:07.178 [DEBUG] dps_ui.app (PID 34948):   Right panel OK
+08:49:07.178 [DEBUG] dps_ui.app (PID 34948):   Right panel placeholder OK
+08:49:07.179 [DEBUG] dps_ui.app (PID 34948): _build_ui DONE
+08:49:07.179 [INFO] dps_ui.app (PID 34948):   UI built OK
+08:49:07.179 [INFO] dps_ui.app (PID 34948):   Geometry restored
+08:49:07.179 [INFO] dps_ui.app (PID 34948):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_78108.jsonl
+08:49:07.179 [INFO] dps_ui.app (PID 34948):   IPC watcher started
+08:49:07.180 [INFO] dps_ui.app (PID 34948):   Starting data load...
+08:49:07.180 [INFO] data.repository (PID 34948): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:49:07.180 [INFO] data.repository (PID 34948):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:49:07.180 [INFO] dps_ui.app (PID 34948): DpsCalcApp.__init__ DONE
+08:49:07.180 [INFO] dps_calc (PID 34948): DpsCalcApp window created OK
+08:49:07.180 [INFO] data.repository (PID 34948):   Cache file exists: True
+08:49:07.297 [INFO] dps_calc (PID 34948): Window shown, entering event loop
+08:49:07.297 [INFO] data.repository (PID 34948):   Cache file size: 19.8 MB
+08:49:07.297 [INFO] data.repository (PID 34948):   Calling self._cache.load()...
+08:49:07.297 [DEBUG] data.cache (PID 34948): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:49:07.439 [DEBUG] data.cache (PID 34948): Cache: json.load() took 0.142s
+08:49:07.440 [DEBUG] data.cache (PID 34948): Cache: valid (age=5029s, ttl=7200s)
+08:49:07.440 [INFO] data.repository (PID 34948):   self._cache.load() returned: data
+08:49:07.440 [INFO] data.repository (PID 34948):   Using cached data
+08:49:07.570 [INFO] data.repository (PID 34948):   Game version: 
+08:49:07.573 [INFO] data.repository (PID 34948):   Indexing complete: 136 weapons, 64 shields, 203 ships
+08:49:07.573 [INFO] data.repository (PID 34948):   Data swap complete, loaded=True
+08:49:07.573 [INFO] data.repository (PID 34948):   Firing on_done callback...
+08:49:07.573 [INFO] data.repository (PID 34948):   on_done callback fired
+08:49:07.573 [DEBUG] dps_ui.app (PID 34948): _CallbackProxy dispatching _on_data_loaded
+08:49:07.573 [INFO] dps_ui.app (PID 34948): _on_data_loaded called (error=None, loaded=True)
+08:49:07.573 [INFO] dps_ui.app (PID 34948):   208 ships loaded
+08:49:07.573 [INFO] dps_ui.app (PID 34948):   134 weapons, 63 shields, 72 coolers, 61 missiles
+08:49:07.574 [INFO] dps_ui.app (PID 34948): _on_data_loaded DONE
+08:49:07.577 [DEBUG] urllib3.connectionpool (PID 34948): Starting new HTTPS connection (1): server.erkul.games:443
+08:49:07.882 [DEBUG] urllib3.connectionpool (PID 34948): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+08:49:07.883 [DEBUG] urllib3.connectionpool (PID 34948): Starting new HTTPS connection (1): server.erkul.games:443
+08:49:08.170 [DEBUG] urllib3.connectionpool (PID 34948): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+08:49:32.450 [DEBUG] shared.ipc (PID 34948): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_78108.jsonl
+08:50:45.342 [INFO] dps_calc (PID 91820): ============================================================
+08:50:45.342 [INFO] dps_calc (PID 91820): DPS Calculator starting  (PID 91820)
+08:50:45.342 [INFO] dps_calc (PID 91820): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_87624.jsonl']
+08:50:45.342 [INFO] dps_calc (PID 91820): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:50:45.791 [INFO] dps_calc (PID 91820): Parsing CLI args...
+08:50:45.792 [INFO] dps_calc (PID 91820): CLI args parsed: x=100 y=100 w=1300 h=800
+08:50:45.792 [INFO] dps_calc (PID 91820): Creating QApplication...
+08:50:45.834 [DEBUG] shared.qt.fonts (PID 91820): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:50:45.834 [INFO] dps_calc (PID 91820): QApplication created OK
+08:50:45.834 [INFO] dps_calc (PID 91820): Creating DpsCalcApp window...
+08:50:45.838 [INFO] dps_ui.app (PID 91820): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:50:45.839 [INFO] dps_ui.app (PID 91820):   SCWindow.__init__ OK
+08:50:45.839 [INFO] dps_ui.app (PID 91820):   Building UI...
+08:50:45.839 [DEBUG] dps_ui.app (PID 91820): _build_ui START
+08:50:45.839 [DEBUG] dps_ui.app (PID 91820):   Creating title bar...
+08:50:45.902 [DEBUG] dps_ui.app (PID 91820):   Creating header OK
+08:50:45.902 [DEBUG] dps_ui.app (PID 91820):   Creating left panel...
+08:50:46.015 [DEBUG] dps_ui.app (PID 91820):   Left panel OK
+08:50:46.024 [DEBUG] dps_ui.app (PID 91820):   Center panel + tabs OK
+08:50:46.026 [DEBUG] dps_ui.app (PID 91820):   Right panel OK
+08:50:46.027 [DEBUG] dps_ui.app (PID 91820):   Right panel placeholder OK
+08:50:46.028 [DEBUG] dps_ui.app (PID 91820): _build_ui DONE
+08:50:46.028 [INFO] dps_ui.app (PID 91820):   UI built OK
+08:50:46.028 [INFO] dps_ui.app (PID 91820):   Geometry restored
+08:50:46.028 [INFO] dps_ui.app (PID 91820):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_87624.jsonl
+08:50:46.028 [INFO] dps_ui.app (PID 91820):   IPC watcher started
+08:50:46.028 [INFO] dps_ui.app (PID 91820):   Starting data load...
+08:50:46.028 [INFO] data.repository (PID 91820): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:50:46.028 [INFO] data.repository (PID 91820):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:50:46.028 [INFO] dps_ui.app (PID 91820): DpsCalcApp.__init__ DONE
+08:50:46.029 [INFO] dps_calc (PID 91820): DpsCalcApp window created OK
+08:50:46.029 [INFO] data.repository (PID 91820):   Cache file exists: True
+08:50:46.149 [INFO] dps_calc (PID 91820): Window shown, entering event loop
+08:50:46.149 [INFO] data.repository (PID 91820):   Cache file size: 19.8 MB
+08:50:46.149 [INFO] data.repository (PID 91820):   Calling self._cache.load()...
+08:50:46.149 [DEBUG] data.cache (PID 91820): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+08:50:50.878 [INFO] dps_calc (PID 9692): ============================================================
+08:50:50.878 [INFO] dps_calc (PID 9692): DPS Calculator starting  (PID 9692)
+08:50:50.878 [INFO] dps_calc (PID 9692): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_87624.jsonl']
+08:50:50.878 [INFO] dps_calc (PID 9692): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+08:50:51.272 [INFO] dps_calc (PID 9692): Parsing CLI args...
+08:50:51.273 [INFO] dps_calc (PID 9692): CLI args parsed: x=100 y=100 w=1300 h=800
+08:50:51.273 [INFO] dps_calc (PID 9692): Creating QApplication...
+08:50:51.315 [DEBUG] shared.qt.fonts (PID 9692): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+08:50:51.315 [INFO] dps_calc (PID 9692): QApplication created OK
+08:50:51.315 [INFO] dps_calc (PID 9692): Creating DpsCalcApp window...
+08:50:51.318 [INFO] dps_ui.app (PID 9692): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+08:50:51.319 [INFO] dps_ui.app (PID 9692):   SCWindow.__init__ OK
+08:50:51.319 [INFO] dps_ui.app (PID 9692):   Building UI...
+08:50:51.319 [DEBUG] dps_ui.app (PID 9692): _build_ui START
+08:50:51.319 [DEBUG] dps_ui.app (PID 9692):   Creating title bar...
+08:50:51.373 [DEBUG] dps_ui.app (PID 9692):   Creating header OK
+08:50:51.373 [DEBUG] dps_ui.app (PID 9692):   Creating left panel...
+08:50:51.508 [DEBUG] dps_ui.app (PID 9692):   Left panel OK
+08:50:51.518 [DEBUG] dps_ui.app (PID 9692):   Center panel + tabs OK
+08:50:51.520 [DEBUG] dps_ui.app (PID 9692):   Right panel OK
+08:50:51.521 [DEBUG] dps_ui.app (PID 9692):   Right panel placeholder OK
+08:50:51.522 [DEBUG] dps_ui.app (PID 9692): _build_ui DONE
+08:50:51.522 [INFO] dps_ui.app (PID 9692):   UI built OK
+08:50:51.522 [INFO] dps_ui.app (PID 9692):   Geometry restored
+08:50:51.522 [INFO] dps_ui.app (PID 9692):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_87624.jsonl
+08:50:51.522 [INFO] dps_ui.app (PID 9692):   IPC watcher started
+08:50:51.522 [INFO] dps_ui.app (PID 9692):   Starting data load...
+08:50:51.522 [INFO] data.repository (PID 9692): Data load thread started (tid=Thread-3 (_run), daemon=True)
+08:50:51.522 [INFO] data.repository (PID 9692):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+08:50:51.523 [INFO] dps_ui.app (PID 9692): DpsCalcApp.__init__ DONE
+08:50:51.523 [INFO] dps_calc (PID 9692): DpsCalcApp window created OK
+08:50:51.621 [INFO] data.repository (PID 9692):   Cache file exists: True
+08:50:51.650 [INFO] dps_calc (PID 9692): Window shown, entering event loop
+08:50:51.650 [INFO] data.repository (PID 9692):   Cache file size: 19.8 MB
+08:50:51.650 [INFO] data.repository (PID 9692):   Calling self._cache.load()...
+08:50:51.650 [DEBUG] data.cache (PID 9692): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json ...
+09:10:39.086 [INFO] dps_calc (PID 70828): ============================================================
+09:10:39.086 [INFO] dps_calc (PID 70828): DPS Calculator starting  (PID 70828)
+09:10:39.086 [INFO] dps_calc (PID 70828): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_102684_1.jsonl']
+09:10:39.086 [INFO] dps_calc (PID 70828): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:10:39.086 [INFO] dps_calc (PID 70828): Parsing CLI args...
+09:10:39.086 [INFO] dps_calc (PID 70828): CLI args parsed: x=100 y=100 w=1300 h=800
+09:10:39.086 [INFO] dps_calc (PID 70828): Creating QApplication...
+09:10:39.128 [DEBUG] shared.qt.fonts (PID 70828): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:10:39.128 [INFO] dps_calc (PID 70828): QApplication created OK
+09:10:39.128 [INFO] dps_calc (PID 70828): Creating DpsCalcApp window...
+09:10:39.144 [INFO] dps_ui.app (PID 70828): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:10:39.145 [INFO] dps_ui.app (PID 70828):   SCWindow.__init__ OK
+09:10:39.145 [INFO] dps_ui.app (PID 70828):   Building UI...
+09:10:39.145 [DEBUG] dps_ui.app (PID 70828): _build_ui START
+09:10:39.145 [DEBUG] dps_ui.app (PID 70828):   Creating title bar...
+09:10:39.220 [DEBUG] dps_ui.app (PID 70828):   Creating header OK
+09:10:39.221 [DEBUG] dps_ui.app (PID 70828):   Creating left panel...
+09:10:39.306 [DEBUG] dps_ui.app (PID 70828):   Left panel OK
+09:10:39.315 [DEBUG] dps_ui.app (PID 70828):   Center panel + tabs OK
+09:10:39.318 [DEBUG] dps_ui.app (PID 70828):   Right panel OK
+09:10:39.318 [DEBUG] dps_ui.app (PID 70828):   Right panel placeholder OK
+09:10:39.319 [DEBUG] dps_ui.app (PID 70828): _build_ui DONE
+09:10:39.319 [INFO] dps_ui.app (PID 70828):   UI built OK
+09:10:39.319 [INFO] dps_ui.app (PID 70828):   Geometry restored
+09:10:39.319 [INFO] dps_ui.app (PID 70828):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:10:39.319 [INFO] dps_ui.app (PID 70828):   IPC watcher started
+09:10:39.319 [INFO] dps_ui.app (PID 70828):   Starting data load...
+09:10:39.320 [INFO] data.repository (PID 70828): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:10:39.320 [INFO] data.repository (PID 70828):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:10:39.320 [INFO] dps_ui.app (PID 70828): DpsCalcApp.__init__ DONE
+09:10:39.320 [INFO] dps_calc (PID 70828): DpsCalcApp window created OK
+09:10:39.320 [INFO] data.repository (PID 70828):   Cache file exists: True
+09:10:39.438 [INFO] dps_calc (PID 70828): Window shown, entering event loop
+09:10:39.438 [INFO] data.repository (PID 70828):   Cache file size: 19.8 MB
+09:10:39.438 [INFO] data.repository (PID 70828):   Calling self._cache.load()...
+09:10:39.438 [DEBUG] data.cache (PID 70828): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:10:39.548 [DEBUG] data.cache (PID 70828): Cache: parse took 0.109s
+09:10:39.548 [DEBUG] data.cache (PID 70828): Cache: valid (age=6321s, ttl=7200s)
+09:10:39.548 [INFO] data.repository (PID 70828):   self._cache.load() returned: data
+09:10:39.548 [INFO] data.repository (PID 70828):   Using cached data
+09:10:39.645 [INFO] data.repository (PID 70828):   Game version: 
+09:10:39.648 [INFO] data.repository (PID 70828):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:10:39.648 [INFO] data.repository (PID 70828):   Data swap complete, loaded=True
+09:10:39.648 [INFO] data.repository (PID 70828):   Firing on_done callback...
+09:10:39.648 [INFO] data.repository (PID 70828):   on_done callback fired
+09:10:39.649 [DEBUG] dps_ui.app (PID 70828): _CallbackProxy dispatching _on_data_loaded
+09:10:39.649 [INFO] dps_ui.app (PID 70828): _on_data_loaded called (error=None, loaded=True)
+09:10:39.649 [INFO] dps_ui.app (PID 70828):   208 ships loaded
+09:10:39.649 [INFO] dps_ui.app (PID 70828):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:10:39.650 [INFO] dps_ui.app (PID 70828): _on_data_loaded DONE
+09:10:39.671 [DEBUG] urllib3.connectionpool (PID 70828): Starting new HTTPS connection (1): server.erkul.games:443
+09:10:40.021 [DEBUG] urllib3.connectionpool (PID 70828): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:10:40.022 [DEBUG] urllib3.connectionpool (PID 70828): Starting new HTTPS connection (1): server.erkul.games:443
+09:10:40.323 [DEBUG] urllib3.connectionpool (PID 70828): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:10:43.863 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:10:45.870 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:10:53.495 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:10:54.098 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:11:16.370 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:11:19.781 [DEBUG] shared.ipc (PID 70828): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:14:59.697 [WARNING] shared.qt.ipc_thread (PID 70828): IPCWatcher: file deleted: C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_102684_1.jsonl
+09:15:11.300 [INFO] dps_calc (PID 15492): ============================================================
+09:15:11.300 [INFO] dps_calc (PID 15492): DPS Calculator starting  (PID 15492)
+09:15:11.300 [INFO] dps_calc (PID 15492): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_23068_1.jsonl']
+09:15:11.300 [INFO] dps_calc (PID 15492): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:15:11.300 [INFO] dps_calc (PID 15492): Parsing CLI args...
+09:15:11.301 [INFO] dps_calc (PID 15492): CLI args parsed: x=100 y=100 w=1300 h=800
+09:15:11.301 [INFO] dps_calc (PID 15492): Creating QApplication...
+09:15:11.347 [DEBUG] shared.qt.fonts (PID 15492): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:15:11.347 [INFO] dps_calc (PID 15492): QApplication created OK
+09:15:11.347 [INFO] dps_calc (PID 15492): Creating DpsCalcApp window...
+09:15:11.352 [INFO] dps_ui.app (PID 15492): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:15:11.352 [INFO] dps_ui.app (PID 15492):   SCWindow.__init__ OK
+09:15:11.352 [INFO] dps_ui.app (PID 15492):   Building UI...
+09:15:11.352 [DEBUG] dps_ui.app (PID 15492): _build_ui START
+09:15:11.352 [DEBUG] dps_ui.app (PID 15492):   Creating title bar...
+09:15:11.427 [DEBUG] dps_ui.app (PID 15492):   Creating header OK
+09:15:11.428 [DEBUG] dps_ui.app (PID 15492):   Creating left panel...
+09:15:11.529 [DEBUG] dps_ui.app (PID 15492):   Left panel OK
+09:15:11.538 [DEBUG] dps_ui.app (PID 15492):   Center panel + tabs OK
+09:15:11.540 [DEBUG] dps_ui.app (PID 15492):   Right panel OK
+09:15:11.540 [DEBUG] dps_ui.app (PID 15492):   Right panel placeholder OK
+09:15:11.541 [DEBUG] dps_ui.app (PID 15492): _build_ui DONE
+09:15:11.541 [INFO] dps_ui.app (PID 15492):   UI built OK
+09:15:11.542 [INFO] dps_ui.app (PID 15492):   Geometry restored
+09:15:11.542 [INFO] dps_ui.app (PID 15492):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_23068_1.jsonl
+09:15:11.542 [INFO] dps_ui.app (PID 15492):   IPC watcher started
+09:15:11.542 [INFO] dps_ui.app (PID 15492):   Starting data load...
+09:15:11.542 [INFO] data.repository (PID 15492): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:15:11.542 [INFO] data.repository (PID 15492):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:15:11.542 [INFO] dps_ui.app (PID 15492): DpsCalcApp.__init__ DONE
+09:15:11.542 [INFO] dps_calc (PID 15492): DpsCalcApp window created OK
+09:15:11.542 [INFO] data.repository (PID 15492):   Cache file exists: True
+09:15:11.660 [INFO] dps_calc (PID 15492): Window shown, entering event loop
+09:15:11.660 [INFO] data.repository (PID 15492):   Cache file size: 19.8 MB
+09:15:11.660 [INFO] data.repository (PID 15492):   Calling self._cache.load()...
+09:15:11.660 [DEBUG] data.cache (PID 15492): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:15:23.309 [INFO] dps_calc (PID 82148): ============================================================
+09:15:23.310 [INFO] dps_calc (PID 82148): DPS Calculator starting  (PID 82148)
+09:15:23.310 [INFO] dps_calc (PID 82148): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_23068_2.jsonl']
+09:15:23.310 [INFO] dps_calc (PID 82148): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:15:23.310 [INFO] dps_calc (PID 82148): Parsing CLI args...
+09:15:23.310 [INFO] dps_calc (PID 82148): CLI args parsed: x=100 y=100 w=1300 h=800
+09:15:23.310 [INFO] dps_calc (PID 82148): Creating QApplication...
+09:15:23.355 [DEBUG] shared.qt.fonts (PID 82148): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:15:23.355 [INFO] dps_calc (PID 82148): QApplication created OK
+09:15:23.355 [INFO] dps_calc (PID 82148): Creating DpsCalcApp window...
+09:15:23.360 [INFO] dps_ui.app (PID 82148): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:15:23.361 [INFO] dps_ui.app (PID 82148):   SCWindow.__init__ OK
+09:15:23.361 [INFO] dps_ui.app (PID 82148):   Building UI...
+09:15:23.361 [DEBUG] dps_ui.app (PID 82148): _build_ui START
+09:15:23.361 [DEBUG] dps_ui.app (PID 82148):   Creating title bar...
+09:15:23.420 [DEBUG] dps_ui.app (PID 82148):   Creating header OK
+09:15:23.420 [DEBUG] dps_ui.app (PID 82148):   Creating left panel...
+09:15:23.533 [DEBUG] dps_ui.app (PID 82148):   Left panel OK
+09:15:23.541 [DEBUG] dps_ui.app (PID 82148):   Center panel + tabs OK
+09:15:23.543 [DEBUG] dps_ui.app (PID 82148):   Right panel OK
+09:15:23.543 [DEBUG] dps_ui.app (PID 82148):   Right panel placeholder OK
+09:15:23.545 [DEBUG] dps_ui.app (PID 82148): _build_ui DONE
+09:15:23.545 [INFO] dps_ui.app (PID 82148):   UI built OK
+09:15:23.545 [INFO] dps_ui.app (PID 82148):   Geometry restored
+09:15:23.545 [INFO] dps_ui.app (PID 82148):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_23068_2.jsonl
+09:15:23.545 [INFO] dps_ui.app (PID 82148):   IPC watcher started
+09:15:23.545 [INFO] dps_ui.app (PID 82148):   Starting data load...
+09:15:23.545 [INFO] data.repository (PID 82148): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:15:23.545 [INFO] data.repository (PID 82148):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:15:23.545 [INFO] dps_ui.app (PID 82148): DpsCalcApp.__init__ DONE
+09:15:23.545 [INFO] dps_calc (PID 82148): DpsCalcApp window created OK
+09:15:23.634 [INFO] data.repository (PID 82148):   Cache file exists: True
+09:15:23.655 [INFO] dps_calc (PID 82148): Window shown, entering event loop
+09:15:23.655 [INFO] data.repository (PID 82148):   Cache file size: 19.8 MB
+09:15:23.655 [INFO] data.repository (PID 82148):   Calling self._cache.load()...
+09:15:23.655 [DEBUG] data.cache (PID 82148): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:15:23.656 [DEBUG] shared.ipc (PID 82148): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_23068_2.jsonl
+09:16:50.576 [INFO] dps_calc (PID 92364): ============================================================
+09:16:50.577 [INFO] dps_calc (PID 92364): DPS Calculator starting  (PID 92364)
+09:16:50.577 [INFO] dps_calc (PID 92364): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'nul']
+09:16:50.577 [INFO] dps_calc (PID 92364): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2
+09:16:50.577 [INFO] dps_calc (PID 92364): Parsing CLI args...
+09:16:50.577 [INFO] dps_calc (PID 92364): CLI args parsed: x=100 y=100 w=1300 h=800
+09:16:50.577 [INFO] dps_calc (PID 92364): Creating QApplication...
+09:16:50.626 [DEBUG] shared.qt.fonts (PID 92364): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:16:50.626 [INFO] dps_calc (PID 92364): QApplication created OK
+09:16:50.626 [INFO] dps_calc (PID 92364): Creating DpsCalcApp window...
+09:16:50.630 [INFO] dps_ui.app (PID 92364): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:16:50.631 [INFO] dps_ui.app (PID 92364):   SCWindow.__init__ OK
+09:16:50.631 [INFO] dps_ui.app (PID 92364):   Building UI...
+09:16:50.631 [DEBUG] dps_ui.app (PID 92364): _build_ui START
+09:16:50.631 [DEBUG] dps_ui.app (PID 92364):   Creating title bar...
+09:16:50.684 [DEBUG] dps_ui.app (PID 92364):   Creating header OK
+09:16:50.684 [DEBUG] dps_ui.app (PID 92364):   Creating left panel...
+09:16:50.815 [DEBUG] dps_ui.app (PID 92364):   Left panel OK
+09:16:50.824 [DEBUG] dps_ui.app (PID 92364):   Center panel + tabs OK
+09:16:50.827 [DEBUG] dps_ui.app (PID 92364):   Right panel OK
+09:16:50.827 [DEBUG] dps_ui.app (PID 92364):   Right panel placeholder OK
+09:16:50.828 [DEBUG] dps_ui.app (PID 92364): _build_ui DONE
+09:16:50.828 [INFO] dps_ui.app (PID 92364):   UI built OK
+09:16:50.828 [INFO] dps_ui.app (PID 92364):   Geometry restored
+09:16:50.828 [INFO] dps_ui.app (PID 92364):   Starting IPC watcher for nul
+09:16:50.828 [INFO] dps_ui.app (PID 92364):   IPC watcher started
+09:16:50.828 [INFO] dps_ui.app (PID 92364):   Starting data load...
+09:16:50.829 [INFO] data.repository (PID 92364): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:16:50.829 [INFO] data.repository (PID 92364):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:16:50.829 [INFO] dps_ui.app (PID 92364): DpsCalcApp.__init__ DONE
+09:16:50.829 [INFO] dps_calc (PID 92364): DpsCalcApp window created OK
+09:16:50.829 [INFO] data.repository (PID 92364):   Cache file exists: True
+09:16:50.948 [INFO] dps_calc (PID 92364): Window shown, entering event loop
+09:16:50.948 [INFO] data.repository (PID 92364):   Cache file size: 19.8 MB
+09:16:50.948 [INFO] data.repository (PID 92364):   Calling self._cache.load()...
+09:16:50.949 [DEBUG] data.cache (PID 92364): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:16:51.056 [DEBUG] data.cache (PID 92364): Cache: parse took 0.107s
+09:16:51.056 [DEBUG] data.cache (PID 92364): Cache: valid (age=6692s, ttl=7200s)
+09:16:51.056 [INFO] data.repository (PID 92364):   self._cache.load() returned: data
+09:16:51.056 [INFO] data.repository (PID 92364):   Using cached data
+09:16:51.150 [INFO] data.repository (PID 92364):   Game version: 
+09:16:51.153 [INFO] data.repository (PID 92364):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:16:51.153 [INFO] data.repository (PID 92364):   Data swap complete, loaded=True
+09:16:51.153 [INFO] data.repository (PID 92364):   Firing on_done callback...
+09:16:51.153 [INFO] data.repository (PID 92364):   on_done callback fired
+09:16:51.153 [DEBUG] dps_ui.app (PID 92364): _CallbackProxy dispatching _on_data_loaded
+09:16:51.153 [INFO] dps_ui.app (PID 92364): _on_data_loaded called (error=None, loaded=True)
+09:16:51.153 [INFO] dps_ui.app (PID 92364):   208 ships loaded
+09:16:51.153 [INFO] dps_ui.app (PID 92364):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:16:51.154 [INFO] dps_ui.app (PID 92364): _on_data_loaded DONE
+09:16:51.157 [DEBUG] urllib3.connectionpool (PID 92364): Starting new HTTPS connection (1): server.erkul.games:443
+09:16:51.526 [DEBUG] urllib3.connectionpool (PID 92364): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:16:51.527 [DEBUG] urllib3.connectionpool (PID 92364): Starting new HTTPS connection (1): server.erkul.games:443
+09:16:51.850 [DEBUG] urllib3.connectionpool (PID 92364): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:20:24.534 [INFO] dps_calc (PID 48740): ============================================================
+09:20:24.534 [INFO] dps_calc (PID 48740): DPS Calculator starting  (PID 48740)
+09:20:24.534 [INFO] dps_calc (PID 48740): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test.jsonl']
+09:20:24.534 [INFO] dps_calc (PID 48740): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:20:24.534 [INFO] dps_calc (PID 48740): Parsing CLI args...
+09:20:24.535 [INFO] dps_calc (PID 48740): CLI args parsed: x=100 y=100 w=1300 h=800
+09:20:24.535 [INFO] dps_calc (PID 48740): Creating QApplication...
+09:20:24.579 [DEBUG] shared.qt.fonts (PID 48740): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:20:24.579 [INFO] dps_calc (PID 48740): QApplication created OK
+09:20:24.579 [INFO] dps_calc (PID 48740): Creating DpsCalcApp window...
+09:20:24.585 [INFO] dps_ui.app (PID 48740): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:20:24.585 [INFO] dps_ui.app (PID 48740):   SCWindow.__init__ OK
+09:20:24.586 [INFO] dps_ui.app (PID 48740):   Building UI...
+09:20:24.586 [DEBUG] dps_ui.app (PID 48740): _build_ui START
+09:20:24.586 [DEBUG] dps_ui.app (PID 48740):   Creating title bar...
+09:20:24.625 [DEBUG] dps_ui.app (PID 48740):   Creating header OK
+09:20:24.626 [DEBUG] dps_ui.app (PID 48740):   Creating left panel...
+09:20:24.766 [DEBUG] dps_ui.app (PID 48740):   Left panel OK
+09:20:24.776 [DEBUG] dps_ui.app (PID 48740):   Center panel + tabs OK
+09:20:24.778 [DEBUG] dps_ui.app (PID 48740):   Right panel OK
+09:20:24.779 [DEBUG] dps_ui.app (PID 48740):   Right panel placeholder OK
+09:20:24.780 [DEBUG] dps_ui.app (PID 48740): _build_ui DONE
+09:20:24.780 [INFO] dps_ui.app (PID 48740):   UI built OK
+09:20:24.780 [INFO] dps_ui.app (PID 48740):   Geometry restored
+09:20:24.780 [INFO] dps_ui.app (PID 48740):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test.jsonl
+09:20:24.780 [INFO] dps_ui.app (PID 48740):   IPC watcher started
+09:20:24.780 [INFO] dps_ui.app (PID 48740):   Starting data load...
+09:20:24.780 [INFO] data.repository (PID 48740): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:20:24.780 [INFO] data.repository (PID 48740):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:20:24.781 [INFO] dps_ui.app (PID 48740): DpsCalcApp.__init__ DONE
+09:20:24.781 [INFO] dps_calc (PID 48740): DpsCalcApp window created OK
+09:20:24.781 [INFO] data.repository (PID 48740):   Cache file exists: True
+09:20:24.902 [INFO] dps_calc (PID 48740): Window shown, entering event loop
+09:20:24.902 [INFO] data.repository (PID 48740):   Cache file size: 19.8 MB
+09:20:24.902 [INFO] data.repository (PID 48740):   Calling self._cache.load()...
+09:20:24.902 [DEBUG] data.cache (PID 48740): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:20:35.757 [INFO] dps_calc (PID 99984): ============================================================
+09:20:35.757 [INFO] dps_calc (PID 99984): DPS Calculator starting  (PID 99984)
+09:20:35.758 [INFO] dps_calc (PID 99984): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test2.jsonl']
+09:20:35.758 [INFO] dps_calc (PID 99984): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:20:35.758 [INFO] dps_calc (PID 99984): Parsing CLI args...
+09:20:35.758 [INFO] dps_calc (PID 99984): CLI args parsed: x=100 y=100 w=1300 h=800
+09:20:35.758 [INFO] dps_calc (PID 99984): Creating QApplication...
+09:20:35.804 [DEBUG] shared.qt.fonts (PID 99984): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:20:35.804 [INFO] dps_calc (PID 99984): QApplication created OK
+09:20:35.804 [INFO] dps_calc (PID 99984): Creating DpsCalcApp window...
+09:20:35.808 [INFO] dps_ui.app (PID 99984): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:20:35.809 [INFO] dps_ui.app (PID 99984):   SCWindow.__init__ OK
+09:20:35.809 [INFO] dps_ui.app (PID 99984):   Building UI...
+09:20:35.809 [DEBUG] dps_ui.app (PID 99984): _build_ui START
+09:20:35.809 [DEBUG] dps_ui.app (PID 99984):   Creating title bar...
+09:20:35.843 [DEBUG] dps_ui.app (PID 99984):   Creating header OK
+09:20:35.843 [DEBUG] dps_ui.app (PID 99984):   Creating left panel...
+09:20:35.982 [DEBUG] dps_ui.app (PID 99984):   Left panel OK
+09:20:35.991 [DEBUG] dps_ui.app (PID 99984):   Center panel + tabs OK
+09:20:35.994 [DEBUG] dps_ui.app (PID 99984):   Right panel OK
+09:20:35.994 [DEBUG] dps_ui.app (PID 99984):   Right panel placeholder OK
+09:20:35.995 [DEBUG] dps_ui.app (PID 99984): _build_ui DONE
+09:20:35.995 [INFO] dps_ui.app (PID 99984):   UI built OK
+09:20:35.995 [INFO] dps_ui.app (PID 99984):   Geometry restored
+09:20:35.995 [INFO] dps_ui.app (PID 99984):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test2.jsonl
+09:20:35.995 [INFO] dps_ui.app (PID 99984):   IPC watcher started
+09:20:35.995 [INFO] dps_ui.app (PID 99984):   Starting data load...
+09:20:35.996 [INFO] data.repository (PID 99984): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:20:35.996 [INFO] data.repository (PID 99984):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:20:35.996 [INFO] dps_ui.app (PID 99984): DpsCalcApp.__init__ DONE
+09:20:35.996 [INFO] dps_calc (PID 99984): DpsCalcApp window created OK
+09:20:35.996 [INFO] data.repository (PID 99984):   Cache file exists: True
+09:20:36.121 [INFO] dps_calc (PID 99984): Window shown, entering event loop
+09:20:36.121 [INFO] data.repository (PID 99984):   Cache file size: 19.8 MB
+09:20:36.121 [INFO] data.repository (PID 99984):   Calling self._cache.load()...
+09:20:36.122 [DEBUG] data.cache (PID 99984): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:20:36.218 [DEBUG] data.cache (PID 99984): Cache: parse took 0.097s
+09:20:36.219 [DEBUG] data.cache (PID 99984): Cache: valid (age=6918s, ttl=7200s)
+09:20:36.219 [INFO] data.repository (PID 99984):   self._cache.load() returned: data
+09:20:36.219 [INFO] data.repository (PID 99984):   Using cached data
+09:20:36.303 [INFO] data.repository (PID 99984):   Game version: 
+09:20:36.306 [INFO] data.repository (PID 99984):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:20:36.306 [INFO] data.repository (PID 99984):   Data swap complete, loaded=True
+09:20:36.306 [INFO] data.repository (PID 99984):   Firing on_done callback...
+09:20:36.306 [INFO] data.repository (PID 99984):   on_done callback fired
+09:20:36.306 [DEBUG] dps_ui.app (PID 99984): _CallbackProxy dispatching _on_data_loaded
+09:20:36.306 [INFO] dps_ui.app (PID 99984): _on_data_loaded called (error=None, loaded=True)
+09:20:36.306 [INFO] dps_ui.app (PID 99984):   208 ships loaded
+09:20:36.306 [INFO] dps_ui.app (PID 99984):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:20:36.307 [INFO] dps_ui.app (PID 99984): _on_data_loaded DONE
+09:20:36.311 [DEBUG] urllib3.connectionpool (PID 99984): Starting new HTTPS connection (1): server.erkul.games:443
+09:20:36.629 [DEBUG] urllib3.connectionpool (PID 99984): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:20:36.630 [DEBUG] urllib3.connectionpool (PID 99984): Starting new HTTPS connection (1): server.erkul.games:443
+09:20:36.918 [DEBUG] urllib3.connectionpool (PID 99984): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:20:54.317 [INFO] dps_calc (PID 29780): ============================================================
+09:20:54.317 [INFO] dps_calc (PID 29780): DPS Calculator starting  (PID 29780)
+09:20:54.317 [INFO] dps_calc (PID 29780): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test3.jsonl']
+09:20:54.317 [INFO] dps_calc (PID 29780): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:20:54.317 [INFO] dps_calc (PID 29780): Parsing CLI args...
+09:20:54.317 [INFO] dps_calc (PID 29780): CLI args parsed: x=100 y=100 w=1300 h=800
+09:20:54.318 [INFO] dps_calc (PID 29780): Creating QApplication...
+09:20:54.363 [DEBUG] shared.qt.fonts (PID 29780): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:20:54.363 [INFO] dps_calc (PID 29780): QApplication created OK
+09:20:54.363 [INFO] dps_calc (PID 29780): Creating DpsCalcApp window...
+09:20:54.368 [INFO] dps_ui.app (PID 29780): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:20:54.368 [INFO] dps_ui.app (PID 29780):   SCWindow.__init__ OK
+09:20:54.368 [INFO] dps_ui.app (PID 29780):   Building UI...
+09:20:54.368 [DEBUG] dps_ui.app (PID 29780): _build_ui START
+09:20:54.368 [DEBUG] dps_ui.app (PID 29780):   Creating title bar...
+09:20:54.447 [DEBUG] dps_ui.app (PID 29780):   Creating header OK
+09:20:54.447 [DEBUG] dps_ui.app (PID 29780):   Creating left panel...
+09:20:54.543 [DEBUG] dps_ui.app (PID 29780):   Left panel OK
+09:20:54.552 [DEBUG] dps_ui.app (PID 29780):   Center panel + tabs OK
+09:20:54.554 [DEBUG] dps_ui.app (PID 29780):   Right panel OK
+09:20:54.554 [DEBUG] dps_ui.app (PID 29780):   Right panel placeholder OK
+09:20:54.556 [DEBUG] dps_ui.app (PID 29780): _build_ui DONE
+09:20:54.556 [INFO] dps_ui.app (PID 29780):   UI built OK
+09:20:54.556 [INFO] dps_ui.app (PID 29780):   Geometry restored
+09:20:54.556 [INFO] dps_ui.app (PID 29780):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test3.jsonl
+09:20:54.556 [INFO] dps_ui.app (PID 29780):   IPC watcher started
+09:20:54.556 [INFO] dps_ui.app (PID 29780):   Starting data load...
+09:20:54.556 [INFO] data.repository (PID 29780): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:20:54.556 [INFO] data.repository (PID 29780):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:20:54.556 [INFO] dps_ui.app (PID 29780): DpsCalcApp.__init__ DONE
+09:20:54.556 [INFO] dps_calc (PID 29780): DpsCalcApp window created OK
+09:20:54.556 [INFO] data.repository (PID 29780):   Cache file exists: True
+09:20:54.683 [INFO] dps_calc (PID 29780): Window shown, entering event loop
+09:20:54.683 [INFO] data.repository (PID 29780):   Cache file size: 19.8 MB
+09:20:54.683 [INFO] data.repository (PID 29780):   Calling self._cache.load()...
+09:20:54.683 [DEBUG] data.cache (PID 29780): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:21:05.897 [INFO] dps_calc (PID 85560): ============================================================
+09:21:05.897 [INFO] dps_calc (PID 85560): DPS Calculator starting  (PID 85560)
+09:21:05.897 [INFO] dps_calc (PID 85560): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test4.jsonl']
+09:21:05.897 [INFO] dps_calc (PID 85560): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:21:05.897 [INFO] dps_calc (PID 85560): Parsing CLI args...
+09:21:05.898 [INFO] dps_calc (PID 85560): CLI args parsed: x=100 y=100 w=1300 h=800
+09:21:05.898 [INFO] dps_calc (PID 85560): Creating QApplication...
+09:21:05.942 [DEBUG] shared.qt.fonts (PID 85560): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:21:05.942 [INFO] dps_calc (PID 85560): QApplication created OK
+09:21:05.942 [INFO] dps_calc (PID 85560): Creating DpsCalcApp window...
+09:21:05.952 [INFO] dps_ui.app (PID 85560): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:21:05.953 [INFO] dps_ui.app (PID 85560):   SCWindow.__init__ OK
+09:21:05.953 [INFO] dps_ui.app (PID 85560):   Building UI...
+09:21:05.953 [DEBUG] dps_ui.app (PID 85560): _build_ui START
+09:21:05.953 [DEBUG] dps_ui.app (PID 85560):   Creating title bar...
+09:21:06.021 [DEBUG] dps_ui.app (PID 85560):   Creating header OK
+09:21:06.021 [DEBUG] dps_ui.app (PID 85560):   Creating left panel...
+09:21:06.128 [DEBUG] dps_ui.app (PID 85560):   Left panel OK
+09:21:06.137 [DEBUG] dps_ui.app (PID 85560):   Center panel + tabs OK
+09:21:06.139 [DEBUG] dps_ui.app (PID 85560):   Right panel OK
+09:21:06.139 [DEBUG] dps_ui.app (PID 85560):   Right panel placeholder OK
+09:21:06.140 [DEBUG] dps_ui.app (PID 85560): _build_ui DONE
+09:21:06.140 [INFO] dps_ui.app (PID 85560):   UI built OK
+09:21:06.140 [INFO] dps_ui.app (PID 85560):   Geometry restored
+09:21:06.140 [INFO] dps_ui.app (PID 85560):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test4.jsonl
+09:21:06.141 [INFO] dps_ui.app (PID 85560):   IPC watcher started
+09:21:06.141 [INFO] dps_ui.app (PID 85560):   Starting data load...
+09:21:06.141 [INFO] data.repository (PID 85560): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:21:06.141 [INFO] data.repository (PID 85560):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:21:06.141 [INFO] dps_ui.app (PID 85560): DpsCalcApp.__init__ DONE
+09:21:06.141 [INFO] dps_calc (PID 85560): DpsCalcApp window created OK
+09:21:06.141 [INFO] data.repository (PID 85560):   Cache file exists: True
+09:21:06.262 [INFO] dps_calc (PID 85560): Window shown, entering event loop
+09:21:06.262 [INFO] data.repository (PID 85560):   Cache file size: 19.8 MB
+09:21:06.263 [INFO] data.repository (PID 85560):   Calling self._cache.load()...
+09:21:06.263 [DEBUG] data.cache (PID 85560): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:21:22.103 [INFO] dps_calc (PID 46256): ============================================================
+09:21:22.103 [INFO] dps_calc (PID 46256): DPS Calculator starting  (PID 46256)
+09:21:22.103 [INFO] dps_calc (PID 46256): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test5.jsonl']
+09:21:22.103 [INFO] dps_calc (PID 46256): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:21:22.103 [INFO] dps_calc (PID 46256): Parsing CLI args...
+09:21:22.103 [INFO] dps_calc (PID 46256): CLI args parsed: x=100 y=100 w=1300 h=800
+09:21:22.103 [INFO] dps_calc (PID 46256): Creating QApplication...
+09:21:22.149 [DEBUG] shared.qt.fonts (PID 46256): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:21:22.149 [INFO] dps_calc (PID 46256): QApplication created OK
+09:21:22.149 [INFO] dps_calc (PID 46256): Creating DpsCalcApp window...
+09:21:22.153 [INFO] dps_ui.app (PID 46256): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:21:22.154 [INFO] dps_ui.app (PID 46256):   SCWindow.__init__ OK
+09:21:22.154 [INFO] dps_ui.app (PID 46256):   Building UI...
+09:21:22.154 [DEBUG] dps_ui.app (PID 46256): _build_ui START
+09:21:22.154 [DEBUG] dps_ui.app (PID 46256):   Creating title bar...
+09:21:22.212 [DEBUG] dps_ui.app (PID 46256):   Creating header OK
+09:21:22.212 [DEBUG] dps_ui.app (PID 46256):   Creating left panel...
+09:21:22.342 [DEBUG] dps_ui.app (PID 46256):   Left panel OK
+09:21:22.352 [DEBUG] dps_ui.app (PID 46256):   Center panel + tabs OK
+09:21:22.354 [DEBUG] dps_ui.app (PID 46256):   Right panel OK
+09:21:22.355 [DEBUG] dps_ui.app (PID 46256):   Right panel placeholder OK
+09:21:22.356 [DEBUG] dps_ui.app (PID 46256): _build_ui DONE
+09:21:22.356 [INFO] dps_ui.app (PID 46256):   UI built OK
+09:21:22.356 [INFO] dps_ui.app (PID 46256):   Geometry restored
+09:21:22.356 [INFO] dps_ui.app (PID 46256):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test5.jsonl
+09:21:22.356 [INFO] dps_ui.app (PID 46256):   IPC watcher started
+09:21:22.356 [INFO] dps_ui.app (PID 46256):   Starting data load...
+09:21:22.356 [INFO] data.repository (PID 46256): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:21:22.357 [INFO] data.repository (PID 46256):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:21:22.357 [INFO] dps_ui.app (PID 46256): DpsCalcApp.__init__ DONE
+09:21:22.357 [INFO] dps_calc (PID 46256): DpsCalcApp window created OK
+09:21:22.452 [INFO] data.repository (PID 46256):   Cache file exists: True
+09:21:22.480 [INFO] dps_calc (PID 46256): Window shown, entering event loop
+09:21:22.481 [INFO] data.repository (PID 46256):   Cache file size: 19.8 MB
+09:21:22.481 [INFO] data.repository (PID 46256):   Calling self._cache.load()...
+09:21:22.481 [DEBUG] data.cache (PID 46256): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:21:37.323 [INFO] dps_calc (PID 90636): ============================================================
+09:21:37.323 [INFO] dps_calc (PID 90636): DPS Calculator starting  (PID 90636)
+09:21:37.323 [INFO] dps_calc (PID 90636): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test6.jsonl']
+09:21:37.323 [INFO] dps_calc (PID 90636): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:21:37.323 [INFO] dps_calc (PID 90636): Parsing CLI args...
+09:21:37.323 [INFO] dps_calc (PID 90636): CLI args parsed: x=100 y=100 w=1300 h=800
+09:21:37.323 [INFO] dps_calc (PID 90636): Creating QApplication...
+09:21:37.366 [DEBUG] shared.qt.fonts (PID 90636): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:21:37.366 [INFO] dps_calc (PID 90636): QApplication created OK
+09:21:37.366 [INFO] dps_calc (PID 90636): Creating DpsCalcApp window...
+09:21:37.370 [INFO] dps_ui.app (PID 90636): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:21:37.371 [INFO] dps_ui.app (PID 90636):   SCWindow.__init__ OK
+09:21:37.371 [INFO] dps_ui.app (PID 90636):   Building UI...
+09:21:37.371 [DEBUG] dps_ui.app (PID 90636): _build_ui START
+09:21:37.371 [DEBUG] dps_ui.app (PID 90636):   Creating title bar...
+09:21:37.407 [DEBUG] dps_ui.app (PID 90636):   Creating header OK
+09:21:37.407 [DEBUG] dps_ui.app (PID 90636):   Creating left panel...
+09:21:37.549 [DEBUG] dps_ui.app (PID 90636):   Left panel OK
+09:21:37.558 [DEBUG] dps_ui.app (PID 90636):   Center panel + tabs OK
+09:21:37.560 [DEBUG] dps_ui.app (PID 90636):   Right panel OK
+09:21:37.560 [DEBUG] dps_ui.app (PID 90636):   Right panel placeholder OK
+09:21:37.562 [DEBUG] dps_ui.app (PID 90636): _build_ui DONE
+09:21:37.562 [INFO] dps_ui.app (PID 90636):   UI built OK
+09:21:37.562 [INFO] dps_ui.app (PID 90636):   Geometry restored
+09:21:37.562 [INFO] dps_ui.app (PID 90636):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test6.jsonl
+09:21:37.562 [INFO] dps_ui.app (PID 90636):   IPC watcher started
+09:21:37.562 [INFO] dps_ui.app (PID 90636):   Starting data load...
+09:21:37.562 [INFO] data.repository (PID 90636): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:21:37.562 [INFO] data.repository (PID 90636):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:21:37.562 [INFO] dps_ui.app (PID 90636): DpsCalcApp.__init__ DONE
+09:21:37.562 [INFO] dps_calc (PID 90636): DpsCalcApp window created OK
+09:21:37.656 [INFO] data.repository (PID 90636):   Cache file exists: True
+09:21:37.685 [INFO] dps_calc (PID 90636): Window shown, entering event loop
+09:21:37.685 [INFO] data.repository (PID 90636):   Cache file size: 19.8 MB
+09:21:37.685 [INFO] data.repository (PID 90636):   Calling self._cache.load()...
+09:21:37.685 [DEBUG] data.cache (PID 90636): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:21:51.115 [INFO] dps_calc (PID 104824): ============================================================
+09:21:51.115 [INFO] dps_calc (PID 104824): DPS Calculator starting  (PID 104824)
+09:21:51.115 [INFO] dps_calc (PID 104824): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_test7.jsonl']
+09:21:51.115 [INFO] dps_calc (PID 104824): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:21:51.115 [INFO] dps_calc (PID 104824): Parsing CLI args...
+09:21:51.115 [INFO] dps_calc (PID 104824): CLI args parsed: x=100 y=100 w=1300 h=800
+09:21:51.115 [INFO] dps_calc (PID 104824): Creating QApplication...
+09:21:51.160 [DEBUG] shared.qt.fonts (PID 104824): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:21:51.161 [INFO] dps_calc (PID 104824): QApplication created OK
+09:21:51.161 [INFO] dps_calc (PID 104824): Creating DpsCalcApp window...
+09:21:51.165 [INFO] dps_ui.app (PID 104824): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:21:51.165 [INFO] dps_ui.app (PID 104824):   SCWindow.__init__ OK
+09:21:51.165 [INFO] dps_ui.app (PID 104824):   Building UI...
+09:21:51.166 [DEBUG] dps_ui.app (PID 104824): _build_ui START
+09:21:51.166 [DEBUG] dps_ui.app (PID 104824):   Creating title bar...
+09:21:51.196 [DEBUG] dps_ui.app (PID 104824):   Creating header OK
+09:21:51.196 [DEBUG] dps_ui.app (PID 104824):   Creating left panel...
+09:21:51.341 [DEBUG] dps_ui.app (PID 104824):   Left panel OK
+09:21:51.350 [DEBUG] dps_ui.app (PID 104824):   Center panel + tabs OK
+09:21:51.352 [DEBUG] dps_ui.app (PID 104824):   Right panel OK
+09:21:51.353 [DEBUG] dps_ui.app (PID 104824):   Right panel placeholder OK
+09:21:51.354 [DEBUG] dps_ui.app (PID 104824): _build_ui DONE
+09:21:51.354 [INFO] dps_ui.app (PID 104824):   UI built OK
+09:21:51.354 [INFO] dps_ui.app (PID 104824):   Geometry restored
+09:21:51.354 [INFO] dps_ui.app (PID 104824):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_test7.jsonl
+09:21:51.354 [INFO] dps_ui.app (PID 104824):   IPC watcher started
+09:21:51.354 [INFO] dps_ui.app (PID 104824):   Starting data load...
+09:21:51.354 [INFO] data.repository (PID 104824): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:21:51.354 [INFO] data.repository (PID 104824):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:21:51.355 [INFO] dps_ui.app (PID 104824): DpsCalcApp.__init__ DONE
+09:21:51.355 [INFO] dps_calc (PID 104824): DpsCalcApp window created OK
+09:21:51.355 [INFO] data.repository (PID 104824):   Cache file exists: True
+09:21:51.480 [INFO] dps_calc (PID 104824): Window shown, entering event loop
+09:21:51.480 [INFO] data.repository (PID 104824):   Cache file size: 19.8 MB
+09:21:51.480 [INFO] data.repository (PID 104824):   Calling self._cache.load()...
+09:21:51.480 [DEBUG] data.cache (PID 104824): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:21:51.588 [DEBUG] data.cache (PID 104824): Cache: parse took 0.108s
+09:21:51.589 [DEBUG] data.cache (PID 104824): Cache: valid (age=6993s, ttl=7200s)
+09:21:51.589 [INFO] data.repository (PID 104824):   self._cache.load() returned: data
+09:21:51.589 [INFO] data.repository (PID 104824):   Using cached data
+09:21:51.683 [INFO] data.repository (PID 104824):   Game version: 
+09:21:51.686 [INFO] data.repository (PID 104824):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:21:51.686 [INFO] data.repository (PID 104824):   Data swap complete, loaded=True
+09:21:51.686 [INFO] data.repository (PID 104824):   Firing on_done callback...
+09:21:51.686 [INFO] data.repository (PID 104824):   on_done callback fired
+09:21:51.687 [DEBUG] dps_ui.app (PID 104824): _CallbackProxy dispatching _on_data_loaded
+09:21:51.687 [INFO] dps_ui.app (PID 104824): _on_data_loaded called (error=None, loaded=True)
+09:21:51.687 [INFO] dps_ui.app (PID 104824):   208 ships loaded
+09:21:51.687 [INFO] dps_ui.app (PID 104824):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:21:51.688 [INFO] dps_ui.app (PID 104824): _on_data_loaded DONE
+09:21:51.691 [DEBUG] urllib3.connectionpool (PID 104824): Starting new HTTPS connection (1): server.erkul.games:443
+09:21:52.020 [DEBUG] urllib3.connectionpool (PID 104824): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:21:52.021 [DEBUG] urllib3.connectionpool (PID 104824): Starting new HTTPS connection (1): server.erkul.games:443
+09:21:52.302 [DEBUG] urllib3.connectionpool (PID 104824): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:23:37.920 [INFO] dps_calc (PID 95476): ============================================================
+09:23:37.920 [INFO] dps_calc (PID 95476): DPS Calculator starting  (PID 95476)
+09:23:37.920 [INFO] dps_calc (PID 95476): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_61428_1.jsonl']
+09:23:37.920 [INFO] dps_calc (PID 95476): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:23:37.920 [INFO] dps_calc (PID 95476): Parsing CLI args...
+09:23:37.921 [INFO] dps_calc (PID 95476): CLI args parsed: x=100 y=100 w=1300 h=800
+09:23:37.921 [INFO] dps_calc (PID 95476): Creating QApplication...
+09:23:37.965 [DEBUG] shared.qt.fonts (PID 95476): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:23:37.965 [INFO] dps_calc (PID 95476): QApplication created OK
+09:23:37.965 [INFO] dps_calc (PID 95476): Creating DpsCalcApp window...
+09:23:37.969 [INFO] dps_ui.app (PID 95476): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:23:37.970 [INFO] dps_ui.app (PID 95476):   SCWindow.__init__ OK
+09:23:37.970 [INFO] dps_ui.app (PID 95476):   Building UI...
+09:23:37.970 [DEBUG] dps_ui.app (PID 95476): _build_ui START
+09:23:37.970 [DEBUG] dps_ui.app (PID 95476):   Creating title bar...
+09:23:38.050 [DEBUG] dps_ui.app (PID 95476):   Creating header OK
+09:23:38.050 [DEBUG] dps_ui.app (PID 95476):   Creating left panel...
+09:23:38.152 [DEBUG] dps_ui.app (PID 95476):   Left panel OK
+09:23:38.161 [DEBUG] dps_ui.app (PID 95476):   Center panel + tabs OK
+09:23:38.163 [DEBUG] dps_ui.app (PID 95476):   Right panel OK
+09:23:38.164 [DEBUG] dps_ui.app (PID 95476):   Right panel placeholder OK
+09:23:38.165 [DEBUG] dps_ui.app (PID 95476): _build_ui DONE
+09:23:38.165 [INFO] dps_ui.app (PID 95476):   UI built OK
+09:23:38.165 [INFO] dps_ui.app (PID 95476):   Geometry restored
+09:23:38.165 [INFO] dps_ui.app (PID 95476):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_61428_1.jsonl
+09:23:38.165 [INFO] dps_ui.app (PID 95476):   IPC watcher started
+09:23:38.165 [INFO] dps_ui.app (PID 95476):   Starting data load...
+09:23:38.165 [INFO] data.repository (PID 95476): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:23:38.165 [INFO] data.repository (PID 95476):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:23:38.166 [INFO] dps_ui.app (PID 95476): DpsCalcApp.__init__ DONE
+09:23:38.166 [INFO] dps_calc (PID 95476): DpsCalcApp window created OK
+09:23:38.166 [INFO] data.repository (PID 95476):   Cache file exists: True
+09:23:38.297 [INFO] dps_calc (PID 95476): Window shown, entering event loop
+09:23:38.297 [INFO] data.repository (PID 95476):   Cache file size: 19.8 MB
+09:23:38.297 [INFO] data.repository (PID 95476):   Calling self._cache.load()...
+09:23:38.297 [DEBUG] data.cache (PID 95476): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:23:38.395 [DEBUG] data.cache (PID 95476): Cache: parse took 0.098s
+09:23:38.395 [DEBUG] data.cache (PID 95476): Cache: valid (age=7100s, ttl=7200s)
+09:23:38.395 [INFO] data.repository (PID 95476):   self._cache.load() returned: data
+09:23:38.396 [INFO] data.repository (PID 95476):   Using cached data
+09:23:38.493 [INFO] data.repository (PID 95476):   Game version: 
+09:23:38.503 [INFO] data.repository (PID 95476):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:23:38.503 [INFO] data.repository (PID 95476):   Data swap complete, loaded=True
+09:23:38.503 [INFO] data.repository (PID 95476):   Firing on_done callback...
+09:23:38.503 [INFO] data.repository (PID 95476):   on_done callback fired
+09:23:38.505 [DEBUG] dps_ui.app (PID 95476): _CallbackProxy dispatching _on_data_loaded
+09:23:38.505 [INFO] dps_ui.app (PID 95476): _on_data_loaded called (error=None, loaded=True)
+09:23:38.505 [INFO] dps_ui.app (PID 95476):   208 ships loaded
+09:23:38.505 [INFO] dps_ui.app (PID 95476):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:23:38.506 [INFO] dps_ui.app (PID 95476): _on_data_loaded DONE
+09:23:38.509 [DEBUG] urllib3.connectionpool (PID 95476): Starting new HTTPS connection (1): server.erkul.games:443
+09:23:38.801 [DEBUG] urllib3.connectionpool (PID 95476): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:23:38.802 [DEBUG] urllib3.connectionpool (PID 95476): Starting new HTTPS connection (1): server.erkul.games:443
+09:23:39.083 [DEBUG] urllib3.connectionpool (PID 95476): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:24:44.110 [DEBUG] shared.ipc (PID 95476): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_61428_1.jsonl
+09:24:44.125 [CRITICAL] dps_calc (PID 95476): [Qt FATAL] QThread: Destroyed while thread '' is still running
+09:24:57.472 [INFO] dps_calc (PID 74636): ============================================================
+09:24:57.472 [INFO] dps_calc (PID 74636): DPS Calculator starting  (PID 74636)
+09:24:57.472 [INFO] dps_calc (PID 74636): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_95832_1.jsonl']
+09:24:57.472 [INFO] dps_calc (PID 74636): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:24:57.472 [INFO] dps_calc (PID 74636): Parsing CLI args...
+09:24:57.473 [INFO] dps_calc (PID 74636): CLI args parsed: x=100 y=100 w=1300 h=800
+09:24:57.473 [INFO] dps_calc (PID 74636): Creating QApplication...
+09:24:57.515 [DEBUG] shared.qt.fonts (PID 74636): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:24:57.516 [INFO] dps_calc (PID 74636): QApplication created OK
+09:24:57.516 [INFO] dps_calc (PID 74636): Creating DpsCalcApp window...
+09:24:57.519 [INFO] dps_ui.app (PID 74636): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:24:57.520 [INFO] dps_ui.app (PID 74636):   SCWindow.__init__ OK
+09:24:57.520 [INFO] dps_ui.app (PID 74636):   Building UI...
+09:24:57.520 [DEBUG] dps_ui.app (PID 74636): _build_ui START
+09:24:57.520 [DEBUG] dps_ui.app (PID 74636):   Creating title bar...
+09:24:57.578 [DEBUG] dps_ui.app (PID 74636):   Creating header OK
+09:24:57.578 [DEBUG] dps_ui.app (PID 74636):   Creating left panel...
+09:24:57.704 [DEBUG] dps_ui.app (PID 74636):   Left panel OK
+09:24:57.714 [DEBUG] dps_ui.app (PID 74636):   Center panel + tabs OK
+09:24:57.716 [DEBUG] dps_ui.app (PID 74636):   Right panel OK
+09:24:57.716 [DEBUG] dps_ui.app (PID 74636):   Right panel placeholder OK
+09:24:57.717 [DEBUG] dps_ui.app (PID 74636): _build_ui DONE
+09:24:57.718 [INFO] dps_ui.app (PID 74636):   UI built OK
+09:24:57.718 [INFO] dps_ui.app (PID 74636):   Geometry restored
+09:24:57.718 [INFO] dps_ui.app (PID 74636):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_95832_1.jsonl
+09:24:57.718 [INFO] dps_ui.app (PID 74636):   IPC watcher started
+09:24:57.718 [INFO] dps_ui.app (PID 74636):   Starting data load...
+09:24:57.718 [INFO] data.repository (PID 74636): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:24:57.718 [INFO] data.repository (PID 74636):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:24:57.718 [INFO] dps_ui.app (PID 74636): DpsCalcApp.__init__ DONE
+09:24:57.718 [INFO] dps_calc (PID 74636): DpsCalcApp window created OK
+09:24:57.718 [INFO] data.repository (PID 74636):   Cache file exists: True
+09:24:57.845 [INFO] dps_calc (PID 74636): Window shown, entering event loop
+09:24:57.845 [INFO] data.repository (PID 74636):   Cache file size: 19.8 MB
+09:24:57.845 [INFO] data.repository (PID 74636):   Calling self._cache.load()...
+09:24:57.845 [DEBUG] data.cache (PID 74636): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:24:57.939 [DEBUG] data.cache (PID 74636): Cache: parse took 0.093s
+09:24:57.939 [DEBUG] data.cache (PID 74636): Cache: valid (age=7179s, ttl=7200s)
+09:24:57.939 [INFO] data.repository (PID 74636):   self._cache.load() returned: data
+09:24:57.939 [INFO] data.repository (PID 74636):   Using cached data
+09:24:58.022 [INFO] data.repository (PID 74636):   Game version: 
+09:24:58.024 [INFO] data.repository (PID 74636):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:24:58.024 [INFO] data.repository (PID 74636):   Data swap complete, loaded=True
+09:24:58.024 [INFO] data.repository (PID 74636):   Firing on_done callback...
+09:24:58.024 [INFO] data.repository (PID 74636):   on_done callback fired
+09:24:58.025 [DEBUG] dps_ui.app (PID 74636): _CallbackProxy dispatching _on_data_loaded
+09:24:58.025 [INFO] dps_ui.app (PID 74636): _on_data_loaded called (error=None, loaded=True)
+09:24:58.025 [INFO] dps_ui.app (PID 74636):   208 ships loaded
+09:24:58.025 [INFO] dps_ui.app (PID 74636):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:24:58.025 [INFO] dps_ui.app (PID 74636): _on_data_loaded DONE
+09:24:58.047 [DEBUG] urllib3.connectionpool (PID 74636): Starting new HTTPS connection (1): server.erkul.games:443
+09:24:58.342 [DEBUG] urllib3.connectionpool (PID 74636): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:24:58.343 [DEBUG] urllib3.connectionpool (PID 74636): Starting new HTTPS connection (1): server.erkul.games:443
+09:24:58.640 [DEBUG] urllib3.connectionpool (PID 74636): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:25:16.906 [DEBUG] shared.ipc (PID 74636): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_95832_1.jsonl
+09:25:16.919 [CRITICAL] dps_calc (PID 74636): [Qt FATAL] QThread: Destroyed while thread '' is still running
+09:32:22.177 [INFO] dps_calc (PID 71088): ============================================================
+09:32:22.177 [INFO] dps_calc (PID 71088): DPS Calculator starting  (PID 71088)
+09:32:22.177 [INFO] dps_calc (PID 71088): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_56756_1.jsonl']
+09:32:22.177 [INFO] dps_calc (PID 71088): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:32:22.177 [INFO] dps_calc (PID 71088): Parsing CLI args...
+09:32:22.177 [INFO] dps_calc (PID 71088): CLI args parsed: x=100 y=100 w=1300 h=800
+09:32:22.177 [INFO] dps_calc (PID 71088): Creating QApplication...
+09:32:22.222 [DEBUG] shared.qt.fonts (PID 71088): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:32:22.222 [INFO] dps_calc (PID 71088): QApplication created OK
+09:32:22.222 [INFO] dps_calc (PID 71088): Creating DpsCalcApp window...
+09:32:22.226 [INFO] dps_ui.app (PID 71088): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:32:22.226 [INFO] dps_ui.app (PID 71088):   SCWindow.__init__ OK
+09:32:22.227 [INFO] dps_ui.app (PID 71088):   Building UI...
+09:32:22.227 [DEBUG] dps_ui.app (PID 71088): _build_ui START
+09:32:22.227 [DEBUG] dps_ui.app (PID 71088):   Creating title bar...
+09:32:22.257 [DEBUG] dps_ui.app (PID 71088):   Creating header OK
+09:32:22.257 [DEBUG] dps_ui.app (PID 71088):   Creating left panel...
+09:32:22.397 [DEBUG] dps_ui.app (PID 71088):   Left panel OK
+09:32:22.406 [DEBUG] dps_ui.app (PID 71088):   Center panel + tabs OK
+09:32:22.409 [DEBUG] dps_ui.app (PID 71088):   Right panel OK
+09:32:22.409 [DEBUG] dps_ui.app (PID 71088):   Right panel placeholder OK
+09:32:22.410 [DEBUG] dps_ui.app (PID 71088): _build_ui DONE
+09:32:22.410 [INFO] dps_ui.app (PID 71088):   UI built OK
+09:32:22.410 [INFO] dps_ui.app (PID 71088):   Geometry restored
+09:32:22.410 [INFO] dps_ui.app (PID 71088):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_56756_1.jsonl
+09:32:22.410 [INFO] dps_ui.app (PID 71088):   IPC watcher started
+09:32:22.410 [INFO] dps_ui.app (PID 71088):   Starting data load...
+09:32:22.410 [INFO] data.repository (PID 71088): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:32:22.410 [INFO] data.repository (PID 71088):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:32:22.411 [INFO] dps_ui.app (PID 71088): DpsCalcApp.__init__ DONE
+09:32:22.411 [INFO] dps_calc (PID 71088): DpsCalcApp window created OK
+09:32:22.411 [INFO] data.repository (PID 71088):   Cache file exists: True
+09:32:22.531 [INFO] dps_calc (PID 71088): Window shown, entering event loop
+09:32:22.531 [INFO] data.repository (PID 71088):   Cache file size: 19.8 MB
+09:32:22.531 [INFO] data.repository (PID 71088):   Calling self._cache.load()...
+09:32:22.531 [DEBUG] data.cache (PID 71088): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:32:22.626 [DEBUG] data.cache (PID 71088): Cache: parse took 0.095s
+09:32:22.627 [DEBUG] data.cache (PID 71088): Cache: expired (age=7624s, ttl=7200s)
+09:32:22.638 [INFO] data.repository (PID 71088):   self._cache.load() returned: None
+09:32:22.639 [INFO] data.repository (PID 71088):   No cache, fetching from erkul.games...
+09:32:22.640 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:22.978 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/weapons HTTP/1.1" 200 None
+09:32:23.015 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:23.300 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/shields HTTP/1.1" 200 None
+09:32:23.305 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:23.579 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/coolers HTTP/1.1" 200 None
+09:32:23.587 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:23.885 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/missiles HTTP/1.1" 200 None
+09:32:23.894 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:24.180 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/radars HTTP/1.1" 200 None
+09:32:24.186 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:24.488 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/power-plants HTTP/1.1" 200 None
+09:32:24.499 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:24.798 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/qdrives HTTP/1.1" 200 None
+09:32:24.803 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:25.085 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/thrusters HTTP/1.1" 403 40
+09:32:26.086 [WARNING] data.api_client (PID 71088): Retry 1/3 for /live/thrusters: 403 Client Error: Forbidden for url: https://server.erkul.games/live/thrusters
+09:32:26.087 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:26.379 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/thrusters HTTP/1.1" 403 40
+09:32:28.380 [WARNING] data.api_client (PID 71088): Retry 2/3 for /live/thrusters: 403 Client Error: Forbidden for url: https://server.erkul.games/live/thrusters
+09:32:28.381 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:28.690 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/thrusters HTTP/1.1" 403 40
+09:32:28.691 [WARNING] data.api_client (PID 71088): fetch_safe failed for /live/thrusters: API error for https://server.erkul.games/live/thrusters: 403 Client Error: Forbidden for url: https://server.erkul.games/live/thrusters
+09:32:28.691 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:29.010 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/paints HTTP/1.1" 200 None
+09:32:29.047 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:29.325 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/ships?limit=500 HTTP/1.1" 200 None
+09:32:29.620 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:29.911 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/ships?type=ground HTTP/1.1" 200 None
+09:32:30.218 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:30.520 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/ships?type=capital HTTP/1.1" 200 None
+09:32:30.788 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:31.068 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/ships HTTP/1.1" 200 None
+09:32:31.381 [INFO] data.repository (PID 71088):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:32:31.381 [INFO] data.repository (PID 71088):   Data swap complete, loaded=True
+09:32:31.381 [INFO] data.repository (PID 71088):   Firing on_done callback...
+09:32:31.381 [INFO] data.repository (PID 71088):   on_done callback fired
+09:32:31.381 [DEBUG] dps_ui.app (PID 71088): _CallbackProxy dispatching _on_data_loaded
+09:32:31.381 [INFO] dps_ui.app (PID 71088): _on_data_loaded called (error=None, loaded=True)
+09:32:31.381 [INFO] dps_ui.app (PID 71088):   208 ships loaded
+09:32:31.381 [INFO] dps_ui.app (PID 71088):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:32:31.383 [INFO] dps_ui.app (PID 71088): _on_data_loaded DONE
+09:32:31.383 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:31.661 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:32:31.662 [DEBUG] urllib3.connectionpool (PID 71088): Starting new HTTPS connection (1): server.erkul.games:443
+09:32:31.968 [DEBUG] urllib3.connectionpool (PID 71088): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:34:52.010 [DEBUG] shared.ipc (PID 71088): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_56756_1.jsonl
+09:34:52.024 [CRITICAL] dps_calc (PID 71088): [Qt FATAL] QThread: Destroyed while thread '' is still running
+09:35:07.538 [INFO] dps_calc (PID 59088): ============================================================
+09:35:07.538 [INFO] dps_calc (PID 59088): DPS Calculator starting  (PID 59088)
+09:35:07.538 [INFO] dps_calc (PID 59088): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_74056_1.jsonl']
+09:35:07.538 [INFO] dps_calc (PID 59088): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:35:07.538 [INFO] dps_calc (PID 59088): Parsing CLI args...
+09:35:07.538 [INFO] dps_calc (PID 59088): CLI args parsed: x=100 y=100 w=1300 h=800
+09:35:07.538 [INFO] dps_calc (PID 59088): Creating QApplication...
+09:35:07.583 [DEBUG] shared.qt.fonts (PID 59088): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:35:07.583 [INFO] dps_calc (PID 59088): QApplication created OK
+09:35:07.583 [INFO] dps_calc (PID 59088): Creating DpsCalcApp window...
+09:35:07.587 [INFO] dps_ui.app (PID 59088): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:35:07.588 [INFO] dps_ui.app (PID 59088):   SCWindow.__init__ OK
+09:35:07.588 [INFO] dps_ui.app (PID 59088):   Building UI...
+09:35:07.588 [DEBUG] dps_ui.app (PID 59088): _build_ui START
+09:35:07.588 [DEBUG] dps_ui.app (PID 59088):   Creating title bar...
+09:35:07.654 [DEBUG] dps_ui.app (PID 59088):   Creating header OK
+09:35:07.654 [DEBUG] dps_ui.app (PID 59088):   Creating left panel...
+09:35:07.766 [DEBUG] dps_ui.app (PID 59088):   Left panel OK
+09:35:07.777 [DEBUG] dps_ui.app (PID 59088):   Center panel + tabs OK
+09:35:07.779 [DEBUG] dps_ui.app (PID 59088):   Right panel OK
+09:35:07.779 [DEBUG] dps_ui.app (PID 59088):   Right panel placeholder OK
+09:35:07.781 [DEBUG] dps_ui.app (PID 59088): _build_ui DONE
+09:35:07.781 [INFO] dps_ui.app (PID 59088):   UI built OK
+09:35:07.781 [INFO] dps_ui.app (PID 59088):   Geometry restored
+09:35:07.781 [INFO] dps_ui.app (PID 59088):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_74056_1.jsonl
+09:35:07.781 [INFO] dps_ui.app (PID 59088):   IPC watcher started
+09:35:07.781 [INFO] dps_ui.app (PID 59088):   Starting data load...
+09:35:07.781 [INFO] data.repository (PID 59088): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:35:07.781 [INFO] data.repository (PID 59088):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:35:07.781 [INFO] dps_ui.app (PID 59088): DpsCalcApp.__init__ DONE
+09:35:07.781 [INFO] dps_calc (PID 59088): DpsCalcApp window created OK
+09:35:07.781 [INFO] data.repository (PID 59088):   Cache file exists: True
+09:35:07.900 [INFO] dps_calc (PID 59088): Window shown, entering event loop
+09:35:07.900 [INFO] data.repository (PID 59088):   Cache file size: 18.3 MB
+09:35:07.900 [INFO] data.repository (PID 59088):   Calling self._cache.load()...
+09:35:07.901 [DEBUG] data.cache (PID 59088): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:35:08.000 [DEBUG] data.cache (PID 59088): Cache: parse took 0.099s
+09:35:08.000 [DEBUG] data.cache (PID 59088): Cache: valid (age=157s, ttl=7200s)
+09:35:08.000 [INFO] data.repository (PID 59088):   self._cache.load() returned: data
+09:35:08.000 [INFO] data.repository (PID 59088):   Using cached data
+09:35:08.083 [INFO] data.repository (PID 59088):   Game version: 
+09:35:08.086 [INFO] data.repository (PID 59088):   Indexing complete: 136 weapons, 64 shields, 203 ships
+09:35:08.086 [INFO] data.repository (PID 59088):   Data swap complete, loaded=True
+09:35:08.086 [INFO] data.repository (PID 59088):   Firing on_done callback...
+09:35:08.086 [INFO] data.repository (PID 59088):   on_done callback fired
+09:35:08.086 [DEBUG] dps_ui.app (PID 59088): _CallbackProxy dispatching _on_data_loaded
+09:35:08.086 [INFO] dps_ui.app (PID 59088): _on_data_loaded called (error=None, loaded=True)
+09:35:08.086 [INFO] dps_ui.app (PID 59088):   208 ships loaded
+09:35:08.086 [INFO] dps_ui.app (PID 59088):   134 weapons, 63 shields, 72 coolers, 61 missiles
+09:35:08.087 [INFO] dps_ui.app (PID 59088): _on_data_loaded DONE
+09:35:08.090 [DEBUG] urllib3.connectionpool (PID 59088): Starting new HTTPS connection (1): server.erkul.games:443
+09:35:08.390 [DEBUG] urllib3.connectionpool (PID 59088): https://server.erkul.games:443 "GET /live/gameVersion HTTP/1.1" 403 40
+09:35:08.391 [DEBUG] urllib3.connectionpool (PID 59088): Starting new HTTPS connection (1): server.erkul.games:443
+09:35:08.681 [DEBUG] urllib3.connectionpool (PID 59088): https://server.erkul.games:443 "GET /live/version HTTP/1.1" 403 40
+09:35:10.912 [DEBUG] shared.ipc (PID 59088): ipc_read_and_clear: read 1 command(s) from C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_74056_1.jsonl
+09:35:10.927 [CRITICAL] dps_calc (PID 59088): [Qt FATAL] QThread: Destroyed while thread '' is still running
+09:35:24.625 [INFO] dps_calc (PID 89836): ============================================================
+09:35:24.625 [INFO] dps_calc (PID 89836): DPS Calculator starting  (PID 89836)
+09:35:24.625 [INFO] dps_calc (PID 89836): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_16012_1.jsonl']
+09:35:24.625 [INFO] dps_calc (PID 89836): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:35:24.625 [INFO] dps_calc (PID 89836): Parsing CLI args...
+09:35:24.626 [INFO] dps_calc (PID 89836): CLI args parsed: x=100 y=100 w=1300 h=800
+09:35:24.626 [INFO] dps_calc (PID 89836): Creating QApplication...
+09:35:24.667 [DEBUG] shared.qt.fonts (PID 89836): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:35:24.668 [INFO] dps_calc (PID 89836): QApplication created OK
+09:35:24.668 [INFO] dps_calc (PID 89836): Creating DpsCalcApp window...
+09:35:24.671 [INFO] dps_ui.app (PID 89836): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:35:24.672 [INFO] dps_ui.app (PID 89836):   SCWindow.__init__ OK
+09:35:24.672 [INFO] dps_ui.app (PID 89836):   Building UI...
+09:35:24.672 [DEBUG] dps_ui.app (PID 89836): _build_ui START
+09:35:24.672 [DEBUG] dps_ui.app (PID 89836):   Creating title bar...
+09:35:24.701 [DEBUG] dps_ui.app (PID 89836):   Creating header OK
+09:35:24.701 [DEBUG] dps_ui.app (PID 89836):   Creating left panel...
+09:35:24.844 [DEBUG] dps_ui.app (PID 89836):   Left panel OK
+09:35:24.854 [DEBUG] dps_ui.app (PID 89836):   Center panel + tabs OK
+09:35:24.857 [DEBUG] dps_ui.app (PID 89836):   Right panel OK
+09:35:24.857 [DEBUG] dps_ui.app (PID 89836):   Right panel placeholder OK
+09:35:24.859 [DEBUG] dps_ui.app (PID 89836): _build_ui DONE
+09:35:24.859 [INFO] dps_ui.app (PID 89836):   UI built OK
+09:35:24.859 [INFO] dps_ui.app (PID 89836):   Geometry restored
+09:35:24.859 [INFO] dps_ui.app (PID 89836):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_16012_1.jsonl
+09:35:24.859 [INFO] dps_ui.app (PID 89836):   IPC watcher started
+09:35:24.859 [INFO] dps_ui.app (PID 89836):   Starting data load...
+09:35:24.859 [INFO] data.repository (PID 89836): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:35:24.859 [INFO] data.repository (PID 89836):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:35:24.859 [INFO] dps_ui.app (PID 89836): DpsCalcApp.__init__ DONE
+09:35:24.859 [INFO] dps_calc (PID 89836): DpsCalcApp window created OK
+09:35:24.859 [INFO] data.repository (PID 89836):   Cache file exists: True
+09:35:24.985 [INFO] dps_calc (PID 89836): Window shown, entering event loop
+09:35:24.985 [INFO] data.repository (PID 89836):   Cache file size: 18.3 MB
+09:35:24.985 [INFO] data.repository (PID 89836):   Calling self._cache.load()...
+09:35:24.986 [DEBUG] data.cache (PID 89836): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+09:35:37.769 [INFO] dps_calc (PID 105168): ============================================================
+09:35:37.769 [INFO] dps_calc (PID 105168): DPS Calculator starting  (PID 105168)
+09:35:37.769 [INFO] dps_calc (PID 105168): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_16012_2.jsonl']
+09:35:37.769 [INFO] dps_calc (PID 105168): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+09:35:37.769 [INFO] dps_calc (PID 105168): Parsing CLI args...
+09:35:37.770 [INFO] dps_calc (PID 105168): CLI args parsed: x=100 y=100 w=1300 h=800
+09:35:37.770 [INFO] dps_calc (PID 105168): Creating QApplication...
+09:35:37.813 [DEBUG] shared.qt.fonts (PID 105168): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+09:35:37.813 [INFO] dps_calc (PID 105168): QApplication created OK
+09:35:37.813 [INFO] dps_calc (PID 105168): Creating DpsCalcApp window...
+09:35:37.817 [INFO] dps_ui.app (PID 105168): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+09:35:37.817 [INFO] dps_ui.app (PID 105168):   SCWindow.__init__ OK
+09:35:37.818 [INFO] dps_ui.app (PID 105168):   Building UI...
+09:35:37.818 [DEBUG] dps_ui.app (PID 105168): _build_ui START
+09:35:37.818 [DEBUG] dps_ui.app (PID 105168):   Creating title bar...
+09:35:37.894 [DEBUG] dps_ui.app (PID 105168):   Creating header OK
+09:35:37.894 [DEBUG] dps_ui.app (PID 105168):   Creating left panel...
+09:35:37.979 [DEBUG] dps_ui.app (PID 105168):   Left panel OK
+09:35:37.988 [DEBUG] dps_ui.app (PID 105168):   Center panel + tabs OK
+09:35:37.990 [DEBUG] dps_ui.app (PID 105168):   Right panel OK
+09:35:37.990 [DEBUG] dps_ui.app (PID 105168):   Right panel placeholder OK
+09:35:37.991 [DEBUG] dps_ui.app (PID 105168): _build_ui DONE
+09:35:37.991 [INFO] dps_ui.app (PID 105168):   UI built OK
+09:35:37.992 [INFO] dps_ui.app (PID 105168):   Geometry restored
+09:35:37.992 [INFO] dps_ui.app (PID 105168):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_16012_2.jsonl
+09:35:37.992 [INFO] dps_ui.app (PID 105168):   IPC watcher started
+09:35:37.992 [INFO] dps_ui.app (PID 105168):   Starting data load...
+09:35:37.992 [INFO] data.repository (PID 105168): Data load thread started (tid=Thread-1 (_run), daemon=True)
+09:35:37.992 [INFO] data.repository (PID 105168):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+09:35:37.992 [INFO] dps_ui.app (PID 105168): DpsCalcApp.__init__ DONE
+09:35:37.992 [INFO] dps_calc (PID 105168): DpsCalcApp window created OK
+09:35:37.992 [INFO] data.repository (PID 105168):   Cache file exists: True
+09:35:38.115 [INFO] dps_calc (PID 105168): Window shown, entering event loop
+09:35:38.115 [INFO] data.repository (PID 105168):   Cache file size: 18.3 MB
+09:35:38.115 [INFO] data.repository (PID 105168):   Calling self._cache.load()...
+09:35:38.115 [DEBUG] data.cache (PID 105168): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...
+15:54:24.025 [INFO] dps_calc (PID 74764): ============================================================
+15:54:24.026 [INFO] dps_calc (PID 74764): DPS Calculator starting  (PID 74764)
+15:54:24.026 [INFO] dps_calc (PID 74764): argv: ['C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\skills\\DPS_Calculator\\dps_calc_app.py', '100', '100', '1300', '800', '0.95', 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\sc_toolbox_dps_95684_1.jsonl']
+15:54:24.026 [INFO] dps_calc (PID 74764): cwd:  C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator
+15:54:24.026 [INFO] dps_calc (PID 74764): Parsing CLI args...
+15:54:24.026 [INFO] dps_calc (PID 74764): CLI args parsed: x=100 y=100 w=1300 h=800
+15:54:24.026 [INFO] dps_calc (PID 74764): Creating QApplication...
+15:54:24.070 [DEBUG] shared.qt.fonts (PID 74764): Loaded font: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\shared\qt\fonts\Electrolize-Regular.ttf (families: ['Electrolize'])
+15:54:24.070 [INFO] dps_calc (PID 74764): QApplication created OK
+15:54:24.070 [INFO] dps_calc (PID 74764): Creating DpsCalcApp window...
+15:54:24.074 [INFO] dps_ui.app (PID 74764): DpsCalcApp.__init__ START (x=100 y=100 w=1300 h=800)
+15:54:24.075 [INFO] dps_ui.app (PID 74764):   SCWindow.__init__ OK
+15:54:24.075 [INFO] dps_ui.app (PID 74764):   Building UI...
+15:54:24.075 [DEBUG] dps_ui.app (PID 74764): _build_ui START
+15:54:24.075 [DEBUG] dps_ui.app (PID 74764):   Creating title bar...
+15:54:24.131 [DEBUG] dps_ui.app (PID 74764):   Creating header OK
+15:54:24.131 [DEBUG] dps_ui.app (PID 74764):   Creating left panel...
+15:54:24.261 [DEBUG] dps_ui.app (PID 74764):   Left panel OK
+15:54:24.270 [DEBUG] dps_ui.app (PID 74764):   Center panel + tabs OK
+15:54:24.273 [DEBUG] dps_ui.app (PID 74764):   Right panel OK
+15:54:24.273 [DEBUG] dps_ui.app (PID 74764):   Right panel placeholder OK
+15:54:24.274 [DEBUG] dps_ui.app (PID 74764): _build_ui DONE
+15:54:24.274 [INFO] dps_ui.app (PID 74764):   UI built OK
+15:54:24.275 [INFO] dps_ui.app (PID 74764):   Geometry restored
+15:54:24.275 [INFO] dps_ui.app (PID 74764):   Starting IPC watcher for C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_dps_95684_1.jsonl
+15:54:24.275 [INFO] dps_ui.app (PID 74764):   IPC watcher started
+15:54:24.275 [INFO] dps_ui.app (PID 74764):   Starting data load...
+15:54:24.275 [INFO] data.repository (PID 74764): Data load thread started (tid=Thread-1 (_run), daemon=True)
+15:54:24.275 [INFO] data.repository (PID 74764):   Cache file: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json
+15:54:24.275 [INFO] dps_ui.app (PID 74764): DpsCalcApp.__init__ DONE
+15:54:24.275 [INFO] dps_calc (PID 74764): DpsCalcApp window created OK
+15:54:24.275 [INFO] data.repository (PID 74764):   Cache file exists: True
+15:54:24.395 [INFO] dps_calc (PID 74764): Window shown, entering event loop
+15:54:24.395 [INFO] data.repository (PID 74764):   Cache file size: 18.3 MB
+15:54:24.395 [INFO] data.repository (PID 74764):   Calling self._cache.load()...
+15:54:24.395 [DEBUG] data.cache (PID 74764): Cache: opening C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\DPS_Calculator\data\..\.erkul_cache.json (parser=orjson) ...

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# pytest
+.pytest_cache/
+
+# Logs (runtime-generated)
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Settings (user-specific, not shared)
+skill_launcher_settings.json
+nul.lock
+
+# Claude Code (session-specific, not shared)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

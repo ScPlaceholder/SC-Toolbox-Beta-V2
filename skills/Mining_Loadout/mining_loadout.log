@@ -1,0 +1,865 @@
+2026-03-16 18:17:14 [INFO ] ============================================================
+2026-03-16 18:17:14 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:17:14 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:17:14 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_5056.jsonl'
+2026-03-16 18:17:17 [INFO ] ============================================================
+2026-03-16 18:17:17 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:17:17 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:17:17 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_5056.jsonl'
+2026-03-16 18:20:32 [INFO ] ============================================================
+2026-03-16 18:20:32 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:20:32 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:20:32 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_50312.jsonl'
+2026-03-16 18:20:34 [INFO ] ============================================================
+2026-03-16 18:20:34 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:20:34 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:20:34 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_50312.jsonl'
+2026-03-16 18:20:53 [INFO ] ============================================================
+2026-03-16 18:20:53 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:20:53 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:20:53 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_50312.jsonl'
+2026-03-16 18:22:57 [INFO ] ============================================================
+2026-03-16 18:22:57 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:22:57 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:22:57 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_42848.jsonl'
+2026-03-16 18:23:00 [INFO ] ============================================================
+2026-03-16 18:23:00 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:23:00 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:23:00 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_42848.jsonl'
+2026-03-16 18:23:48 [INFO ] ============================================================
+2026-03-16 18:23:48 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:23:48 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:23:48 [ERROR] Bad args: could not convert string to float: 'C:\\Users\\prjgn\\AppData\\Local\\Temp\\miningloadout_42848.jsonl'
+2026-03-16 18:26:36 [INFO ] ============================================================
+2026-03-16 18:26:36 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:26:36 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:26:36 [INFO ] Window init — 1100x700+80+80  opacity=0.95
+2026-03-16 18:26:38 [DEBUG] IPC: {'type': 'set_ship', 'ship': 'Golem'}
+2026-03-16 18:26:38 [INFO ] Ship changed to Golem
+2026-03-16 18:26:38 [INFO ] Entering mainloop
+2026-03-16 18:26:38 [INFO ] Fetching mining data from UEX API...
+2026-03-16 18:26:38 [DEBUG] IPC: {'type': 'show'}
+2026-03-16 18:26:40 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:26:40 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:28:35 [INFO ] Ship changed to MOLE
+2026-03-16 18:28:37 [INFO ] Ship changed to Prospector
+2026-03-16 18:28:42 [INFO ] Ship changed to Golem
+2026-03-16 18:28:44 [INFO ] Ship changed to Prospector
+2026-03-16 18:29:33 [INFO ] Ship changed to MOLE
+2026-03-16 18:29:44 [INFO ] Ship changed to Golem
+2026-03-16 18:52:18 [INFO ] ============================================================
+2026-03-16 18:52:18 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:52:18 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:52:18 [INFO ] Window init — 1100x700+80+80  opacity=0.95
+2026-03-16 18:52:19 [INFO ] Entering mainloop
+2026-03-16 18:52:19 [INFO ] Fetching mining data from UEX API...
+2026-03-16 18:52:22 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:52:22 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:52:32 [INFO ] Ship changed to Golem
+2026-03-16 18:53:25 [INFO ] ============================================================
+2026-03-16 18:53:25 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:53:25 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:53:25 [INFO ] Window init — 1100x700+80+80  opacity=0.95
+2026-03-16 18:53:26 [DEBUG] IPC: {'type': 'set_ship', 'ship': 'Golem'}
+2026-03-16 18:53:26 [INFO ] Ship changed to Golem
+2026-03-16 18:53:26 [DEBUG] IPC: {'type': 'show'}
+2026-03-16 18:53:26 [INFO ] Entering mainloop
+2026-03-16 18:53:27 [INFO ] Fetching mining data from UEX API...
+2026-03-16 18:53:29 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:53:29 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:58:58 [INFO ] ============================================================
+2026-03-16 18:58:58 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 18:58:58 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 18:58:58 [INFO ] Window init — 1100x700+80+80  opacity=0.95
+2026-03-16 18:58:59 [INFO ] Entering mainloop
+2026-03-16 18:58:59 [INFO ] Fetching mining data from UEX API...
+2026-03-16 18:59:02 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 18:59:02 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-16 19:03:53 [INFO ] Ship changed to Golem
+2026-03-16 19:03:59 [INFO ] Fetching mining data from UEX API...
+2026-03-16 19:04:01 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 19:04:01 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-16 19:46:17 [INFO ] ============================================================
+2026-03-16 19:46:17 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 19:46:17 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 19:46:17 [ERROR] Bad args: invalid literal for int() with base 10: '--check-imports'
+2026-03-16 22:49:03 [INFO ] ============================================================
+2026-03-16 22:49:03 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-16 22:49:03 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-16 22:49:03 [INFO ] Window init — 1100x700+80+80  opacity=0.95
+2026-03-16 22:49:03 [INFO ] Entering mainloop
+2026-03-16 22:49:03 [DEBUG] IPC: {'type': 'set_ship', 'ship': 'Golem'}
+2026-03-16 22:49:04 [INFO ] Ship changed to Golem
+2026-03-16 22:49:04 [INFO ] Fetching mining data from UEX API...
+2026-03-16 22:49:06 [DEBUG] IPC: {'type': 'show'}
+2026-03-16 22:49:06 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-16 22:49:06 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-19 23:27:00 [INFO ] ============================================================
+2026-03-19 23:27:00 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-19 23:27:00 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-19 23:27:00 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-19 23:27:00 [INFO ] Entering mainloop
+2026-03-19 23:27:01 [INFO ] Fetching mining data from UEX API...
+2026-03-19 23:27:03 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-19 23:27:03 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-19 23:50:03 [DEBUG] IPC: {'type': 'quit'}
+2026-03-19 23:50:03 [INFO ] mainloop exited
+2026-03-19 23:52:13 [INFO ] ============================================================
+2026-03-19 23:52:13 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-19 23:52:13 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-19 23:52:13 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-19 23:52:14 [INFO ] Entering mainloop
+2026-03-19 23:52:14 [INFO ] Fetching mining data from UEX API...
+2026-03-19 23:52:17 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-19 23:52:17 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-20 08:34:44 [DEBUG] IPC: {'type': 'quit'}
+2026-03-20 08:34:44 [INFO ] mainloop exited
+2026-03-20 08:35:40 [INFO ] ============================================================
+2026-03-20 08:35:40 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-20 08:35:40 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-20 08:35:40 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-20 08:35:41 [INFO ] Entering mainloop
+2026-03-20 08:35:41 [INFO ] Fetching mining data from UEX API...
+2026-03-20 08:35:44 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-20 08:35:44 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-20 08:42:09 [DEBUG] IPC: {'type': 'hide'}
+2026-03-20 15:11:33 [DEBUG] IPC: {'type': 'show'}
+2026-03-20 15:11:33 [DEBUG] IPC: {'type': 'hide'}
+2026-03-20 15:15:38 [DEBUG] IPC: {'type': 'show'}
+2026-03-21 18:35:28 [DEBUG] IPC: {'type': 'quit'}
+2026-03-21 18:35:28 [INFO ] mainloop exited
+2026-03-22 15:06:49 [INFO ] ============================================================
+2026-03-22 15:06:49 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-22 15:06:49 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-22 15:06:49 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-22 15:06:50 [INFO ] Entering mainloop
+2026-03-22 15:06:50 [INFO ] Fetching mining data from UEX API...
+2026-03-22 15:06:52 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-22 15:06:52 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-22 15:07:05 [INFO ] Ship changed to Golem
+2026-03-22 15:07:09 [INFO ] Ship changed to Prospector
+2026-03-22 15:36:39 [DEBUG] IPC: {'type': 'quit'}
+2026-03-22 15:36:39 [INFO ] mainloop exited
+2026-03-22 20:01:32 [INFO ] ============================================================
+2026-03-22 20:01:32 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-22 20:01:32 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\Mining_Loadout\mining_loadout_app.py
+2026-03-22 20:01:32 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-22 20:01:32 [INFO ] Entering mainloop
+2026-03-22 20:01:33 [INFO ] Fetching mining data from UEX API...
+2026-03-22 20:01:35 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-22 20:01:35 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-22 20:09:51 [DEBUG] IPC: {'type': 'hide'}
+2026-03-22 20:09:52 [DEBUG] IPC: {'type': 'show'}
+2026-03-22 20:09:54 [INFO ] Ship changed to Golem
+2026-03-22 20:09:55 [INFO ] Ship changed to Prospector
+2026-03-22 20:09:56 [INFO ] Ship changed to Golem
+2026-03-22 20:09:56 [INFO ] Ship changed to Prospector
+2026-03-22 20:09:57 [INFO ] Ship changed to MOLE
+2026-03-22 20:09:57 [INFO ] Ship changed to Golem
+2026-03-22 20:09:58 [INFO ] Ship changed to MOLE
+2026-03-22 20:09:59 [INFO ] Ship changed to Prospector
+2026-03-22 20:10:00 [INFO ] Ship changed to Golem
+2026-03-22 20:10:02 [INFO ] Ship changed to MOLE
+2026-03-22 20:10:02 [INFO ] Ship changed to Prospector
+2026-03-22 20:10:03 [INFO ] Ship changed to MOLE
+2026-03-22 20:10:03 [INFO ] Ship changed to Golem
+2026-03-22 20:10:05 [INFO ] Ship changed to MOLE
+2026-03-22 20:10:05 [INFO ] Ship changed to Prospector
+2026-03-22 20:10:08 [INFO ] Ship changed to Golem
+2026-03-22 20:10:09 [INFO ] Ship changed to MOLE
+2026-03-22 20:10:10 [INFO ] Ship changed to Prospector
+2026-03-22 22:07:47 [DEBUG] IPC: {'type': 'quit'}
+2026-03-22 22:07:47 [INFO ] mainloop exited
+2026-03-23 16:29:21 [INFO ] ============================================================
+2026-03-23 16:29:21 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-23 16:29:21 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1\skills\Mining_Loadout\mining_loadout_app.py
+2026-03-23 16:29:21 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-23 16:29:21 [INFO ] Entering mainloop
+2026-03-23 16:29:22 [INFO ] Fetching mining data from UEX API...
+2026-03-23 16:29:24 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-23 16:29:24 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-23 17:28:57 [DEBUG] IPC: {'type': 'quit'}
+2026-03-23 17:28:57 [INFO ] mainloop exited
+2026-03-23 18:09:22 [INFO ] ============================================================
+2026-03-23 18:09:22 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-23 18:09:22 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1\skills\Mining_Loadout\mining_loadout_app.py
+2026-03-23 18:09:22 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-23 18:09:23 [INFO ] Entering mainloop
+2026-03-23 18:09:24 [INFO ] Fetching mining data from UEX API...
+2026-03-23 18:09:26 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-23 18:09:26 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-23 18:09:28 [DEBUG] IPC: {'type': 'hide'}
+2026-03-23 18:09:28 [DEBUG] IPC: {'type': 'show'}
+2026-03-23 18:10:23 [DEBUG] IPC: {'type': 'hide'}
+2026-03-23 18:11:43 [DEBUG] IPC: {'type': 'show'}
+2026-03-23 18:11:44 [DEBUG] IPC: {'type': 'hide'}
+2026-03-23 18:12:25 [DEBUG] IPC: {'type': 'show'}
+2026-03-23 18:12:25 [DEBUG] IPC: {'type': 'hide'}
+2026-03-24 23:02:05 [INFO ] ============================================================
+2026-03-24 23:02:05 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-24 23:02:05 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.1\skills\Mining_Loadout\mining_loadout_app.py
+2026-03-24 23:02:05 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-24 23:02:06 [INFO ] Entering mainloop
+2026-03-24 23:02:06 [INFO ] Fetching mining data from UEX API...
+2026-03-24 23:02:08 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-24 23:02:08 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-24 23:02:14 [INFO ] Ship changed to Golem
+2026-03-24 23:04:29 [DEBUG] IPC: {'type': 'quit'}
+2026-03-24 23:04:29 [INFO ] mainloop exited
+2026-03-25 07:50:27 [INFO ] ============================================================
+2026-03-25 07:50:27 [INFO ] Mining Loadout starting — Python 3.14.2
+2026-03-25 07:50:27 [INFO ] Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.1\skills\Mining_Loadout\mining_loadout_app.py
+2026-03-25 07:50:27 [INFO ] Window init — 1300x800+100+100  opacity=0.95
+2026-03-25 07:50:27 [INFO ] Entering mainloop
+2026-03-25 07:50:28 [INFO ] Fetching mining data from UEX API...
+2026-03-25 07:50:29 [INFO ] Ship changed to Golem
+2026-03-25 07:50:30 [INFO ] Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-25 07:50:30 [INFO ] Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-25 07:51:01 [DEBUG] IPC: {'type': 'quit'}
+2026-03-25 07:51:01 [INFO ] mainloop exited
+2026-03-25 23:16:14 [INFO ] MiningLoadout — ============================================================
+2026-03-25 23:16:14 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-25 23:16:14 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-25 23:16:14 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_21404.jsonl
+2026-03-25 23:16:14 [INFO ] MiningLoadout — Window init — 1300x800+100+100  opacity=0.95
+2026-03-25 23:16:15 [INFO ] MiningLoadout — Entering mainloop
+2026-03-25 23:16:15 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-25 23:16:17 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-25 23:16:17 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-25 23:16:18 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-25 23:21:46 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-25 23:21:46 [INFO ] MiningLoadout — mainloop exited
+2026-03-26 18:11:14 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:11:14 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:11:14 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:11:14 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:11:23 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:11:23 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:11:23 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:11:23 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:11:25 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:11:25 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:11:25 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:11:25 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:13:04 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:13:04 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:13:04 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:13:04 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:13:06 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:13:06 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:13:06 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:13:06 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:13:07 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:13:07 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:13:07 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:13:07 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53520.jsonl
+2026-03-26 18:20:20 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:20:20 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:20:20 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:20:20 [INFO ] MiningLoadout — Args: x=80 y=80 w=1200 h=720 opacity=0.95 cmd_file=None
+2026-03-26 18:21:26 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:21:26 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:21:26 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:21:26 [INFO ] MiningLoadout — Args: x=80 y=80 w=1200 h=720 opacity=0.95 cmd_file=None
+2026-03-26 18:22:53 [INFO ] MiningLoadout — ============================================================
+2026-03-26 18:22:53 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 18:22:53 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 18:22:53 [INFO ] MiningLoadout — Args: x=80 y=80 w=1200 h=720 opacity=0.95 cmd_file=None
+2026-03-26 18:22:54 [INFO ] MiningLoadout — Window shown
+2026-03-26 18:22:54 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 18:22:54 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 18:22:54 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 20:07:22 [INFO ] MiningLoadout — ============================================================
+2026-03-26 20:07:22 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 20:07:22 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 20:07:22 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_71156.jsonl
+2026-03-26 20:07:24 [INFO ] MiningLoadout — Window shown
+2026-03-26 20:07:24 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 20:07:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 20:07:24 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 20:11:33 [DEBUG] MiningLoadout — IPC: {'type': 'hide'}
+2026-03-26 22:46:46 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:46:46 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:46:46 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:46:46 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:46:53 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:46:53 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:46:53 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:46:53 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:46:55 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:46:55 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:46:55 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:46:55 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:46:57 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:46:57 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:46:57 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:46:57 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:47:27 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:47:27 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:47:27 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:47:27 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:47:28 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:47:28 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:47:28 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:47:28 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:47:31 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:47:31 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:47:31 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:47:31 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:47:33 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:47:33 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:47:33 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:47:33 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_86940.jsonl
+2026-03-26 22:52:35 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:52:35 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:52:35 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:52:35 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=None
+2026-03-26 22:54:27 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:54:27 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:54:27 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:59:17 [INFO ] MiningLoadout — ============================================================
+2026-03-26 22:59:17 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 22:59:17 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 22:59:17 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_58124.jsonl
+2026-03-26 22:59:18 [INFO ] MiningLoadout — Window shown
+2026-03-26 22:59:19 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 22:59:19 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 22:59:19 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 22:59:21 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-26 22:59:27 [INFO ] MiningLoadout — Ship changed to Prospector
+2026-03-26 22:59:28 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-26 23:08:50 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-26 23:12:35 [INFO ] MiningLoadout — ============================================================
+2026-03-26 23:12:35 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 23:12:35 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 23:12:35 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_59488.jsonl
+2026-03-26 23:12:37 [INFO ] MiningLoadout — Window shown
+2026-03-26 23:12:37 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:12:37 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:12:45 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-26 23:16:14 [DEBUG] MiningLoadout — IPC: {'type': 'hide'}
+2026-03-26 23:16:16 [DEBUG] MiningLoadout — IPC: {'type': 'show'}
+2026-03-26 23:16:17 [DEBUG] MiningLoadout — IPC: {'type': 'hide'}
+2026-03-26 23:16:27 [DEBUG] MiningLoadout — IPC: {'type': 'show'}
+2026-03-26 23:19:49 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-26 23:35:57 [INFO ] MiningLoadout — ============================================================
+2026-03-26 23:35:57 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 23:35:57 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 23:35:57 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_37928.jsonl
+2026-03-26 23:35:57 [INFO ] MiningLoadout — Window shown
+2026-03-26 23:35:58 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:00 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:29 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:29 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:29 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:30 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:30 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:31 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:31 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:36:31 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:36:31 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:36:31 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:37:30 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-26 23:43:46 [INFO ] MiningLoadout — ============================================================
+2026-03-26 23:43:46 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-26 23:43:46 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-26 23:43:46 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_99408.jsonl
+2026-03-26 23:43:46 [INFO ] MiningLoadout — Window shown
+2026-03-26 23:43:46 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-26 23:43:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-26 23:43:47 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-26 23:43:47 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-26 23:43:47 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:43:47 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-26 23:43:54 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-26 23:49:04 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 00:29:46 [INFO ] MiningLoadout — ============================================================
+2026-03-27 00:29:46 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 00:29:46 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 00:29:46 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_59236.jsonl
+2026-03-27 00:29:46 [INFO ] MiningLoadout — Window shown
+2026-03-27 00:29:46 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 00:29:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 00:29:46 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 00:29:46 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 00:29:48 [DEBUG] MiningLoadout — IPC: {'type': 'hide'}
+2026-03-27 00:30:49 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 07:25:17 [INFO ] MiningLoadout — ============================================================
+2026-03-27 07:25:17 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 07:25:17 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 07:25:17 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_85588.jsonl
+2026-03-27 07:25:17 [INFO ] MiningLoadout — Window shown
+2026-03-27 07:25:18 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 07:25:18 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 07:25:18 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:25:18 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:26:32 [INFO ] MiningLoadout — ============================================================
+2026-03-27 07:26:32 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 07:26:32 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 07:26:32 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_45892.jsonl
+2026-03-27 07:26:33 [INFO ] MiningLoadout — Window shown
+2026-03-27 07:26:33 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 07:26:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 07:26:33 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:26:33 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:30:18 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 07:47:19 [INFO ] MiningLoadout — ============================================================
+2026-03-27 07:47:19 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 07:47:19 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 07:47:19 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_102848.jsonl
+2026-03-27 07:47:19 [INFO ] MiningLoadout — Window shown
+2026-03-27 07:47:20 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 07:47:20 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 07:47:20 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:47:20 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:53:38 [INFO ] MiningLoadout — ============================================================
+2026-03-27 07:53:38 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 07:53:38 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 07:53:38 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_6688.jsonl
+2026-03-27 07:53:39 [INFO ] MiningLoadout — Window shown
+2026-03-27 07:53:39 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 07:53:39 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 07:53:39 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:53:39 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:54:35 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 07:54:45 [INFO ] MiningLoadout — ============================================================
+2026-03-27 07:54:45 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 07:54:45 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 07:54:45 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_20676.jsonl
+2026-03-27 07:54:46 [INFO ] MiningLoadout — Window shown
+2026-03-27 07:54:46 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 07:54:46 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 07:54:46 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:54:46 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 07:58:01 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 08:12:36 [INFO ] MiningLoadout — ============================================================
+2026-03-27 08:12:36 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 08:12:36 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 08:12:36 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_85932.jsonl
+2026-03-27 08:12:37 [INFO ] MiningLoadout — Window shown
+2026-03-27 08:12:37 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 08:12:37 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 08:12:37 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 08:12:37 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 08:13:09 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 08:36:32 [INFO ] MiningLoadout — ============================================================
+2026-03-27 08:36:32 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 08:36:32 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 08:36:32 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_54748.jsonl
+2026-03-27 08:36:32 [INFO ] MiningLoadout — Window shown
+2026-03-27 08:36:33 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 08:36:33 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 08:36:33 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 08:36:33 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 09:24:25 [INFO ] MiningLoadout — ============================================================
+2026-03-27 09:24:25 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 09:24:25 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 09:24:25 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_61428_1.jsonl
+2026-03-27 09:24:25 [INFO ] MiningLoadout — Window shown
+2026-03-27 09:24:25 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 09:24:25 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 09:24:25 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 09:24:25 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 09:24:49 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 15:51:43 [INFO ] MiningLoadout — ============================================================
+2026-03-27 15:51:43 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 15:51:43 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 15:51:43 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_95684_1.jsonl
+2026-03-27 15:51:43 [INFO ] MiningLoadout — Window shown
+2026-03-27 15:51:44 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 15:51:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 15:51:44 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 15:51:44 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 15:56:14 [INFO ] MiningLoadout — ============================================================
+2026-03-27 15:56:14 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 15:56:14 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 15:56:14 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_57752_1.jsonl
+2026-03-27 15:56:15 [INFO ] MiningLoadout — Window shown
+2026-03-27 15:56:15 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 15:56:15 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 15:56:15 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 15:56:15 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 15:56:56 [DEBUG] MiningLoadout — IPC: {'type': 'hide'}
+2026-03-27 15:56:57 [DEBUG] MiningLoadout — IPC: {'type': 'show'}
+2026-03-27 15:59:54 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 16:00:23 [INFO ] MiningLoadout — ============================================================
+2026-03-27 16:00:23 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 16:00:23 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 16:00:23 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_101024_1.jsonl
+2026-03-27 16:00:23 [INFO ] MiningLoadout — Window shown
+2026-03-27 16:00:24 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 16:00:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 16:00:24 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 16:00:24 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 16:00:53 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 16:07:59 [INFO ] MiningLoadout — ============================================================
+2026-03-27 16:07:59 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 16:07:59 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 16:07:59 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_63844_1.jsonl
+2026-03-27 16:08:00 [INFO ] MiningLoadout — Window shown
+2026-03-27 16:08:00 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 16:08:00 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 16:08:00 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 16:08:00 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 16:08:16 [INFO ] MiningLoadout — Ship changed to Prospector
+2026-03-27 19:29:08 [INFO ] MiningLoadout — ============================================================
+2026-03-27 19:29:08 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 19:29:08 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 19:29:08 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_93544_1.jsonl
+2026-03-27 19:29:09 [INFO ] MiningLoadout — Window shown
+2026-03-27 19:29:09 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 19:29:09 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 19:29:09 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 19:29:09 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 19:29:17 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 21:36:23 [INFO ] MiningLoadout — ============================================================
+2026-03-27 21:36:23 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 21:36:23 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 21:36:23 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_58512_1.jsonl
+2026-03-27 21:36:24 [INFO ] MiningLoadout — Window shown
+2026-03-27 21:36:24 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 21:36:24 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 21:36:24 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 21:36:24 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 21:49:31 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 22:02:25 [INFO ] MiningLoadout — ============================================================
+2026-03-27 22:02:25 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 22:02:25 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 22:02:25 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_76468_1.jsonl
+2026-03-27 22:02:25 [INFO ] MiningLoadout — Window shown
+2026-03-27 22:02:26 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 22:02:26 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 22:02:26 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:02:26 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:02:29 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-27 22:05:06 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 22:06:00 [INFO ] MiningLoadout — ============================================================
+2026-03-27 22:06:00 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 22:06:00 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 22:06:00 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_53652_1.jsonl
+2026-03-27 22:06:00 [INFO ] MiningLoadout — Window shown
+2026-03-27 22:06:01 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 22:06:01 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 22:06:01 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:06:01 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:08:08 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 22:09:07 [INFO ] MiningLoadout — ============================================================
+2026-03-27 22:09:07 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 22:09:07 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 22:09:07 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_75580_1.jsonl
+2026-03-27 22:09:07 [INFO ] MiningLoadout — Window shown
+2026-03-27 22:09:08 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 22:09:08 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 22:09:08 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:09:08 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:09:13 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-27 22:10:50 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 22:11:01 [INFO ] MiningLoadout — ============================================================
+2026-03-27 22:11:01 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 22:11:01 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 22:11:01 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_101808_1.jsonl
+2026-03-27 22:11:01 [INFO ] MiningLoadout — Window shown
+2026-03-27 22:11:02 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 22:11:02 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 22:11:02 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:11:02 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 22:11:03 [INFO ] MiningLoadout — Ship changed to Golem
+2026-03-27 22:22:06 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}
+2026-03-27 23:26:44 [INFO ] MiningLoadout — ============================================================
+2026-03-27 23:26:44 [INFO ] MiningLoadout — Mining Loadout starting — Python 3.14.2
+2026-03-27 23:26:44 [INFO ] MiningLoadout — Script: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\skills\Mining_Loadout\controllers\app_controller.py
+2026-03-27 23:26:44 [INFO ] MiningLoadout — Args: x=100 y=100 w=1300 h=800 opacity=0.95 cmd_file=C:\Users\prjgn\AppData\Local\Temp\sc_toolbox_mining_72232_1.jsonl
+2026-03-27 23:26:44 [INFO ] MiningLoadout — Window shown
+2026-03-27 23:26:44 [INFO ] MiningLoadout.api — Fetching mining data from UEX API...
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/29
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/30
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items/id_category/28
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/29
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/30
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_attributes/id_category/28
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/29
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/30
+2026-03-27 23:26:44 [DEBUG] MiningLoadout.api — Cache hit: items_prices/id_category/28
+2026-03-27 23:26:44 [INFO ] MiningLoadout.api — Fetched 17 lasers, 26 modules, 6 gadgets
+2026-03-27 23:26:44 [INFO ] MiningLoadout — Data loaded: 17 lasers, 26 modules, 6 gadgets
+2026-03-27 23:29:20 [DEBUG] MiningLoadout — IPC: {'type': 'quit'}

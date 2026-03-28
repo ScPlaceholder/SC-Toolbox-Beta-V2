@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "ship": "Constellation Aquilla",
+  "gridW": 4,
+  "gridZ": 8,
+  "gridH": 3,
+  "totalCapacity": 96,
+  "totalUsed": 96,
+  "containers": {
+    "1": 0,
+    "2": 0,
+    "4": 8,
+    "8": 0,
+    "16": 0,
+    "24": 0,
+    "32": 2
+  },
+  "placements": [
+    {
+      "id": "6d0cdb60-e5e9-4031-b16b-b4b04e9785f3",
+      "scu": 32,
+      "dims": {
+        "w": 2,
+        "h": 2,
+        "l": 8
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "796abb8a-b956-4c97-8f52-aa2b34f2c94d",
+      "scu": 32,
+      "dims": {
+        "w": 2,
+        "h": 2,
+        "l": 8
+      },
+      "pos": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "74de7038-2664-4292-88d3-89f48bdee68a",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 2,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "166f9c03-c36f-44cf-9b9e-17f06ff1835e",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 2,
+        "y": 2,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "95e10427-5d84-420c-be8a-a148c3637b4c",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 2,
+        "z": 2
+      },
+      "rotation": 0
+    },
+    {
+      "id": "793fd01d-ec8a-47e0-a4fe-6bacc6e48ed3",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "rotation": 0
+    },
+    {
+      "id": "a97ed946-ff86-40f8-8ee3-2bc36a1b9be6",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 2,
+        "z": 4
+      },
+      "rotation": 0
+    },
+    {
+      "id": "b463be47-aed3-4da8-8ca1-1910a5218f34",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 2,
+        "y": 2,
+        "z": 4
+      },
+      "rotation": 0
+    },
+    {
+      "id": "dfa2c9c4-3e43-468d-8a6d-4dcb7aeed270",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 0,
+        "y": 2,
+        "z": 6
+      },
+      "rotation": 0
+    },
+    {
+      "id": "9f93946d-f6dd-457f-ac3c-05aa99edf110",
+      "scu": 4,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 2
+      },
+      "pos": {
+        "x": 2,
+        "y": 2,
+        "z": 6
+      },
+      "rotation": 0
+    }
+  ]
+}

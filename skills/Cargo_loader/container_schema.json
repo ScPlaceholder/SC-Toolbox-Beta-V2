@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cargo Container Schema",
+  "description": "Single source of truth for container types, dimensions, and constraints.",
+
+  "containerTypes": {
+    "1":  { "scu": 1,  "dimensions": { "w": 1, "h": 1, "l": 1 }, "maxStackHeight": null },
+    "2":  { "scu": 2,  "dimensions": { "w": 1, "h": 1, "l": 2 }, "maxStackHeight": null },
+    "4":  { "scu": 4,  "dimensions": { "w": 2, "h": 1, "l": 2 }, "maxStackHeight": 1  },
+    "8":  { "scu": 8,  "dimensions": { "w": 2, "h": 2, "l": 2 }, "maxStackHeight": null },
+    "16": { "scu": 16, "dimensions": { "w": 2, "h": 2, "l": 4 }, "maxStackHeight": null },
+    "24": { "scu": 24, "dimensions": { "w": 2, "h": 2, "l": 6 }, "maxStackHeight": null },
+    "32": { "scu": 32, "dimensions": { "w": 2, "h": 2, "l": 8 }, "maxStackHeight": null }
+  },
+
+  "colors": {
+    "1":  "#2196f3",
+    "2":  "#00bcd4",
+    "4":  "#4caf50",
+    "8":  "#ff9800",
+    "16": "#9c27b0",
+    "24": "#c8a882",
+    "32": "#e91e63"
+  },
+
+  "shading": {
+    "top":   1.00,
+    "right": 0.72,
+    "front": 0.50,
+    "edge":  0.30
+  },
+
+  "layoutSchema": {
+    "type": "object",
+    "required": ["schemaVersion", "ship", "gridW", "gridZ", "gridH", "placements"],
+    "properties": {
+      "schemaVersion": { "type": "integer", "const": 1 },
+      "ship":          { "type": "string" },
+      "gridW":         { "type": "integer", "minimum": 1, "maximum": 256 },
+      "gridZ":         { "type": "integer", "minimum": 1, "maximum": 256 },
+      "gridH":         { "type": "integer", "minimum": 1, "maximum": 64  },
+      "totalCapacity":  { "type": "integer", "minimum": 0 },
+      "totalUsed":      { "type": "integer", "minimum": 0 },
+      "containers":     { "type": "object" },
+      "placements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["scu", "dims", "pos"],
+          "properties": {
+            "id":       { "type": "string" },
+            "scu":      { "type": "integer", "enum": [1, 2, 4, 8, 16, 24, 32] },
+            "dims":     {
+              "type": "object",
+              "required": ["w", "h", "l"],
+              "properties": {
+                "w": { "type": "integer", "minimum": 1 },
+                "h": { "type": "integer", "minimum": 1 },
+                "l": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "pos":      {
+              "type": "object",
+              "required": ["x", "y", "z"],
+              "properties": {
+                "x": { "type": "integer", "minimum": 0 },
+                "y": { "type": "integer", "minimum": 0 },
+                "z": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "rotation": { "type": "integer", "enum": [0, 90, 180, 270], "default": 0 }
+          }
+        }
+      }
+    }
+  }
+}

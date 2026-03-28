@@ -1,0 +1,59 @@
+[SLOT] Turret Remote Top                   lr=rsi_polaris_scitem_remote found=NO stock_ref=
+[SLOT] Turret Remote Bottom                lr=rsi_polaris_scitem_remote found=NO stock_ref=
+[SLOT] Remote Turret Interior Tractor      lr=rsi_polaris_scitem_remote found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Upper Lef lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Upper Rig lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Lower Lef lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Lower Rig lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Upper Le lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Upper Ri lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Lower Le lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Lower Ri lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Left Upper        lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Right Upper       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Left Lower        lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Right Lower       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Left Upper       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Right Upper      lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Left Lower       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Right Lower      lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Lower Front / Left           lr=mount_gimbal_s6_polaris found=NO stock_ref=
+[SLOT] Turret Lower Front / Right          lr=mount_gimbal_s6_polaris_r found=NO stock_ref=
+[SLOT] Missile Rack Right                  lr=misl_s03_cs_fski_arrester found=YES:Arrester III stock_ref=dee6efca-71ef-438c-b762-6
+[TABLE] ref=dee6efca-71ef-438c-b762-6 items=10 sel=Arrester III
+[SLOT] Missile Rack Left                   lr=misl_s03_cs_fski_arrester found=YES:Arrester III stock_ref=dee6efca-71ef-438c-b762-6
+[TABLE] ref=dee6efca-71ef-438c-b762-6 items=10 sel=Arrester III
+[SLOT] Torpedo Left Upper                  lr=misl_s10_ir_behr_torpedo found=YES:VT-T10 "Veritas" stock_ref=bcdd8022-c2f4-49d0-8528-e
+[TABLE] ref=bcdd8022-c2f4-49d0-8528-e items=10 sel=VT-T10 "Veritas"
+[SLOT] Torpedo Left Lower                  lr=misl_s10_ir_behr_torpedo found=YES:VT-T10 "Veritas" stock_ref=bcdd8022-c2f4-49d0-8528-e
+[TABLE] ref=bcdd8022-c2f4-49d0-8528-e items=10 sel=VT-T10 "Veritas"
+[SLOT] Torpedo Right Upper                 lr=misl_s10_ir_behr_torpedo found=YES:VT-T10 "Veritas" stock_ref=bcdd8022-c2f4-49d0-8528-e
+[TABLE] ref=bcdd8022-c2f4-49d0-8528-e items=10 sel=VT-T10 "Veritas"
+[SLOT] Torpedo Right Lower                 lr=misl_s10_ir_behr_torpedo found=YES:VT-T10 "Veritas" stock_ref=bcdd8022-c2f4-49d0-8528-e
+[TABLE] ref=bcdd8022-c2f4-49d0-8528-e items=10 sel=VT-T10 "Veritas"
+[SLOT] Turret Side Left / Turret Upper Lef lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Upper Rig lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Lower Lef lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Left / Turret Lower Rig lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Upper Le lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Upper Ri lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Lower Le lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Side Right / Turret Lower Ri lr=mount_gimbal_s3_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Left Upper        lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Right Upper       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Left Lower        lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Left / Right Lower       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Left Upper       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Right Upper      lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Left Lower       lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Top Right / Right Lower      lr=mount_gimbal_s4_polaris found=NO stock_ref=
+[SLOT] Turret Lower Front / Left           lr=mount_gimbal_s6_polaris found=NO stock_ref=
+[SLOT] Turret Lower Front / Right          lr=mount_gimbal_s6_polaris_r found=NO stock_ref=
+[SLOT] Shield Generator                    lr=shld_rsi_s04_polaris_scit found=YES:Glacis stock_ref=d9870a05-1a66-4a9a-bec6-3
+[TABLE] ref=d9870a05-1a66-4a9a-bec6-3 items=25 sel=Glacis
+[SLOT] Cooler                              lr=cool_rsi_s04_polaris_scit found=YES:Serac stock_ref=d0b4ce5b-c8ba-4a9f-90b1-c
+[TABLE] ref=d0b4ce5b-c8ba-4a9f-90b1-c items=30 sel=Serac
+[SLOT] Radar                               lr=radr_rsi_s04_polaris found=YES:Polaris radar stock_ref=a39d0aa5-f1af-49fb-aad0-0
+[TABLE] ref=a39d0aa5-f1af-49fb-aad0-0 items=14 sel=Polaris radar
+[TABLE] ref=70019264-f2b2-4741-b50f-b items=74 sel=Stellate
+[TABLE] ref=27a34dd7-30aa-4eca-ae37-1 items=55 sel=Erebos

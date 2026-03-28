@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "ship": "Hammerhead",
+  "gridW": 4,
+  "gridZ": 5,
+  "gridH": 2,
+  "totalCapacity": 40,
+  "totalUsed": 40,
+  "containers": {
+    "1": 0,
+    "2": 4,
+    "4": 0,
+    "8": 0,
+    "16": 2,
+    "24": 0,
+    "32": 0
+  },
+  "placements": [
+    {
+      "id": "3e7ad9d0-c88c-490b-bde9-6ad256053546",
+      "scu": 16,
+      "dims": {
+        "w": 2,
+        "h": 2,
+        "l": 4
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "c27b0f3d-0434-4eaf-b6c3-87adb315ee78",
+      "scu": 16,
+      "dims": {
+        "w": 2,
+        "h": 2,
+        "l": 4
+      },
+      "pos": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 0
+    },
+    {
+      "id": "77755c69-545f-4655-b17e-03cac242d35d",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      },
+      "rotation": 90
+    },
+    {
+      "id": "7d5416fc-ea08-426f-989c-a219eedf3c0f",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 2,
+        "y": 0,
+        "z": 4
+      },
+      "rotation": 90
+    },
+    {
+      "id": "b35da106-281e-4549-a9f7-e2fbac725eb9",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 4
+      },
+      "rotation": 90
+    },
+    {
+      "id": "dddbf945-5cc5-49bd-9edb-69d4f38768e5",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 2,
+        "y": 1,
+        "z": 4
+      },
+      "rotation": 90
+    }
+  ]
+}

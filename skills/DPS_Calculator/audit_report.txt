@@ -1,0 +1,201 @@
+ERKUL PARITY AUDIT REPORT
+Cache: C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1\skills\DPS_Calculator\.erkul_cache.json
+Game version: 
+Cache timestamp: 1774297780.0248356
+Ships: 208, Weapons: 146, Shields: 64, Coolers: 73, Radars: 19, PPs: 75, QDs: 57, Missiles: 61
+
+================================================================================
+  PHASE 1: Power Allocator Category Coverage
+================================================================================
+Scanning 208 ships for component resolution against catalog...
+
+
+--- Category Presence Summary ---
+  Radar                         :  205 / 208 ships
+  Cooler                        :  203 / 208 ships
+  weaponGun_pool                :  202 / 208 ships
+  PowerPlant                    :  202 / 208 ships
+  Shield                        :  190 / 208 ships
+  MainThruster                  :  182 / 208 ships
+  ManneuverThruster             :  182 / 208 ships
+  thruster_power                :  182 / 208 ships
+  LifeSupportGenerator          :  180 / 208 ships
+  WeaponDefensive               :  179 / 208 ships
+  Turret                        :  177 / 208 ships
+  QuantumDrive                  :  158 / 208 ships
+  WeaponGun                     :  150 / 208 ships
+  MissileLauncher               :  126 / 208 ships
+  utility_items                 :   86 / 208 ships
+  ToolArm                       :   15 / 208 ships
+  UtilityTurret                 :    6 / 208 ships
+  TractorBeam                   :    1 / 208 ships
+
+PHASE 1 SUMMARY: 208 ships scanned, 0 with unresolved components, 0 total unresolved refs
+
+================================================================================
+  PHASE 2: Component Stat Accuracy
+================================================================================
+
+  Checking 146 weapons...
+  Checking 64 shields...
+  Checking 73 coolers...
+  Checking 19 radars...
+  Checking 75 power plants...
+  Checking 57 quantum drives...
+  Checking 61 missiles...
+
+  No discrepancies found. All compute functions match raw data within 2%.
+
+PHASE 2 SUMMARY: Checked 146 weapons, 64 shields, 73 coolers, 19 radars, 75 power plants, 57 quantum drives, 61 missiles. 0 discrepancies.
+
+================================================================================
+  PHASE 3: Missing Table Columns
+================================================================================
+Checking if column specs cover all stats erkul exposes...
+
+  COOLER_TABLE_COLS:
+    MISSING: ir_max (erkul has ir.nominalSignature=2500 but COOLER_TABLE_COLS references ir not in compute_cooler_stats output)
+    NOTE: COOLER_TABLE_COLS references 'em_max' and 'power_draw' — these are NOT in compute_cooler_stats() return dict
+      erkul raw: em=375, power_draw=1
+
+  RADAR_TABLE_COLS:
+    MISSING: power_draw (erkul has powerSegment=1)
+    MISSING: em_max (erkul has em.nominalSignature=375)
+
+  SHIELD_TABLE_COLS:
+    MISSING: power_draw (erkul has powerSegment=2)
+    MISSING: em_max (erkul has em.nominalSignature=990)
+
+  PP_COLS:
+    NOTE: compute_powerplant_stats_erkul returns ir_max=0 but PP_COLS does not display it
+
+  QD_COLS:
+    NOTE: compute_qdrive_stats_erkul returns em_max=18000 but QD_COLS does not display it
+
+PHASE 3 SUMMARY: 9 missing/mismatched column(s):
+  - COOLER: ir_max
+  - COOLER: em_max not in compute_cooler_stats (but in column spec)
+  - COOLER: power_draw not in compute_cooler_stats (but in column spec)
+  - COOLER: hp not in compute_cooler_stats (but in column spec)
+  - RADAR: power_draw
+  - RADAR: em_max
+  - SHIELD: power_draw
+  - SHIELD: em_max
+  - QD: em_max (in compute, not in QD_COLS)
+
+================================================================================
+  PHASE 4: Power Allocator Math
+================================================================================
+Computing power budget for 10 target ships...
+
+  [Gladius] (localName=aegs_gladius)
+    PP output:               16
+    Total draw:              18
+    Consumption:          112.5%
+    EM signature:        33,124
+    IR signature:        14,520
+    CS:                     0.0
+    Components:              10
+    OK
+
+  [Avenger Titan] (localName=aegs_avenger_titan)
+    PP output:               15
+    Total draw:              18
+    Consumption:          120.0%
+    EM signature:        30,817
+    IR signature:        14,520
+    CS:                     0.0
+    Components:              10
+    OK
+
+  [Cutlass Black] (localName=drak_cutlass_black)
+    PP output:               18
+    Total draw:              18
+    Consumption:          100.0%
+    EM signature:        34,142
+    IR signature:        11,000
+    CS:                     0.0
+    Components:              13
+    OK
+
+  [Constellation Andromeda] (localName=rsi_constellation_andromeda)
+    PP output:               36
+    Total draw:              18
+    Consumption:           50.0%
+    EM signature:        55,786
+    IR signature:        11,000
+    CS:                     0.0
+    Components:              15
+    OK
+
+  [Hammerhead] (localName=aegs_hammerhead)
+    PP output:               48
+    Total draw:              31
+    Consumption:           64.6%
+    EM signature:        87,106
+    IR signature:        23,200
+    CS:                     0.0
+    Components:              32
+    OK
+
+  [Carrack] (localName=anvl_carrack)
+    PP output:               46
+    Total draw:              31
+    Consumption:           67.4%
+    EM signature:        81,242
+    IR signature:        21,800
+    CS:                     0.0
+    Components:              16
+    OK
+
+  [Polaris] (localName=rsi_polaris)
+    PP output:               27
+    Total draw:              28
+    Consumption:          103.7%
+    EM signature:        55,900
+    IR signature:        12,200
+    CS:                     0.0
+    Components:              28
+    OK
+
+  [Reclaimer] (localName=aegs_reclaimer)
+    PP output:               28
+    Total draw:              24
+    Consumption:           85.7%
+    EM signature:        65,898
+    IR signature:        14,300
+    CS:                     0.0
+    Components:              19
+    OK
+
+  [Caterpillar] (localName=drak_caterpillar)
+    PP output:               46
+    Total draw:              39
+    Consumption:           84.8%
+    EM signature:        72,254
+    IR signature:        21,800
+    CS:                     0.0
+    Components:              19
+    OK
+
+  [Aurora MR] (localName=rsi_aurora_gs_mr)
+    PP output:               15
+    Total draw:              17
+    Consumption:          113.3%
+    EM signature:        32,069
+    IR signature:        11,880
+    CS:                     0.0
+    Components:               9
+    OK
+
+PHASE 4 SUMMARY: 0 issue(s) flagged across 10 ships checked
+
+================================================================================
+  OVERALL SUMMARY
+================================================================================
+  Phase 1 (Category Coverage):   0 ships with unresolved components (0 total refs)
+  Phase 2 (Stat Accuracy):       0 discrepancies
+  Phase 3 (Missing Columns):     9 missing column(s)
+  Phase 4 (Power Allocator):     0 issue(s)
+
+  TOTAL ISSUES: 9

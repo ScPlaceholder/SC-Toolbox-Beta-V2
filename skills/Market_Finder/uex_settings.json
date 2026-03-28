@@ -1,0 +1,8 @@
+{
+  "api_key": "",
+  "cache_ttl_minutes": 120,
+  "always_on_top": true,
+  "opacity": 0.95,
+  "window_x": 100,
+  "window_y": 100
+}

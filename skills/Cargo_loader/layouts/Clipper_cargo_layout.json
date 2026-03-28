@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "ship": "Clipper",
+  "gridW": 2,
+  "gridZ": 3,
+  "gridH": 2,
+  "totalCapacity": 12,
+  "totalUsed": 12,
+  "containers": {
+    "1": 0,
+    "2": 6,
+    "4": 0,
+    "8": 0,
+    "16": 0,
+    "24": 0,
+    "32": 0
+  },
+  "placements": [
+    {
+      "id": "957c1ad0-6e3a-4216-90da-be830d3fd503",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": 90
+    },
+    {
+      "id": "cb365ad2-02b8-4fd0-bc0b-22f5e8d5a551",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": 90
+    },
+    {
+      "id": "acfcd4eb-3343-4d17-84ca-8f9c18f13f24",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      },
+      "rotation": 90
+    },
+    {
+      "id": "2919d1d2-cb30-4bdb-969a-e1d7f36fca4a",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      },
+      "rotation": 90
+    },
+    {
+      "id": "377f5256-2893-472d-8712-30c66adce7f5",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 1
+      },
+      "rotation": 90
+    },
+    {
+      "id": "a0a1bd5e-6ac9-4175-b3c7-446be6d1e306",
+      "scu": 2,
+      "dims": {
+        "w": 2,
+        "h": 1,
+        "l": 1
+      },
+      "pos": {
+        "x": 0,
+        "y": 1,
+        "z": 2
+      },
+      "rotation": 90
+    }
+  ]
+}
