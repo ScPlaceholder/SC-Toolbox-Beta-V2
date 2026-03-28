@@ -1,24 +1,37 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.egg-info/
+*.egg
 dist/
 build/
 
-# Logs
-*.log
-*.log.*
+# Virtual environments
+.venv/
+venv/
+env/
 
-# Cache files
-.cargo_cache.json
-.scmdb_cache_*.json
+# pytest
+.pytest_cache/
+
+# Logs (runtime-generated)
+logs/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 Thumbs.db
-Desktop.ini
+desktop.ini
 .DS_Store
+
+# Settings (user-specific, not shared)
+skill_launcher_settings.json
+nul.lock
+
+# Claude Code (session-specific, not shared)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

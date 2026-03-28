@@ -1,14 +1,18 @@
 """
 Shared data-processing helpers used across multiple tools.
 """
+from __future__ import annotations
+
 import logging
 import time
-from typing import Optional
+from typing import Any, Callable, TypeVar
 
 log = logging.getLogger(__name__)
 
+T = TypeVar("T")
 
-def safe_float(v, default=0.0) -> float:
+
+def safe_float(v: Any, default: float = 0.0) -> float:
     """Safely convert *v* to float; return *default* on failure."""
     if v is None:
         return default
@@ -24,7 +28,7 @@ def safe_float(v, default=0.0) -> float:
 _sf = safe_float
 
 
-def pct_diff(a, b) -> float:
+def pct_diff(a: float | int, b: float | int) -> float:
     """Absolute percentage difference between *a* and *b*.  0 if both zero."""
     if a == 0 and b == 0:
         return 0.0
@@ -34,7 +38,7 @@ def pct_diff(a, b) -> float:
     return abs(a - b) / denom * 100.0
 
 
-def parse_cli_args(argv: list, defaults: Optional[dict] = None) -> dict:
+def parse_cli_args(argv: list[str], defaults: dict[str, Any] | None = None) -> dict[str, Any]:
     """Parse the positional CLI args that all tool subprocesses use.
 
     Standard order: x y w h [custom...] opacity cmd_file
@@ -45,7 +49,7 @@ def parse_cli_args(argv: list, defaults: Optional[dict] = None) -> dict:
 
     Returns a dict with keys: x, y, w, h, opacity, cmd_file, extras.
     """
-    d = {"x": 100, "y": 100, "w": 1440, "h": 860, "opacity": 0.95, "cmd_file": None}
+    d: dict[str, Any] = {"x": 100, "y": 100, "w": 1440, "h": 860, "opacity": 0.95, "cmd_file": None}
     if defaults:
         d.update(defaults)
 
@@ -73,21 +77,21 @@ def parse_cli_args(argv: list, defaults: Optional[dict] = None) -> dict:
     return d
 
 
-def retry_request(fn, retries: int = 2, backoff: float = 1.0):
+def retry_request(fn: Callable[[], T], retries: int = 2, backoff: float = 1.0) -> T:
     """Call *fn()* with simple exponential-backoff retry on exception.
 
     Returns the result of *fn()* on success, or re-raises the last exception.
     """
     delay = backoff
-    last_exc = None
+    last_exc: Exception | None = None
     for attempt in range(1 + retries):
         try:
             return fn()
-        except Exception as exc:
+        except Exception as exc:  # broad catch intentional: generic retry wrapper
             last_exc = exc
             if attempt < retries:
                 log.debug("retry_request: attempt %d failed (%s), retrying in %.1fs",
                           attempt + 1, exc, delay)
                 time.sleep(delay)
                 delay *= 2
-    raise last_exc
+    raise last_exc  # type: ignore[misc]

@@ -13,8 +13,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Dict, List, Optional, Tuple
 
-# Allow imports from the shared package two levels up
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
 from shared.ships import SHIP_PRESETS, scu_for_ship, QUICK_SHIPS  # noqa: E402
 from shared.theme import COLORS  # noqa: E402
@@ -73,7 +75,7 @@ class TradeHubWindow:
         refresh_interval: float = 300.0,
         max_routes: int = 500,
         opacity: float = 0.95,
-    ):
+    ) -> None:
         self.command_queue    = command_queue
         self.uex_client       = uex_client
         self.win_x            = win_x
@@ -123,13 +125,13 @@ class TradeHubWindow:
         """Called from background thread. Errors are written to %TEMP%\\trade_hub_error.txt."""
         try:
             self._run_inner()
-        except Exception:
+        except Exception:  # broad catch intentional: top-level UI handler
             import traceback
             try:
                 p = os.path.join(os.environ.get("TEMP", os.getcwd()), "trade_hub_error.txt")
                 with open(p, "w") as f:
                     f.write(traceback.format_exc())
-            except Exception:
+            except OSError:
                 pass
 
     def _run_inner(self) -> None:
@@ -169,11 +171,11 @@ class TradeHubWindow:
                 return int(frame)
             except ValueError:
                 return int(frame, 16)
-        except Exception:
+        except (tk.TclError, ValueError):
             pass
         try:
             return self.root.winfo_id()
-        except Exception:
+        except tk.TclError:
             return None
 
     def _apply_topmost(self) -> None:
@@ -184,28 +186,17 @@ class TradeHubWindow:
                     hwnd, _HWND_TOPMOST, 0, 0, 0, 0,
                     _SWP_NOSIZE | _SWP_NOMOVE | _SWP_NOACTIVATE,
                 )
-            except Exception:
+            except OSError:
                 pass
 
     def _force_show(self) -> None:
-        """Bring window to front using Win32 AttachThreadInput trick.
-        Works even when WingmanAI (also HWND_TOPMOST) has focus."""
+        """Bring window to front without stealing focus from the game."""
         hwnd = self._get_hwnd()
         if not hwnd or not _user32:
             return
         try:
             _user32.ShowWindow(hwnd, _SW_RESTORE)
-            _user32.BringWindowToTop(hwnd)
-            fg_hwnd = _user32.GetForegroundWindow()
-            fg_tid  = _user32.GetWindowThreadProcessId(fg_hwnd, None)
-            our_tid = _kernel32.GetCurrentThreadId() if _kernel32 else 0
-            if fg_tid and fg_tid != our_tid:
-                _user32.AttachThreadInput(fg_tid, our_tid, True)
-                _user32.SetForegroundWindow(hwnd)
-                _user32.AttachThreadInput(fg_tid, our_tid, False)
-            else:
-                _user32.SetForegroundWindow(hwnd)
-        except Exception:
+        except OSError:
             pass
         self._apply_topmost()
 
@@ -497,7 +488,7 @@ class TradeHubWindow:
     def _populate_table(self) -> None:
         try:
             y = self.tree.yview()[0]
-        except Exception:
+        except tk.TclError:
             y = 0.0
 
         self.tree.delete(*self.tree.get_children())
@@ -522,7 +513,7 @@ class TradeHubWindow:
         if y > 0.001:
             try:
                 self.tree.yview_moveto(y)
-            except Exception:
+            except tk.TclError:
                 pass
 
     def _update_status(self) -> None:
@@ -573,7 +564,7 @@ class TradeHubWindow:
         if self._debounce_id:
             try:
                 self.root.after_cancel(self._debounce_id)
-            except Exception:
+            except tk.TclError:
                 pass
         self._debounce_id = self.root.after(delay, self._refresh_display)
 
@@ -642,7 +633,7 @@ class TradeHubWindow:
                 self._handle_cmd(cmd)
         except queue.Empty:
             pass
-        except Exception:
+        except Exception:  # broad catch intentional: top-level UI handler
             pass
         if self.root:
             self.root.after(100, self._process_queue)

@@ -12,10 +12,10 @@ def set_dpi_awareness() -> None:
     """Set per-monitor DPI awareness, preferring V2.  No-op on non-Windows or failure."""
     try:
         ctypes.windll.user32.SetProcessDpiAwarenessContext(-4)  # V2
-    except Exception:
+    except (OSError, AttributeError, ValueError):
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)  # V1
-        except Exception:
+        except (OSError, AttributeError, ValueError):
             pass
 
 

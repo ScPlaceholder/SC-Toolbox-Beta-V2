@@ -2,6 +2,8 @@
 Generate exact cargo_layout.json from sc-cargo.space cache data.
 Uses grid definitions + reference loadouts for precise 3D positioning.
 
+Now delegates to cargo_engine/ for all logic.
+
 Usage: python generate_layout.py "890 Jump"
        python generate_layout.py "Caterpillar"
 """
@@ -11,14 +13,16 @@ import os
 import sys
 import uuid
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
-from cargo_common import (
-    CONTAINER_SIZES, CONTAINER_DIMS, EDITOR_BASE_DIMS,
-    load_reference_loadouts, find_reference_loadout,
-    max_containers_in_slot, place_containers_3d,
-    build_slots, greedy_optimize_3d, assign_slots_from_counts,
-)
+from cargo_engine.schema import CONTAINER_SIZES, CONTAINER_DIMS
+from cargo_engine.placement import packed_to_rotation, max_containers_in_slot
+from cargo_engine.packing import place_containers_3d, build_slots
+from cargo_engine.optimizer import greedy_optimize_3d, assign_slots_from_counts
+from cargo_common import load_reference_loadouts, find_reference_loadout
 
 log = logging.getLogger(__name__)
 
@@ -26,16 +30,6 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(DIR, ".cargo_cache.json")
 
 REFERENCE_LOADOUTS = load_reference_loadouts(DIR)
-
-
-def packed_to_rotation(size, cw, ch, cl):
-    """Determine editor rotation (0 or 90) from packed dims."""
-    bw, bh, bl = EDITOR_BASE_DIMS[size]
-    if cw == bw and cl == bl:
-        return 0
-    if cw == bl and cl == bw:
-        return 90
-    return 0  # fallback
 
 
 def find_ship(ships, name):

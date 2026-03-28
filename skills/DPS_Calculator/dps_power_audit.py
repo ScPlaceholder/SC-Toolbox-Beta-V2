@@ -16,8 +16,10 @@ CACHE_FILE = os.path.join(SCRIPT_DIR, ".erkul_cache.json")
 REPORT_FILE = os.path.join(SCRIPT_DIR, "dps_power_audit_report.txt")
 
 # ── Import from dps_calc_app ────────────────────────────────────────────────
-sys.path.insert(0, SCRIPT_DIR)
-sys.path.insert(0, os.path.join(SCRIPT_DIR, '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
 import tkinter as tk
 root = None
@@ -34,11 +36,12 @@ try:
     )
     IMPORT_OK = True
     IMPORT_ERR = ""
-except Exception as e:
+except (ImportError, ModuleNotFoundError) as e:
     IMPORT_OK = False
     IMPORT_ERR = str(e)
 
 from shared.data_utils import _sf as _sf_shared
+from shared.data_enrichment import enrich_component_stats
 
 # ── Load cache (deferred to main() for proper error handling) ────────────────
 CACHE = {}
@@ -77,29 +80,7 @@ RAW_BY_REF = {}     # ref UUID -> raw data dict
 
 _sf = _sf_shared
 
-def _enrich(stats, d):
-    # TODO: extract to shared module (duplicated from dps_calc_app.py DataManager._index)
-    """Enrich stats with power/EM/IR fields like DataManager._index does."""
-    stats.setdefault("class", d.get("class", ""))
-    stats.setdefault("grade", d.get("grade", "?"))
-    _hlth = d.get("health", d.get("hp", 0))
-    if isinstance(_hlth, dict):
-        _hlth = _hlth.get("hp", 0)
-    stats.setdefault("hp", _sf(_hlth))
-    res = d.get("resource", {}) or {}
-    onl = res.get("online", {}) or {}
-    cons = onl.get("consumption", {}) or {}
-    if not isinstance(cons, dict):
-        cons = {}
-    pwr_draw = _sf(cons.get("powerSegment", cons.get("power", 0)))
-    stats.setdefault("power_draw", pwr_draw)
-    stats.setdefault("power_max", pwr_draw)
-    sig = onl.get("signatureParams", {}) or {}
-    em_d = sig.get("em", {}) or {}
-    ir_d = sig.get("ir", {}) or {}
-    stats.setdefault("em_max", _sf(em_d.get("nominalSignature", 0)))
-    stats.setdefault("ir_max", _sf(ir_d.get("nominalSignature", 0)))
-    return stats
+_enrich = enrich_component_stats
 
 def _build_indexes():
     """Index all component types — must be called after _load_cache()."""
@@ -117,7 +98,7 @@ def _build_indexes():
                 continue
             try:
                 stats = compute_fn(e)
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 continue
             stats = _enrich(stats, d)
             ln = e.get("localName", "")
@@ -251,7 +232,7 @@ def phase1():
 
         try:
             pa = make_pa(sd)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, RuntimeError) as e:
             flags.append(f"  CRASH: {name}: {e}")
             total_flags += 1
             continue
@@ -318,7 +299,7 @@ def phase2():
 
         try:
             pa = make_pa(sd)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, RuntimeError) as e:
             flags.append(f"  CRASH: {ship_name}: {e}")
             total_flags += 1
             continue
@@ -460,7 +441,7 @@ def phase3():
 
         try:
             pa = make_pa(sd)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, RuntimeError) as e:
             flags.append(f"  CRASH: {ship_name}: {e}")
             total_flags += 1
             continue
@@ -597,7 +578,7 @@ def phase4():
 
         try:
             pa = make_pa(sd)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, RuntimeError) as e:
             flags.append(f"  CRASH: {name}: {e}")
             total_flags += 1
             continue
@@ -670,7 +651,7 @@ def phase5():
 
         try:
             pa = make_pa(sd)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, RuntimeError) as e:
             flags.append(f"  CRASH: {name}: {e}")
             total_flags += 1
             continue

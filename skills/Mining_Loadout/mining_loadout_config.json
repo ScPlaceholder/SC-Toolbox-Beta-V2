@@ -1,1 +1,29 @@
-{"ship": "Golem", "hotkey": "ctrl+shift+m", "loadout": {"turret_0": {"laser": "Pitman Mining Laser", "modules": ["Focus II Module", "Focus III Module"]}}, "gadget": "\u2014 No Gadget \u2014"}
+{
+  "version": 2,
+  "ship": "MOLE",
+  "hotkey": "",
+  "loadout": {
+    "turret_0": {
+      "laser": "\u2014 No Laser \u2014",
+      "modules": [
+        "\u2014 No Module \u2014",
+        "\u2014 No Module \u2014"
+      ]
+    },
+    "turret_1": {
+      "laser": "\u2014 No Laser \u2014",
+      "modules": [
+        "\u2014 No Module \u2014",
+        "\u2014 No Module \u2014"
+      ]
+    },
+    "turret_2": {
+      "laser": "\u2014 No Laser \u2014",
+      "modules": [
+        "\u2014 No Module \u2014",
+        "\u2014 No Module \u2014"
+      ]
+    }
+  },
+  "gadget": "\u2014 No Gadget \u2014"
+}

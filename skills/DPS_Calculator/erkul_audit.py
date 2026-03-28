@@ -16,8 +16,10 @@ CACHE_FILE = os.path.join(SCRIPT_DIR, ".erkul_cache.json")
 REPORT_FILE = os.path.join(SCRIPT_DIR, "audit_report.txt")
 
 # ── Import compute functions from dps_calc_app ──────────────────────────────
-sys.path.insert(0, SCRIPT_DIR)
-sys.path.insert(0, os.path.join(SCRIPT_DIR, '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 try:
     from dps_calc_app import (
         compute_weapon_stats,
@@ -221,7 +223,7 @@ def phase2():
         name = d.get("name", "?")
         try:
             stats = compute_weapon_stats(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("weapon", name, f"compute error: {e}"))
             continue
 
@@ -251,7 +253,7 @@ def phase2():
         sh = d.get("shield", {})
         try:
             stats = compute_shield_stats(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("shield", name, f"compute error: {e}"))
             continue
 
@@ -285,7 +287,7 @@ def phase2():
         co = d.get("cooler", {})
         try:
             stats = compute_cooler_stats(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("cooler", name, f"compute error: {e}"))
             continue
 
@@ -310,7 +312,7 @@ def phase2():
         rd = d.get("radar", {}) or {}
         try:
             stats = compute_radar_stats(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("radar", name, f"compute error: {e}"))
             continue
 
@@ -337,7 +339,7 @@ def phase2():
         sig = d.get("resource", {}).get("online", {}).get("signatureParams", {})
         try:
             stats = compute_powerplant_stats_erkul(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("powerplant", name, f"compute error: {e}"))
             continue
 
@@ -363,7 +365,7 @@ def phase2():
         params = qd.get("params", qd.get("standardJump", {})) or {}
         try:
             stats = compute_qdrive_stats_erkul(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("qdrive", name, f"compute error: {e}"))
             continue
 
@@ -390,7 +392,7 @@ def phase2():
         total_raw = sum(v for v in dmg.values() if isinstance(v, (int, float)))
         try:
             stats = compute_missile_stats(raw)
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             discrepancies.append(("missile", name, f"compute error: {e}"))
             continue
 

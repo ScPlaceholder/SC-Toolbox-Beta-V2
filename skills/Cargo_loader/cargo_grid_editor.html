@@ -179,7 +179,7 @@ kbd {
   <div>
     <div class="section-title">SHIP NAME</div>
     <input id="ship-name" class="field" type="text" placeholder="e.g. Caterpillar"
-           value="Custom" oninput="shipName=this.value">
+           value="Custom" oninput="store.shipName=this.value">
   </div>
 
   <!-- GRID DIMENSIONS -->
@@ -298,113 +298,125 @@ kbd {
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
-//  MUTABLE GRID SETTINGS  (changed via the panel inputs)
+//  SCHEMA — Single Source of Truth
+//  Container definitions loaded from container_schema.json.
+//  Embedded here so the editor remains a single self-contained HTML file.
+//  If you change container_schema.json, update this block to match.
 // ═══════════════════════════════════════════════════════════════════════════
-let gridW         = 100;    // world X units
-let gridZ         = 100;    // world Z units (depth)
-let gridH         = 4;      // world Y units (max stack height)
-let totalCapacity = 0;      // SCU cap shown in progress bar
-let shipName      = 'Custom';
-
-// ─── Container base dimensions: {w=X-span, h=Y-span, l=Z-span} ──────────
-// Rotation 0°/180° = base; 90°/270° = swap w↔l (h unchanged).
-// Derived from cargo_app.py CONTAINER_DIMS (L,W,H) with long axis defaulting to Z.
-const BASE_DIMS = {
-  1:  {w:1, h:1, l:1},
-  2:  {w:1, h:1, l:2},   // long along Z
-  4:  {w:2, h:1, l:2},   // flat — h locked at 1 always
-  8:  {w:2, h:2, l:2},
-  16: {w:2, h:2, l:4},
-  24: {w:2, h:2, l:6},
-  32: {w:2, h:2, l:8},
+const SCHEMA = {
+  containerTypes: {
+    1:  { scu: 1,  dimensions: {w:1, h:1, l:1}, maxStackHeight: null },
+    2:  { scu: 2,  dimensions: {w:1, h:1, l:2}, maxStackHeight: null },
+    4:  { scu: 4,  dimensions: {w:2, h:1, l:2}, maxStackHeight: 1    },
+    8:  { scu: 8,  dimensions: {w:2, h:2, l:2}, maxStackHeight: null },
+    16: { scu: 16, dimensions: {w:2, h:2, l:4}, maxStackHeight: null },
+    24: { scu: 24, dimensions: {w:2, h:2, l:6}, maxStackHeight: null },
+    32: { scu: 32, dimensions: {w:2, h:2, l:8}, maxStackHeight: null },
+  },
+  colors: { 1:'#2196f3', 2:'#00bcd4', 4:'#4caf50', 8:'#ff9800',
+            16:'#9c27b0', 24:'#c8a882', 32:'#e91e63' },
+  shading: { top: 1.00, right: 0.72, front: 0.50, edge: 0.30 },
 };
 
-const SIZES    = [1, 2, 4, 8, 16, 24, 32];
-const CONT_COL = { 1:'#2196f3', 2:'#00bcd4', 4:'#4caf50', 8:'#ff9800',
-                   16:'#9c27b0', 24:'#c8a882', 32:'#e91e63' };
-const DIM_LABEL = { 1:'1×1×1', 2:'1×2×1', 4:'2×2×1', 8:'2×2×2',
-                    16:'2×4×2', 24:'2×6×2', 32:'2×8×2' };
+// Derive constants from schema (no manual duplication)
+const SIZES    = Object.keys(SCHEMA.containerTypes).map(Number).sort((a,b)=>a-b);
+const BASE_DIMS = {};
+const CONT_COL  = SCHEMA.colors;
+const DIM_LABEL = {};
+const SH_TOP   = SCHEMA.shading.top;
+const SH_RIGHT = SCHEMA.shading.right;
+const SH_FRONT = SCHEMA.shading.front;
+const SH_EDGE  = SCHEMA.shading.edge;
 
-// Shading factors for the three visible isometric faces
-const SH_TOP   = 1.00;   // top    — brightest
-const SH_RIGHT = 0.72;   // +X wall
-const SH_FRONT = 0.50;   // +Z wall — darkest
-const SH_EDGE  = 0.30;   // outline stroke
+for (const [k, ct] of Object.entries(SCHEMA.containerTypes)) {
+  const s = Number(k);
+  const d = ct.dimensions;
+  BASE_DIMS[s] = {w: d.w, h: d.h, l: d.l};
+  DIM_LABEL[s] = `${d.w}×${d.l}×${d.h}`;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  RUNTIME STATE
+//  CENTRAL STATE STORE
+//  All mutable state in one place — no scattered global variables.
 // ═══════════════════════════════════════════════════════════════════════════
-let cell       = 16;      // pixels per grid unit (zoom level)
-let panX       = 0;       // screen X of world origin (updated by pan/zoom)
-let panY       = 0;       // screen Y of world origin
-let panInit    = false;   // whether initPan() has been called once
+const store = {
+  // Grid settings
+  gridW: 100,
+  gridZ: 100,
+  gridH: 4,
+  totalCapacity: 0,
+  shipName: 'Custom',
 
-let activeSCU  = 24;
-let rotation   = 0;       // current yaw: 0 | 90 | 180 | 270
-let deleteMode = false;
-let selectMode = false;    // rubber-band select mode
+  // View / zoom / pan
+  cell: 16,
+  panX: 0,
+  panY: 0,
+  panInit: false,
+  viewAngle: 0,   // 0=NE, 1=SE, 2=SW, 3=NW
 
-let placements = [];       // [{id, scu, x, y, z, w, h, l, rotation}]
-let occupied   = new Map();// "x,y,z" → placement.id
+  // Tool state
+  activeSCU: 24,
+  rotation: 0,
+  deleteMode: false,
+  selectMode: false,
 
-// Hover / pan tracking
-let hoverGX = null, hoverGZ = null;  // snapped grid cell (null = off-grid)
-let isPanning=false, pSX=0,pSY=0,pOX=0,pOY=0;
+  // Placements & collision
+  placements: [],
+  occupied: new Map(),
 
-// View rotation (isometric camera angle): 0=NE, 1=SE, 2=SW, 3=NW
-let viewAngle = 0;
+  // Hover / pan tracking
+  hoverGX: null,
+  hoverGZ: null,
+  isPanning: false,
+  pSX: 0, pSY: 0, pOX: 0, pOY: 0,
+
+  // Selection
+  selected: new Set(),
+  clipboard: [],
+  isSelecting: false,
+  selStartSX: 0, selStartSY: 0,
+  selCurSX: 0, selCurSY: 0,
+};
+
 const VIEW_LABELS = ['NE','SE','SW','NW'];
-
-// Selection state
-let selected    = new Set();   // set of placement ids
-let clipboard   = [];          // copied placements (relative positions)
-let isSelecting = false;       // rubber-band drag active
-let selStartSX  = 0, selStartSY = 0;  // screen coords of drag start
-let selCurSX    = 0, selCurSY   = 0;  // current drag position
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ISOMETRIC PROJECTION
-//  Exactly matches cargo_app.py iso_pt():
+//  Exactly matches cargo_engine/rendering.py iso_project():
 //    sx = ox + (wx - wz) * cell
 //    sy = oy + (wx + wz) * cell * 0.5 - wy * cell
 //  Camera at (+∞X, +∞Y, +∞Z) — visible faces: top, +X wall, +Z wall.
 // ═══════════════════════════════════════════════════════════════════════════
-// Transform world coords based on viewAngle before projecting.
-// viewAngle 0 (NE): identity — camera at +X +Z
-// viewAngle 1 (SE): rotate 90° CW  → (wx,wz) → (wz, gridW-1-wx)  [mirrored: (gridZ-1-wz, wx)]
-// viewAngle 2 (SW): rotate 180°    → (wx,wz) → (gridW-1-wx, gridZ-1-wz)
-// viewAngle 3 (NW): rotate 270° CW → (wx,wz) → (gridZ-1-wz, wx)  [mirrored: (wz, gridW-1-wx)]
 function viewTransform(wx, wz) {
-  switch (viewAngle) {
+  switch (store.viewAngle) {
     case 0: return { vx: wx, vz: wz };
-    case 1: return { vx: wz, vz: gridW - wx };
-    case 2: return { vx: gridW - wx, vz: gridZ - wz };
-    case 3: return { vx: gridZ - wz, vz: wx };
+    case 1: return { vx: wz, vz: store.gridW - wx };
+    case 2: return { vx: store.gridW - wx, vz: store.gridZ - wz };
+    case 3: return { vx: store.gridZ - wz, vz: wx };
   }
 }
 function viewTransformInv(vx, vz) {
-  switch (viewAngle) {
+  switch (store.viewAngle) {
     case 0: return { wx: vx, wz: vz };
-    case 1: return { wx: gridW - vz, wz: vx };
-    case 2: return { wx: gridW - vx, wz: gridZ - vz };
-    case 3: return { wx: vz, wz: gridZ - vx };
+    case 1: return { wx: store.gridW - vz, wz: vx };
+    case 2: return { wx: store.gridW - vx, wz: store.gridZ - vz };
+    case 3: return { wx: vz, wz: store.gridZ - vx };
   }
 }
-function viewExtentX() { return (viewAngle % 2 === 0) ? gridW : gridZ; }
-function viewExtentZ() { return (viewAngle % 2 === 0) ? gridZ : gridW; }
+function viewExtentX() { return (store.viewAngle % 2 === 0) ? store.gridW : store.gridZ; }
+function viewExtentZ() { return (store.viewAngle % 2 === 0) ? store.gridZ : store.gridW; }
 
 function iso(wx, wy, wz) {
   const {vx, vz} = viewTransform(wx, wz);
   return {
-    x: panX + (vx - vz) * cell,
-    y: panY + (vx + vz) * cell * 0.5 - wy * cell,
+    x: store.panX + (vx - vz) * store.cell,
+    y: store.panY + (vx + vz) * store.cell * 0.5 - wy * store.cell,
   };
 }
 
-// Inverse iso at wy = 0 (ground plane) → returns WORLD coords
 function isoInv(sx, sy) {
-  const A = (sx - panX) / cell;
-  const B = (sy - panY) * 2 / cell;
+  const A = (sx - store.panX) / store.cell;
+  const B = (sy - store.panY) * 2 / store.cell;
   const vx = (A + B) * 0.5;
   const vz = (B - A) * 0.5;
   return viewTransformInv(vx, vz);
@@ -436,41 +448,35 @@ function rotatedDims(scu, rot) {
 function setCells(id, x,y,z,w,h,l, val) {
   for (let dx=0;dx<w;dx++) for (let dy=0;dy<h;dy++) for (let dz=0;dz<l;dz++) {
     const k=`${x+dx},${y+dy},${z+dz}`;
-    if (val===null) occupied.delete(k); else occupied.set(k,val);
+    if (val===null) store.occupied.delete(k); else store.occupied.set(k,val);
   }
 }
 function cellsBlocked(x,y,z,w,h,l, skipId=null) {
   for (let dx=0;dx<w;dx++) for (let dy=0;dy<h;dy++) for (let dz=0;dz<l;dz++) {
-    const v=occupied.get(`${x+dx},${y+dy},${z+dz}`);
+    const v=store.occupied.get(`${x+dx},${y+dy},${z+dz}`);
     if (v!==undefined && v!==skipId) return true;
   }
   return false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SNAPPING  — improved center-offset + grid clamp
-//
-//  Rather than snapping the crate's min-corner to Math.floor(cursor), we:
-//  1. Offset the raw world coords by half the crate footprint so the crate's
-//     CENTER follows the cursor, then round to the nearest cell boundary.
-//  2. Clamp so the crate never sticks out of the grid — the ghost is always
-//     shown at a legal position, green = clear, red = height-blocked.
+//  SNAPPING
 // ═══════════════════════════════════════════════════════════════════════════
 function computeSnap(wx, wz) {
-  const {w, l} = rotatedDims(activeSCU, rotation);
-  const gx = Math.round(wx - w * 0.5);  // center crate on cursor X
-  const gz = Math.round(wz - l * 0.5);  // center crate on cursor Z
+  const {w, l} = rotatedDims(store.activeSCU, store.rotation);
+  const gx = Math.round(wx - w * 0.5);
+  const gz = Math.round(wz - l * 0.5);
   return {
-    gx: Math.max(0, Math.min(gridW - w, gx)),
-    gz: Math.max(0, Math.min(gridZ - l, gz)),
+    gx: Math.max(0, Math.min(store.gridW - w, gx)),
+    gz: Math.max(0, Math.min(store.gridZ - l, gz)),
   };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  STACKING — lowest Y where crate (w,h,l) fits at (x,z)
+//  STACKING
 // ═══════════════════════════════════════════════════════════════════════════
 function findY(x, z, w, h, l) {
-  for (let y=0; y+h<=gridH; y++) {
+  for (let y=0; y+h<=store.gridH; y++) {
     if (!cellsBlocked(x,y,z,w,h,l)) return y;
   }
   return -1;
@@ -481,20 +487,18 @@ function findY(x, z, w, h, l) {
 // ═══════════════════════════════════════════════════════════════════════════
 function placeCrate(gx, gz) {
   if (gx === null || gz === null) return false;
-  const {w,h,l} = rotatedDims(activeSCU, rotation);
-  // Bounds guard (should already be clamped by computeSnap, but be safe)
-  if (gx<0 || gz<0 || gx+w>gridW || gz+l>gridZ) return false;
+  const {w,h,l} = rotatedDims(store.activeSCU, store.rotation);
+  if (gx<0 || gz<0 || gx+w>store.gridW || gz+l>store.gridZ) return false;
   const y = findY(gx, gz, w, h, l);
   if (y < 0) return false;
   const id = crypto.randomUUID();
-  placements.push({id, scu:activeSCU, x:gx, y, z:gz, w, h, l, rotation});
+  store.placements.push({id, scu:store.activeSCU, x:gx, y, z:gz, w, h, l, rotation:store.rotation});
   setCells(id, gx, y, gz, w, h, l, id);
   refreshUI(); render();
   return true;
 }
 
 function deleteAt(sx, sy) {
-  // Walk sorted list in reverse (front-to-back) to hit topmost crate first
   const sorted = sortedPlacements();
   for (let i=sorted.length-1; i>=0; i--) {
     if (hitTest(sx, sy, sorted[i])) { removePlacement(sorted[i].id); return; }
@@ -502,11 +506,11 @@ function deleteAt(sx, sy) {
 }
 
 function removePlacement(id) {
-  const i = placements.findIndex(p=>p.id===id);
+  const i = store.placements.findIndex(p=>p.id===id);
   if (i<0) return;
-  const p = placements[i];
+  const p = store.placements[i];
   setCells(null, p.x, p.y, p.z, p.w, p.h, p.l, null);
-  placements.splice(i,1);
+  store.placements.splice(i,1);
   refreshUI(); render();
 }
 
@@ -522,36 +526,29 @@ function pip(px, py, pts) {
 
 function hitTest(sx, sy, p) {
   const {x,y,z,w,h,l}=p;
-  // Top face always visible
   const faces = [
     [iso(x,y+h,z), iso(x+w,y+h,z), iso(x+w,y+h,z+l), iso(x,y+h,z+l)],
   ];
-  // Add the two visible wall faces based on viewAngle
   const walls = [
-    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)],   // 0: +X
-     [iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)]],  // 0: +Z
-    [[iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)],   // 1: +Z
-     [iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)]],          // 1: -X
-    [[iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)],           // 2: -X
-     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)]],          // 2: -Z
-    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)],           // 3: -Z
-     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)]],  // 3: +X
-  ][viewAngle];
+    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)],
+     [iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)]],
+    [[iso(x,y,z+l),iso(x+w,y,z+l),iso(x+w,y+h,z+l),iso(x,y+h,z+l)],
+     [iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)]],
+    [[iso(x,y,z+l),iso(x,y+h,z+l),iso(x,y+h,z),iso(x,y,z)],
+     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)]],
+    [[iso(x+w,y,z),iso(x+w,y+h,z),iso(x,y+h,z),iso(x,y,z)],
+     [iso(x+w,y,z),iso(x+w,y+h,z),iso(x+w,y+h,z+l),iso(x+w,y,z+l)]],
+  ][store.viewAngle];
   faces.push(walls[0], walls[1]);
   return faces.some(f=>pip(sx,sy,f));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PAINTER'S ALGORITHM
-//  Original integer-based sort adapted for view rotation.
-//  Primary key: sum of near+far edges in view-space X and Z.
-//  Tiebreakers: Y (bottom-up), then view-space Z origin, then X origin.
+//  PAINTER'S ALGORITHM — Topological sort (Kahn's algorithm)
+//  Matches cargo_engine/rendering.py topological_sort_boxes()
 // ═══════════════════════════════════════════════════════════════════════════
-
-// View-space origin — the "back-left" corner changes per viewAngle:
-//   0: (x, z)       1: (x+w, z)      2: (x+w, z+l)    3: (x, z+l)
 function viewOrigin(x, z, w, l) {
-  switch (viewAngle) {
+  switch (store.viewAngle) {
     case 0: return viewTransform(x, z);
     case 1: return viewTransform(x+w, z);
     case 2: return viewTransform(x+w, z+l);
@@ -560,27 +557,19 @@ function viewOrigin(x, z, w, l) {
 }
 
 function sortedPlacements() {
-  // Topological sort based on isometric occlusion.
-  // For each pair, determine if A must be drawn before B (A is behind B).
-  // A is behind B in NE view if A is entirely to the left (lower vx),
-  // entirely behind (lower vz), or entirely below (lower y) AND they
-  // overlap in the other two projected axes.
-  const arr = [...placements];
+  const arr = [...store.placements];
   const n = arr.length;
   if (n <= 1) return arr;
 
-  // Precompute view-space bounds for each box
   const bounds = arr.map(p => {
     const o = viewOrigin(p.x, p.z, p.w, p.l);
-    // View-space extents depend on angle
-    const vw = (viewAngle % 2 === 0) ? p.w : p.l;
-    const vl = (viewAngle % 2 === 0) ? p.l : p.w;
+    const vw = (store.viewAngle % 2 === 0) ? p.w : p.l;
+    const vl = (store.viewAngle % 2 === 0) ? p.l : p.w;
     return { vx: o.vx, vz: o.vz, vw, vl, y: p.y, h: p.h };
   });
 
   function rangeOverlap(a0, a1, b0, b1) { return a0 < b1 && b0 < a1; }
 
-  // Build adjacency: edges[i] = set of j where i must be drawn before j
   const inDeg = new Int32Array(n);
   const adj = Array.from({length: n}, () => []);
 
@@ -588,12 +577,10 @@ function sortedPlacements() {
     const A = bounds[i];
     for (let j = i + 1; j < n; j++) {
       const B = bounds[j];
-      // Check if A behind B (A drawn first)
       const aBeforeB =
         (A.vx + A.vw <= B.vx && rangeOverlap(A.vz, A.vz+A.vl, B.vz, B.vz+B.vl) && rangeOverlap(A.y, A.y+A.h, B.y, B.y+B.h)) ||
         (A.vz + A.vl <= B.vz && rangeOverlap(A.vx, A.vx+A.vw, B.vx, B.vx+B.vw) && rangeOverlap(A.y, A.y+A.h, B.y, B.y+B.h)) ||
         (A.y + A.h <= B.y && rangeOverlap(A.vx, A.vx+A.vw, B.vx, B.vx+B.vw) && rangeOverlap(A.vz, A.vz+A.vl, B.vz, B.vz+B.vl));
-      // Check if B behind A (B drawn first)
       const bBeforeA =
         (B.vx + B.vw <= A.vx && rangeOverlap(B.vz, B.vz+B.vl, A.vz, A.vz+A.vl) && rangeOverlap(B.y, B.y+B.h, A.y, A.y+A.h)) ||
         (B.vz + B.vl <= A.vz && rangeOverlap(B.vx, B.vx+B.vw, A.vx, A.vx+A.vw) && rangeOverlap(B.y, B.y+B.h, A.y, A.y+A.h)) ||
@@ -613,7 +600,6 @@ function sortedPlacements() {
     result.push(arr[u]);
     for (const v of adj[u]) { if (--inDeg[v] === 0) queue.push(v); }
   }
-  // If cycle detected (shouldn't happen with non-overlapping boxes), append remaining
   if (result.length < n) {
     const inResult = new Set(result);
     for (const p of arr) if (!inResult.has(p)) result.push(p);
@@ -631,16 +617,16 @@ function resizeCanvas() {
   const wrap = document.getElementById('canvas-wrap');
   cvs.width  = wrap.clientWidth;
   cvs.height = wrap.clientHeight - 28;
-  if (!panInit) { initPan(); panInit=true; }
+  if (!store.panInit) { initPan(); store.panInit=true; }
   render();
 }
 
 function initPan() {
   const extW = viewExtentX();
   const extZ = viewExtentZ();
-  const screenW = (extW + extZ) * cell;
-  panX = Math.round(cvs.width  * 0.5 + extZ * cell * 0.5 - screenW * 0.5 + extZ * cell);
-  panY = Math.round(cvs.height * 0.12 + gridH * cell);
+  const screenW = (extW + extZ) * store.cell;
+  store.panX = Math.round(cvs.width  * 0.5 + extZ * store.cell * 0.5 - screenW * 0.5 + extZ * store.cell);
+  store.panY = Math.round(cvs.height * 0.12 + store.gridH * store.cell);
 }
 
 function render() {
@@ -649,20 +635,19 @@ function render() {
   ctx.fillRect(0,0,cvs.width,cvs.height);
   drawGround();
   for (const p of sortedPlacements()) {
-    drawBox(p.x, p.y, p.z, p.w, p.h, p.l, CONT_COL[p.scu], p.scu, 1.0, selected.has(p.id));
+    drawBox(p.x, p.y, p.z, p.w, p.h, p.l, CONT_COL[p.scu], p.scu, 1.0, store.selected.has(p.id));
   }
   drawGhost();
   drawSelectionRect();
   drawGridInfo();
 }
 
-// ── Rubber-band selection rectangle ───────────────────────────────────────
 function drawSelectionRect() {
-  if (!isSelecting) return;
-  const x = Math.min(selStartSX, selCurSX);
-  const y = Math.min(selStartSY, selCurSY);
-  const w = Math.abs(selCurSX - selStartSX);
-  const h = Math.abs(selCurSY - selStartSY);
+  if (!store.isSelecting) return;
+  const x = Math.min(store.selStartSX, store.selCurSX);
+  const y = Math.min(store.selStartSY, store.selCurSY);
+  const w = Math.abs(store.selCurSX - store.selStartSX);
+  const h = Math.abs(store.selCurSY - store.selStartSY);
   ctx.save();
   ctx.strokeStyle = '#44aaff';
   ctx.lineWidth = 1.5;
@@ -674,26 +659,23 @@ function drawSelectionRect() {
   ctx.restore();
 }
 
-// ── Ground grid — uses world coords so iso() handles view transform ───────
 function drawGround() {
   ctx.strokeStyle='#1e2740'; ctx.lineWidth=0.5;
-  for (let z=0; z<=gridZ; z++) {
-    const a=iso(0,0,z), b=iso(gridW,0,z);
+  for (let z=0; z<=store.gridZ; z++) {
+    const a=iso(0,0,z), b=iso(store.gridW,0,z);
     ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
   }
-  for (let x=0; x<=gridW; x++) {
-    const a=iso(x,0,0), b=iso(x,0,gridZ);
+  for (let x=0; x<=store.gridW; x++) {
+    const a=iso(x,0,0), b=iso(x,0,store.gridZ);
     ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
   }
-  // Boundary outline
   ctx.strokeStyle='#2a3050'; ctx.lineWidth=1.2;
-  const c1=iso(0,0,0), c2=iso(gridW,0,0), c3=iso(gridW,0,gridZ), c4=iso(0,0,gridZ);
+  const c1=iso(0,0,0), c2=iso(store.gridW,0,0), c3=iso(store.gridW,0,store.gridZ), c4=iso(0,0,store.gridZ);
   ctx.beginPath();
   ctx.moveTo(c1.x,c1.y); ctx.lineTo(c2.x,c2.y); ctx.lineTo(c3.x,c3.y); ctx.lineTo(c4.x,c4.y);
   ctx.closePath(); ctx.stroke();
 }
 
-// ── Isometric box — three visible faces (view-angle aware) ────────────────
 function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
   const edge = shade(baseCol, SH_EDGE);
 
@@ -708,55 +690,37 @@ function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
     ctx.globalAlpha=1;
   }
 
-  // TOP face — always visible
+  // TOP face
   face([iso(wx,wy+dh,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)],
        shade(baseCol, SH_TOP));
 
-  // Wall faces depend on view angle — always draw the two walls facing the camera.
-  // In view-space, the camera is at +vx +vz, so we see the max-vx wall and max-vz wall.
-  // Map those back to world walls:
-  //   viewAngle 0 (NE): camera +X +Z → wallA = +X wall, wallB = +Z wall
-  //   viewAngle 1 (SE): camera +Z -X → wallA = +Z wall, wallB = -X wall
-  //   viewAngle 2 (SW): camera -X -Z → wallA = -X wall, wallB = -Z wall
-  //   viewAngle 3 (NW): camera -Z +X → wallA = -Z wall, wallB = +X wall
+  // Wall faces depend on view angle
+  const wallA_pts = [
+    [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)],
+    [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)],
+    [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)],
+    [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)],
+  ][store.viewAngle];
 
-  const wallA_pts = [  // "right" wall in view-space (medium shade)
-    [// viewAngle 0: +X wall
-     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)]],
-    [// viewAngle 1: +Z wall
-     [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)]],
-    [// viewAngle 2: -X wall (x=wx)
-     [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
-    [// viewAngle 3: -Z wall (z=wz)
-     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
-  ][viewAngle][0];
-
-  const wallB_pts = [  // "front" wall in view-space (dark shade)
-    [// viewAngle 0: +Z wall
-     [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)]],
-    [// viewAngle 1: -X wall (x=wx)
-     [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
-    [// viewAngle 2: -Z wall (z=wz)
-     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)]],
-    [// viewAngle 3: +X wall (x=wx+dw)
-     [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)]],
-  ][viewAngle][0];
+  const wallB_pts = [
+    [iso(wx,wy,wz+dl), iso(wx+dw,wy,wz+dl), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)],
+    [iso(wx,wy,wz+dl), iso(wx,wy+dh,wz+dl), iso(wx,wy+dh,wz), iso(wx,wy,wz)],
+    [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx,wy+dh,wz), iso(wx,wy,wz)],
+    [iso(wx+dw,wy,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx+dw,wy,wz+dl)],
+  ][store.viewAngle];
 
   face(wallA_pts, shade(baseCol, SH_RIGHT));
   face(wallB_pts, shade(baseCol, SH_FRONT));
 
-  // Selection highlight — bright border overlay
+  // Selection highlight
   if (highlight) {
     ctx.globalAlpha = 0.9;
     ctx.strokeStyle = '#44aaff';
     ctx.lineWidth = 2.0;
-    // Outline the top face
     const top = [iso(wx,wy+dh,wz), iso(wx+dw,wy+dh,wz), iso(wx+dw,wy+dh,wz+dl), iso(wx,wy+dh,wz+dl)];
-    ctx.beginPath();
-    ctx.moveTo(top[0].x,top[0].y);
+    ctx.beginPath(); ctx.moveTo(top[0].x,top[0].y);
     for (let i=1;i<top.length;i++) ctx.lineTo(top[i].x,top[i].y);
     ctx.closePath(); ctx.stroke();
-    // Outline both walls
     ctx.beginPath(); ctx.moveTo(wallA_pts[0].x,wallA_pts[0].y);
     for (let i=1;i<wallA_pts.length;i++) ctx.lineTo(wallA_pts[i].x,wallA_pts[i].y);
     ctx.closePath(); ctx.stroke();
@@ -766,9 +730,9 @@ function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
     ctx.globalAlpha = 1;
   }
 
-  // SCU label — pick the larger visible wall face for label placement
-  if (labelVal !== null && cell >= 10) {
-    const fc = wallB_pts; // use "front" wall for label
+  // SCU label
+  if (labelVal !== null && store.cell >= 10) {
+    const fc = wallB_pts;
     const cx = (fc[0].x+fc[1].x+fc[2].x+fc[3].x)/4;
     const cy = (fc[0].y+fc[1].y+fc[2].y+fc[3].y)/4;
     const fw = Math.abs(fc[1].x-fc[0].x) + Math.abs(fc[2].x-fc[3].x);
@@ -776,7 +740,7 @@ function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
     if (fw>=16 && fh>=12) {
       ctx.globalAlpha  = 0.85;
       ctx.fillStyle    = luma(baseCol)>110 ? '#0008' : '#fff9';
-      ctx.font         = `bold ${Math.max(8,Math.min(12,cell*0.62))}px Consolas`;
+      ctx.font         = `bold ${Math.max(8,Math.min(12,store.cell*0.62))}px Consolas`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(labelVal), cx, cy);
@@ -785,34 +749,32 @@ function drawBox(wx, wy, wz, dw, dh, dl, baseCol, labelVal, alpha, highlight) {
   }
 }
 
-// ── Ghost preview ──────────────────────────────────────────────────────────
 function drawGhost() {
-  if (deleteMode || selectMode || hoverGX===null) return;
-  const {w,h,l} = rotatedDims(activeSCU, rotation);
-  const x=hoverGX, z=hoverGZ;
+  if (store.deleteMode || store.selectMode || store.hoverGX===null) return;
+  const {w,h,l} = rotatedDims(store.activeSCU, store.rotation);
+  const x=store.hoverGX, z=store.hoverGZ;
   const y = findY(x, z, w, h, l);
   const ok = y >= 0;
   drawBox(x, ok?y:0, z, w, h, l, ok?'#33dd99':'#ff6644', null, 0.38, false);
 }
 
-// ── Grid info overlay (bottom-right of grid) ──────────────────────────────
 function drawGridInfo() {
   ctx.save();
   ctx.font='10px Consolas'; ctx.fillStyle='#2a3050';
   ctx.textAlign='right'; ctx.textBaseline='bottom';
-  ctx.fillText(`${gridW}×${gridZ}×${gridH}  ${shipName}  View: ${VIEW_LABELS[viewAngle]}`, cvs.width-8, cvs.height-6);
+  ctx.fillText(`${store.gridW}×${store.gridZ}×${store.gridH}  ${store.shipName}  View: ${VIEW_LABELS[store.viewAngle]}`, cvs.width-8, cvs.height-6);
   ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  UI PANEL — palette, summary, capacity
+//  UI PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 function buildPalette() {
   const el=document.getElementById('palette');
   el.innerHTML='';
   SIZES.forEach(s=>{
     const d=document.createElement('div');
-    d.className='palette-card'+(s===activeSCU?' sel':'');
+    d.className='palette-card'+(s===store.activeSCU?' sel':'');
     d.id=`pc${s}`;
     d.innerHTML=`<span class="swatch" style="background:${CONT_COL[s]}"></span>
                  <span class="card-label">${s} SCU</span>
@@ -826,7 +788,7 @@ function buildPalette() {
 }
 
 function selectSCU(s) {
-  activeSCU=s; rotation=0;
+  store.activeSCU=s; store.rotation=0;
   document.querySelectorAll('.palette-card').forEach(c=>c.classList.remove('sel'));
   document.getElementById(`pc${s}`).classList.add('sel');
   refreshUI();
@@ -834,13 +796,13 @@ function selectSCU(s) {
 
 function refreshUI() {
   const counts={};  SIZES.forEach(s=>counts[s]=0);
-  placements.forEach(p=>counts[p.scu]++);
-  const used=placements.reduce((s,p)=>s+p.scu,0);
-  const pct=Math.min(100,(used/totalCapacity)*100);
+  store.placements.forEach(p=>counts[p.scu]++);
+  const used=store.placements.reduce((s,p)=>s+p.scu,0);
+  const pct=Math.min(100,(used/store.totalCapacity)*100);
 
   document.getElementById('cap-bar').style.width     =pct+'%';
   document.getElementById('cap-bar').style.background=pct>=100?'#ff6644':pct>=80?'#ffbb33':'#33dd99';
-  document.getElementById('cap-lbl').textContent=`${used} / ${totalCapacity} SCU`;
+  document.getElementById('cap-lbl').textContent=`${used} / ${store.totalCapacity} SCU`;
 
   const rows=SIZES.filter(s=>counts[s]>0).map(s=>
     `<div class="sum-row">
@@ -850,15 +812,13 @@ function refreshUI() {
   document.getElementById('summary').innerHTML=rows.length
     ?rows.join(''):'<span style="color:#6a7490">Empty</span>';
 
-  // Show current dims on rotate button
-  const d=rotatedDims(activeSCU,rotation);
+  const d=rotatedDims(store.activeSCU,store.rotation);
   document.getElementById('btn-rot').textContent=`[R] ${d.w}×${d.l}×${d.h}`;
 
-  // Selection panel visibility and count
   const selPanel = document.getElementById('sel-tools');
   if (selPanel) {
-    selPanel.style.display = (selected.size > 0 || selectMode) ? 'block' : 'none';
-    document.getElementById('sel-count').textContent = `${selected.size} selected`;
+    selPanel.style.display = (store.selected.size > 0 || store.selectMode) ? 'block' : 'none';
+    document.getElementById('sel-count').textContent = `${store.selected.size} selected`;
   }
 }
 
@@ -870,73 +830,71 @@ function applyGrid() {
   const nz=parseInt(document.getElementById('g-z').value);
   const nh=parseInt(document.getElementById('g-h').value);
   if ([nw,nz,nh].some(v=>isNaN(v)||v<1)) { alert('All dimensions must be ≥ 1.'); return; }
-  if (placements.length>0 &&
-      !confirm(`Resize grid to ${nw}×${nz}×${nh}?\nThis will clear all ${placements.length} placed crates.`))
+  if (store.placements.length>0 &&
+      !confirm(`Resize grid to ${nw}×${nz}×${nh}?\nThis will clear all ${store.placements.length} placed crates.`))
     return;
-  gridW=nw; gridZ=nz; gridH=nh;
-  placements=[]; occupied.clear();
-  panInit=false;             // force re-centering on next resize/render
+  store.gridW=nw; store.gridZ=nz; store.gridH=nh;
+  store.placements=[]; store.occupied.clear();
+  store.panInit=false;
   resizeCanvas();
 }
 
 function applyCapacity() {
   const v=parseInt(document.getElementById('cap-input').value);
-  if (!isNaN(v) && v>=1) { totalCapacity=v; refreshUI(); }
+  if (!isNaN(v) && v>=1) { store.totalCapacity=v; refreshUI(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  TOOL ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
-function rotateCrate()  { rotation=(rotation+90)%360; refreshUI(); render(); }
+function rotateCrate()  { store.rotation=(store.rotation+90)%360; refreshUI(); render(); }
 function toggleDelete() {
-  deleteMode=!deleteMode;
-  if (deleteMode) { selectMode=false; document.getElementById('btn-sel').classList.remove('sel-on'); }
-  document.getElementById('btn-del').classList.toggle('del-on',deleteMode);
-  cvs.classList.toggle('del-cursor',deleteMode);
+  store.deleteMode=!store.deleteMode;
+  if (store.deleteMode) { store.selectMode=false; document.getElementById('btn-sel').classList.remove('sel-on'); }
+  document.getElementById('btn-del').classList.toggle('del-on',store.deleteMode);
+  cvs.classList.toggle('del-cursor',store.deleteMode);
 }
 function toggleSelect() {
-  selectMode=!selectMode;
-  if (selectMode) { deleteMode=false; document.getElementById('btn-del').classList.remove('del-on'); cvs.classList.remove('del-cursor'); }
-  document.getElementById('btn-sel').classList.toggle('sel-on',selectMode);
-  cvs.classList.toggle('sel-cursor',selectMode);
+  store.selectMode=!store.selectMode;
+  if (store.selectMode) { store.deleteMode=false; document.getElementById('btn-del').classList.remove('del-on'); cvs.classList.remove('del-cursor'); }
+  document.getElementById('btn-sel').classList.toggle('sel-on',store.selectMode);
+  cvs.classList.toggle('sel-cursor',store.selectMode);
 }
 function clearAll() {
-  if (!placements.length||!confirm('Clear all crates?')) return;
-  placements=[]; occupied.clear(); selected.clear(); refreshUI(); render();
+  if (!store.placements.length||!confirm('Clear all crates?')) return;
+  store.placements=[]; store.occupied.clear(); store.selected.clear(); refreshUI(); render();
 }
 function triggerImport() { document.getElementById('file-in').click(); }
 
-// ── View Rotation ─────────────────────────────────────────────────────────
 function rotateView(dir) {
-  viewAngle = (viewAngle + dir + 4) % 4;
-  document.getElementById('btn-view').textContent = `[Q/T] View: ${VIEW_LABELS[viewAngle]}`;
-  panInit = false;
+  store.viewAngle = (store.viewAngle + dir + 4) % 4;
+  document.getElementById('btn-view').textContent = `[Q/T] View: ${VIEW_LABELS[store.viewAngle]}`;
+  store.panInit = false;
   initPan();
   render();
 }
 
 // ── Selection helpers ─────────────────────────────────────────────────────
 function selectAll() {
-  placements.forEach(p => selected.add(p.id));
+  store.placements.forEach(p => store.selected.add(p.id));
   render();
 }
 function deselectAll() {
-  selected.clear();
+  store.selected.clear();
   render();
 }
 function deleteSelected() {
-  if (!selected.size) return;
-  const ids = new Set(selected);
+  if (!store.selected.size) return;
+  const ids = new Set(store.selected);
   for (const id of ids) removePlacement(id);
-  selected.clear();
+  store.selected.clear();
   refreshUI(); render();
 }
 
-// Get bounding box of selected placements (in world coords)
 function getSelectionBounds() {
   let minX=Infinity, minY=Infinity, minZ=Infinity;
-  for (const p of placements) {
-    if (!selected.has(p.id)) continue;
+  for (const p of store.placements) {
+    if (!store.selected.has(p.id)) continue;
     minX = Math.min(minX, p.x);
     minY = Math.min(minY, p.y);
     minZ = Math.min(minZ, p.z);
@@ -946,12 +904,12 @@ function getSelectionBounds() {
 
 // ── Copy / Paste ──────────────────────────────────────────────────────────
 function copySelected() {
-  if (!selected.size) return;
+  if (!store.selected.size) return;
   const {minX, minY, minZ} = getSelectionBounds();
-  clipboard = [];
-  for (const p of placements) {
-    if (!selected.has(p.id)) continue;
-    clipboard.push({
+  store.clipboard = [];
+  for (const p of store.placements) {
+    if (!store.selected.has(p.id)) continue;
+    store.clipboard.push({
       scu: p.scu, w: p.w, h: p.h, l: p.l, rotation: p.rotation,
       dx: p.x - minX, dy: p.y - minY, dz: p.z - minZ,
     });
@@ -959,22 +917,21 @@ function copySelected() {
 }
 
 function pasteClipboard() {
-  if (!clipboard.length) return;
-  // Paste at current hover position, or at origin
-  const baseX = hoverGX !== null ? hoverGX : 0;
-  const baseZ = hoverGZ !== null ? hoverGZ : 0;
-  selected.clear();
+  if (!store.clipboard.length) return;
+  const baseX = store.hoverGX !== null ? store.hoverGX : 0;
+  const baseZ = store.hoverGZ !== null ? store.hoverGZ : 0;
+  store.selected.clear();
   let anyPlaced = false;
-  for (const c of clipboard) {
+  for (const c of store.clipboard) {
     const px = baseX + c.dx;
     const pz = baseZ + c.dz;
-    if (px < 0 || pz < 0 || px + c.w > gridW || pz + c.l > gridZ) continue;
+    if (px < 0 || pz < 0 || px + c.w > store.gridW || pz + c.l > store.gridZ) continue;
     const py = findY(px, pz, c.w, c.h, c.l);
     if (py < 0) continue;
     const id = crypto.randomUUID();
-    placements.push({id, scu:c.scu, x:px, y:py, z:pz, w:c.w, h:c.h, l:c.l, rotation:c.rotation});
+    store.placements.push({id, scu:c.scu, x:px, y:py, z:pz, w:c.w, h:c.h, l:c.l, rotation:c.rotation});
     setCells(id, px, py, pz, c.w, c.h, c.l, id);
-    selected.add(id);
+    store.selected.add(id);
     anyPlaced = true;
   }
   if (anyPlaced) { refreshUI(); render(); }
@@ -982,7 +939,6 @@ function pasteClipboard() {
 
 // ── Rubber-band selection logic ───────────────────────────────────────────
 function getBoxScreenCenter(p) {
-  // Use the center of the top face as the screen representative point
   const cx = p.x + p.w * 0.5;
   const cy = p.y + p.h;
   const cz = p.z + p.l * 0.5;
@@ -992,13 +948,37 @@ function getBoxScreenCenter(p) {
 function computeSelectionFromRect(sx1, sy1, sx2, sy2) {
   const rx = Math.min(sx1, sx2), ry = Math.min(sy1, sy2);
   const rw = Math.abs(sx2 - sx1), rh = Math.abs(sy2 - sy1);
-  selected.clear();
-  for (const p of placements) {
+  store.selected.clear();
+  for (const p of store.placements) {
     const sc = getBoxScreenCenter(p);
     if (sc.x >= rx && sc.x <= rx+rw && sc.y >= ry && sc.y <= ry+rh) {
-      selected.add(p.id);
+      store.selected.add(p.id);
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  VALIDATION — validates layout JSON before import
+// ═══════════════════════════════════════════════════════════════════════════
+function validateLayout(data) {
+  const errors = [];
+  if (typeof data !== 'object' || data === null) return ['Layout must be a JSON object'];
+  if (data.schemaVersion !== 1) errors.push(`Unsupported schemaVersion: ${data.schemaVersion}`);
+  for (const key of ['gridW', 'gridZ', 'gridH']) {
+    const v = data[key];
+    if (v === undefined) errors.push(`Missing: ${key}`);
+    else if (!Number.isInteger(v) || v < 1) errors.push(`${key} must be a positive integer`);
+    else if (v > 256) errors.push(`${key} exceeds maximum of 256`);
+  }
+  if (!Array.isArray(data.placements)) errors.push('placements must be an array');
+  else {
+    for (let i = 0; i < data.placements.length; i++) {
+      const p = data.placements[i];
+      if (!BASE_DIMS[p.scu]) errors.push(`placements[${i}]: invalid scu ${p.scu}`);
+      if (!p.dims || !p.pos) errors.push(`placements[${i}]: missing dims or pos`);
+    }
+  }
+  return errors;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1006,17 +986,17 @@ function computeSelectionFromRect(sx1, sy1, sx2, sy2) {
 // ═══════════════════════════════════════════════════════════════════════════
 function exportJSON() {
   const counts={}; SIZES.forEach(s=>counts[s]=0);
-  placements.forEach(p=>counts[p.scu]++);
+  store.placements.forEach(p=>counts[p.scu]++);
   const containers={};
   SIZES.forEach(s=>containers[String(s)]=counts[s]);
   const data={
     schemaVersion: 1,
     ship:          document.getElementById('ship-name').value.trim() || 'Custom',
-    gridW, gridZ, gridH,
-    totalCapacity,
-    totalUsed:     placements.reduce((s,p)=>s+p.scu,0),
+    gridW: store.gridW, gridZ: store.gridZ, gridH: store.gridH,
+    totalCapacity: store.totalCapacity,
+    totalUsed:     store.placements.reduce((s,p)=>s+p.scu,0),
     containers,
-    placements:    placements.map(p=>({
+    placements:    store.placements.map(p=>({
       id:p.id, scu:p.scu,
       dims:{w:p.w,h:p.h,l:p.l},
       pos:{x:p.x,y:p.y,z:p.z},
@@ -1032,7 +1012,7 @@ function exportJSON() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  IMPORT
+//  IMPORT — with validation
 // ═══════════════════════════════════════════════════════════════════════════
 function handleImport(e) {
   const file=e.target.files[0]; if (!file) return;
@@ -1040,27 +1020,32 @@ function handleImport(e) {
   reader.onload=ev=>{
     try {
       const data=JSON.parse(ev.target.result);
-      if (data.schemaVersion!==1) { alert('Unsupported schemaVersion (expected 1)'); return; }
 
-      // Restore grid settings if present
-      if (data.gridW)         { gridW=data.gridW; document.getElementById('g-w').value=gridW; }
-      if (data.gridZ)         { gridZ=data.gridZ; document.getElementById('g-z').value=gridZ; }
-      if (data.gridH)         { gridH=data.gridH; document.getElementById('g-h').value=gridH; }
-      if (data.totalCapacity) { totalCapacity=data.totalCapacity;
-                                document.getElementById('cap-input').value=totalCapacity; }
-      if (data.ship)          { shipName=data.ship;
-                                document.getElementById('ship-name').value=shipName; }
+      // Validate before loading
+      const errors = validateLayout(data);
+      if (errors.length > 0) {
+        alert('Layout validation errors:\n' + errors.join('\n'));
+        return;
+      }
 
-      placements=[]; occupied.clear();
+      if (data.gridW)         { store.gridW=data.gridW; document.getElementById('g-w').value=store.gridW; }
+      if (data.gridZ)         { store.gridZ=data.gridZ; document.getElementById('g-z').value=store.gridZ; }
+      if (data.gridH)         { store.gridH=data.gridH; document.getElementById('g-h').value=store.gridH; }
+      if (data.totalCapacity) { store.totalCapacity=data.totalCapacity;
+                                document.getElementById('cap-input').value=store.totalCapacity; }
+      if (data.ship)          { store.shipName=data.ship;
+                                document.getElementById('ship-name').value=store.shipName; }
+
+      store.placements=[]; store.occupied.clear();
       for (const p of (data.placements||[])) {
         const {w,h,l}=p.dims, {x,y,z}=p.pos;
-        if (x<0||y<0||z<0||x+w>gridW||z+l>gridZ||y+h>gridH) continue;
+        if (x<0||y<0||z<0||x+w>store.gridW||z+l>store.gridZ||y+h>store.gridH) continue;
         if (cellsBlocked(x,y,z,w,h,l)) continue;
         const id=p.id||crypto.randomUUID();
-        placements.push({id,scu:p.scu,x,y,z,w,h,l,rotation:p.rotation||0});
+        store.placements.push({id,scu:p.scu,x,y,z,w,h,l,rotation:p.rotation||0});
         setCells(id,x,y,z,w,h,l,id);
       }
-      panInit=false; resizeCanvas();
+      store.panInit=false; resizeCanvas();
       refreshUI();
     } catch(err) { alert('Import failed: '+err.message); }
   };
@@ -1069,11 +1054,10 @@ function handleImport(e) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  IMAGE SCAN — stores image for Claude Code to analyze
+//  IMAGE SCAN
 // ═══════════════════════════════════════════════════════════════════════════
-window._scanImageData = null;  // base64 data URL, readable by Claude Code
+window._scanImageData = null;
 
-// ── Scan prompt — Claude Code reads this and follows it exactly ────────────
 window._scanPrompt = `
 You are analyzing a Star Citizen cargo grid screenshot from sc-cargo.space.
 Your job is to produce a precise JSON layout that the cargo grid editor can
@@ -1180,7 +1164,6 @@ RULES:
 - Do NOT guess — if you cannot determine a measurement, say so
   and ask before producing JSON.
 `;
-// ─────────────────────────────────────────────────────────────────────────
 
 function setScanStatus(msg, cls) {
   const el = document.getElementById('scan-status');
@@ -1223,12 +1206,11 @@ function applyScanResult(data) {
     return;
   }
 
-  // Apply grid dimensions
-  if (data.gridW) { gridW = data.gridW; document.getElementById('g-w').value = gridW; }
-  if (data.gridZ) { gridZ = data.gridZ; document.getElementById('g-z').value = gridZ; }
-  if (data.gridH) { gridH = data.gridH; document.getElementById('g-h').value = gridH; }
+  if (data.gridW) { store.gridW = data.gridW; document.getElementById('g-w').value = store.gridW; }
+  if (data.gridZ) { store.gridZ = data.gridZ; document.getElementById('g-z').value = store.gridZ; }
+  if (data.gridH) { store.gridH = data.gridH; document.getElementById('g-h').value = store.gridH; }
 
-  placements = []; occupied.clear(); selected.clear();
+  store.placements = []; store.occupied.clear(); store.selected.clear();
 
   let placed = 0, skipped = 0;
   for (const p of data.placements) {
@@ -1237,16 +1219,16 @@ function applyScanResult(data) {
     const rot = p.rotation || 0;
     const {w, h, l} = rotatedDims(scu, rot);
     const x = p.x || 0, y = p.y || 0, z = p.z || 0;
-    if (x < 0 || y < 0 || z < 0 || x+w > gridW || z+l > gridZ || y+h > gridH) { skipped++; continue; }
+    if (x < 0 || y < 0 || z < 0 || x+w > store.gridW || z+l > store.gridZ || y+h > store.gridH) { skipped++; continue; }
     if (cellsBlocked(x, y, z, w, h, l)) { skipped++; continue; }
     const id = crypto.randomUUID();
-    placements.push({id, scu, x, y, z, w, h, l, rotation: rot});
+    store.placements.push({id, scu, x, y, z, w, h, l, rotation: rot});
     setCells(id, x, y, z, w, h, l, id);
     placed++;
   }
 
-  panInit = false; resizeCanvas(); refreshUI();
-  const totalSCU = placements.reduce((s, p) => s + p.scu, 0);
+  store.panInit = false; resizeCanvas(); refreshUI();
+  const totalSCU = store.placements.reduce((s, p) => s + p.scu, 0);
   setScanStatus(`Placed ${placed} boxes (${totalSCU} SCU)${skipped ? `, ${skipped} skipped` : ''}`, 'ok');
 }
 
@@ -1257,24 +1239,24 @@ cvs.addEventListener('mousemove', e=>{
   const r=cvs.getBoundingClientRect();
   const sx=e.clientX-r.left, sy=e.clientY-r.top;
 
-  if (isPanning) {
-    panX=pOX+(e.clientX-pSX); panY=pOY+(e.clientY-pSY);
+  if (store.isPanning) {
+    store.panX=store.pOX+(e.clientX-store.pSX); store.panY=store.pOY+(e.clientY-store.pSY);
     render(); return;
   }
 
-  if (isSelecting) {
-    selCurSX = sx; selCurSY = sy;
-    computeSelectionFromRect(selStartSX, selStartSY, selCurSX, selCurSY);
+  if (store.isSelecting) {
+    store.selCurSX = sx; store.selCurSY = sy;
+    computeSelectionFromRect(store.selStartSX, store.selStartSY, store.selCurSX, store.selCurSY);
     render(); return;
   }
 
   const {wx,wz}=isoInv(sx,sy);
   const snap=computeSnap(wx,wz);
-  hoverGX=snap.gx; hoverGZ=snap.gz;
+  store.hoverGX=snap.gx; store.hoverGZ=snap.gz;
   render();
 });
 
-cvs.addEventListener('mouseleave', ()=>{ hoverGX=null; hoverGZ=null; render(); });
+cvs.addEventListener('mouseleave', ()=>{ store.hoverGX=null; store.hoverGZ=null; render(); });
 
 // Direct paste handler on the paste target element
 document.getElementById('paste-target').addEventListener('paste', e => {
@@ -1288,14 +1270,12 @@ document.getElementById('paste-target').addEventListener('paste', e => {
       const reader = new FileReader();
       reader.onload = ev => loadScanImage(ev.target.result);
       reader.readAsDataURL(file);
-      // Clear contenteditable to prevent lingering pasted content
       setTimeout(() => { document.getElementById('paste-target').innerHTML = ''; }, 50);
       return;
     }
   }
 });
 
-// Also focus paste target when clicking anywhere in canvas-wrap
 document.getElementById('canvas-wrap').addEventListener('mousedown', () => {
   document.getElementById('paste-target').style.pointerEvents = 'auto';
   document.getElementById('paste-target').focus();
@@ -1304,50 +1284,46 @@ document.getElementById('canvas-wrap').addEventListener('mousedown', () => {
 
 cvs.addEventListener('mousedown', e=>{
   if (e.button===1||e.button===2) {
-    isPanning=true; pSX=e.clientX; pSY=e.clientY; pOX=panX; pOY=panY;
+    store.isPanning=true; store.pSX=e.clientX; store.pSY=e.clientY; store.pOX=store.panX; store.pOY=store.panY;
     e.preventDefault(); return;
   }
   if (e.button===0) {
     const r=cvs.getBoundingClientRect();
     const sx=e.clientX-r.left, sy=e.clientY-r.top;
-    if (selectMode) {
-      // Start rubber-band selection
-      isSelecting=true;
-      selStartSX=sx; selStartSY=sy;
-      selCurSX=sx;   selCurSY=sy;
-      if (!e.shiftKey) selected.clear();
+    if (store.selectMode) {
+      store.isSelecting=true;
+      store.selStartSX=sx; store.selStartSY=sy;
+      store.selCurSX=sx;   store.selCurSY=sy;
+      if (!e.shiftKey) store.selected.clear();
       return;
     }
-    if (deleteMode) deleteAt(sx, sy);
-    else            placeCrate(hoverGX, hoverGZ);
+    if (store.deleteMode) deleteAt(sx, sy);
+    else            placeCrate(store.hoverGX, store.hoverGZ);
   }
 });
 
 cvs.addEventListener('mouseup', e=>{
-  if (e.button===1||e.button===2) { isPanning=false; return; }
-  if (e.button===0 && isSelecting) {
-    isSelecting=false;
+  if (e.button===1||e.button===2) { store.isPanning=false; return; }
+  if (e.button===0 && store.isSelecting) {
+    store.isSelecting=false;
     refreshUI(); render();
   }
 });
 cvs.addEventListener('contextmenu', e=>e.preventDefault());
 
-// Zoom — keep cursor world position fixed
 cvs.addEventListener('wheel', e=>{
   e.preventDefault();
   const r=cvs.getBoundingClientRect();
   const sx=e.clientX-r.left, sy=e.clientY-r.top;
-  const old=cell;
-  cell=Math.max(4,Math.min(56, cell*(e.deltaY<0?1.12:1/1.12)));
-  panX=sx-(sx-panX)*(cell/old);
-  panY=sy-(sy-panY)*(cell/old);
-  // Re-snap hover at new zoom level
+  const old=store.cell;
+  store.cell=Math.max(4,Math.min(56, store.cell*(e.deltaY<0?1.12:1/1.12)));
+  store.panX=sx-(sx-store.panX)*(store.cell/old);
+  store.panY=sy-(sy-store.panY)*(store.cell/old);
   const {wx,wz}=isoInv(sx,sy);
-  const snap=computeSnap(wx,wz); hoverGX=snap.gx; hoverGZ=snap.gz;
+  const snap=computeSnap(wx,wz); store.hoverGX=snap.gx; store.hoverGZ=snap.gz;
   refreshUI(); render();
 },{passive:false});
 
-// Clipboard paste — image scan (listen on window to catch all paste events)
 window.addEventListener('paste', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const items = e.clipboardData?.items;
@@ -1363,15 +1339,14 @@ window.addEventListener('paste', e => {
       return;
     }
   }
-}, true);  // useCapture=true to fire before contenteditable consumes it
+}, true);
 
 document.addEventListener('keydown', e=>{
   if (e.target.tagName==='INPUT') return;
   const key = e.key.toUpperCase();
 
-  // Ctrl shortcuts
   if ((e.ctrlKey || e.metaKey) && key === 'C') { e.preventDefault(); copySelected(); return; }
-  if ((e.ctrlKey || e.metaKey) && key === 'V') { if (clipboard.length) { e.preventDefault(); pasteClipboard(); } return; }
+  if ((e.ctrlKey || e.metaKey) && key === 'V') { if (store.clipboard.length) { e.preventDefault(); pasteClipboard(); } return; }
   if ((e.ctrlKey || e.metaKey) && key === 'A') { e.preventDefault(); selectAll(); return; }
 
   switch(key) {
@@ -1380,8 +1355,8 @@ document.addEventListener('keydown', e=>{
     case 'C': clearAll();     break;
     case 'E': exportJSON();   break;
     case 'S': toggleSelect(); break;
-    case 'Q': rotateView(-1); break;  // rotate view CCW
-    case 'T': rotateView(1);  break;  // rotate view CW
+    case 'Q': rotateView(-1); break;
+    case 'T': rotateView(1);  break;
     case 'DELETE':
     case 'BACKSPACE': deleteSelected(); break;
     case 'ESCAPE':    deselectAll();    break;

@@ -6,8 +6,10 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional
 
-# Allow imports from the shared package two levels up
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
 from shared.ships import scu_for_ship  # noqa: E402
 from uex_client import RouteData  # noqa: E402
@@ -37,6 +39,7 @@ class FilterState:
     search: str = ""
     min_margin_scu: float = 0.0
     same_system_only: bool = False
+    allow_illegal: bool = True
 
 
 ## scu_for_ship is imported from shared.ships
@@ -45,6 +48,9 @@ class FilterState:
 def apply_filters(routes: List[RouteData], filters: FilterState) -> List[RouteData]:
     """Return routes that satisfy all active filter criteria."""
     result = routes
+
+    if not filters.allow_illegal:
+        result = [r for r in result if not getattr(r, 'is_illegal', False)]
 
     if filters.system:
         s = filters.system.lower()

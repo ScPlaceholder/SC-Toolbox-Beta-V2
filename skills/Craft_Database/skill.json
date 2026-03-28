@@ -1,0 +1,10 @@
+{
+    "id": "craft_db",
+    "name": "Craft Database",
+    "icon": "\ud83c\udfed",
+    "color": "#44ccbb",
+    "folder": "Craft_Database",
+    "script": "craft_db_app.py",
+    "hotkey": "<shift>+7",
+    "settings_key": "hotkey_craft_db"
+}

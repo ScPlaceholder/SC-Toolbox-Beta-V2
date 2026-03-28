@@ -1,0 +1,18 @@
+[project]
+name = "sc-toolbox"
+version = "1.2.0"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["shared/tests", "core/tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+qt_api = "pyside6"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false

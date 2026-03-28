@@ -10,8 +10,10 @@ import time
 
 # ── Setup: import from dps_calc_app without launching GUI ────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, SCRIPT_DIR)
-sys.path.insert(0, os.path.join(SCRIPT_DIR, '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(SCRIPT_DIR, '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
 from dps_calc_app import (
     extract_slots_by_type,
@@ -53,10 +55,9 @@ def build_data_manager(raw: dict) -> DataManager:
     dm = DataManager()
     dm.raw = raw
 
-    from shared.data_utils import _sf
+    from shared.data_enrichment import enrich_component_stats
 
     # Reproduce the indexing logic from DataManager.load()
-    # TODO: extract to shared/data_enrichment.py
     def _index(entries, compute_fn, by_ref, by_name, filt=None):
         for e in entries:
             d = e.get("data", {})
@@ -64,28 +65,10 @@ def build_data_manager(raw: dict) -> DataManager:
                 continue
             try:
                 stats = compute_fn(e)
-            except Exception as e_err:
+            except (KeyError, TypeError, ValueError) as e_err:
                 print(f"[AUDIT] Skipping entry: {e_err}")
                 continue
-            stats.setdefault("class", d.get("class", ""))
-            stats.setdefault("grade", d.get("grade", "?"))
-            _hlth = d.get("health", d.get("hp", 0))
-            if isinstance(_hlth, dict):
-                _hlth = _hlth.get("hp", 0)
-            stats.setdefault("hp", _sf(_hlth))
-            res = d.get("resource", {}) or {}
-            onl = res.get("online", {}) or {}
-            cons = onl.get("consumption", {}) or {}
-            if not isinstance(cons, dict):
-                cons = {}
-            pwr_draw = _sf(cons.get("powerSegment", cons.get("power", 0)))
-            stats.setdefault("power_draw", pwr_draw)
-            stats.setdefault("power_max", pwr_draw)
-            sig = onl.get("signatureParams", {}) or {}
-            em_d = sig.get("em", {}) or {}
-            ir_d = sig.get("ir", {}) or {}
-            stats.setdefault("em_max", _sf(em_d.get("nominalSignature", 0)))
-            stats.setdefault("ir_max", _sf(ir_d.get("nominalSignature", 0)))
+            enrich_component_stats(stats, d)
             ref = stats["ref"]
             key = f"{stats['name'].lower()}_{stats['size']}"
             if ref:

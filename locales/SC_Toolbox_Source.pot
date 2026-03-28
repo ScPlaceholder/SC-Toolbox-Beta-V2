@@ -1,0 +1,1024 @@
+# ============================================================
+# SC_Toolbox — Combined Translation Source (auto-generated)
+# ============================================================
+#
+# This file is regenerated automatically.  DO NOT translate
+# strings in this file — use Poedit to create a .po copy.
+#
+# Translator workflow:
+#   1. Open this .pot in Poedit → creates your .po file
+#   2. Translate strings and save
+#   3. When this .pot updates with new strings, open your
+#      .po in Poedit and click Catalogue → Update from POT
+#      file.  All your existing translations are preserved.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: SC_Toolbox 1.2\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-28 12:28+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: skills/DPS_Calculator/dps_ui/app.py:171
+msgid "#DPS CALCULATOR"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/widgets.py:113
+msgid "(empty — click to select)"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:526
+msgid "AB speed:"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/main_window.py:656
+msgid "API fetch failed — check internet"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1229
+msgid "ASSIGNMENTS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:160
+msgid "Alpha"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:338
+msgid "Alpha:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:162
+msgid "Ammo"
+msgstr ""
+
+#: ui/settings_panel.py:130
+msgid "Apply Hotkeys"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:517
+msgid "Armor type:"
+msgstr ""
+
+#: ui/tiles.py:108 ui/tiles.py:163
+msgid "Available"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:645
+msgid "BUY LOCATION"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:751 skills/Trade_Hub/trade_hub_data.py:43
+msgid "Buy At"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:646
+msgid "Buy location..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:634
+msgid "Buy system..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1331
+msgid "CALCULATE"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1258
+msgid "CARGO CONFIGURATION"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:790 skills/Cargo_loader/cargo_app.py:808
+msgid "CARGO FILTER"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:657
+msgid "COMMODITY"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1438
+msgid "COMMODITY BRUSH"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:895
+msgid "COOLERS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:536
+msgid "COOLING"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:752 skills/Trade_Hub/trade_hub_app.py:757 skills/Trade_Hub/trade_hub_data.py:44 skills/Trade_Hub/trade_hub_data.py:49
+msgid "CS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:542
+msgid "CS signature:"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1276
+msgid "Capacity"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:523
+msgid "Cargo (SCU):"
+msgstr ""
+
+#: core/skill_registry.py:28
+msgid "Cargo Loader"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:904
+msgid "Check All"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:133 skills/DPS_Calculator/dps_ui/constants.py:147 skills/DPS_Calculator/dps_ui/constants.py:176 skills/DPS_Calculator/dps_ui/constants.py:188 skills/DPS_Calculator/dps_ui/constants.py:198
+msgid "Class"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1377
+msgid "Clear"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1471
+msgid "Clear Brush"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:932
+msgid "Close"
+msgstr ""
+
+#: ui/settings_panel.py:298
+msgid "Close Settings"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:47 skills/Mining_Loadout/ui/constants.py:30
+msgid "Cluster"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:773 skills/Trade_Hub/trade_hub_data.py:64
+msgid "Commodity Chain"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:138
+msgid "Cooldown s"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:341
+msgid "Cooling:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:189
+msgid "Cool↓"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:524
+msgid "Crew:"
+msgstr ""
+
+#: ui/main_window.py:131
+msgid "DISCORD"
+msgstr ""
+
+#: core/skill_registry.py:22
+msgid "DPS Calculator"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:336
+msgid "DPS:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:158
+msgid "DPS↓"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:281
+msgid "Defenses / Systems"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/turret_panel.py:94 skills/Mining_Loadout/ui/components/turret_panel.py:124
+msgid "Details"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:199
+msgid "Det↓"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:91
+msgid "Discord: SCMDB"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:181
+msgid "Dist"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:520
+msgid "Dist dmg:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:513
+msgid "Dist resist:"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:760 skills/Trade_Hub/trade_hub_data.py:52
+msgid "Distance"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:168
+msgid "Dmg↓"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:141 skills/DPS_Calculator/dps_ui/constants.py:151 skills/DPS_Calculator/dps_ui/constants.py:183 skills/DPS_Calculator/dps_ui/constants.py:192 skills/DPS_Calculator/dps_ui/constants.py:202
+msgid "EM"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:540
+msgid "EM signature:"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:761 skills/Trade_Hub/trade_hub_data.py:53
+msgid "ETA"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1171
+msgid "Empty"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1283
+msgid "Ending Income  (aUEC)"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:519
+msgid "Energy dmg:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:512
+msgid "Energy resist:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:180
+msgid "Enrg"
+msgstr ""
+
+#: ui/settings_panel.py:271
+msgid "Error"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:775 skills/Trade_Hub/trade_hub_data.py:66
+msgid "Est. Total Profit"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:38 skills/Mining_Loadout/ui/constants.py:18
+msgid "Ext Power"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:155
+msgid "Fabricator"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:262
+msgid "Fabricator has no data on LIVE -- switch to PTU for crafting blueprints"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:259
+msgid "Fabricator requires PTU -- switching..."
+msgstr ""
+
+#: skills/Mining_Loadout/ui/main_window.py:638
+msgid "Fetching UEX data…"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:208
+msgid "Fetching data from erkul.games…"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1486 skills/DPS_Calculator/dps_ui/widgets.py:241
+msgid "Filter"
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/ship_table.py:75
+msgid "Filter ships..."
+msgstr ""
+
+#: ui/settings_panel.py:105
+msgid "Format: <shift>+1  <ctrl>+F2  <alt>+q  F5"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:139
+msgid "Fuel/Mm"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:134 skills/DPS_Calculator/dps_ui/constants.py:148
+msgid "Grade"
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/ship_table.py:80
+msgid "Ground"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:528
+msgid "H2 fuel:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:142 skills/DPS_Calculator/dps_ui/constants.py:152 skills/DPS_Calculator/dps_ui/constants.py:193 skills/DPS_Calculator/dps_ui/constants.py:203
+msgid "HP"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:177
+msgid "HP↓"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:515
+msgid "HULL"
+msgstr ""
+
+#: ui/tiles.py:157
+msgid "Hidden"
+msgstr ""
+
+#: ui/settings_panel.py:227
+msgid "Hotkey:"
+msgstr ""
+
+#: ui/settings_panel.py:268
+msgid "Hotkeys applied"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:340
+msgid "Hull:"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/main_window.py:241
+msgid "INVENTORY — GADGET"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:150 skills/DPS_Calculator/dps_ui/constants.py:191
+msgid "IR"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:541
+msgid "IR signature:"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:763 skills/Trade_Hub/trade_hub_data.py:55
+msgid "Income"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:43 skills/Mining_Loadout/ui/constants.py:25
+msgid "Inert Mat."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:796
+msgid "Initializing..."
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:42 skills/Mining_Loadout/ui/constants.py:24
+msgid "Instability"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1318
+msgid "Invalid ending income"
+msgstr ""
+
+#: ui/settings_panel.py:263
+msgid "Invalid hotkey"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1311
+msgid "Invalid starting income"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:753
+msgid "Invest"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_data.py:45
+msgid "Invest..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:750 skills/Trade_Hub/trade_hub_data.py:42
+msgid "Item"
+msgstr ""
+
+#: ui/settings_panel.py:96
+msgid "KEYBINDS"
+msgstr ""
+
+#: ui/settings_panel.py:158
+msgid "LANGUAGE"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/turret_panel.py:79
+msgid "LASER HEAD"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:187 skills/Mission_Database/ui/app.py:125
+msgid "LIVE"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/stats_panel.py:92
+msgid "LOADOUT PRICE"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/stats_panel.py:36
+msgid "LOADOUT STATS"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:594
+msgid "LOOPS"
+msgstr ""
+
+#: ui/tiles.py:117
+msgid "Launch"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:772 skills/Trade_Hub/trade_hub_data.py:63
+msgid "Legs"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:214
+msgid "Loading crafting data..."
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:104
+msgid "Loading data..."
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/sidebar.py:137
+msgid "Loading data…"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:224
+msgid "Loading mining/resource data..."
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/detail_panel.py:127
+msgid "Loading prices..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:854
+msgid "Loading trade data..."
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/app.py:117 skills/Market_Finder/market_finder/ui/app.py:339 skills/Mission_Database/ui/app.py:138
+msgid "Loading..."
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:200
+msgid "Loading…"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/main_window.py:303 skills/Mining_Loadout/ui/main_window.py:514
+msgid "Loadout Price:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:171
+msgid "Lock"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:927
+msgid "MAIN THRUSTERS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:929
+msgid "MANEUVERING"
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/app.py:107
+msgid "MARKET FINDER"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:670
+msgid "MIN PROFIT/SCU"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:663
+msgid "MIN SCU"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:875
+msgid "MISSILE & BOMB RACKS"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/turret_panel.py:108
+msgid "MODULE SLOT"
+msgstr ""
+
+#: core/skill_registry.py:46
+msgid "Market Finder"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:200
+msgid "Max"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:136
+msgid "Max Dist Gm"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:37 skills/Mining_Loadout/ui/constants.py:17
+msgid "Max Power"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:40 skills/Mining_Loadout/ui/constants.py:21
+msgid "Max Range"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:774 skills/Trade_Hub/trade_hub_data.py:65
+msgid "Min Avail SCU"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:36 skills/Mining_Loadout/ui/constants.py:16
+msgid "Min Power"
+msgstr ""
+
+#: core/skill_registry.py:40
+msgid "Mining Loadout"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:276
+msgid "Mining data not available for this version"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:506
+msgid "Missile racks:"
+msgstr ""
+
+#: core/skill_registry.py:34
+msgid "Mission Database"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:154
+msgid "Missions"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/power_widget.py:308
+msgid "NAV"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:622
+msgid "NO"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:132 skills/DPS_Calculator/dps_ui/constants.py:146 skills/DPS_Calculator/dps_ui/constants.py:156 skills/DPS_Calculator/dps_ui/constants.py:166 skills/DPS_Calculator/dps_ui/constants.py:175 skills/DPS_Calculator/dps_ui/constants.py:187 skills/DPS_Calculator/dps_ui/constants.py:197
+msgid "Name"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1462 skills/Cargo_loader/cargo_app.py:1673
+msgid "No brush"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:264
+msgid "No crafting data available for this version"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:278
+msgid "No mining data for this version"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:847
+msgid "No weapon slots."
+msgstr ""
+
+#: ui/tiles.py:108
+msgid "Not installed"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:614
+msgid "ONLY SYSTEM(S) SELECTED:"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:45 skills/Mining_Loadout/ui/constants.py:28
+msgid "Opt Chrg Rate"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:44 skills/Mining_Loadout/ui/constants.py:27
+msgid "Opt Chrg Wnd"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:39 skills/Mining_Loadout/ui/constants.py:20
+msgid "Opt Range"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1364
+msgid "Optimize"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:770 skills/Trade_Hub/trade_hub_data.py:61
+msgid "Origin Terminal"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:149
+msgid "Output"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:46 skills/Mining_Loadout/ui/constants.py:29
+msgid "Overcharge"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1430
+msgid "PLANNING MODE"
+msgstr ""
+
+#: ui/main_window.py:95
+msgid "PLEDGE STORE"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:531
+msgid "POWER"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:788
+msgid "POWER PLANTS"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:130
+msgid "PTU"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:179
+msgid "Phys"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:518
+msgid "Phys dmg:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:511
+msgid "Phys resist:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:182 skills/DPS_Calculator/dps_ui/constants.py:201
+msgid "Power"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:291
+msgid "Power & Propulsion"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:533
+msgid "Power draw:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:140
+msgid "Power kW"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:534
+msgid "Power margin:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:532
+msgid "Power output:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:190
+msgid "Pwr"
+msgstr ""
+
+#: ui/main_window.py:123
+msgid "Python not found!"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:529
+msgid "QT fuel:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:527
+msgid "QT speed:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:801
+msgid "QUANTUM DRIVES"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:906
+msgid "RADARS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:561
+msgid "RESET"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:928
+msgid "RETRO THRUSTERS"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:762 skills/Trade_Hub/trade_hub_data.py:54
+msgid "ROI"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:590
+msgid "ROUTES"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:161
+msgid "RPS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:170
+msgid "Range"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:159
+msgid "Raw"
+msgstr ""
+
+#: ui/main_window.py:107 skills/Mission_Database/ui/app.py:235 skills/Mission_Database/ui/app.py:270 skills/Mission_Database/ui/app.py:281
+msgid "Ready"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/main_window.py:685
+msgid "Refreshing data…"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:1225
+msgid "Refreshing from erkul.games…"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:864
+msgid "Refreshing trade data..."
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:178
+msgid "Reg/s"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:510
+msgid "Regen/s:"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1392
+msgid "Reset"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:41 skills/Mining_Loadout/ui/constants.py:23
+msgid "Resistance"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:156
+msgid "Resources"
+msgstr ""
+
+#: ui/settings_panel.py:247
+msgid "Restart tools to apply"
+msgstr ""
+
+#: ui/tiles.py:151
+msgid "Running"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/power_widget.py:302
+msgid "SCM"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:525
+msgid "SCM speed:"
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:75
+msgid "SCMDB // MISSION DATABASE"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1182 skills/Trade_Hub/trade_hub_app.py:754 skills/Trade_Hub/trade_hub_data.py:46
+msgid "SCU"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:677
+msgid "SEARCH"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:651
+msgid "SELL LOCATION"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:508 skills/DPS_Calculator/dps_ui/app.py:885
+msgid "SHIELDS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:522
+msgid "SHIP SPECS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:539
+msgid "SIGNATURES"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/turret_panel.py:61
+msgid "SIZE"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:633
+msgid "SYSTEM: BUY"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:639
+msgid "SYSTEM: SELL"
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/app.py:164
+msgid "Search items..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:678
+msgid "Search..."
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/stats_panel.py:117
+msgid "Select a ship and equipment above"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:1414
+msgid "Select a ship to begin."
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:362
+msgid "Select a ship to view stats."
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/detail_panel.py:84
+msgid "Select an item to view details"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/widgets.py:218
+msgid "Select component or"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/widgets.py:385
+msgid "Select…"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:758 skills/Trade_Hub/trade_hub_data.py:50
+msgid "Sell"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:756 skills/Trade_Hub/trade_hub_data.py:48
+msgid "Sell At"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:652
+msgid "Sell location..."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:640
+msgid "Sell system..."
+msgstr ""
+
+#: skills/Mission_Database/ui/app.py:113 skills/Mission_Database/ui/app.py:414
+msgid "Set hotkey"
+msgstr ""
+
+#: ui/settings_panel.py:197 ui/settings_panel.py:289
+msgid "Settings & Keybinds"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/constants.py:48 skills/Mining_Loadout/ui/constants.py:31
+msgid "Shatter"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:339
+msgid "Shield:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:196
+msgid "Ship"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:607
+msgid "Ship..."
+msgstr ""
+
+#: skills/Market_Finder/market_finder/ui/ship_table.py:80
+msgid "Spaceship"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:169
+msgid "Speed"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:135
+msgid "Speed km/s"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:137
+msgid "Spool s"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1274
+msgid "Starting Income  (aUEC)"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:337
+msgid "Sustained:"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:771 skills/Trade_Hub/trade_hub_data.py:62
+msgid "Sys"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/widgets.py:317
+msgid "Sz"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:864
+msgid "TURRETS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:537
+msgid "Total cooling:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:167
+msgid "Track"
+msgstr ""
+
+#: core/skill_registry.py:52
+msgid "Trade Hub"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/constants.py:157
+msgid "Type"
+msgstr ""
+
+#: skills/Cargo_loader/cargo_app.py:917
+msgid "Uncheck All"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:605
+msgid "VEHICLE:"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:587
+msgid "VIEW MODE:"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:500
+msgid "WEAPON DPS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:856
+msgid "WEAPONS"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:505
+msgid "Weapon slots:"
+msgstr ""
+
+#: ui/settings_panel.py:145
+msgid "Window positions are stored per-skill in settings."
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:618
+msgid "YES"
+msgstr ""
+
+#: skills/Mining_Loadout/ui/components/stats_panel.py:103 skills/Mining_Loadout/ui/main_window.py:303 skills/Mining_Loadout/ui/main_window.py:512 skills/Mining_Loadout/ui/main_window.py:514 skills/Trade_Hub/trade_hub_app.py:775
+msgid "aUEC"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:503
+msgid "alpha"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:501
+msgid "dps"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:1121 skills/DPS_Calculator/dps_ui/app.py:1122
+msgid "equipped"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:509 skills/DPS_Calculator/dps_ui/app.py:516
+msgid "hp"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/widgets.py:224
+msgid "leave empty"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1119 skills/Trade_Hub/trade_hub_app.py:1120
+msgid "loops"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:504
+msgid "missile dmg"
+msgstr ""
+
+#: skills/Trade_Hub/trade_hub_app.py:1124 skills/Trade_Hub/trade_hub_app.py:1125
+msgid "routes"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:502
+msgid "sustained"
+msgstr ""
+
+#: skills/DPS_Calculator/dps_ui/app.py:215
+msgid "⟳ Refresh"
+msgstr ""
+

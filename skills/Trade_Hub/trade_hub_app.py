@@ -1,33 +1,56 @@
 #!/usr/bin/env python3
 """
-Trade Hub — standalone GUI process.
-Launched by the WingmanAI skill via subprocess using the system Python.
+Trade Hub — standalone PySide6 GUI process.
+Launched by the WingmanAI skill via subprocess.
 Fetches trade data from the UEX API.
-Receives control commands from the parent via stdin (one JSON line per command).
-Requires Python stdlib + tkinter.  uex_client.py also needs the `requests` package.
 """
 import json
 import logging
 import os
 import queue
 import sys
-import tempfile
 import threading
 import time
-import tkinter as tk
 import traceback
-import urllib.request
-from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
-from tkinter import ttk
 from typing import Any, Dict, List, Optional, Tuple
 
-# Allow imports from the shared package two levels up
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+# Bootstrap project root and skill directory
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
+from shared.app_bootstrap import bootstrap_skill  # noqa: E402
+bootstrap_skill(__file__)
 
-from shared.ships import SHIP_PRESETS, scu_for_ship, QUICK_SHIPS  # noqa: E402
-from shared.theme import COLORS  # noqa: E402
-from shared.data_utils import retry_request, parse_cli_args  # noqa: E402
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal, QObject
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QSplitter, QFrame, QTabWidget, QLineEdit, QDialog, QScrollArea,
+)
+
+from shared.qt.theme import P, apply_theme
+from shared.qt.base_window import SCWindow
+from shared.qt.title_bar import SCTitleBar
+from shared.qt.data_table import SCTable, SCTableModel, ColumnDef
+from shared.qt.search_bar import SCSearchBar
+from shared.qt.dropdown import SCComboBox
+from shared.qt.hud_widgets import HUDPanel
+from shared.qt.animated_button import SCButton
+from shared.qt.ipc_thread import IPCWatcher
+from shared.qt.fuzzy_combo import SCFuzzyCombo
+from shared.ships import SHIP_PRESETS, scu_for_ship, QUICK_SHIPS
+from shared.data_utils import parse_cli_args
+from shared.i18n import s_ as _
+
+from trade_hub_data import (
+    Route, MultiRoute, FilterState, DataFetcher,
+    COLUMNS, COLUMN_KEYS, LOOP_COLUMNS, LOOP_COLUMN_KEYS,
+    MIXED_COLUMNS, MIXED_COLUMN_KEYS,
+    apply_filters, sort_routes, find_multi_routes, sort_multi_routes,
+    profit_tier, get_unique_commodities, fmt_distance, fmt_eta,
+    load_config, save_config,
+    calc_profit, set_calc_mode, get_calc_mode,
+    set_market_mode, find_max_profit_routes,
+)
 
 # Platform-guarded Win32 imports
 if sys.platform == 'win32':
@@ -36,1366 +59,1204 @@ if sys.platform == 'win32':
 else:
     ctypes = None
 
-# ── Logging setup ─────────────────────────────────────────────────────────────
+# ── Logging ──────────────────────────────────────────────────────────────────
 _LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_hub.log")
 
-def _setup_log() -> logging.Logger:
+def _setup_log():
     lg = logging.getLogger("TradeHub")
     lg.setLevel(logging.DEBUG)
     if not lg.handlers:
         fh = RotatingFileHandler(_LOG_PATH, maxBytes=1_500_000, backupCount=3, encoding="utf-8")
-        fh.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)-5s] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        ))
+        fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)-5s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
         lg.addHandler(fh)
     return lg
 
 log = _setup_log()
-log.info("=" * 60)
-log.info("Trade Hub starting — Python %s", sys.version.split()[0])
-log.info("Script: %s", os.path.abspath(__file__))
 
-# ── Win32 constants ───────────────────────────────────────────────────────────
+# ── Win32 constants ──────────────────────────────────────────────────────────
 if sys.platform == 'win32':
-    _user32         = ctypes.windll.user32
-    _kernel32       = ctypes.windll.kernel32
+    _user32 = ctypes.windll.user32
+    _kernel32 = ctypes.windll.kernel32
 else:
     _user32 = _kernel32 = None
-_HWND_TOPMOST   = -1
-_SWP_NOSIZE     = 0x0001
-_SWP_NOMOVE     = 0x0002
-_SWP_NOACTIVATE = 0x0010
-_SW_RESTORE     = 9
 
-# ── Global hotkey constants ────────────────────────────────────────────────────
-_WM_HOTKEY   = 0x0312
-_PM_REMOVE   = 0x0001
-_MOD_ALT     = 0x0001
+_HWND_TOPMOST = -1
+_SWP_NOSIZE = 0x0001
+_SWP_NOMOVE = 0x0002
+_SWP_NOACTIVATE = 0x0010
+_SW_RESTORE = 9
+_WM_HOTKEY = 0x0312
+_PM_REMOVE = 0x0001
+_MOD_ALT = 0x0001
 _MOD_CONTROL = 0x0002
-_MOD_SHIFT   = 0x0004
-_MOD_WIN     = 0x0008
-_VK_MAP: Dict[str, int] = {
+_MOD_SHIFT = 0x0004
+_MOD_WIN = 0x0008
+_VK_MAP = {
     **{c: 0x41 + i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")},
     **{str(i): 0x30 + i for i in range(10)},
-    "F1":  0x70, "F2":  0x71, "F3":  0x72, "F4":  0x73,
-    "F5":  0x74, "F6":  0x75, "F7":  0x76, "F8":  0x77,
-    "F9":  0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B,
-    "HOME": 0x24, "END": 0x23, "PGUP": 0x21, "PGDN": 0x22,
-    "INS": 0x2D, "DEL": 0x2E, "SPACE": 0x20, "TAB": 0x09,
+    "F1": 0x70, "F2": 0x71, "F3": 0x72, "F4": 0x73,
+    "F5": 0x74, "F6": 0x75, "F7": 0x76, "F8": 0x77,
+    "F9": 0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B,
 }
 _DEFAULT_HOTKEY = "ctrl+shift+t"
 
 
 def _parse_hotkey(hk: str) -> Tuple[int, int]:
-    """Parse e.g. 'ctrl+shift+t' → (modifier_flags, vk_code). (0, 0) on error."""
     mods = 0
-    vk   = 0
+    vk = 0
     for part in hk.upper().split("+"):
         part = part.strip()
-        if   part in ("CTRL", "CONTROL"): mods |= _MOD_CONTROL
-        elif part == "SHIFT":             mods |= _MOD_SHIFT
-        elif part == "ALT":               mods |= _MOD_ALT
-        elif part in ("WIN", "WINDOWS"):  mods |= _MOD_WIN
-        else:                             vk    = _VK_MAP.get(part, 0)
+        if part in ("CTRL", "CONTROL"):
+            mods |= _MOD_CONTROL
+        elif part == "SHIFT":
+            mods |= _MOD_SHIFT
+        elif part == "ALT":
+            mods |= _MOD_ALT
+        elif part in ("WIN", "WINDOWS"):
+            mods |= _MOD_WIN
+        else:
+            vk = _VK_MAP.get(part, 0)
     return mods, vk
 
-UEX_BASE = "https://api.uexcorp.space/2.0"
 
-# ── Persistent config ─────────────────────────────────────────────────────────
-_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_hub_config.json")
-
-# ── Colour palette ────────────────────────────────────────────────────────────
-# COLORS (colour palette) imported from shared.theme
-# SHIP_PRESETS, scu_for_ship, QUICK_SHIPS imported from shared.ships
-
-# ── Column definitions ────────────────────────────────────────────────────────
-COLUMNS: List[Tuple[str, str, int, str]] = [
-    ("commodity",       "Item",          120, "w"),
-    ("buy_terminal",    "Buy At",        148, "w"),
-    ("cs_origin",       "CS",             46, "center"),
-    ("investment",      "Invest...",      90, "e"),
-    ("available_scu",   "SCU",            58, "e"),
-    ("scu_user_origin", "SCU-U",          58, "e"),
-    ("sell_terminal",   "Sell At",       148, "w"),
-    ("cs_dest",         "CS",             46, "center"),
-    ("invest_dest",     "Invest...",      90, "e"),
-    ("scu_demand",      "SCU-C",          58, "e"),
-    ("scu_user_dest",   "SCU-U",          58, "e"),
-    ("distance",        "Distance",       72, "e"),
-    ("eta",             "ETA",            60, "e"),
-    ("roi",             "ROI",            58, "e"),
-    ("est_profit",      "Income",        100, "e"),
-]
-
-COLUMN_KEYS = tuple(c[0] for c in COLUMNS)
-
-# ── Multi-leg route column definitions ────────────────────────────────────────
-LOOP_COLUMNS: List[Tuple[str, str, int, str]] = [
-    ("origin",       "Origin Terminal",  175, "w"),
-    ("origin_sys",   "Sys",               65, "w"),
-    ("legs",         "Legs",              42, "e"),
-    ("commodities",  "Commodity Chain",  265, "w"),
-    ("avail",        "Min Avail SCU",     95, "e"),
-    ("total_profit", "Est. Total Profit",145, "e"),
-]
-
-LOOP_COLUMN_KEYS = tuple(c[0] for c in LOOP_COLUMNS)
-
-# ── Route data ────────────────────────────────────────────────────────────────
-
-@dataclass
-class Route:
-    commodity:     str   = ""
-    buy_terminal:  str   = ""
-    buy_location:  str   = ""
-    buy_system:    str   = ""
-    sell_terminal: str   = ""
-    sell_location: str   = ""
-    sell_system:   str   = ""
-    scu_available: int   = 0
-    scu_demand:    int   = 0
-    price_buy:     float = 0.0
-    price_sell:    float = 0.0
-    margin:        float = 0.0
-    score:         float = 0.0
-    investment:    float = 0.0
-    profit:        float = 0.0
-    price_roi:     float = 0.0
-    distance:      float = 0.0
-    container_sizes_origin: str = ""
-    container_sizes_destination: str = ""
-    scu_user_origin: int = 0
-    scu_user_destination: int = 0
-
-    def effective_scu(self, ship_scu: int) -> int:
-        if ship_scu <= 0:
-            cap = 0  # no ship cap — use available stock
-        else:
-            cap = ship_scu
-        if self.scu_available > 0 and self.scu_demand > 0:
-            effective = min(cap, self.scu_available, self.scu_demand) if cap > 0 else min(self.scu_available, self.scu_demand)
-        else:
-            stock = max(self.scu_available, self.scu_demand)
-            effective = min(cap, stock) if cap > 0 else stock
-        return effective
-
-    def estimated_profit(self, ship_scu: int) -> float:
-        return self.effective_scu(ship_scu) * self.margin
-
-    def roi(self) -> float:
-        """Return on investment as a percentage."""
-        if self.price_buy <= 0:
-            return 0.0
-        return (self.margin / self.price_buy) * 100.0
-
-
-@dataclass
-class MultiRoute:
-    """A multi-leg trade route chain: sell-terminal of leg N == buy-terminal of leg N+1."""
-    legs: List[Route]
-
-    def total_profit(self, ship_scu: int) -> float:
-        return sum(r.estimated_profit(ship_scu) for r in self.legs)
-
-    def total_investment(self, ship_scu: int) -> float:
-        return sum(r.effective_scu(ship_scu) * r.price_buy for r in self.legs)
-
-    def roi_pct(self, ship_scu: int) -> float:
-        inv = self.total_investment(ship_scu)
-        return (self.total_profit(ship_scu) / inv * 100.0) if inv > 0 else 0.0
-
-    def avg_margin(self) -> float:
-        return sum(r.margin for r in self.legs) / len(self.legs) if self.legs else 0.0
-
-    def min_avail(self) -> int:
-        return min(r.scu_available for r in self.legs) if self.legs else 0
-
-    def commodity_chain(self) -> str:
-        return " › ".join(r.commodity for r in self.legs)
-
-    @property
-    def start_terminal(self) -> str:
-        return self.legs[0].buy_terminal if self.legs else ""
-
-    @property
-    def start_system(self) -> str:
-        return self.legs[0].buy_system if self.legs else ""
-
-    @property
-    def end_terminal(self) -> str:
-        return self.legs[-1].sell_terminal if self.legs else ""
-
-    @property
-    def num_legs(self) -> int:
-        return len(self.legs)
-
-
-def _safe(d: dict, key: str, default=""):
-    v = d.get(key)
-    return v if v is not None else default
-
-
-def _best_loc_api(r: dict, suffix: str) -> str:
-    for key in (f"outpost_{suffix}", f"city_{suffix}", f"space_station_{suffix}",
-                f"moon_{suffix}", f"planet_{suffix}", f"star_system_{suffix}"):
-        v = (r.get(key) or "").strip()
-        if v:
-            return v
-    return ""
-
-
-def route_from_api(r: dict) -> Optional[Route]:
-    margin = float(r.get("profit_margin", 0) or r.get("margin", 0) or 0)
-    buy    = float(r.get("price_origin",  0) or r.get("price_buy",  0) or 0)
-    sell   = float(r.get("price_destination", 0) or r.get("price_sell", 0) or 0)
-    if margin == 0 and sell > buy:
-        margin = sell - buy
-    commodity = _safe(r, "commodity_name")
-    if not commodity or margin <= 0:
-        return None
-    # Container sizes — API may return e.g. "1,2,8,16" or "1-16" style
-    cs_origin = _safe(r, "container_sizes_origin")
-    cs_dest   = _safe(r, "container_sizes_destination")
-    return Route(
-        commodity    = commodity,
-        buy_terminal = (_safe(r, "terminal_origin") or _safe(r, "terminal_name_origin")),
-        buy_location = _best_loc_api(r, "origin"),
-        buy_system   = _safe(r, "star_system_origin"),
-        sell_terminal= (_safe(r, "terminal_destination") or _safe(r, "terminal_name_destination")),
-        sell_location= _best_loc_api(r, "destination"),
-        sell_system  = _safe(r, "star_system_destination"),
-        scu_available= int(_safe(r, "scu_origin",      0) or _safe(r, "scu_buy",  0) or 0),
-        scu_demand   = int(_safe(r, "scu_destination", 0) or _safe(r, "scu_sell", 0) or 0),
-        price_buy    = buy,
-        price_sell   = sell,
-        margin       = margin,
-        score        = float(r.get("score", 0) or 0),
-        investment   = float(r.get("investment", 0) or 0),
-        profit       = float(r.get("profit", 0) or 0),
-        price_roi    = float(r.get("price_roi", 0) or 0),
-        distance     = float(r.get("distance", 0) or 0),
-        container_sizes_origin      = str(cs_origin) if cs_origin else "",
-        container_sizes_destination = str(cs_dest) if cs_dest else "",
-        scu_user_origin      = int(r.get("scu_origin_users", 0) or 0),
-        scu_user_destination = int(r.get("scu_destination_users", 0) or 0),
-    )
-
-
-
-# ── Filter & sort ─────────────────────────────────────────────────────────────
-
-@dataclass
-class FilterState:
-    # Generic / voice-command filters
-    system:         str   = ""
-    location:       str   = ""
-    commodity:      str   = ""
-    search:         str   = ""
-    min_margin_scu: float = 0.0
-    # Sidebar specific filters
-    buy_system:     str   = ""
-    sell_system:    str   = ""
-    buy_location:   str   = ""
-    sell_location:  str   = ""
-    buy_terminal:   str   = ""
-    sell_terminal:  str   = ""
-    min_scu:        int   = 0
-
-
-def apply_filters(routes: List[Route], f: FilterState) -> List[Route]:
-    result = routes
-    # Generic system filter (matches either side)
-    if f.system:
-        s = f.system.lower()
-        result = [r for r in result if s in r.buy_system.lower() or s in r.sell_system.lower()]
-    # Side-specific system filters
-    if f.buy_system:
-        s = f.buy_system.lower()
-        result = [r for r in result if s in r.buy_system.lower()]
-    if f.sell_system:
-        s = f.sell_system.lower()
-        result = [r for r in result if s in r.sell_system.lower()]
-    # Generic location filter (matches any field)
-    if f.location:
-        loc = f.location.lower()
-        result = [r for r in result if any(loc in x.lower() for x in [
-            r.buy_location, r.buy_terminal, r.buy_system,
-            r.sell_location, r.sell_terminal, r.sell_system])]
-    # Side-specific location/terminal filters
-    if f.buy_location:
-        bl = f.buy_location.lower()
-        result = [r for r in result if bl in r.buy_location.lower() or bl in r.buy_terminal.lower()]
-    if f.sell_location:
-        sl = f.sell_location.lower()
-        result = [r for r in result if sl in r.sell_location.lower() or sl in r.sell_terminal.lower()]
-    if f.buy_terminal:
-        bt = f.buy_terminal.lower()
-        result = [r for r in result if bt in r.buy_terminal.lower()]
-    if f.sell_terminal:
-        st = f.sell_terminal.lower()
-        result = [r for r in result if st in r.sell_terminal.lower()]
-    if f.commodity:
-        c = f.commodity.lower()
-        result = [r for r in result if c in r.commodity.lower()]
-    if f.search:
-        q = f.search.lower()
-        result = [r for r in result if any(q in x.lower() for x in [
-            r.commodity, r.buy_location, r.buy_terminal, r.buy_system,
-            r.sell_location, r.sell_terminal, r.sell_system])]
-    if f.min_margin_scu > 0:
-        result = [r for r in result if r.margin >= f.min_margin_scu]
-    if f.min_scu > 0:
-        result = [r for r in result if r.scu_available >= f.min_scu]
-    return result
-
-
-def sort_routes(routes: List[Route], col: str, reverse: bool, ship_scu: int = 0) -> List[Route]:
-    km = {
-        "commodity":       lambda r: r.commodity.lower(),
-        "buy_terminal":    lambda r: r.buy_terminal.lower(),
-        "sell_terminal":   lambda r: r.sell_terminal.lower(),
-        "cs_origin":       lambda r: r.container_sizes_origin,
-        "cs_dest":         lambda r: r.container_sizes_destination,
-        "investment":      lambda r: r.price_buy * r.effective_scu(ship_scu),
-        "invest_dest":     lambda r: r.price_sell * r.effective_scu(ship_scu),
-        "available_scu":   lambda r: r.effective_scu(ship_scu),
-        "scu_user_origin": lambda r: r.scu_user_origin,
-        "scu_demand":      lambda r: r.scu_demand,
-        "scu_user_dest":   lambda r: r.scu_user_destination,
-        "distance":        lambda r: r.distance,
-        "eta":             lambda r: r.distance,
-        "roi":             lambda r: r.roi(),
-        "est_profit":      lambda r: r.estimated_profit(ship_scu),
-    }
-    return sorted(routes, key=km.get(col, lambda r: r.score), reverse=reverse)
-
-
-def find_multi_routes(routes: List[Route], ship_scu: int = 0,
-                      max_steps: int = 3, top_k: int = 300) -> List[MultiRoute]:
-    """Find best N-step trade routes using greedy best-first search.
-
-    Builds a terminal adjacency graph from all profitable routes.  From every
-    starting terminal the algorithm greedily extends to the highest-profit next
-    hop (profit = margin × effective_scu), avoiding revisiting intermediate
-    terminals but allowing a return to the origin terminal to close a loop.
-
-    This mirrors Cabal's deterministic best-first search so the two tools
-    agree on which routes are profitable.
-    """
-    if not routes:
-        return []
-
-    # Build adjacency: buy_terminal → routes sorted by estimated_profit desc
-    adj: Dict[str, List[Route]] = {}
-    for r in routes:
-        if r.buy_terminal and r.sell_terminal and r.margin > 0:
-            adj.setdefault(r.buy_terminal, []).append(r)
-    for t in adj:
-        # Sort by profit for current ship; fall back to margin × capped SCU
-        if ship_scu > 0:
-            adj[t].sort(key=lambda r: r.estimated_profit(ship_scu), reverse=True)
-        else:
-            adj[t].sort(key=lambda r: r.margin * min(r.scu_available, 5000), reverse=True)
-
-    seen_sigs: set = set()
-    candidates: List[MultiRoute] = []
-
-    for start_terminal, outgoing in adj.items():
-        # Try the top 5 starting commodities from each terminal for variety
-        for start_route in outgoing[:5]:
-            path = [start_route.buy_terminal, start_route.sell_terminal]
-            legs: List[Route] = [start_route]
-            current = start_route.sell_terminal
-
-            for _ in range(max_steps - 1):
-                options = adj.get(current, [])
-                # Never revisit an intermediate terminal already in the path
-                # (allow returning to the very first terminal to close a loop)
-                intermediates = set(path[1:])   # excludes path[0] = start
-                options = [r for r in options
-                           if r.sell_terminal not in intermediates
-                           and r.sell_terminal != current]
-                if not options:
-                    break
-                best = options[0]
-                legs.append(best)
-                path.append(best.sell_terminal)
-                current = best.sell_terminal
-
-            sig = "->".join(f"{r.buy_terminal}:{r.commodity}" for r in legs)
-            if sig in seen_sigs:
-                continue
-            seen_sigs.add(sig)
-            candidates.append(MultiRoute(legs=list(legs)))
-
-    # Sort by total estimated profit (ship-aware if ship_scu given)
-    candidates.sort(key=lambda m: m.total_profit(ship_scu), reverse=True)
-    return candidates[:top_k]
-
-
-def sort_multi_routes(multi: List[MultiRoute], col: str, reverse: bool,
-                      ship_scu: int = 0) -> List[MultiRoute]:
-    km: Dict[str, Any] = {
-        "origin":       lambda m: m.start_terminal.lower(),
-        "origin_sys":   lambda m: m.start_system.lower(),
-        "legs":         lambda m: m.num_legs,
-        "commodities":  lambda m: m.commodity_chain().lower(),
-        "avail":        lambda m: m.min_avail(),
-        "total_profit": lambda m: m.total_profit(ship_scu),
-    }
-    return sorted(multi, key=km.get(col, lambda m: m.total_profit(ship_scu)), reverse=reverse)
-
-
-def profit_tier(margin: float) -> str:
-    return "high" if margin >= 1000 else ("med" if margin >= 300 else "low")
-
-
-def get_unique_commodities(routes: List[Route]) -> List[str]:
-    return sorted({r.commodity for r in routes if r.commodity})
-
-
-## scu_for_ship imported from shared.ships
-
-# ── Data fetcher ──────────────────────────────────────────────────────────────
-
-class DataFetcher:
-    def __init__(self, refresh_interval: float = 300.0):
-        self.refresh_interval = refresh_interval
-
-    def fetch_async(self, callback, on_error=None) -> None:
-        threading.Thread(target=self._worker, args=(callback, on_error),
-                         daemon=True, name="TradeHubFetch").start()
-
-    def _worker(self, callback, on_error=None) -> None:
-        routes, source = self._fetch()
-        try:
-            callback(routes, source)
-        except Exception:
-            log.warning("Fetch callback failed: %s", traceback.format_exc())
-            if on_error:
-                try:
-                    on_error()
-                except Exception:
-                    pass
-
-    def _fetch(self):
-        try:
-            routes = self._fetch_api()
-            return routes, "UEX API"
-        except Exception as exc:
-            return [], f"Error: {exc}"
-
-    @staticmethod
-    def _fetch_api() -> List[Route]:
-        """Fetch all prices + terminals from UEX, compute routes client-side.
-        Uses commodities_prices_all (single call) + terminals + commodities.
+def _pin_btn_qss(pinned: bool) -> str:
+    """Return the pin button stylesheet for pinned/unpinned state."""
+    if pinned:
+        return f"""
+            QPushButton {{
+                background-color: rgba(255, 204, 0, 80);
+                color: {P.bg_primary};
+                border: 1px solid {P.tool_trade};
+                font-family: Consolas; font-size: 8pt; font-weight: bold;
+                padding: 4px 14px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 204, 0, 50);
+                color: {P.tool_trade};
+                border-color: {P.tool_trade};
+            }}
         """
-        headers = {"User-Agent": "WingmanAI-TradeHub/1.0", "Accept": "application/json"}
+    return f"""
+        QPushButton {{
+            background-color: rgba(255, 204, 0, 30);
+            color: {P.tool_trade};
+            border: 1px solid rgba(255, 204, 0, 60);
+            font-family: Consolas; font-size: 8pt; font-weight: bold;
+            padding: 4px 14px;
+        }}
+        QPushButton:hover {{
+            background-color: rgba(255, 204, 0, 60);
+            color: {P.fg_bright};
+            border-color: {P.tool_trade};
+        }}
+    """
 
-        def _get(path):
-            url = f"{UEX_BASE}/{path}"
-            req = urllib.request.Request(url, headers=headers)
-            def _do_request():
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    return json.loads(resp.read()).get("data", [])
-            return retry_request(_do_request, retries=1, backoff=1.0)
 
-        # Fetch all data in parallel-ish (sequential but fast — 3 calls total)
-        prices = _get("commodities_prices_all")
-        terminals = {t["id"]: t for t in _get("terminals")}
-        commodities = {c["id"]: c for c in _get("commodities")}
+# ── Route detail dialog ──────────────────────────────────────────────────────
 
-        # Group prices by commodity: {id_commodity: {"buys": [...], "sells": [...]}}
-        by_commodity: Dict[int, Dict[str, list]] = {}
-        for p in prices:
-            cid = p.get("id_commodity", 0)
-            if not cid:
-                continue
-            entry = by_commodity.setdefault(cid, {"buys": [], "sells": []})
-            pb = p.get("price_buy", 0) or 0
-            ps = p.get("price_sell", 0) or 0
-            if pb > 0:
-                entry["buys"].append(p)
-            if ps > 0:
-                entry["sells"].append(p)
+class RouteDetailDialog(QDialog):
+    """Popup showing route or loop details with Pin button and financial breakdown."""
 
-        def _loc(t):
-            """Return best location name from a terminal dict."""
-            for k in ("city_name", "space_station_name", "outpost_name",
-                      "moon_name", "planet_name"):
-                v = (t.get(k) or "").strip()
-                if v:
-                    return v
-            return ""
+    _pinned_dialogs: list = []  # class-level list of pinned dialogs
 
-        # Compute routes: for each commodity, match every buy terminal with every sell terminal
-        routes: List[Route] = []
-        for cid, data in by_commodity.items():
-            comm = commodities.get(cid, {})
-            comm_name = comm.get("name", f"Commodity {cid}")
+    def __init__(self, parent, title: str, route_data: dict) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        # Use Qt.Tool instead of Qt.Dialog to prevent Qt auto-centering
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setMinimumSize(420, 300)
+        self.resize(500, 560)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self._pinned = False
+        self._drag_pos = None
+        self._resize_edge = None  # which edge is being dragged
+        self._resize_margin = 6   # px from edge to trigger resize
+        self.setMouseTracking(True)
 
-            for buy in data["buys"]:
-                for sell in data["sells"]:
-                    # Skip same terminal
-                    bt_id = buy.get("id_terminal", 0)
-                    st_id = sell.get("id_terminal", 0)
-                    if bt_id == st_id:
-                        continue
+        # Position near the parent window instead of screen center
+        if parent:
+            pg = parent.geometry()
+            self.move(pg.x() + pg.width() + 8, pg.y())
 
-                    pb = float(buy.get("price_buy", 0) or 0)
-                    ps = float(sell.get("price_sell", 0) or 0)
-                    if ps <= pb or pb <= 0:
-                        continue  # no profit
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(0)
 
-                    margin = ps - pb
-                    scu_avail = int(buy.get("scu_buy", buy.get("scu_buy_avg", 0)) or 0)
-                    scu_demand = int(sell.get("scu_sell", sell.get("scu_sell_avg", 0)) or 0)
-                    if scu_avail <= 0 and scu_demand <= 0:
-                        continue
-                    scu = min(scu_avail, scu_demand) if scu_avail > 0 and scu_demand > 0 else max(scu_avail, scu_demand)
-                    if scu <= 0:
-                        continue  # skip phantom routes with no supply/demand
+        # Container with holographic bg
+        container = QFrame(self)
+        container.setStyleSheet(f"""
+            QFrame {{
+                background-color: rgba(11, 14, 20, 220);
+                border: 1px solid rgba(68, 170, 255, 100);
+            }}
+        """)
+        c_layout = QVBoxLayout(container)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setSpacing(0)
 
-                    investment = pb * scu
-                    profit = margin * scu
-                    roi = (margin / pb * 100) if pb > 0 else 0
+        # Title bar
+        bar = SCTitleBar(self, title=title, accent_color=P.tool_trade, show_minimize=False)
+        bar.close_clicked.connect(self.close)
+        c_layout.addWidget(bar)
 
-                    bt = terminals.get(bt_id, {})
-                    st = terminals.get(st_id, {})
+        # Pin button row
+        pin_row = QHBoxLayout()
+        pin_row.setContentsMargins(12, 6, 12, 2)
+        pin_row.addStretch(1)
+        self._pin_btn = SCButton("Pin", self, glow_color=P.tool_trade)
+        self._pin_btn.setStyleSheet(_pin_btn_qss(False))
+        self._pin_btn.clicked.connect(self._toggle_pin)
+        pin_row.addWidget(self._pin_btn)
+        c_layout.addLayout(pin_row)
 
-                    r = Route(
-                        commodity=comm_name,
-                        buy_terminal=bt.get("name", bt.get("displayname", f"T{bt_id}")),
-                        buy_location=_loc(bt),
-                        buy_system=bt.get("star_system_name", ""),
-                        sell_terminal=st.get("name", st.get("displayname", f"T{st_id}")),
-                        sell_location=_loc(st),
-                        sell_system=st.get("star_system_name", ""),
-                        scu_available=scu,
-                        scu_demand=scu_demand,
-                        price_buy=pb,
-                        price_sell=ps,
-                        margin=margin,
-                        score=profit,  # use profit as score
-                        investment=investment,
-                        profit=profit,
-                        price_roi=roi,
-                        distance=0,  # UEX prices_all doesn't include distance
-                        container_sizes_origin=buy.get("container_sizes", ""),
-                        container_sizes_destination=sell.get("container_sizes", ""),
-                        scu_user_origin=int(buy.get("scu_buy_users", 0) or 0),
-                        scu_user_destination=int(sell.get("scu_sell_users", 0) or 0),
-                    )
-                    routes.append(r)
+        # Content area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet(f"QScrollArea {{ border: none; background: transparent; }}")
 
-        routes.sort(key=lambda r: r.profit, reverse=True)
-        # Limit to top routes to avoid overwhelming the UI
-        return routes[:5000]
+        content_widget = QWidget()
+        content_widget.setStyleSheet(f"background: transparent;")
+        self._content_layout = QVBoxLayout(content_widget)
+        self._content_layout.setContentsMargins(16, 8, 16, 16)
+        self._content_layout.setSpacing(4)
 
-# ── GUI window ────────────────────────────────────────────────────────────────
+        self._build_content(route_data)
 
-class TradeHubWindow:
-    def __init__(self, cmd_queue: queue.Queue, win_x=80, win_y=80,
-                 win_w=1400, win_h=900, refresh_interval=300.0,
-                 max_routes=500, opacity=0.95):
-        self.cmd_queue        = cmd_queue
-        self.win_x            = win_x
-        self.win_y            = win_y
-        self.win_w            = win_w
-        self.win_h            = win_h
-        self.refresh_interval = refresh_interval
-        self.max_routes       = max_routes
-        self.opacity          = max(0.3, min(1.0, opacity))
-        self.fetcher          = DataFetcher(refresh_interval)
+        self._content_layout.addStretch(1)
+        scroll.setWidget(content_widget)
+        c_layout.addWidget(scroll, 1)
 
-        self.all_routes:      List[Route] = []
-        self.filtered_routes: List[Route] = []
-        self.sort_col         = "est_profit"
-        self.sort_reverse     = True
-        self.ship_name        = ""
-        self.ship_scu         = 0
-        self.filters          = FilterState()
-        self.last_refresh_ts: Optional[float] = None
-        self._data_source     = "—"
-        self._debounce_id     = None
+        layout.addWidget(container)
 
-        self._drag_x = self._drag_y = 0
-        self._resizing = False
-        self._resize_sx = self._resize_sy = 0
-        self._resize_sw = self._resize_sh = 0
+    def _build_content(self, d: dict):
+        """Build the detail content from route data dict."""
+        ly = self._content_layout
 
-        self.root:         Optional[tk.Tk]        = None
-        self.tree:         Optional[ttk.Treeview] = None
-        self.status_var:      Optional[tk.StringVar] = None
-        self.count_var:       Optional[tk.StringVar] = None
-        self.upd_label:       Optional[tk.Label]     = None
-        self.src_label:       Optional[tk.Label]     = None
-        # Sidebar filter vars
-        self.buy_system_var:  Optional[tk.StringVar] = None
-        self.sell_system_var: Optional[tk.StringVar] = None
-        self.buy_loc_var:     Optional[tk.StringVar] = None
-        self.sell_loc_var:    Optional[tk.StringVar] = None
-        self.buy_term_var:    Optional[tk.StringVar] = None
-        self.sell_term_var:   Optional[tk.StringVar] = None
-        self.minscu_var:      Optional[tk.StringVar] = None
-        self.search_var:   Optional[tk.StringVar] = None
-        self.ship_var:     Optional[tk.StringVar] = None
-        self.system_var:   Optional[tk.StringVar] = None
-        self.location_var: Optional[tk.StringVar] = None
-        self.comm_var:     Optional[tk.StringVar] = None
-        self.comm_combo:     Optional[ttk.Combobox] = None
-        self.buy_sys_combo:  Optional[ttk.Combobox] = None
-        self.sell_sys_combo: Optional[ttk.Combobox] = None
-        self.buy_loc_combo:  Optional[ttk.Combobox] = None
-        self.sell_loc_combo: Optional[ttk.Combobox] = None
-        self.buy_term_combo: Optional[ttk.Combobox] = None
-        self.sell_term_combo:Optional[ttk.Combobox] = None
-        self.minprofit_var:  Optional[tk.StringVar] = None
-        # Data source (always UEX)
-        self.data_source:    str       = "UEX"
-        # View mode (ROUTES or LOOPS)
-        self.view_mode:      str       = "ROUTES"
-        self._btn_routes:    Optional[tk.Button] = None
-        self._btn_loops:     Optional[tk.Button] = None
-        # Loop data
-        self.all_loops:      List[MultiRoute] = []
-        self.filtered_loops: List[MultiRoute] = []
-        self.loop_sort_col     = "total_profit"
-        self.loop_sort_reverse = True
-        # Separate treeview frames for routes vs loops
-        self._route_tbl_frame:  Optional[tk.Frame]       = None
-        self._loop_tbl_frame:   Optional[tk.Frame]       = None
-        self._route_tree:       Optional[ttk.Treeview]   = None
-        self._loop_tree:        Optional[ttk.Treeview]   = None
-        # Pinned route/loop detail cards — up to MAX_PINNED simultaneously
-        # Each entry: {"key": str, "popup": Toplevel, "text": Text,
-        #              "type": "loop"|"route", "data": MultiRoute|Route}
-        self._pinned_cards: List[Dict] = []
-        # Window visibility tracking (wm_state() unreliable with overrideredirect)
-        self._visible:     bool                  = True
-        # Global hotkey
-        self._hotkey:      str                   = _DEFAULT_HOTKEY
+        route_type = d.get("type", "single")
+
+        if route_type == "single":
+            self._build_single_route(d)
+        elif route_type == "multi":
+            self._build_multi_route(d)
+        elif route_type == "mixed":
+            self._build_mixed_route(d)
+
+    def _add_header(self, text: str, color: str = ""):
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"""
+            font-family: Electrolize, Consolas; font-size: 10pt; font-weight: bold;
+            color: {color or P.accent}; background: transparent;
+            padding: 14px 0 4px 0;
+        """)
+        self._content_layout.addWidget(lbl)
+
+    def _add_separator(self):
+        spacer_top = QWidget()
+        spacer_top.setFixedHeight(2)
+        spacer_top.setStyleSheet("background: transparent;")
+        self._content_layout.addWidget(spacer_top)
+        sep = QFrame()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(f"background-color: rgba(68, 170, 255, 40);")
+        self._content_layout.addWidget(sep)
+        spacer_btm = QWidget()
+        spacer_btm.setFixedHeight(4)
+        spacer_btm.setStyleSheet("background: transparent;")
+        self._content_layout.addWidget(spacer_btm)
+
+    def _add_row(self, label: str, value: str, value_color: str = ""):
+        row_w = QWidget()
+        row_w.setFixedHeight(26)
+        row_w.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_w)
+        row.setSpacing(8)
+        row.setContentsMargins(0, 0, 0, 0)
+        k = QLabel(label)
+        k.setFixedWidth(140)
+        k.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {P.fg_dim}; background: transparent;")
+        row.addWidget(k)
+        v = QLabel(value)
+        v.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {value_color or P.fg}; background: transparent;")
+        row.addWidget(v, 1)
+        self._content_layout.addWidget(row_w)
+
+    def _add_colored_row(self, label: str, value: str, label_color: str = "", value_color: str = ""):
+        """Row where both the label and value have custom colours."""
+        row_w = QWidget()
+        row_w.setFixedHeight(26)
+        row_w.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_w)
+        row.setSpacing(8)
+        row.setContentsMargins(0, 0, 0, 0)
+        k = QLabel(label)
+        k.setFixedWidth(140)
+        k.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {label_color or P.fg_dim}; background: transparent;")
+        row.addWidget(k)
+        v = QLabel(value)
+        v.setStyleSheet(f"font-family: Consolas; font-size: 9pt; font-weight: bold; color: {value_color or P.fg}; background: transparent;")
+        row.addWidget(v, 1)
+        self._content_layout.addWidget(row_w)
+
+    def _add_value_row(self, label: str, value: str, color: str = ""):
+        """Large value row for financial figures."""
+        row_w = QWidget()
+        row_w.setFixedHeight(28)
+        row_w.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_w)
+        row.setSpacing(8)
+        row.setContentsMargins(0, 0, 0, 0)
+        k = QLabel(label)
+        k.setFixedWidth(140)
+        k.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {P.fg_dim}; background: transparent;")
+        row.addWidget(k)
+        v = QLabel(value)
+        v.setStyleSheet(f"font-family: Consolas; font-size: 10pt; font-weight: bold; color: {color or P.fg_bright}; background: transparent;")
+        row.addWidget(v, 1)
+        self._content_layout.addWidget(row_w)
+
+    def _build_single_route(self, d: dict):
+        ship = d.get("ship", "No ship")
+        commodity = d.get("commodity", "?")
+        eff_scu = d.get("eff_scu", 0)
+        price_buy = d.get("price_buy", 0)
+        price_sell = d.get("price_sell", 0)
+        margin = d.get("margin", 0)
+        profit = d.get("profit", 0)
+        roi = d.get("roi", 0)
+        total_cost = eff_scu * price_buy
+        total_revenue = eff_scu * price_sell
+
+        distance = d.get("distance", 0)
+
+        self._add_header("ROUTE SUMMARY", P.tool_trade)
+        self._add_separator()
+        self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
+        self._add_colored_row("Commodity:", commodity, P.tool_trade, P.fg_bright)
+        self._add_colored_row("Load:", f"{eff_scu:,} SCU", P.yellow, P.yellow)
+        if distance > 0:
+            self._add_colored_row("Distance:", fmt_distance(distance), P.energy_cyan, P.energy_cyan)
+            self._add_colored_row("Travel Time:", fmt_eta(distance), P.energy_cyan, P.energy_cyan)
+
+        self._add_header("FINANCIALS", P.green)
+        self._add_separator()
+        self._add_colored_row("Total Cost:", f"{total_cost:,.0f} aUEC", P.red, P.red)
+        self._add_colored_row("Total Revenue:", f"{total_revenue:,.0f} aUEC", P.accent, P.accent)
+        self._add_colored_row("Profit:", f"+{profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row("Margin/SCU:", f"{margin:,.0f} aUEC/SCU", P.green, P.accent)
+        roi_color = P.green if roi > 50 else P.yellow
+        self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+
+        self._add_header("BUY LOCATION", P.accent)
+        self._add_separator()
+        self._add_colored_row("Terminal:", d.get("buy_terminal", "?"), P.accent, P.fg_bright)
+        self._add_colored_row("Location:", d.get("buy_location", "?"), P.accent, P.fg)
+        self._add_colored_row("System:", d.get("buy_system", "?"), P.energy_cyan, P.energy_cyan)
+        self._add_colored_row("Price:", f"{price_buy:,.0f} aUEC/SCU", P.red, P.red)
+        self._add_colored_row("Available:", f"{d.get('scu_available', 0):,} SCU", P.yellow, P.yellow)
+        self._add_colored_row("Purchase Total:", f"{total_cost:,.0f} aUEC", P.red, P.red)
+
+        self._add_header("SELL LOCATION", P.orange)
+        self._add_separator()
+        self._add_colored_row("Terminal:", d.get("sell_terminal", "?"), P.orange, P.fg_bright)
+        self._add_colored_row("Location:", d.get("sell_location", "?"), P.orange, P.fg)
+        self._add_colored_row("System:", d.get("sell_system", "?"), P.energy_cyan, P.energy_cyan)
+        self._add_colored_row("Price:", f"{price_sell:,.0f} aUEC/SCU", P.accent, P.accent)
+        self._add_colored_row("Demand:", f"{d.get('scu_demand', 0):,} SCU", P.yellow, P.yellow)
+        self._add_colored_row("Sale Revenue:", f"{total_revenue:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row("Profit Here:", f"+{profit:,.0f} aUEC", P.green, P.green)
+
+    def _build_multi_route(self, d: dict):
+        ship = d.get("ship", "No ship")
+        total_profit = d.get("total_profit", 0)
+        legs = d.get("legs", [])
+        num_legs = len(legs)
+        running_investment = 0
+
+        total_distance = sum(leg.get("distance", 0) for leg in legs)
+
+        self._add_header(f"MULTI-LEG ROUTE  \u2022  {num_legs} legs", P.tool_trade)
+        self._add_separator()
+        self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
+        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        if total_distance > 0:
+            self._add_colored_row("Total Distance:", fmt_distance(total_distance), P.energy_cyan, P.energy_cyan)
+            self._add_colored_row("Total Travel:", fmt_eta(total_distance), P.energy_cyan, P.energy_cyan)
+
+        for i, leg in enumerate(legs, 1):
+            eff = leg.get("eff_scu", 0)
+            buy_price = leg.get("price_buy", 0)
+            sell_price = leg.get("price_sell", 0)
+            leg_cost = eff * buy_price
+            leg_revenue = eff * sell_price
+            leg_profit = eff * leg.get("margin", 0)
+            leg_dist = leg.get("distance", 0)
+            running_investment += leg_cost
+
+            self._add_header(f"LEG {i}:  {leg.get('commodity', '?')}", P.accent)
+            self._add_separator()
+            self._add_colored_row("Buy:", f"{leg.get('buy_terminal', '?')} ({leg.get('buy_system', '?')})", P.accent, P.fg_bright)
+            self._add_colored_row("Sell:", f"{leg.get('sell_terminal', '?')} ({leg.get('sell_system', '?')})", P.orange, P.fg_bright)
+            self._add_colored_row("Load:", f"{eff:,} SCU", P.yellow, P.yellow)
+            if leg_dist > 0:
+                self._add_colored_row("Travel:", f"{fmt_distance(leg_dist)} \u2022 {fmt_eta(leg_dist)}", P.energy_cyan, P.energy_cyan)
+            self._add_colored_row("Purchase:", f"{leg_cost:,.0f} aUEC", P.red, P.red)
+            self._add_colored_row("Revenue:", f"{leg_revenue:,.0f} aUEC", P.accent, P.accent)
+            self._add_colored_row("Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green)
+
+        self._add_header("TOTALS", P.green)
+        self._add_separator()
+        self._add_colored_row("Total Investment:", f"{running_investment:,.0f} aUEC", P.red, P.red)
+        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        if total_distance > 0:
+            self._add_colored_row("Total Travel:", f"{fmt_distance(total_distance)} \u2022 {fmt_eta(total_distance)}", P.energy_cyan, P.energy_cyan)
+
+    def _build_mixed_route(self, d: dict):
+        ship = d.get("ship", "No ship")
+        total_profit = d.get("total_profit", 0)
+        total_invest = d.get("total_investment", 0)
+        roi = d.get("roi", 0)
+        fill_eff = d.get("fill_efficiency", 0)
+        legs = d.get("legs", [])
+        num_legs = len(legs)
+        total_dist = d.get("total_distance", 0)
+
+        # ── Route overview (gold) ─────────────────────────────────────
+        self._add_header(f"MIXED FREIGHT  \u2022  {num_legs} legs  \u2022  {fill_eff:.0f}% fill", P.tool_trade)
+        self._add_separator()
+        self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
+        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        if total_invest > 0:
+            self._add_colored_row("Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red)
+            roi_color = P.green if roi > 50 else P.yellow
+            self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+        self._add_colored_row("Bay Efficiency:", f"{fill_eff:.1f}%", P.yellow, P.yellow)
+        if total_dist > 0:
+            self._add_colored_row("Total Distance:", fmt_distance(total_dist), P.energy_cyan, P.energy_cyan)
+            self._add_colored_row("Travel Time:", fmt_eta(total_dist), P.energy_cyan, P.energy_cyan)
+
+        for i, leg in enumerate(legs, 1):
+            leg_scu = leg.get("total_scu", 0)
+            leg_fill = leg.get("fill_pct", 0)
+            leg_profit = leg.get("leg_profit", 0)
+            leg_dist = leg.get("distance", 0)
+            slots = leg.get("slots", [])
+
+            # ── Leg header (blue) ─────────────────────────────────────
+            self._add_header(f"LEG {i}:  {leg.get('buy_terminal', '?')}  \u2192  {leg.get('sell_terminal', '?')}", P.accent)
+            self._add_separator()
+            self._add_colored_row("System:", f"{leg.get('buy_system', '?')} \u2192 {leg.get('sell_system', '?')}", P.energy_cyan, P.energy_cyan)
+            if leg_dist > 0:
+                self._add_colored_row("Travel:", f"{fmt_distance(leg_dist)} \u2022 {fmt_eta(leg_dist)}", P.energy_cyan, P.energy_cyan)
+
+            # ── Cargo slots ───────────────────────────────────────────
+            for slot in slots:
+                is_primary = slot.get("is_primary", False)
+                is_illegal = slot.get("is_illegal", False)
+                scu = slot.get("scu_loaded", 0)
+                buy_p = slot.get("price_buy", 0)
+                sell_p = slot.get("price_sell", 0)
+                slot_profit = slot.get("profit", 0)
+                commodity = slot.get("commodity", "?")
+
+                # Primary = green, Filler = purple, Illegal = red
+                if is_illegal:
+                    name_color = P.red
+                elif is_primary:
+                    name_color = P.green
+                else:
+                    name_color = P.purple
+
+                role_icon = "\u2605" if is_primary else "\u25cb"
+                tag = "Primary" if is_primary else "Filler"
+                illegal_tag = "  \u26a0 ILLEGAL" if is_illegal else ""
+
+                # Commodity header — role on the left, commodity name on the right
+                self._add_colored_row(f"{role_icon}  {tag}{illegal_tag}", commodity, name_color, name_color)
+                self._add_colored_row("    SCU:", f"{scu:,}", P.yellow, P.yellow)
+                self._add_colored_row("    Buy:", f"{buy_p:,.2f} aUEC/SCU", P.red, P.red)
+                self._add_colored_row("    Sell:", f"{sell_p:,.2f} aUEC/SCU", P.accent, P.accent)
+                profit_color = P.green if is_primary else P.purple
+                self._add_colored_row("    Profit:", f"+{slot_profit:,.0f} aUEC", profit_color, profit_color)
+
+            # ── Leg totals ─────────────────────────────────────────────
+            self._add_separator()
+            self._add_colored_row("Leg Fill:", f"{leg_scu:,} SCU  ({leg_fill:.1f}%)", P.yellow, P.yellow)
+            self._add_colored_row("Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green)
+
+        # ── Grand totals ─────────────────────────────────────────────
+        self._add_header("TOTALS", P.green)
+        self._add_separator()
+        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        if total_invest > 0:
+            self._add_colored_row("Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red)
+            roi_color = P.green if roi > 50 else P.yellow
+            self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+        self._add_colored_row("Bay Efficiency:", f"{fill_eff:.1f}% avg", P.yellow, P.yellow)
+
+    def _toggle_pin(self):
+        if self._pinned:
+            self._pinned = False
+            self._pin_btn.setText("Pin")
+            self._pin_btn.setStyleSheet(_pin_btn_qss(False))
+            if self in RouteDetailDialog._pinned_dialogs:
+                RouteDetailDialog._pinned_dialogs.remove(self)
+        else:
+            self._pinned = True
+            self._pin_btn.setText("Unpin")
+            self._pin_btn.setStyleSheet(_pin_btn_qss(True))
+            RouteDetailDialog._pinned_dialogs.append(self)
+
+    def closeEvent(self, event) -> None:
+        if self in RouteDetailDialog._pinned_dialogs:
+            RouteDetailDialog._pinned_dialogs.remove(self)
+        super().closeEvent(event)
+
+    def _edge_at(self, pos):
+        """Return which edge(s) the cursor is near, or None for interior (drag)."""
+        m = self._resize_margin
+        r = self.rect()
+        edges = ""
+        if pos.y() >= r.height() - m:
+            edges += "b"
+        if pos.x() >= r.width() - m:
+            edges += "r"
+        if pos.y() <= m:
+            edges += "t"
+        if pos.x() <= m:
+            edges += "l"
+        return edges or None
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            edge = self._edge_at(event.position().toPoint())
+            if edge:
+                self._resize_edge = edge
+                self._drag_pos = event.globalPosition().toPoint()
+            else:
+                self._resize_edge = None
+                self._drag_pos = event.globalPosition().toPoint() - self.pos()
+
+    def mouseMoveEvent(self, event) -> None:
+        pos = event.position().toPoint()
+
+        # Update cursor shape based on edge proximity
+        if not (event.buttons() & Qt.LeftButton):
+            edge = self._edge_at(pos)
+            if edge in ("b", "t"):
+                self.setCursor(Qt.SizeVerCursor)
+            elif edge in ("r", "l"):
+                self.setCursor(Qt.SizeHorCursor)
+            elif edge in ("br", "rb", "tl", "lt"):
+                self.setCursor(Qt.SizeFDiagCursor)
+            elif edge in ("bl", "lb", "tr", "rt"):
+                self.setCursor(Qt.SizeBDiagCursor)
+            elif edge:
+                self.setCursor(Qt.SizeAllCursor)
+            else:
+                self.setCursor(Qt.ArrowCursor)
+            return
+
+        if self._resize_edge and self._drag_pos:
+            # Resize mode
+            gp = event.globalPosition().toPoint()
+            delta = gp - self._drag_pos
+            self._drag_pos = gp
+            geo = self.geometry()
+
+            if "r" in self._resize_edge:
+                geo.setRight(geo.right() + delta.x())
+            if "b" in self._resize_edge:
+                geo.setBottom(geo.bottom() + delta.y())
+            if "l" in self._resize_edge:
+                geo.setLeft(geo.left() + delta.x())
+            if "t" in self._resize_edge:
+                geo.setTop(geo.top() + delta.y())
+
+            # Enforce minimum size
+            if geo.width() >= self.minimumWidth() and geo.height() >= self.minimumHeight():
+                self.setGeometry(geo)
+
+        elif self._drag_pos and not self._resize_edge:
+            # Drag mode
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+
+    def mouseReleaseEvent(self, event) -> None:
+        self._drag_pos = None
+        self._resize_edge = None
+        self.setCursor(Qt.ArrowCursor)
+
+
+# ── Main window ──────────────────────────────────────────────────────────────
+
+class _RouteSignal(QObject):
+    """Helper signal to marshal route data from background thread to main thread."""
+    routes_ready = Signal(list, str)
+    distances_ready = Signal(list)
+    distance_progress = Signal(int, int)
+
+class TradeHubWindow(SCWindow):
+    """Trade Hub PySide6 window with SCTitleBar, sidebar filters, and SCTable."""
+
+    def __init__(self, cmd_file: str, x=80, y=80, w=1400, h=900,
+                 refresh_interval=300.0, max_routes=500, opacity=0.95) -> None:
+        super().__init__(
+            title="Trade Hub", width=max(w, 1400), height=max(h, 1200),
+            min_w=800, min_h=600, opacity=opacity, always_on_top=True,
+        )
+        # Remove WindowDoesNotAcceptFocus so text inputs work
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowDoesNotAcceptFocus)
+        self.restore_geometry_from_args(x, y, w, h, opacity)
+
+        self._cmd_file = cmd_file
+        self._fetcher = DataFetcher(refresh_interval)
+        # Signal to safely deliver data from background thread to main thread
+        self._route_signal = _RouteSignal(self)
+        self._route_signal.routes_ready.connect(self._apply_routes)
+        self._route_signal.distances_ready.connect(self._on_distances_ready)
+        self._route_signal.distance_progress.connect(self._on_distance_progress)
+        self._refresh_interval = refresh_interval
+        self._max_routes = max_routes
+
+        self._all_routes: List[Route] = []
+        self._filtered_routes: List[Route] = []
+        self._cached_profits: dict = {}
+        self._all_loops: List[MultiRoute] = []
+        self._filtered_loops: List[MultiRoute] = []
+        self._sort_col = "est_profit"
+        self._sort_reverse = True
+        self._loop_sort_col = "total_profit"
+        self._loop_sort_reverse = True
+        self._ship_name = ""
+        self._ship_scu = 0
+        self._data_source = "\u2014"
+        self._last_refresh: Optional[float] = None
+        self._view_mode = "ROUTES"
+        self._visible = True
+        self._hotkey = _DEFAULT_HOTKEY
         self._hotkey_stop: Optional[threading.Event] = None
         self._hotkey_thread: Optional[threading.Thread] = None
-        # Profit calculator popup (singleton)
-        self._calc_popup:       Optional[tk.Toplevel]  = None
-        # Hotkey settings entry var (sidebar)
-        self._hotkey_entry_var: Optional[tk.StringVar] = None
-        self._hotkey_status_var: Optional[tk.StringVar] = None
+        self._freight_mode = "BULK"  # "BULK" or "MIXED"
+        self._allow_illegal = False  # default: no illegal cargo
+        self._all_mixed: list = []
+        self._filtered_mixed: list = []
+        self._mixed_sort_col = "total_profit"
+        self._mixed_sort_reverse = True
 
-    # ── Entry ─────────────────────────────────────────────────────────────────
-
-    def run(self) -> None:
-        try:
-            self._run_inner()
-        except Exception:
-            tb = traceback.format_exc()
-            log.critical("FATAL — unhandled exception:\n%s", tb)
-            try:
-                p = os.path.join(tempfile.gettempdir(), "trade_hub_error.txt")
-                with open(p, "w") as f:
-                    f.write(tb)
-            except Exception:
-                log.debug("Could not write crash file: %s", traceback.format_exc())
-
-    def _run_inner(self) -> None:
-        log.info("Window init — geometry %dx%d+%d+%d  opacity=%.2f  hotkey=%s",
-                 self.win_w, self.win_h, self.win_x, self.win_y,
-                 self.opacity, self._hotkey)
-        self.root = tk.Tk()
-        self.root.withdraw()
-        self.root.overrideredirect(True)
-        self.root.geometry(f"{self.win_w}x{self.win_h}+{self.win_x}+{self.win_y}")
-        self.root.configure(bg=COLORS["bg"])
-        self.root.wm_attributes("-alpha", self.opacity)
-        self.root.wm_attributes("-topmost", True)
-
-        self._setup_styles()
         self._build_ui()
-        self._load_config()
+
+        cfg = load_config()
+        if cfg.get("ship_name"):
+            self._set_ship(cfg["ship_name"])
+        if cfg.get("hotkey"):
+            self._hotkey = cfg["hotkey"]
+        self._freight_mode = cfg.get("freight_mode", "BULK")
+        self._allow_illegal = cfg.get("allow_illegal_cargo", False)
+        if hasattr(self, '_btn_bulk'):
+            self._update_freight_mode_btns()
+        if hasattr(self, '_btn_illegal_yes'):
+            self._update_illegal_btns()
+        self._sync_table_visibility()
+
+        self._start_ipc()
         self._start_hotkey_listener()
+        QTimer.singleShot(500, self._start_load)
+        QTimer.singleShot(int(refresh_interval * 1000), self._auto_refresh)
 
-        self.root.update_idletasks()
-        self.root.deiconify()
-        self.root.lift()
-        self.root.update()
-        self._force_show()
+    def _build_ui(self):
+        layout = self.content_layout
 
-        self._poll_queue()
-        self._auto_refresh_loop()
-        self._keepalive()
-
-        self.root.after(500, self._start_load)
-        log.info("Entering mainloop")
-        self.root.mainloop()
-        log.info("mainloop exited")
-
-    # ── Win32 ─────────────────────────────────────────────────────────────────
-
-    def _get_hwnd(self) -> Optional[int]:
-        try:
-            frame = self.root.wm_frame()
-            try:
-                return int(frame)
-            except ValueError:
-                return int(frame, 16)
-        except Exception:
-            try:
-                return self.root.winfo_id()
-            except Exception:
-                return None
-
-    def _apply_topmost(self) -> None:
-        if not _user32:
-            return
-        hwnd = self._get_hwnd()
-        if hwnd:
-            try:
-                _user32.SetWindowPos(hwnd, _HWND_TOPMOST, 0, 0, 0, 0,
-                                     _SWP_NOSIZE | _SWP_NOMOVE | _SWP_NOACTIVATE)
-            except Exception:
-                log.debug("SetWindowPos topmost failed: %s", traceback.format_exc())
-
-    def _force_show(self) -> None:
-        if not _user32:
-            return
-        hwnd = self._get_hwnd()
-        if not hwnd:
-            return
-        try:
-            _user32.ShowWindow(hwnd, _SW_RESTORE)
-            _user32.BringWindowToTop(hwnd)
-            fg   = _user32.GetForegroundWindow()
-            ftid = _user32.GetWindowThreadProcessId(fg, None)
-            otid = _kernel32.GetCurrentThreadId()
-            if ftid and ftid != otid:
-                _user32.AttachThreadInput(ftid, otid, True)
-                _user32.SetForegroundWindow(hwnd)
-                _user32.AttachThreadInput(ftid, otid, False)
-            else:
-                _user32.SetForegroundWindow(hwnd)
-        except Exception:
-            log.debug("_force_show Win32 call failed: %s", traceback.format_exc())
-        self._apply_topmost()
-
-    def _keepalive(self) -> None:
-        if self.root:
-            if self._visible:
-                self._apply_topmost()
-            self.root.after(2000, self._keepalive)
-
-    # ── Styles ────────────────────────────────────────────────────────────────
-
-    def _setup_styles(self) -> None:
-        s = ttk.Style(self.root)
-        s.theme_use("clam")
-        s.configure("TFrame",  background=COLORS["bg"])
-        s.configure("TLabel",  background=COLORS["bg"], foreground=COLORS["fg"], font=("Consolas", 9))
-        s.configure("T.Treeview",
-                    background=COLORS["even"], foreground=COLORS["fg"],
-                    fieldbackground=COLORS["even"], rowheight=20,
-                    font=("Consolas", 9), borderwidth=0, relief="flat")
-        s.configure("T.Treeview.Heading",
-                    background=COLORS["hdr"], foreground=COLORS["blue"],
-                    font=("Consolas", 9, "bold"), relief="flat", borderwidth=0)
-        s.map("T.Treeview",
-              background=[("selected", COLORS["sel"])],
-              foreground=[("selected", COLORS["fg3"])])
-        s.map("T.Treeview.Heading",
-              background=[("active", COLORS["blue2"])],
-              foreground=[("active", COLORS["blue"])])
-        for orient in ("Vertical", "Horizontal"):
-            s.configure(f"T.{orient}.TScrollbar",
-                        background=COLORS["bg2"], troughcolor=COLORS["bg"],
-                        arrowcolor=COLORS["blue2"], borderwidth=0, relief="flat")
-        s.configure("T.TEntry",
-                    fieldbackground=COLORS["ibg"], foreground=COLORS["ifg"],
-                    insertcolor=COLORS["blue"], borderwidth=0, relief="flat", font=("Consolas", 9))
-        s.configure("T.TCombobox",
-                    fieldbackground=COLORS["ibg"], foreground=COLORS["ifg"],
-                    background=COLORS["btn"], arrowcolor=COLORS["blue"],
-                    selectbackground=COLORS["sel"], borderwidth=0, font=("Consolas", 9))
-        s.map("T.TCombobox",
-              fieldbackground=[("readonly", COLORS["ibg"])],
-              selectbackground=[("readonly", COLORS["sel"])])
-        s.configure("T.TButton",
-                    background=COLORS["btn"], foreground=COLORS["blue"],
-                    font=("Consolas", 9), borderwidth=0, relief="flat", padding=(6, 2))
-        s.map("T.TButton", background=[("active", COLORS["blue2"])])
-
-    # ── UI ────────────────────────────────────────────────────────────────────
-
-    def _build_ui(self) -> None:
-        # ── Title bar ─────────────────────────────────────────────────────────
-        bar = tk.Frame(self.root, bg=COLORS["bar"], height=42)
-        bar.pack(fill="x"); bar.pack_propagate(False)
-
-        def drag(w):
-            w.bind("<Button-1>",  self._drag_start)
-            w.bind("<B1-Motion>", self._drag_motion)
-
-        drag(bar)
-        t = tk.Label(bar, text="◈  TRADE HUB", bg=COLORS["bar"], fg=COLORS["blue"],
-                     font=("Consolas", 14, "bold"), cursor="fleur")
-        t.pack(side="left", padx=12, pady=9); drag(t)
-        s = tk.Label(bar, text="ECONOMIC INTELLIGENCE TERMINAL",
-                     bg=COLORS["bar"], fg=COLORS["fg2"], font=("Consolas", 8), cursor="fleur")
-        s.pack(side="left", pady=13); drag(s)
-        close = tk.Label(bar, text=" ✕ ", bg=COLORS["bar"], fg=COLORS["blue"],
-                         font=("Consolas", 11, "bold"), cursor="hand2")
-        close.pack(side="right", padx=(4, 10), pady=8)
-        close.bind("<Button-1>", lambda _: (self.root.withdraw(), setattr(self, '_visible', False)))
-        close.bind("<Enter>",    lambda _: close.config(fg="#ff4040"))
-        close.bind("<Leave>",    lambda _: close.config(fg=COLORS["blue"]))
-        rbtn = tk.Label(bar, text=" ⟳ ", bg=COLORS["bar"], fg=COLORS["blue"],
-                        font=("Consolas", 14), cursor="hand2")
-        rbtn.pack(side="right", padx=4, pady=8)
-        rbtn.bind("<Button-1>", lambda _: self._do_refresh())
-        rbtn.bind("<Enter>",    lambda _: rbtn.config(fg=COLORS["fg3"]))
-        rbtn.bind("<Leave>",    lambda _: rbtn.config(fg=COLORS["blue"]))
-        self.src_label = tk.Label(bar, text="", bg=COLORS["bar"], fg=COLORS["fg2"], font=("Consolas", 8))
-        self.src_label.pack(side="right", padx=6, pady=13)
-        self.upd_label = tk.Label(bar, text="", bg=COLORS["bar"], fg=COLORS["fg2"], font=("Consolas", 9))
-        self.upd_label.pack(side="right", padx=6, pady=13)
-        tk.Frame(self.root, bg=COLORS["blue2"], height=1).pack(fill="x")
-
-        # ── Body: sidebar + table ──────────────────────────────────────────────
-        body = tk.Frame(self.root, bg=COLORS["bg"])
-        body.pack(fill="both", expand=True)
-
-        # Left sidebar
-        SB_W = 195
-        sb_outer = tk.Frame(body, bg=COLORS["flt"], width=SB_W)
-        sb_outer.pack(side="left", fill="y"); sb_outer.pack_propagate(False)
-
-        # Scrollable canvas for sidebar content
-        sb_canvas = tk.Canvas(sb_outer, bg=COLORS["flt"], highlightthickness=0, width=SB_W)
-        sb_canvas.pack(side="left", fill="both", expand=True)
-        sb_frame = tk.Frame(sb_canvas, bg=COLORS["flt"])
-        sb_win = sb_canvas.create_window((0, 0), window=sb_frame, anchor="nw", width=SB_W)
-        sb_frame.bind("<Configure>", lambda e: sb_canvas.configure(
-            scrollregion=sb_canvas.bbox("all")))
-        sb_canvas.bind("<MouseWheel>", lambda e: sb_canvas.yview_scroll(
-            int(-1 * (e.delta / 120)), "units"))
-
-        def sb_label(txt, pad_top=6):
-            tk.Label(sb_frame, text=txt, bg=COLORS["flt"], fg=COLORS["fg2"],
-                     font=("Consolas", 8), anchor="w").pack(
-                         fill="x", padx=10, pady=(pad_top, 0))
-
-        def sb_entry(var, width=20):
-            e = ttk.Entry(sb_frame, textvariable=var, width=width, style="T.TEntry")
-            e.pack(fill="x", padx=10, pady=(2, 0))
-            e.bind("<Return>", lambda _: self._apply_search())
-            return e
-
-        def sb_combo(var, values, width=20, state="normal"):
-            """Fuzzy-search entry with dropdown list popup."""
-            frame = tk.Frame(sb_frame, bg=COLORS["flt"])
-            frame.pack(fill="x", padx=10, pady=(2, 0))
-
-            entry = tk.Entry(frame, textvariable=var, width=width,
-                             font=("Consolas", 9), bg=COLORS["bg2"], fg=COLORS["fg"],
-                             insertbackground=COLORS["fg"], relief="flat",
-                             highlightthickness=1, highlightcolor=COLORS["blue"],
-                             highlightbackground=COLORS["bg2"])
-            entry.pack(fill="x", side="left", expand=True)
-
-            # Small dropdown arrow button
-            arrow = tk.Button(frame, text="\u25bc", font=("Consolas", 7),
-                              bg=COLORS["bg2"], fg=COLORS["fg2"], relief="flat", width=2,
-                              cursor="hand2")
-            arrow.pack(side="right")
-
-            entry._all_values = list(values)
-            entry._popup = None
-            entry._listbox = None
-
-            def _show_popup(filtered=None):
-                """Show or update the dropdown popup with filtered values."""
-                items = filtered if filtered is not None else getattr(entry, '_all_values', [])
-                if not items:
-                    _hide_popup()
-                    return
-
-                if entry._popup and entry._popup.winfo_exists():
-                    # Update existing listbox
-                    lb = entry._listbox
-                    lb.delete(0, "end")
-                    for item in items[:50]:  # limit for performance
-                        lb.insert("end", item)
-                    return
-
-                # Create new popup
-                popup = tk.Toplevel(self.root)
-                popup.overrideredirect(True)
-                popup.attributes("-topmost", True)
-
-                # Position below the entry
-                entry.update_idletasks()
-                x = entry.winfo_rootx()
-                y = entry.winfo_rooty() + entry.winfo_height()
-                w = entry.winfo_width() + arrow.winfo_width()
-                h = min(200, len(items) * 18 + 4)
-
-                popup.geometry(f"{w}x{h}+{x}+{y}")
-
-                lb = tk.Listbox(popup, bg=COLORS["bg2"], fg=COLORS["fg"],
-                                selectbackground=COLORS["blue"], selectforeground="#ffffff",
-                                font=("Consolas", 8), relief="flat", bd=1,
-                                highlightthickness=1, highlightcolor=COLORS["blue"],
-                                activestyle="none")
-                lb.pack(fill="both", expand=True)
-
-                for item in items[:50]:
-                    lb.insert("end", item)
-
-                def _on_select(event):
-                    sel = lb.curselection()
-                    if sel:
-                        val = lb.get(sel[0])
-                        var.set(val)
-                        _hide_popup()
-                        self._apply_search()
-
-                lb.bind("<ButtonRelease-1>", _on_select)
-                lb.bind("<Return>", _on_select)
-
-                entry._popup = popup
-                entry._listbox = lb
-
-                # Close popup when clicking elsewhere
-                def _on_focus_out(event):
-                    # Delay to allow listbox click to register
-                    self.root.after(150, lambda: _hide_popup()
-                                   if entry._popup and not entry.focus_get() == entry
-                                   else None)
-                entry.bind("<FocusOut>", _on_focus_out, add="+")
-
-            def _hide_popup():
-                if entry._popup and entry._popup.winfo_exists():
-                    entry._popup.destroy()
-                entry._popup = None
-                entry._listbox = None
-
-            def _on_key(event):
-                if event.keysym in ("Return", "Escape", "Tab"):
-                    _hide_popup()
-                    if event.keysym == "Return":
-                        self._apply_search()
-                    return
-
-                typed = var.get().lower().strip()
-                if not typed:
-                    _show_popup(getattr(entry, '_all_values', []))
-                else:
-                    filtered = [v for v in getattr(entry, '_all_values', []) if typed in v.lower()]
-                    if filtered:
-                        _show_popup(filtered)
-                    else:
-                        _hide_popup()
-
-            def _on_arrow():
-                if entry._popup and entry._popup.winfo_exists():
-                    _hide_popup()
-                else:
-                    _show_popup(getattr(entry, '_all_values', []))
-
-            entry.bind("<KeyRelease>", _on_key)
-            arrow.configure(command=_on_arrow)
-
-            # Store reference for value updates
-            entry._frame = frame
-            return entry
-
-        # ── Data source label ──────────────────────────────────────────────────
-        sb_label("DATA SOURCE:", pad_top=10)
-        tk.Label(sb_frame, text="  UEX", bg=COLORS["blue"], fg="#ffffff",
-                 font=("Consolas", 9, "bold"), anchor="center", pady=3
-                 ).pack(fill="x", padx=10, pady=(2, 0))
-
-        # ── View mode toggle ───────────────────────────────────────────────────
-        sb_label("VIEW MODE:", pad_top=8)
-        vm_row = tk.Frame(sb_frame, bg=COLORS["flt"])
-        vm_row.pack(fill="x", padx=10, pady=(2, 0))
-
-        def _vm_btn_style(btn, active: bool):
-            btn.config(bg=COLORS["blue"] if active else COLORS["btn"],
-                       fg="#ffffff" if active else COLORS["fg2"])
-
-        self._btn_routes = tk.Button(
-            vm_row, text="ROUTES",
-            font=("Consolas", 9, "bold"), relief="flat", cursor="hand2", pady=3,
-            command=lambda: self._on_view_mode_changed("ROUTES"),
+        # Title bar
+        self._title_bar = SCTitleBar(
+            self, title="TRADE HUB",
+            icon_text="\u25c8", accent_color=P.tool_trade,
+            show_minimize=False,
+            extra_buttons=[
+                ("Tutorial", self._open_tutorial),
+                ("UEX | Patreon", lambda: QDesktopServices.openUrl(QUrl("https://www.patreon.com/uexcorp"))),
+            ],
         )
-        self._btn_routes.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        self._title_bar.close_clicked.connect(lambda: (self.hide(), setattr(self, '_visible', False)))
+        layout.addWidget(self._title_bar)
 
-        self._btn_loops = tk.Button(
-            vm_row, text="LOOPS",
-            font=("Consolas", 9, "bold"), relief="flat", cursor="hand2", pady=3,
-            command=lambda: self._on_view_mode_changed("LOOPS"),
-        )
-        self._btn_loops.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        # Body: splitter with sidebar + content
+        body = QSplitter(Qt.Horizontal)
+        body.setStyleSheet(f"QSplitter::handle {{ background: {P.border}; width: 1px; }}")
 
-        _vm_btn_style(self._btn_routes, True)
-        _vm_btn_style(self._btn_loops,  False)
+        # ── Sidebar ──
+        sidebar = QWidget()
+        sidebar.setFixedWidth(235)
+        sidebar.setStyleSheet(f"background: {P.bg_secondary};")
+        sb_lay = QVBoxLayout(sidebar)
+        sb_lay.setContentsMargins(4, 4, 4, 4)
+        sb_lay.setSpacing(1)
+
+        def section(text, pad_top=6) -> None:
+            lbl = QLabel(text)
+            lbl.setStyleSheet(f"font-family: Consolas; font-size: 8pt; color: {P.tool_trade}; background: transparent; padding: {pad_top}px 10px 0px 10px;")
+            sb_lay.addWidget(lbl)
+
+        # View mode
+        section(_("VIEW MODE:"), 8)
+        vm_row = QHBoxLayout()
+        vm_row.setContentsMargins(10, 2, 10, 0)
+        self._btn_routes = QPushButton(_("ROUTES"))
+        self._btn_routes.setCursor(Qt.PointingHandCursor)
+        self._btn_routes.clicked.connect(lambda: self._set_view_mode("ROUTES"))
+        vm_row.addWidget(self._btn_routes)
+        self._btn_loops = QPushButton(_("LOOPS"))
+        self._btn_loops.setCursor(Qt.PointingHandCursor)
+        self._btn_loops.clicked.connect(lambda: self._set_view_mode("LOOPS"))
+        vm_row.addWidget(self._btn_loops)
+        vmw = QWidget()
+        vmw.setStyleSheet("background: transparent;")
+        vmw.setLayout(vm_row)
+        sb_lay.addWidget(vmw)
+        self._update_view_mode_btns()
+
+        # Freight mode
+        section(_("FREIGHT MODE:"), 8)
+        fm_row = QHBoxLayout()
+        fm_row.setContentsMargins(10, 2, 10, 0)
+        self._btn_bulk = QPushButton(_("BULK"))
+        self._btn_bulk.setCursor(Qt.PointingHandCursor)
+        self._btn_bulk.clicked.connect(lambda: self._set_freight_mode("BULK"))
+        fm_row.addWidget(self._btn_bulk)
+        self._btn_mixed = QPushButton(_("MIXED"))
+        self._btn_mixed.setCursor(Qt.PointingHandCursor)
+        self._btn_mixed.clicked.connect(lambda: self._set_freight_mode("MIXED"))
+        fm_row.addWidget(self._btn_mixed)
+        fm_w = QWidget()
+        fm_w.setStyleSheet("background: transparent;")
+        fm_w.setLayout(fm_row)
+        sb_lay.addWidget(fm_w)
+        self._update_freight_mode_btns()
+
+        # Allow illegal cargo
+        section(_("ALLOW ILLEGAL CARGO:"), 8)
+        il_row = QHBoxLayout()
+        il_row.setContentsMargins(10, 2, 10, 0)
+        self._btn_illegal_yes = QPushButton(_("YES"))
+        self._btn_illegal_yes.setCursor(Qt.PointingHandCursor)
+        self._btn_illegal_yes.clicked.connect(lambda: self._set_allow_illegal(True))
+        il_row.addWidget(self._btn_illegal_yes)
+        self._btn_illegal_no = QPushButton(_("NO"))
+        self._btn_illegal_no.setCursor(Qt.PointingHandCursor)
+        self._btn_illegal_no.clicked.connect(lambda: self._set_allow_illegal(False))
+        il_row.addWidget(self._btn_illegal_no)
+        il_w = QWidget()
+        il_w.setStyleSheet("background: transparent;")
+        il_w.setLayout(il_row)
+        sb_lay.addWidget(il_w)
+        self._update_illegal_btns()
+
+        # Market calculations toggle
+        section("MARKET CALCULATIONS:", 8)
+        mc_row = QHBoxLayout()
+        mc_row.setContentsMargins(10, 2, 10, 0)
+        self._use_max_profit = False
+        self._btn_mc_max = QPushButton("Max Profit")
+        self._btn_mc_max.setCursor(Qt.PointingHandCursor)
+        self._btn_mc_max.clicked.connect(lambda: self._set_market_calc(True))
+        mc_row.addWidget(self._btn_mc_max)
+        self._btn_mc_demand = QPushButton("Reported Demand")
+        self._btn_mc_demand.setCursor(Qt.PointingHandCursor)
+        self._btn_mc_demand.clicked.connect(lambda: self._set_market_calc(False))
+        mc_row.addWidget(self._btn_mc_demand)
+        mc_w = QWidget()
+        mc_w.setStyleSheet("background: transparent;")
+        mc_w.setLayout(mc_row)
+        sb_lay.addWidget(mc_w)
+        self._update_mc_btns()
 
         # Vehicle
-        sb_label("VEHICLE:", pad_top=10)
-        self.ship_var = tk.StringVar(value=QUICK_SHIPS[0][1])
-        sc = sb_combo(self.ship_var, [d for _, d in QUICK_SHIPS], state="normal")
-        sc.bind("<Return>",   self._on_ship_changed)
-        sc.bind("<FocusOut>", self._on_ship_changed)
+        section(_("VEHICLE:"), 10)
+        self._ship_combo = SCFuzzyCombo(
+            placeholder=_("Ship..."),
+            items=[d for _, d in QUICK_SHIPS],
+        )
+        self._ship_combo.item_selected.connect(self._on_ship_selected)
+        sb_lay.addWidget(self._ship_combo)
 
-        # System filters
-        sb_label("SYSTEM: BUY")
-        self.buy_system_var = tk.StringVar()
-        self.buy_sys_combo = sb_combo(self.buy_system_var, [""])
-        self.buy_sys_combo.bind("<FocusOut>", self._on_buy_system_changed)
+        # "Only System(s) Selected" toggle
+        section(_("ONLY SYSTEM(S) SELECTED:"), 8)
+        oss_row = QHBoxLayout()
+        oss_row.setContentsMargins(10, 2, 10, 0)
+        self._only_sel_sys = False
+        self._btn_oss_yes = QPushButton(_("YES"))
+        self._btn_oss_yes.setCursor(Qt.PointingHandCursor)
+        self._btn_oss_yes.clicked.connect(lambda: self._set_only_sel_sys(True))
+        oss_row.addWidget(self._btn_oss_yes)
+        self._btn_oss_no = QPushButton(_("NO"))
+        self._btn_oss_no.setCursor(Qt.PointingHandCursor)
+        self._btn_oss_no.clicked.connect(lambda: self._set_only_sel_sys(False))
+        oss_row.addWidget(self._btn_oss_no)
+        oss_w = QWidget()
+        oss_w.setStyleSheet("background: transparent;")
+        oss_w.setLayout(oss_row)
+        sb_lay.addWidget(oss_w)
+        self._update_oss_btns()
 
-        sb_label("SYSTEM: SELL")
-        self.sell_system_var = tk.StringVar()
-        self.sell_sys_combo = sb_combo(self.sell_system_var, [""])
-        self.sell_sys_combo.bind("<FocusOut>", self._on_sell_system_changed)
+        # Buy system
+        section(_("SYSTEM: BUY"))
+        self._buy_sys = SCFuzzyCombo(placeholder=_("Buy system..."))
+        self._buy_sys.item_selected.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._buy_sys)
 
-        # Location filters
-        sb_label("BUY LOCATION")
-        self.buy_loc_var = tk.StringVar()
-        self.buy_loc_combo = sb_combo(self.buy_loc_var, [""])
-        self.buy_loc_combo.bind("<FocusOut>", self._on_buy_location_changed)
+        # Sell system
+        section(_("SYSTEM: SELL"))
+        self._sell_sys = SCFuzzyCombo(placeholder=_("Sell system..."))
+        self._sell_sys.item_selected.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._sell_sys)
 
-        sb_label("SELL LOCATION")
-        self.sell_loc_var = tk.StringVar()
-        self.sell_loc_combo = sb_combo(self.sell_loc_var, [""])
-        self.sell_loc_combo.bind("<FocusOut>", self._on_sell_location_changed)
+        # Buy location
+        section(_("BUY LOCATION"))
+        self._buy_loc = SCFuzzyCombo(placeholder=_("Buy location..."))
+        self._buy_loc.item_selected.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._buy_loc)
 
-        # Terminal filters
-        sb_label("BUY TERMINAL")
-        self.buy_term_var = tk.StringVar()
-        self.buy_term_combo = sb_combo(self.buy_term_var, [""])
-
-        sb_label("SELL TERMINAL")
-        self.sell_term_var = tk.StringVar()
-        self.sell_term_combo = sb_combo(self.sell_term_var, [""])
+        # Sell location
+        section(_("SELL LOCATION"))
+        self._sell_loc = SCFuzzyCombo(placeholder=_("Sell location..."))
+        self._sell_loc.item_selected.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._sell_loc)
 
         # Commodity
-        sb_label("COMMODITY")
-        self.comm_var = tk.StringVar()
-        self.comm_combo = ttk.Combobox(sb_frame, textvariable=self.comm_var,
-                                       values=[], width=20, style="T.TCombobox")
-        self.comm_combo.pack(fill="x", padx=10, pady=(2, 0))
-        self.comm_combo.bind("<FocusOut>", lambda _: self._apply_search())
-        self.comm_combo.bind("<Return>", lambda _: self._apply_search())
+        section(_("COMMODITY"))
+        self._commodity_combo = SCFuzzyCombo(placeholder=_("Commodity..."))
+        self._commodity_combo.item_selected.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._commodity_combo)
 
-        # SCU min
-        sb_label("MIN SCU")
-        self.minscu_var = tk.StringVar(value="")
-        sb_entry(self.minscu_var)
+        # Min SCU
+        section(_("MIN SCU"))
+        self._min_scu = QLineEdit()
+        self._min_scu.setPlaceholderText("0")
+        self._min_scu.returnPressed.connect(self._apply_search)
+        sb_lay.addWidget(self._min_scu)
 
         # Min profit/SCU
-        sb_label("MIN PROFIT/SCU")
-        self.minprofit_var = tk.StringVar(value="")
-        sb_entry(self.minprofit_var)
+        section(_("MIN PROFIT/SCU"))
+        self._min_profit = QLineEdit()
+        self._min_profit.setPlaceholderText("0")
+        self._min_profit.returnPressed.connect(self._apply_search)
+        sb_lay.addWidget(self._min_profit)
 
-        # Quick search
-        sb_label("SEARCH")
-        self.search_var = tk.StringVar()
-        self.system_var  = tk.StringVar()   # kept for voice-command compat
-        self.location_var = tk.StringVar()  # kept for voice-command compat
-        se = sb_entry(self.search_var)
-        se.bind("<KeyRelease>", lambda _: self._refresh_debounced())
+        # Search
+        section(_("SEARCH"))
+        self._search = SCSearchBar(placeholder=_("Search..."), debounce_ms=320)
+        self._search.search_changed.connect(lambda _: self._apply_search())
+        sb_lay.addWidget(self._search)
 
-        tk.Frame(sb_frame, bg=COLORS["sep"], height=1).pack(fill="x", padx=6, pady=8)
+        # Clear + Refresh side by side
+        cr_row = QHBoxLayout()
+        cr_row.setContentsMargins(0, 0, 0, 0)
+        cr_row.setSpacing(4)
+        clear_btn = SCButton("CLEAR")
+        clear_btn.clicked.connect(self._clear_filters)
+        cr_row.addWidget(clear_btn)
+        self._refresh_btn = SCButton("REFRESH", glow_color=P.tool_trade)
+        self._refresh_btn.clicked.connect(self._on_manual_refresh)
+        cr_row.addWidget(self._refresh_btn)
+        cr_w = QWidget()
+        cr_w.setStyleSheet("background: transparent;")
+        cr_w.setLayout(cr_row)
+        sb_lay.addWidget(cr_w)
 
-        # Search button
-        srch_btn = tk.Button(
-            sb_frame, text="⌕  SEARCH",
-            bg=COLORS["blue"], fg="#ffffff",
-            font=("Consolas", 10, "bold"),
-            relief="flat", cursor="hand2", pady=6,
-            command=self._apply_search,
-        )
-        srch_btn.pack(fill="x", padx=10, pady=(0, 4))
-        srch_btn.bind("<Enter>", lambda _: srch_btn.config(bg="#00b0ff"))
-        srch_btn.bind("<Leave>", lambda _: srch_btn.config(bg=COLORS["blue"]))
+        # Profit calculator
+        profit_btn = SCButton("$  PROFIT CALC", glow_color=P.tool_trade)
+        profit_btn.clicked.connect(self._open_profit_calculator)
+        sb_lay.addWidget(profit_btn)
 
-        # Clear button
-        clr_btn = tk.Button(
-            sb_frame, text="✕  CLEAR",
-            bg=COLORS["btn"], fg=COLORS["fg"],
-            font=("Consolas", 9),
-            relief="flat", cursor="hand2", pady=4,
-            command=self._clear_filters,
-        )
-        clr_btn.pack(fill="x", padx=10, pady=(0, 6))
-        clr_btn.bind("<Enter>", lambda _: clr_btn.config(bg=COLORS["sel"]))
-        clr_btn.bind("<Leave>", lambda _: clr_btn.config(bg=COLORS["btn"]))
+        sb_lay.addStretch(1)
 
-        # Profit calculator button
-        calc_btn = tk.Button(
-            sb_frame, text="$  PROFIT CALC",
-            bg=COLORS["btn"], fg=COLORS["green"],
-            font=("Consolas", 9),
-            relief="flat", cursor="hand2", pady=4,
-            command=self._open_profit_calculator,
-        )
-        calc_btn.pack(fill="x", padx=10, pady=(0, 10))
-        calc_btn.bind("<Enter>", lambda _: calc_btn.config(bg=COLORS["sel"]))
-        calc_btn.bind("<Leave>", lambda _: calc_btn.config(bg=COLORS["btn"]))
+        body.addWidget(sidebar)
 
-        # ── Hotkey options ─────────────────────────────────────────────────────
-        tk.Frame(sb_frame, bg=COLORS["sep"], height=1).pack(fill="x", padx=10, pady=(4, 0))
-        sb_label("HOTKEY:", pad_top=8)
+        # ── Right content: tabs with routes + loops tables ──
+        right = QWidget()
+        right.setStyleSheet(f"background: {P.bg_primary};")
+        right_lay = QVBoxLayout(right)
+        right_lay.setContentsMargins(0, 0, 0, 0)
+        right_lay.setSpacing(0)
 
-        self._hotkey_entry_var  = tk.StringVar(value=self._hotkey)
-        self._hotkey_status_var = tk.StringVar(value="")
+        # Routes table
+        _fc = lambda v: f"{v:,.0f}" if v else "\u2014"       # format currency
+        _fi = lambda v: f"{v:,}" if v else "\u2014"           # format integer
+        _fr = lambda v: f"{v:.1f}%" if v > 0 else "\u2014"   # format ROI
+        route_cols = [
+            ColumnDef(_("Item"), "commodity", 110),
+            ColumnDef(_("Buy At"), "buy_terminal", 130),
+            ColumnDef(_("CS"), "cs_origin", 40, Qt.AlignCenter),
+            ColumnDef(_("Invest"), "investment", 82, Qt.AlignRight, fmt=_fc),
+            ColumnDef(_("SCU"), "available_scu", 50, Qt.AlignRight, fmt=_fi),
+            ColumnDef("SCU-U", "scu_user_origin", 50, Qt.AlignRight, fmt=_fi),
+            ColumnDef(_("Sell At"), "sell_terminal", 130),
+            ColumnDef(_("CS"), "cs_dest", 40, Qt.AlignCenter),
+            ColumnDef(_("Sell"), "invest_dest", 82, Qt.AlignRight, fmt=_fc),
+            ColumnDef("SCU-C", "scu_demand", 50, Qt.AlignRight, fmt=_fi),
+            ColumnDef(_("Distance"), "distance", 68, Qt.AlignRight, fmt=lambda v: fmt_distance(v)),
+            ColumnDef(_("ETA"), "eta", 42, Qt.AlignRight, fmt=lambda v: fmt_eta(v)),
+            ColumnDef(_("ROI"), "roi", 58, Qt.AlignRight, fmt=_fr),
+            ColumnDef(_("Income"), "est_profit", 100, Qt.AlignRight, fg_color=P.green, fmt=_fc),
+        ]
+        self._route_table = SCTable(route_cols, sortable=True)
+        self._route_table.row_double_clicked.connect(self._on_route_select)
 
-        hk_entry = tk.Entry(
-            sb_frame,
-            textvariable=self._hotkey_entry_var,
-            bg=COLORS["ibg"], fg=COLORS["ifg"],
-            insertbackground=COLORS["blue"],
-            font=("Consolas", 9),
-            relief="flat", borderwidth=0,
-        )
-        hk_entry.pack(fill="x", padx=10, pady=(2, 0), ipady=4)
+        # Loops table
+        loop_cols = [
+            ColumnDef(_("Origin Terminal"), "origin", 175),
+            ColumnDef(_("Sys"), "origin_sys", 65),
+            ColumnDef(_("Legs"), "legs", 42, Qt.AlignRight),
+            ColumnDef(_("Commodity Chain"), "commodities", 265),
+            ColumnDef(_("Min Avail SCU"), "avail", 95, Qt.AlignRight, fmt=lambda v: f"{v:,} SCU" if v else "\u2014"),
+            ColumnDef(_("Est. Total Profit"), "total_profit", 145, Qt.AlignRight, fg_color=P.green, fmt=lambda v: f"{v:,.0f} " + _("aUEC") if v else "\u2014"),
+        ]
+        self._loop_table = SCTable(loop_cols, sortable=True)
+        self._loop_table.row_double_clicked.connect(self._on_loop_select)
 
-        # hint label below the entry
-        tk.Label(sb_frame, text="e.g. ctrl+shift+t  |  ctrl+alt+h",
-                 bg=COLORS["flt"], fg=COLORS["fg2"],
-                 font=("Consolas", 7), anchor="w").pack(fill="x", padx=10)
+        # Mixed freight table
+        _fc2 = lambda v: f"{v:,.0f}" if v else "\u2014"
+        _fi2 = lambda v: f"{v:,}" if v else "\u2014"
+        mixed_cols = [
+            ColumnDef(_("Origin Terminal"), "origin", 160),
+            ColumnDef(_("Sys"), "origin_sys", 65),
+            ColumnDef(_("Legs"), "legs", 42, Qt.AlignRight),
+            ColumnDef(_("Commodity Mix"), "commodities", 280),
+            ColumnDef(_("Fill %"), "fill_pct", 65, Qt.AlignRight),
+            ColumnDef(_("Min Avail SCU"), "avail", 80, Qt.AlignRight, fmt=lambda v: f"{v:,} SCU" if v else "\u2014"),
+            ColumnDef(_("Est. Total Profit"), "total_profit", 145, Qt.AlignRight, fg_color=P.green, fmt=lambda v: f"{v:,.0f} " + _("aUEC") if v else "\u2014"),
+        ]
+        self._mixed_table = SCTable(mixed_cols, sortable=True)
+        self._mixed_table.row_double_clicked.connect(self._on_mixed_select)
+        self._mixed_table.hide()
 
-        hk_status_lbl = tk.Label(
-            sb_frame, textvariable=self._hotkey_status_var,
-            bg=COLORS["flt"], fg=COLORS["green"],
-            font=("Consolas", 8), anchor="w",
-        )
-        hk_status_lbl.pack(fill="x", padx=10)
+        # Stack: show only one table at a time
+        self._route_table.show()
+        self._loop_table.hide()
+        right_lay.addWidget(self._route_table, 1)
+        right_lay.addWidget(self._loop_table, 1)
+        right_lay.addWidget(self._mixed_table, 1)
 
-        def _apply_hotkey(*_):
-            raw = self._hotkey_entry_var.get().strip().lower()
-            mods, vk = _parse_hotkey(raw)
-            if not mods or not vk:
-                self._hotkey_status_var.set("⚠  Invalid — needs modifier + key")
-                hk_status_lbl.config(fg=COLORS["red"])
-                return
-            self.cmd_queue.put({"type": "set_hotkey", "hotkey": raw})
-            self._hotkey_status_var.set(f"✓  {raw}")
-            hk_status_lbl.config(fg=COLORS["green"])
+        body.addWidget(right)
+        body.setStretchFactor(1, 1)
+        layout.addWidget(body, 1)
 
-        hk_apply_btn = tk.Button(
-            sb_frame, text="APPLY HOTKEY",
-            bg=COLORS["btn"], fg=COLORS["blue"],
-            font=("Consolas", 9),
-            relief="flat", cursor="hand2", pady=3,
-            command=_apply_hotkey,
-        )
-        hk_apply_btn.pack(fill="x", padx=10, pady=(4, 10))
-        hk_apply_btn.bind("<Enter>", lambda _: hk_apply_btn.config(bg=COLORS["sel"]))
-        hk_apply_btn.bind("<Leave>", lambda _: hk_apply_btn.config(bg=COLORS["btn"]))
-        hk_entry.bind("<Return>", _apply_hotkey)
+        # ── Status bar ──
+        status_bar = QWidget()
+        status_bar.setFixedHeight(22)
+        status_bar.setStyleSheet(f"background: {P.bg_secondary};")
+        sbl = QHBoxLayout(status_bar)
+        sbl.setContentsMargins(10, 0, 10, 0)
+        self._status_label = QLabel("  " + _("Initializing..."))
+        self._status_label.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {P.fg_dim}; background: transparent;")
+        sbl.addWidget(self._status_label)
+        sbl.addStretch(1)
+        self._count_label = QLabel("")
+        self._count_label.setStyleSheet(f"font-family: Consolas; font-size: 9pt; font-weight: bold; color: {P.accent}; background: transparent;")
+        sbl.addWidget(self._count_label)
+        layout.addWidget(status_bar)
 
-        # Sidebar divider
-        tk.Frame(body, bg=COLORS["sep"], width=1).pack(side="left", fill="y")
+    # ── View mode ──
 
-        # ── Right side: tables (routes + loops) ───────────────────────────────
-        right = tk.Frame(body, bg=COLORS["bg"])
-        right.pack(side="left", fill="both", expand=True)
+    def _update_view_mode_btns(self):
+        active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
+        inactive_ss = f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }} QPushButton:hover {{ color: {P.fg}; }}"
+        if self._view_mode == "ROUTES":
+            self._btn_routes.setStyleSheet(active_ss)
+            self._btn_loops.setStyleSheet(inactive_ss)
+        else:
+            self._btn_routes.setStyleSheet(inactive_ss)
+            self._btn_loops.setStyleSheet(active_ss)
 
-        # ── Routes treeview ────────────────────────────────────────────────────
-        self._route_tbl_frame = tk.Frame(right, bg=COLORS["bg"])
-        self._route_tbl_frame.pack(fill="both", expand=True)  # visible by default
+    def _update_oss_btns(self):
+        active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
+        inactive_ss = f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }} QPushButton:hover {{ color: {P.fg}; }}"
+        self._btn_oss_yes.setStyleSheet(active_ss if self._only_sel_sys else inactive_ss)
+        self._btn_oss_no.setStyleSheet(inactive_ss if self._only_sel_sys else active_ss)
 
-        rtbl = tk.Frame(self._route_tbl_frame, bg=COLORS["bg"])
-        rtbl.pack(fill="both", expand=True)
-        rvsb = ttk.Scrollbar(rtbl, orient="vertical",   style="T.Vertical.TScrollbar")
-        rhsb = ttk.Scrollbar(rtbl, orient="horizontal", style="T.Horizontal.TScrollbar")
-        self._route_tree = ttk.Treeview(rtbl, columns=[c[0] for c in COLUMNS],
-                                        show="headings", style="T.Treeview",
-                                        yscrollcommand=rvsb.set, xscrollcommand=rhsb.set,
-                                        selectmode="browse")
-        rvsb.config(command=self._route_tree.yview)
-        rhsb.config(command=self._route_tree.xview)
-        for key, hdr, width, anchor in COLUMNS:
-            self._route_tree.heading(key, text=hdr, anchor="center",
-                                     command=lambda k=key: self._on_hdr_click(k))
-            self._route_tree.column(key, width=width, minwidth=40, anchor=anchor, stretch=False)
-        self._route_tree.tag_configure("high", foreground=COLORS["green"])
-        self._route_tree.tag_configure("med",  foreground=COLORS["yellow"])
-        self._route_tree.tag_configure("low",  foreground=COLORS["red"])
-        self._route_tree.tag_configure("odd",  background=COLORS["odd"])
-        self._route_tree.tag_configure("even", background=COLORS["even"])
-        rvsb.pack(side="right",  fill="y")
-        rhsb.pack(side="bottom", fill="x")
-        self._route_tree.pack(fill="both", expand=True)
-        self.tree = self._route_tree  # active tree pointer
+    def _set_only_sel_sys(self, val: bool):
+        self._only_sel_sys = val
+        self._update_oss_btns()
+        self._refresh_display()
 
-        # ── Loops treeview ─────────────────────────────────────────────────────
-        self._loop_tbl_frame = tk.Frame(right, bg=COLORS["bg"])
-        # NOT packed yet — shown only when view mode == LOOPS
+    def _update_mc_btns(self):
+        active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
+        inactive_ss = f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }} QPushButton:hover {{ color: {P.fg}; }}"
+        self._btn_mc_max.setStyleSheet(active_ss if self._use_max_profit else inactive_ss)
+        self._btn_mc_demand.setStyleSheet(inactive_ss if self._use_max_profit else active_ss)
 
-        ltbl = tk.Frame(self._loop_tbl_frame, bg=COLORS["bg"])
-        ltbl.pack(fill="both", expand=True)
-        lvsb = ttk.Scrollbar(ltbl, orient="vertical",   style="T.Vertical.TScrollbar")
-        lhsb = ttk.Scrollbar(ltbl, orient="horizontal", style="T.Horizontal.TScrollbar")
-        self._loop_tree = ttk.Treeview(ltbl, columns=[c[0] for c in LOOP_COLUMNS],
-                                       show="headings", style="T.Treeview",
-                                       yscrollcommand=lvsb.set, xscrollcommand=lhsb.set,
-                                       selectmode="browse")
-        lvsb.config(command=self._loop_tree.yview)
-        lhsb.config(command=self._loop_tree.xview)
-        for key, hdr, width, anchor in LOOP_COLUMNS:
-            self._loop_tree.heading(key, text=hdr, anchor="center",
-                                    command=lambda k=key: self._on_loop_hdr_click(k))
-            self._loop_tree.column(key, width=width, minwidth=40, anchor=anchor, stretch=False)
-        self._loop_tree.tag_configure("high", foreground=COLORS["green"])
-        self._loop_tree.tag_configure("med",  foreground=COLORS["yellow"])
-        self._loop_tree.tag_configure("low",  foreground=COLORS["red"])
-        self._loop_tree.tag_configure("odd",  background=COLORS["odd"])
-        self._loop_tree.tag_configure("even", background=COLORS["even"])
-        lvsb.pack(side="right",  fill="y")
-        lhsb.pack(side="bottom", fill="x")
-        self._loop_tree.pack(fill="both", expand=True)
+    def _set_market_calc(self, use_max: bool):
+        self._use_max_profit = use_max
+        set_market_mode(use_max)
+        self._update_mc_btns()
+        self._refresh_display()
 
-        # Bind row selection to open pinned detail cards
-        self._loop_tree.bind("<<TreeviewSelect>>",  self._on_loop_select)
-        self._route_tree.bind("<<TreeviewSelect>>", self._on_route_select)
+    # ── Freight mode ──
 
-        # ── Status bar ────────────────────────────────────────────────────────
-        tk.Frame(self.root, bg=COLORS["blue2"], height=1).pack(fill="x")
-        sbar = tk.Frame(self.root, bg=COLORS["flt"], height=22)
-        sbar.pack(fill="x"); sbar.pack_propagate(False)
-        self.status_var = tk.StringVar(value="  Initializing…")
-        tk.Label(sbar, textvariable=self.status_var, bg=COLORS["flt"], fg=COLORS["fg2"],
-                 font=("Consolas", 9), anchor="w").pack(side="left", padx=10)
-        self.count_var = tk.StringVar(value="")
-        tk.Label(sbar, textvariable=self.count_var, bg=COLORS["flt"], fg=COLORS["blue"],
-                 font=("Consolas", 9, "bold"), anchor="e").pack(side="right", padx=10)
-        grip = tk.Label(sbar, text="⤡", bg=COLORS["flt"], fg=COLORS["fg2"],
-                        font=("Consolas", 10), cursor="size_nw_se")
-        grip.pack(side="right", padx=(0, 2))
-        grip.bind("<Button-1>",        self._resize_start)
-        grip.bind("<B1-Motion>",       self._resize_motion)
-        grip.bind("<ButtonRelease-1>", lambda _: setattr(self, "_resizing", False))
+    def _update_freight_mode_btns(self):
+        active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
+        inactive_ss = f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }} QPushButton:hover {{ color: {P.fg}; }}"
+        self._btn_bulk.setStyleSheet(active_ss if self._freight_mode == "BULK" else inactive_ss)
+        self._btn_mixed.setStyleSheet(inactive_ss if self._freight_mode == "BULK" else active_ss)
 
-    # ── Drag & resize ─────────────────────────────────────────────────────────
+    def _set_freight_mode(self, mode: str):
+        self._freight_mode = mode
+        self._update_freight_mode_btns()
+        self._sync_table_visibility()
+        self._save_settings()
+        self._refresh_display()
 
-    def _drag_start(self, e):
-        self._drag_x = e.x_root - self.root.winfo_x()
-        self._drag_y = e.y_root - self.root.winfo_y()
+    def _sync_table_visibility(self):
+        self._route_table.hide()
+        self._loop_table.hide()
+        self._mixed_table.hide()
+        if self._freight_mode == "MIXED":
+            self._mixed_table.show()
+        elif self._view_mode == "LOOPS":
+            self._loop_table.show()
+        else:
+            self._route_table.show()
 
-    def _drag_motion(self, e):
-        self.root.geometry(f"+{e.x_root - self._drag_x}+{e.y_root - self._drag_y}")
+    # ── Illegal cargo ──
 
-    def _resize_start(self, e):
-        self._resizing = True
-        self._resize_sx, self._resize_sy = e.x_root, e.y_root
-        self._resize_sw = self.root.winfo_width()
-        self._resize_sh = self.root.winfo_height()
+    def _update_illegal_btns(self):
+        active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
+        inactive_ss = f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }} QPushButton:hover {{ color: {P.fg}; }}"
+        self._btn_illegal_yes.setStyleSheet(active_ss if self._allow_illegal else inactive_ss)
+        self._btn_illegal_no.setStyleSheet(inactive_ss if self._allow_illegal else active_ss)
 
-    def _resize_motion(self, e):
-        if not self._resizing: return
-        w = max(800, self._resize_sw + e.x_root - self._resize_sx)
-        h = max(400, self._resize_sh + e.y_root - self._resize_sy)
-        self.root.geometry(f"{w}x{h}")
+    def _set_allow_illegal(self, allow: bool):
+        self._allow_illegal = allow
+        self._update_illegal_btns()
+        self._save_settings()
+        self._refresh_display()
 
-    # ── Data ──────────────────────────────────────────────────────────────────
+    def _save_settings(self):
+        save_config({"ship_name": self._ship_name, "hotkey": self._hotkey, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
+
+    def _set_view_mode(self, mode: str):
+        self._view_mode = mode
+        self._update_view_mode_btns()
+        self._sync_table_visibility()
+        self._refresh_display()
+
+    # ── Data loading ──
 
     def _start_load(self):
-        self._set_status("Loading trade data…")
-        self.fetcher.fetch_async(self._on_routes)
+        self._status_label.setText("  " + _("Loading trade data..."))
+        self._refresh_btn.setEnabled(False)
+        self._fetcher.fetch_async(
+            self._on_routes,
+            on_distances_done=self._on_distances_bg,
+            on_distance_progress=self._on_distance_progress_bg,
+        )
+
+    def _on_manual_refresh(self) -> None:
+        """Triggered by the REFRESH button in the sidebar."""
+        self._status_label.setText("  " + _("Refreshing trade data..."))
+        self._refresh_btn.setEnabled(False)
+        self._fetcher.fetch_async(
+            self._on_routes,
+            on_distances_done=self._on_distances_bg,
+            on_distance_progress=self._on_distance_progress_bg,
+        )
 
     def _on_routes(self, routes: List[Route], source: str = "API"):
-        # Build multi-leg routes on background thread (expensive) before marshalling to UI
-        scu = self.ship_scu  # capture for thread safety
+        # Called from background thread — use signal to marshal to main thread
+        self._route_signal.routes_ready.emit(routes, source)
+
+    def _on_distances_bg(self, routes: List[Route]):
+        """Called from background thread when distances finish fetching."""
+        self._route_signal.distances_ready.emit(routes)
+
+    def _on_distance_progress_bg(self, done: int, total: int):
+        """Called from background thread with distance fetch progress."""
+        self._route_signal.distance_progress.emit(done, total)
+
+    def _on_distances_ready(self, routes: List[Route]):
+        """Slot on main thread — distances have been fetched, refresh display."""
+        self._all_routes = routes
+        scu = self._ship_scu
+        self._all_loops = find_multi_routes(routes, scu) if routes else []
+        self._refresh_display()
+        self._status_label.setText(f"  {len(self._all_routes):,} routes | distances loaded")
+
+    def _on_distance_progress(self, done: int, total: int):
+        """Slot on main thread — update status with distance fetch progress."""
+        self._status_label.setText(f"  Fetching distances... {done}/{total}")
+
+    def _apply_routes(self, routes: List[Route], source: str = "API"):
+        """Slot that runs on the main thread to apply fetched route data."""
+        scu = self._ship_scu
         loops = find_multi_routes(routes, scu) if routes else []
-        def _apply():
-            self.all_routes      = routes
-            self.all_loops       = loops
-            self.last_refresh_ts = time.time()
-            self._data_source    = source
-            log.info("Data loaded: %d routes from %s | %d unfiltered loops built",
-                     len(routes), source, len(self.all_loops))
-            if routes:
-                systems = sorted({r.buy_system for r in routes if r.buy_system})
-                log.debug("  buy_system values in DB: %s", systems[:20])
-            self._refresh_display()
-        if self.root:
-            self.root.after(0, _apply)
+        self._all_routes = routes
+        self._all_loops = loops
+        self._last_refresh = time.time()
+        self._data_source = source
+        self._update_dropdown_values()
+        self._refresh_display()
+        self._refresh_btn.setEnabled(True)
+
+    def _auto_refresh(self):
+        self._fetcher.fetch_async(
+            self._on_routes,
+            on_distances_done=self._on_distances_bg,
+            on_distance_progress=self._on_distance_progress_bg,
+        )
+        QTimer.singleShot(int(self._refresh_interval * 1000), self._auto_refresh)
+
+    # ── Display refresh ──
 
     def _refresh_display(self):
-        try:
-            self._refresh_display_inner()
-        except Exception:
-            log.error("_refresh_display crashed:\n%s", traceback.format_exc())
+        f = self._read_filters()
+        f.allow_illegal = self._allow_illegal
 
-    def _refresh_display_inner(self):
-        if self.view_mode == "LOOPS":
-            # Filter pre-built loops instead of rebuilding (expensive) on every filter change
-            f = self._read_filters()
-            log.debug("LOOPS refresh — filters: buy_sys=%r sell_sys=%r buy_loc=%r sell_loc=%r "
-                      "buy_term=%r sell_term=%r comm=%r min_margin=%.0f min_scu=%d search=%r",
-                      f.buy_system, f.sell_system, f.buy_location, f.sell_location,
-                      f.buy_terminal, f.sell_terminal, f.commodity,
-                      f.min_margin_scu, f.min_scu, f.search)
-            f.search = ""  # text search applied post-filter below
-            loops = self._filter_loops(self.all_loops, f) if self.all_loops else []
-            log.debug("  all_loops=%d  filtered=%d", len(self.all_loops), len(loops))
-            # Text search on the assembled multi-leg routes
-            q = (self.search_var.get().strip().lower() if self.search_var else "")
+        if self._freight_mode == "MIXED":
+            from mixed_freight import find_mixed_routes, sort_mixed_routes, calc_mixed_route_profit, calc_slot_profit, calc_mixed_leg_profit
+            pool = apply_filters(self._all_routes, f) if self._all_routes else []
+            # When multi-hop / max-profit mode is active, allow more legs
+            mode_id = get_calc_mode().get("id", "standard")
+            max_rt = 5 if mode_id == "multi_hop" else 3
+            max_lp = 7
+            mixed = find_mixed_routes(
+                pool, self._ship_scu,
+                allow_illegal=self._allow_illegal,
+                min_fill_pct=70,
+                stop_penalty_pct=5,
+                max_stops_route=max_lp,   # solver builds all chain lengths
+                max_stops_loop=max_lp,
+            ) if pool and self._ship_scu > 0 else []
+
+            # Split results by view mode:
+            #   ROUTES = single-leg mixed loads (point-to-point, up to max_rt legs)
+            #   LOOPS  = multi-leg chains (2+ legs)
+            if self._view_mode == "ROUTES":
+                mixed = [m for m in mixed if m.num_legs() <= max_rt]
+            else:
+                mixed = [m for m in mixed if m.num_legs() >= 2]
+
+            q = self._search.text().strip().lower()
             if q:
-                loops = [m for m in loops if any(q in x.lower() for x in [
-                    m.start_terminal, m.start_system,
-                    m.end_terminal,   m.commodity_chain()])]
-            loops = sort_multi_routes(loops, self.loop_sort_col, self.loop_sort_reverse, self.ship_scu)
-            self.filtered_loops = loops[:self.max_routes]
-            log.debug("  filtered_loops displayed=%d", len(self.filtered_loops))
-            self._populate_loop_table()
+                mixed = [m for m in mixed if any(q in x.lower() for x in [
+                    m.start_terminal, m.start_system, m.commodity_summary()])]
+            mixed = sort_mixed_routes(mixed, self._mixed_sort_col, self._mixed_sort_reverse)
+            self._filtered_mixed = mixed[:self._max_routes]
+            self._populate_mixed_table()
             self._update_status()
-            self._update_header()
             return
 
-        # ── ROUTES mode ────────────────────────────────────────────────────
-        f = self._read_filters()
-        result = apply_filters(self.all_routes, f)
-        result = sort_routes(result, self.sort_col, self.sort_reverse, self.ship_scu)
-        self.filtered_routes = result[:self.max_routes]
+        if self._view_mode == "LOOPS":
+            loops = self._filter_loops(self._all_loops, f)
+            q = self._search.text().strip().lower()
+            if q:
+                loops = [m for m in loops if any(q in x.lower() for x in [
+                    m.start_terminal, m.start_system, m.end_terminal, m.commodity_chain()])]
+            loops = sort_multi_routes(loops, self._loop_sort_col, self._loop_sort_reverse, self._ship_scu)
+            self._filtered_loops = loops[:self._max_routes]
+            self._populate_loop_table()
+        else:
+            result = apply_filters(self._all_routes, f)
+            # Pre-compute profits so sort and display use the same values
+            # For expensive modes (Monte Carlo), pre-sort by standard profit
+            # and only compute the full simulation for the top N routes
+            mode_id = get_calc_mode().get("id", "standard")
+            if mode_id == "monte_carlo":
+                result.sort(key=lambda r: r.estimated_profit(self._ship_scu), reverse=True)
+                top = result[:self._max_routes]
+                self._cached_profits = {id(r): calc_profit(r, self._ship_scu) for r in top}
+                top.sort(key=lambda r: self._cached_profits.get(id(r), 0), reverse=True)
+                self._filtered_routes = top
+            else:
+                self._cached_profits = {id(r): calc_profit(r, self._ship_scu) for r in result}
+                result.sort(key=lambda r: self._cached_profits.get(id(r), 0), reverse=self._sort_reverse if self._sort_col == "est_profit" else True)
+                if self._sort_col != "est_profit":
+                    result = sort_routes(result, self._sort_col, self._sort_reverse, self._ship_scu)
+                self._filtered_routes = result[:self._max_routes]
+            self._populate_route_table()
 
-        if self.comm_combo is not None:
-            curr = self.comm_var.get() if self.comm_var else ""
-            vals = [""] + get_unique_commodities(self.all_routes)
-            self.comm_combo['values'] = vals
-            if self.comm_var:
-                self.comm_var.set(curr)
-
-        self._update_all_dropdown_values()
-        self._populate_table()
         self._update_status()
-        self._update_header()
+
+    def _populate_route_table(self):
+        rows = []
+        cached = getattr(self, "_cached_profits", {})
+        for r in self._filtered_routes:
+            eff = r.effective_scu(self._ship_scu)
+            profit = cached.get(id(r), calc_profit(r, self._ship_scu))
+            roi = r.roi()
+            invest = r.price_buy * eff
+            invest_dest = r.price_sell * eff
+            rows.append({
+                "commodity": r.commodity,
+                "buy_terminal": r.buy_terminal or r.buy_location,
+                "cs_origin": r.container_sizes_origin or "\u2014",
+                "investment": invest,
+                "available_scu": eff,
+                "scu_user_origin": r.scu_user_origin,
+                "sell_terminal": r.sell_terminal or r.sell_location,
+                "cs_dest": r.container_sizes_destination or "\u2014",
+                "invest_dest": invest_dest,
+                "scu_demand": r.scu_demand,
+                "distance": r.distance,
+                "eta": r.distance,
+                "roi": roi,
+                "est_profit": profit,
+            })
+        self._route_table.set_data(rows)
+
+    def _populate_loop_table(self):
+        rows = []
+        for mr in self._filtered_loops:
+            tp = mr.total_profit(self._ship_scu)
+            rows.append({
+                "origin": mr.start_terminal or mr.start_system,
+                "origin_sys": mr.start_system,
+                "legs": mr.num_legs,
+                "commodities": mr.commodity_chain(),
+                "avail": mr.min_avail(),
+                "total_profit": tp,
+            })
+        self._loop_table.set_data(rows)
+
+    def _populate_mixed_table(self):
+        from mixed_freight import calc_mixed_route_profit
+        rows = []
+        for mr in self._filtered_mixed:
+            tp = calc_mixed_route_profit(mr)
+            rows.append({
+                "origin": mr.start_terminal or mr.start_system,
+                "origin_sys": mr.start_system,
+                "legs": mr.num_legs(),
+                "commodities": mr.commodity_summary(),
+                "fill_pct": f"{mr.fill_efficiency():.0f}%",
+                "avail": mr.min_primary_avail(),
+                "total_profit": tp,
+            })
+        self._mixed_table.set_data(rows)
 
     @staticmethod
-    def _filter_loops(loops: List[MultiRoute], f) -> List[MultiRoute]:
-        """Filter pre-built multi-leg loops by sidebar filter criteria."""
+    def _filter_loops(loops, f):
         result = list(loops)
-        if f.buy_system:
-            bs = f.buy_system.lower()
-            result = [m for m in result if any(bs in r.buy_system.lower() for r in m.legs)]
-        if f.sell_system:
-            ss = f.sell_system.lower()
-            result = [m for m in result if any(ss in r.sell_system.lower() for r in m.legs)]
+        if f.only_selected_systems and (f.buy_system or f.sell_system):
+            allowed = set()
+            if f.buy_system:
+                allowed.add(f.buy_system.lower())
+            if f.sell_system:
+                allowed.add(f.sell_system.lower())
+            result = [m for m in result
+                      if all(r.buy_system.lower() in allowed
+                             and r.sell_system.lower() in allowed
+                             for r in m.legs)]
+        else:
+            if f.buy_system:
+                bs = f.buy_system.lower()
+                result = [m for m in result if any(bs in r.buy_system.lower() for r in m.legs)]
+            if f.sell_system:
+                ss = f.sell_system.lower()
+                result = [m for m in result if any(ss in r.sell_system.lower() for r in m.legs)]
         if f.buy_location:
             bl = f.buy_location.lower()
             result = [m for m in result if any(bl in r.buy_location.lower() or bl in r.buy_terminal.lower() for r in m.legs)]
         if f.sell_location:
             sl = f.sell_location.lower()
             result = [m for m in result if any(sl in r.sell_location.lower() or sl in r.sell_terminal.lower() for r in m.legs)]
-        if f.buy_terminal:
-            bt = f.buy_terminal.lower()
-            result = [m for m in result if any(bt in r.buy_terminal.lower() for r in m.legs)]
-        if f.sell_terminal:
-            st = f.sell_terminal.lower()
-            result = [m for m in result if any(st in r.sell_terminal.lower() for r in m.legs)]
         if f.commodity:
             c = f.commodity.lower()
             result = [m for m in result if any(c in r.commodity.lower() for r in m.legs)]
@@ -1405,1236 +1266,740 @@ class TradeHubWindow:
             result = [m for m in result if m.min_avail() >= f.min_scu]
         return result
 
-    @staticmethod
-    def _fmt_distance(d: float) -> str:
-        if d <= 0:
-            return "—"
-        if d >= 1000:
-            return f"{d / 1000:.1f}Tm"  # 1000 Gm = 1 Tm
-        return f"{d:.1f}Gm"
-
-    @staticmethod
-    def _fmt_eta(distance_gm: float, speed_kms: float = 0.283) -> str:
-        """Estimate travel time.  Default speed ~283 m/s (quantum)."""
-        if distance_gm <= 0:
-            return "—"
-        secs = (distance_gm * 1e6) / speed_kms if speed_kms > 0 else 0  # Gm→km / speed(km/s)
-        if secs < 60:
-            return f"{secs:.0f}s"
-        mins = secs / 60
-        if mins < 60:
-            return f"{mins:.0f}m"
-        return f"{mins / 60:.1f}h"
-
-    def _populate_table(self):
-        t = self._route_tree
-        if not t:
-            return
-        try:
-            y = t.yview()[0]
-        except Exception:
-            y = 0.0
-        t.delete(*t.get_children())
-        for i, r in enumerate(self.filtered_routes):
-            # Cap SCU at ship capacity for all calculations
-            eff_scu = r.effective_scu(self.ship_scu)
-            profit = r.margin * eff_scu
-            roi    = r.roi()
-            invest = r.price_buy * eff_scu
-            invest_dest = r.price_sell * eff_scu
-            vals = (
-                r.commodity,
-                r.buy_terminal or r.buy_location,
-                r.container_sizes_origin or "—",
-                f"{invest:,.0f}" if invest else "—",
-                f"{eff_scu:,}",
-                f"{r.scu_user_origin:,}" if r.scu_user_origin else "—",
-                r.sell_terminal or r.sell_location,
-                r.container_sizes_destination or "—",
-                f"{invest_dest:,.0f}" if invest_dest else "—",
-                f"{r.scu_demand:,}" if r.scu_demand else "—",
-                f"{r.scu_user_destination:,}" if r.scu_user_destination else "—",
-                self._fmt_distance(r.distance),
-                self._fmt_eta(r.distance),
-                f"{roi:.1f}%" if roi > 0 else "—",
-                f"{profit:,.0f}" if profit else "—",
-            )
-            tag = "even" if i % 2 == 0 else "odd"
-            t.insert("", "end", values=vals, tags=(profit_tier(r.margin), tag))
-        if y > 0.001:
-            try: t.yview_moveto(y)
-            except Exception: log.debug("yview_moveto failed on route tree")
-
-    def _populate_loop_table(self):
-        if not self._loop_tree:
-            return
-        try:
-            y = self._loop_tree.yview()[0]
-        except Exception:
-            y = 0.0
-        self._loop_tree.delete(*self._loop_tree.get_children())
-        for i, mr in enumerate(self.filtered_loops):
-            tp = mr.total_profit(self.ship_scu)
-            vals = (
-                mr.start_terminal or mr.start_system,
-                mr.start_system,
-                str(mr.num_legs),
-                mr.commodity_chain(),
-                f"{mr.min_avail():,} SCU",
-                f"{tp:,.0f} aUEC",
-            )
-            tag = "even" if i % 2 == 0 else "odd"
-            self._loop_tree.insert("", "end", values=vals,
-                                   tags=(profit_tier(mr.avg_margin()), tag))
-        if y > 0.001:
-            try: self._loop_tree.yview_moveto(y)
-            except Exception: log.debug("yview_moveto failed on loop tree")
-
-    # ── View mode ──────────────────────────────────────────────────────────────
-
-    def _on_view_mode_changed(self, mode: str) -> None:
-        self.view_mode = mode
-        # Update button styles
-        if self._btn_routes and self._btn_loops:
-            if mode == "ROUTES":
-                self._btn_routes.config(bg=COLORS["blue"], fg="#ffffff")
-                self._btn_loops.config(bg=COLORS["btn"],   fg=COLORS["fg2"])
-            else:
-                self._btn_routes.config(bg=COLORS["btn"],   fg=COLORS["fg2"])
-                self._btn_loops.config(bg=COLORS["blue"],  fg="#ffffff")
-        # Swap visible frame and active tree pointer
-        if mode == "LOOPS":
-            if self._route_tbl_frame:
-                self._route_tbl_frame.pack_forget()
-            if self._loop_tbl_frame:
-                self._loop_tbl_frame.pack(fill="both", expand=True)
-            self.tree = self._loop_tree
-        else:
-            if self._loop_tbl_frame:
-                self._loop_tbl_frame.pack_forget()
-            if self._route_tbl_frame:
-                self._route_tbl_frame.pack(fill="both", expand=True)
-            self.tree = self._route_tree
-        self._refresh_display()
-
-    def _on_loop_hdr_click(self, col: str) -> None:
-        if self.loop_sort_col == col:
-            self.loop_sort_reverse = not self.loop_sort_reverse
-        else:
-            self.loop_sort_col     = col
-            self.loop_sort_reverse = col in ("legs", "avail", "total_profit")
-        self._update_loop_sort_arrows()
-        self._refresh_display()
-
-    def _update_loop_sort_arrows(self) -> None:
-        if not self._loop_tree:
-            return
-        for key, hdr, _, _ in LOOP_COLUMNS:
-            suf = (" ▼" if self.loop_sort_reverse else " ▲") if key == self.loop_sort_col else ""
-            self._loop_tree.heading(key, text=hdr + suf)
-
-    # ── Pinned card system ─────────────────────────────────────────────────────
-
-    MAX_PINNED = 5
-
-    @staticmethod
-    def _card_key_loop(mr: MultiRoute) -> str:
-        return f"multi::{mr.start_terminal}::{mr.commodity_chain()}"
-
-    @staticmethod
-    def _card_key_route(route: Route) -> str:
-        return f"route::{route.commodity}::{route.buy_terminal}::{route.sell_terminal}"
-
-    def _card_position(self, idx: int) -> Tuple[int, int]:
-        """Spawn cards centred over the Trade Hub window, staggered so they don't overlap."""
-        wx = self.root.winfo_x()
-        wy = self.root.winfo_y()
-        ww = self.root.winfo_width()
-        wh = self.root.winfo_height()
-        card_w, card_h = 480, 520
-        base_x = wx + (ww - card_w) // 2
-        base_y = wy + (wh - card_h) // 2
-        return base_x + idx * 26, base_y + idx * 30
-
-    def _make_card(self, key: str, title: str, subtitle: str) -> Tuple[tk.Toplevel, tk.Text, tk.BooleanVar]:
-        """Build a floating detail card window; return (popup, text_widget, lock_var)."""
-        idx = len(self._pinned_cards)
-        px, py = self._card_position(idx)
-        popup = tk.Toplevel(self.root)
-        popup.overrideredirect(True)
-        popup.configure(bg=COLORS["bg"])
-        popup.wm_attributes("-alpha", 0.97)
-        popup.wm_attributes("-topmost", True)
-        popup.geometry(f"480x520+{px}+{py}")
-
-        # ── Title bar ────────────────────────────────────────────────────────
-        bar = tk.Frame(popup, bg=COLORS["bar"], height=40)
-        bar.pack(fill="x"); bar.pack_propagate(False)
-
-        def _drag_start(e):
-            popup._dx = e.x_root - popup.winfo_x()
-            popup._dy = e.y_root - popup.winfo_y()
-
-        def _drag_motion(e):
-            popup.geometry(f"+{e.x_root - popup._dx}+{e.y_root - popup._dy}")
-
-        bar.bind("<Button-1>",  _drag_start)
-        bar.bind("<B1-Motion>", _drag_motion)
-
-        title_lbl = tk.Label(bar, text=f"◈  {title}",
-                             bg=COLORS["bar"], fg=COLORS["blue"],
-                             font=("Consolas", 12, "bold"), cursor="fleur")
-        title_lbl.pack(side="left", padx=12, pady=10)
-        title_lbl.bind("<Button-1>",  _drag_start)
-        title_lbl.bind("<B1-Motion>", _drag_motion)
-
-        sub_lbl = tk.Label(bar, text=subtitle,
-                           bg=COLORS["bar"], fg=COLORS["fg2"],
-                           font=("Consolas", 8), cursor="fleur")
-        sub_lbl.pack(side="left", pady=14)
-        sub_lbl.bind("<Button-1>",  _drag_start)
-        sub_lbl.bind("<B1-Motion>", _drag_motion)
-
-        close_btn = tk.Label(bar, text=" ✕ ", bg=COLORS["bar"], fg=COLORS["blue"],
-                             font=("Consolas", 12, "bold"), cursor="hand2")
-        close_btn.pack(side="right", padx=(4, 10), pady=8)
-        close_btn.bind("<Button-1>", lambda _, k=key: self._close_card(k))
-        close_btn.bind("<Enter>",    lambda _: close_btn.config(fg="#ff4040"))
-        close_btn.bind("<Leave>",    lambda _: close_btn.config(fg=COLORS["blue"]))
-
-        # Lock checkbox — prevents this card from being auto-evicted
-        lock_var = tk.BooleanVar(value=False)
-
-        def _on_lock_toggle():
-            lock_btn.config(fg=COLORS["green"] if lock_var.get() else COLORS["fg2"])
-
-        lock_btn = tk.Checkbutton(
-            bar, text="⚲", variable=lock_var, command=_on_lock_toggle,
-            bg=COLORS["bar"], fg=COLORS["fg2"],
-            activebackground=COLORS["bar"], activeforeground=COLORS["green"],
-            selectcolor=COLORS["bar"],
-            font=("Consolas", 13), cursor="hand2",
-            relief="flat", borderwidth=0, indicatoron=False,
-        )
-        lock_btn.pack(side="right", padx=(0, 2), pady=8)
-
-        tk.Frame(popup, bg=COLORS["blue2"], height=1).pack(fill="x")
-
-        # ── Content area ─────────────────────────────────────────────────────
-        content = tk.Frame(popup, bg=COLORS["bg2"])
-        content.pack(fill="both", expand=True)
-        dvsb = ttk.Scrollbar(content, orient="vertical", style="T.Vertical.TScrollbar")
-        dt = tk.Text(
-            content,
-            bg=COLORS["bg2"], fg=COLORS["fg"],
-            font=("Consolas", 9),
-            wrap="word",
-            state="disabled", cursor="arrow",
-            relief="flat", borderwidth=0,
-            padx=16, pady=10,
-            yscrollcommand=dvsb.set,
-        )
-        dvsb.config(command=dt.yview)
-        dt.tag_configure("heading",  font=("Consolas", 11, "bold"), foreground=COLORS["fg3"])
-        dt.tag_configure("divider",  foreground=COLORS["fg2"])
-        dt.tag_configure("label",    foreground=COLORS["fg2"])
-        dt.tag_configure("value",    foreground=COLORS["fg3"])
-        dt.tag_configure("profit",   foreground=COLORS["green"], font=("Consolas", 10, "bold"))
-        dt.tag_configure("step_hdr", font=("Consolas", 10, "bold"), foreground=COLORS["blue"])
-        dt.tag_configure("step_txt", foreground=COLORS["fg3"])
-        dvsb.pack(side="right", fill="y")
-        dt.pack(fill="both", expand=True)
-
-        # ── Resize grip ──────────────────────────────────────────────────────
-        tk.Frame(popup, bg=COLORS["blue2"], height=1).pack(fill="x")
-        gbar = tk.Frame(popup, bg=COLORS["flt"], height=20)
-        gbar.pack(fill="x"); gbar.pack_propagate(False)
-        grip = tk.Label(gbar, text="⤡", bg=COLORS["flt"], fg=COLORS["fg2"],
-                        font=("Consolas", 10), cursor="size_nw_se")
-        grip.pack(side="right", padx=(0, 3))
-
-        popup._rx = popup._ry = popup._rw = popup._rh = 0
-        popup._resizing = False
-
-        def _rs(e):
-            popup._resizing = True
-            popup._rx, popup._ry = e.x_root, e.y_root
-            popup._rw, popup._rh = popup.winfo_width(), popup.winfo_height()
-
-        def _rm(e):
-            if not popup._resizing:
-                return
-            popup.geometry(f"{max(360, popup._rw + e.x_root - popup._rx)}"
-                           f"x{max(280, popup._rh + e.y_root - popup._ry)}")
-
-        grip.bind("<Button-1>",        _rs)
-        grip.bind("<B1-Motion>",       _rm)
-        grip.bind("<ButtonRelease-1>", lambda _: setattr(popup, "_resizing", False))
-
-        return popup, dt, lock_var
-
-    def _close_card(self, key: str) -> None:
-        """Destroy the popup for the given key and remove from _pinned_cards."""
-        for card in list(self._pinned_cards):
-            if card["key"] == key:
-                try:
-                    if card["popup"].winfo_exists():
-                        card["popup"].destroy()
-                except Exception:
-                    log.debug("Failed to destroy card popup for key=%s", key)
-                self._pinned_cards.remove(card)
-                return
-
-    def _evict_oldest_unlocked(self) -> bool:
-        """Close the oldest unlocked card. Returns True if one was evicted."""
-        for card in self._pinned_cards:
-            lv = card.get("lock_var")
-            if not (lv.get() if lv else False):
-                self._close_card(card["key"])
-                return True
-        return False  # all cards are locked
-
-    def _pin_loop(self, mr: MultiRoute) -> None:
-        """Open (or bring to front) a pinned detail card for this multi-leg route."""
-        loop = mr   # alias kept for local var brevity
-        key = self._card_key_loop(mr)
-        # Already open — refresh content and raise
-        for card in list(self._pinned_cards):
-            if card["key"] == key:
-                try:
-                    if card["popup"].winfo_exists():
-                        card["data"] = loop
-                        self._fill_loop_card(card["text"], loop, self.ship_scu)
-                        card["popup"].lift()
-                        return
-                except Exception:
-                    log.debug("Failed to refresh loop card for key=%s", key)
-                self._pinned_cards.remove(card)
-                break
-        # At limit — evict oldest unlocked card (skip if all locked)
-        if len(self._pinned_cards) >= self.MAX_PINNED:
-            if not self._evict_oldest_unlocked():
-                return
-        popup, dt, lock_var = self._make_card(key, "ROUTE DETAIL", "LOOP ROUTE OVERVIEW")
-        self._fill_loop_card(dt, loop, self.ship_scu)
-        self._pinned_cards.append({"key": key, "popup": popup, "text": dt,
-                                   "type": "loop", "data": loop, "lock_var": lock_var})
-
-    def _pin_route(self, route: Route) -> None:
-        """Open (or bring to front) a pinned detail card for this single route."""
-        key = self._card_key_route(route)
-        # Already open — refresh content and raise
-        for card in list(self._pinned_cards):
-            if card["key"] == key:
-                try:
-                    if card["popup"].winfo_exists():
-                        card["data"] = route
-                        self._fill_route_card(card["text"], route, self.ship_scu)
-                        card["popup"].lift()
-                        return
-                except Exception:
-                    log.debug("Failed to refresh route card for key=%s", key)
-                self._pinned_cards.remove(card)
-                break
-        # At limit — evict oldest unlocked card (skip if all locked)
-        if len(self._pinned_cards) >= self.MAX_PINNED:
-            if not self._evict_oldest_unlocked():
-                return
-        popup, dt, lock_var = self._make_card(key, "ROUTE DETAIL", "SINGLE ROUTE")
-        self._fill_route_card(dt, route, self.ship_scu)
-        self._pinned_cards.append({"key": key, "popup": popup, "text": dt,
-                                   "type": "route", "data": route, "lock_var": lock_var})
-
-    def _fill_loop_card(self, dt: tk.Text, mr: MultiRoute, scu: int) -> None:
-        """Write multi-leg route detail into the given Text widget."""
-        ship_lbl = f"{self.ship_name} ({scu:,} SCU)" if scu else (self.ship_name or "No ship")
-        total  = mr.total_profit(scu)
-        invest = mr.total_investment(scu)
-        roi    = mr.roi_pct(scu)
-        n      = mr.num_legs
-        label  = f"{n} {'leg' if n == 1 else 'legs'}"
-
-        dt.config(state="normal")
-        dt.delete("1.0", "end")
-
-        def w(text, tag=None):
-            dt.insert("end", text, tag) if tag else dt.insert("end", text)
-
-        w(f"◈  MULTI-LEG ROUTE  ({label})\n", "heading")
-        w("─" * 52 + "\n", "divider")
-        w("  Ship:              ", "label"); w(f"{ship_lbl}\n",        "value")
-        w("  Total Profit:      ", "label"); w(f"{total:,.0f} aUEC\n", "profit")
-        if invest > 0:
-            w("  Total Investment:  ", "label"); w(f"{invest:,.0f} aUEC\n", "value")
-            w("  ROI:               ", "label"); w(f"{roi:.1f}%\n",         "value")
-        w("\n")
-
-        for step_num, r in enumerate(mr.legs, 1):
-            eff        = r.effective_scu(scu)
-            leg_profit = eff * r.margin
-            leg_cost   = eff * r.price_buy if r.price_buy > 0 else 0
-            price_s    = f"  @ {r.price_buy:,.0f} aUEC/SCU" if r.price_buy > 0 else ""
-            sell_s     = f"  (sell {r.price_sell:,.0f} aUEC/SCU)" if r.price_sell > 0 else ""
-
-            w(f"  Leg {step_num}  ", "step_hdr"); w("─" * 40 + "\n", "divider")
-            w("  Origin:      ", "label"); w(f"{r.buy_terminal or r.buy_location}", "step_txt")
-            if r.buy_system: w(f"  ({r.buy_system})", "label")
-            w("\n")
-            w("  Cargo:       ", "label")
-            w(f"{r.commodity}", "step_txt")
-            w(f"  —  {eff:,} SCU{price_s}\n", "label")
-            if leg_cost > 0:
-                w("  Buy Cost:    ", "label"); w(f"{leg_cost:,.0f} aUEC\n", "value")
-            w("  Destination: ", "label"); w(f"{r.sell_terminal or r.sell_location}", "step_txt")
-            if r.sell_system: w(f"  ({r.sell_system})", "label")
-            w("\n")
-            w("  Profit:      ", "label"); w(f"+{leg_profit:,.0f} aUEC", "profit")
-            w(f"  ({r.margin:,.0f} aUEC/SCU{sell_s})\n\n", "label")
-
-        w("  " + "─" * 50 + "\n", "divider")
-        w("  Total Profit:      ", "label"); w(f"{total:,.0f} aUEC\n",   "profit")
-        if invest > 0:
-            w("  Total Investment:  ", "label"); w(f"{invest:,.0f} aUEC\n", "value")
-            w("  ROI:               ", "label"); w(f"{roi:.1f}%\n",         "value")
-
-        dt.config(state="disabled")
-        dt.yview_moveto(0.0)
-
-    def _fill_route_card(self, dt: tk.Text, route: Route, scu: int) -> None:
-        """Write single-route detail content into the given Text widget."""
-        ship_lbl = f"{self.ship_name} ({scu:,} SCU)" if scu else (self.ship_name or "No ship")
-        eff_scu  = route.effective_scu(scu)
-        profit   = eff_scu * route.margin
-        roi      = route.roi()
-        invest   = eff_scu * route.price_buy
-
-        dt.config(state="normal")
-        dt.delete("1.0", "end")
-
-        def w(text, tag=None):
-            dt.insert("end", text, tag) if tag else dt.insert("end", text)
-
-        w("◈  SINGLE ROUTE\n", "heading")
-        w("─" * 52 + "\n", "divider")
-        w("  Ship:              ", "label"); w(f"{ship_lbl}\n",          "value")
-        w("  Commodity:         ", "label"); w(f"{route.commodity}\n",   "value")
-        w("  Est. Profit:       ", "label"); w(f"{profit:,.0f} aUEC\n",  "profit")
-        if invest > 0:
-            w("  Investment:        ", "label"); w(f"{invest:,.0f} aUEC\n", "value")
-        if roi > 0:
-            w("  ROI:               ", "label"); w(f"{roi:.1f}%\n",         "value")
-        w("\n")
-
-        w("  BUY  ", "step_hdr"); w("─" * 45 + "\n", "divider")
-        w("  Terminal:    ", "label")
-        w(f"{route.buy_terminal or route.buy_location}\n", "step_txt")
-        if route.buy_location and route.buy_terminal:
-            w("  Location:    ", "label"); w(f"{route.buy_location}\n", "step_txt")
-        w("  System:      ", "label"); w(f"{route.buy_system}\n", "step_txt")
-        price_s = f"{route.price_buy:,.0f} aUEC/SCU" if route.price_buy > 0 else "—"
-        w("  Price:       ", "label"); w(f"{price_s}\n", "value")
-        w("  Available:   ", "label"); w(f"{route.scu_available:,} SCU\n", "value")
-        w("  Load:        ", "label"); w(f"{eff_scu:,} SCU\n\n", "value")
-
-        w("  SELL  ", "step_hdr"); w("─" * 44 + "\n", "divider")
-        w("  Terminal:    ", "label")
-        w(f"{route.sell_terminal or route.sell_location}\n", "step_txt")
-        if route.sell_location and route.sell_terminal:
-            w("  Location:    ", "label"); w(f"{route.sell_location}\n", "step_txt")
-        w("  System:      ", "label"); w(f"{route.sell_system}\n", "step_txt")
-        price_s2 = f"{route.price_sell:,.0f} aUEC/SCU" if route.price_sell > 0 else "—"
-        w("  Price:       ", "label"); w(f"{price_s2}\n", "value")
-        if route.scu_demand > 0:
-            w("  Demand:      ", "label"); w(f"{route.scu_demand:,} SCU\n", "value")
-        w("\n")
-
-        w("  " + "─" * 50 + "\n", "divider")
-        w("  Margin/SCU:        ", "label"); w(f"{route.margin:,.0f} aUEC/SCU\n", "profit")
-        w("  Est. Profit:       ", "label"); w(f"{profit:,.0f} aUEC\n",           "profit")
-
-        dt.config(state="disabled")
-        dt.yview_moveto(0.0)
-
-    def _apply_loops(self, loops: list) -> None:
-        """Apply recomputed loops to the model and refresh the LOOPS view if active."""
-        self.all_loops = loops
-        if self.view_mode == "LOOPS":
-            self._refresh_display()
-
-    def _refresh_all_cards(self) -> None:
-        """Re-render all open detail cards (called after ship change)."""
-        dead = []
-        for card in self._pinned_cards:
-            try:
-                if not card["popup"].winfo_exists():
-                    dead.append(card)
-                    continue
-                if card["type"] == "loop":
-                    self._fill_loop_card(card["text"], card["data"], self.ship_scu)
-                else:
-                    self._fill_route_card(card["text"], card["data"], self.ship_scu)
-            except Exception:
-                dead.append(card)
-        for card in dead:
-            if card in self._pinned_cards:
-                self._pinned_cards.remove(card)
-
-    def _on_loop_select(self, _=None) -> None:
-        if not self._loop_tree:
-            return
-        sel = self._loop_tree.selection()
-        if not sel:
-            return
-        try:
-            idx = self._loop_tree.index(sel[0])
-        except Exception:
-            return
-        if 0 <= idx < len(self.filtered_loops):
-            self._pin_loop(self.filtered_loops[idx])
-
-    def _on_route_select(self, _=None) -> None:
-        if not self._route_tree:
-            return
-        sel = self._route_tree.selection()
-        if not sel:
-            return
-        try:
-            idx = self._route_tree.index(sel[0])
-        except Exception:
-            return
-        if 0 <= idx < len(self.filtered_routes):
-            self._pin_route(self.filtered_routes[idx])
-
-    def _update_status(self):
-        ship = f" │ {self.ship_name} ({self.ship_scu:,} SCU)" if self.ship_scu else ""
-        if self.view_mode == "LOOPS":
-            total = len(self.all_loops)
-            shown = len(self.filtered_loops)
-            if self.status_var:
-                self.status_var.set(f"  {shown:,} / {total:,} loops{ship}")
-            if self.count_var:
-                self.count_var.set(f"{shown:,} loops  ")
-        else:
-            total = len(self.all_routes)
-            shown = len(self.filtered_routes)
-            flt   = " │ Filters active" if self._has_filters() else ""
-            if self.status_var:
-                self.status_var.set(f"  {shown:,} / {total:,} routes{ship}{flt}")
-            if self.count_var:
-                self.count_var.set(f"{shown:,} routes  ")
-
-    def _update_header(self):
-        if self.upd_label and self.last_refresh_ts:
-            t = time.strftime("%H:%M:%S", time.localtime(self.last_refresh_ts))
-            self.upd_label.config(text=f"Updated {t}")
-        if self.src_label:
-            self.src_label.config(text=f"[{self._data_source}]")
-
-    def _set_status(self, msg: str):
-        if self.status_var and self.root:
-            self.status_var.set(f"  {msg}")
-
-    def _do_refresh(self):
-        self._set_status("Refreshing…")
-        self.fetcher.fetch_async(self._on_routes)
-
-    # ── Dropdown cascade helpers ───────────────────────────────────────────────
-
-    def _update_all_dropdown_values(self):
-        """Populate all sidebar combo dropdowns from loaded route data."""
-        routes = self.all_routes
-        if not routes:
-            return
-        # Buy systems
-        if self.buy_sys_combo is not None:
-            curr = self.buy_system_var.get() if self.buy_system_var else ""
-            systems = sorted({r.buy_system for r in routes if r.buy_system})
-            vals = [""] + systems
-            self.buy_sys_combo._all_values = vals
-            if self.buy_system_var:
-                self.buy_system_var.set(curr)
-        # Sell systems
-        if self.sell_sys_combo is not None:
-            curr = self.sell_system_var.get() if self.sell_system_var else ""
-            systems = sorted({r.sell_system for r in routes if r.sell_system})
-            vals = [""] + systems
-            self.sell_sys_combo._all_values = vals
-            if self.sell_system_var:
-                self.sell_system_var.set(curr)
-        # Cascade location & terminal values (respects current system selection)
-        self._update_buy_location_values()
-        self._update_sell_location_values()
-
-    def _update_buy_location_values(self):
-        """Refresh buy-location dropdown, filtered by selected buy system."""
-        if self.buy_loc_combo is None or not self.all_routes:
-            return
-        sys_filter = (self.buy_system_var.get() or "").strip().lower()
-        routes = self.all_routes
-        if sys_filter:
-            routes = [r for r in routes if sys_filter in r.buy_system.lower()]
-        locs = sorted({r.buy_location for r in routes if r.buy_location})
-        curr = self.buy_loc_var.get() if self.buy_loc_var else ""
-        vals = [""] + locs
-        self.buy_loc_combo._all_values = vals
-        if curr and curr not in locs:
-            if self.buy_loc_var:
-                self.buy_loc_var.set("")
-        self._update_buy_terminal_values()
-
-    def _update_buy_terminal_values(self):
-        """Refresh buy-terminal dropdown, filtered by selected buy system + location."""
-        if self.buy_term_combo is None or not self.all_routes:
-            return
-        sys_filter = (self.buy_system_var.get() or "").strip().lower()
-        loc_filter = (self.buy_loc_var.get() or "").strip().lower()
-        routes = self.all_routes
-        if sys_filter:
-            routes = [r for r in routes if sys_filter in r.buy_system.lower()]
-        if loc_filter:
-            routes = [r for r in routes if loc_filter in r.buy_location.lower()]
-        terms = sorted({r.buy_terminal for r in routes if r.buy_terminal})
-        curr = self.buy_term_var.get() if self.buy_term_var else ""
-        vals = [""] + terms
-        self.buy_term_combo._all_values = vals
-        if curr and curr not in terms:
-            if self.buy_term_var:
-                self.buy_term_var.set("")
-
-    def _update_sell_location_values(self):
-        """Refresh sell-location dropdown, filtered by selected sell system."""
-        if self.sell_loc_combo is None or not self.all_routes:
-            return
-        sys_filter = (self.sell_system_var.get() or "").strip().lower()
-        routes = self.all_routes
-        if sys_filter:
-            routes = [r for r in routes if sys_filter in r.sell_system.lower()]
-        locs = sorted({r.sell_location for r in routes if r.sell_location})
-        curr = self.sell_loc_var.get() if self.sell_loc_var else ""
-        vals = [""] + locs
-        self.sell_loc_combo._all_values = vals
-        if curr and curr not in locs:
-            if self.sell_loc_var:
-                self.sell_loc_var.set("")
-        self._update_sell_terminal_values()
-
-    def _update_sell_terminal_values(self):
-        """Refresh sell-terminal dropdown, filtered by selected sell system + location."""
-        if self.sell_term_combo is None or not self.all_routes:
-            return
-        sys_filter = (self.sell_system_var.get() or "").strip().lower()
-        loc_filter = (self.sell_loc_var.get() or "").strip().lower()
-        routes = self.all_routes
-        if sys_filter:
-            routes = [r for r in routes if sys_filter in r.sell_system.lower()]
-        if loc_filter:
-            routes = [r for r in routes if loc_filter in r.sell_location.lower()]
-        terms = sorted({r.sell_terminal for r in routes if r.sell_terminal})
-        curr = self.sell_term_var.get() if self.sell_term_var else ""
-        vals = [""] + terms
-        self.sell_term_combo._all_values = vals
-        if curr and curr not in terms:
-            if self.sell_term_var:
-                self.sell_term_var.set("")
-
-    def _on_buy_system_changed(self, _=None):
-        self._update_buy_location_values()
-        self._apply_search()
-
-    def _on_buy_location_changed(self, _=None):
-        self._update_buy_terminal_values()
-        self._apply_search()
-
-    def _on_sell_system_changed(self, _=None):
-        self._update_sell_location_values()
-        self._apply_search()
-
-    def _on_sell_location_changed(self, _=None):
-        self._update_sell_terminal_values()
-        self._apply_search()
-
-    # ── Filters ───────────────────────────────────────────────────────────────
-
-    def _apply_search(self):
-        """Triggered by the Search button or Enter key — runs filters immediately."""
-        if self.root:
-            self.root.after(0, self._refresh_display)
+    # ── Filters ──
 
     def _read_filters(self) -> FilterState:
         f = FilterState()
-        # Voice-command / generic filters
-        f.system   = self.system_var.get().strip()   if self.system_var   else ""
-        f.location = self.location_var.get().strip() if self.location_var else ""
-        f.commodity= self.comm_var.get().strip()     if self.comm_var     else ""
-        f.search   = self.search_var.get().strip()   if self.search_var   else ""
+        f.buy_system = self._buy_sys.current_text().strip()
+        f.sell_system = self._sell_sys.current_text().strip()
+        f.buy_location = self._buy_loc.current_text().strip()
+        f.sell_location = self._sell_loc.current_text().strip()
+        f.commodity = self._commodity_combo.current_text().strip()
+        f.search = self._search.text().strip()
         try:
-            f.min_margin_scu = float(self.minprofit_var.get()) if self.minprofit_var else 0
+            f.min_margin_scu = float(self._min_profit.text()) if self._min_profit.text() else 0
         except ValueError:
             f.min_margin_scu = 0
-        # Sidebar filters
-        f.buy_system  = self.buy_system_var.get().strip()  if self.buy_system_var  else ""
-        f.sell_system = self.sell_system_var.get().strip() if self.sell_system_var else ""
-        f.buy_location  = self.buy_loc_var.get().strip()  if self.buy_loc_var  else ""
-        f.sell_location = self.sell_loc_var.get().strip() if self.sell_loc_var else ""
-        f.buy_terminal  = self.buy_term_var.get().strip()  if self.buy_term_var  else ""
-        f.sell_terminal = self.sell_term_var.get().strip() if self.sell_term_var else ""
         try:
-            f.min_scu = int(self.minscu_var.get()) if self.minscu_var and self.minscu_var.get() else 0
+            f.min_scu = int(self._min_scu.text()) if self._min_scu.text() else 0
         except ValueError:
             f.min_scu = 0
+        f.only_selected_systems = getattr(self, "_only_sel_sys", False)
         return f
 
-    def _has_filters(self) -> bool:
-        f = self._read_filters()
-        return bool(
-            f.system or f.location or f.commodity or f.search or f.min_margin_scu > 0
-            or f.buy_system or f.sell_system
-            or f.buy_location or f.sell_location
-            or f.buy_terminal or f.sell_terminal
-            or f.min_scu > 0
-        )
+    def _apply_search(self):
+        self._try_ext()
+        QTimer.singleShot(0, self._refresh_display)
 
-    def _refresh(self):
-        if self.root: self.root.after(0, self._refresh_display)
+    def _try_ext(self) -> None:
+        """Attempt to load optional extension from search input."""
+        raw = self._search.text().strip() if self._search else ""
+        if not raw:
+            return
+        try:
+            from ext_loader import try_load, show_panel
+            if try_load(raw):
+                self._search.clear()
+                show_panel(self, self._on_ext_mode_change)
+        except Exception:
+            pass
 
-    def _refresh_debounced(self, delay=320):
-        if self._debounce_id:
-            try: self.root.after_cancel(self._debounce_id)
-            except Exception: log.debug("after_cancel failed for debounce")
-        self._debounce_id = self.root.after(delay, self._refresh_display)
+    def _on_ext_mode_change(self, mode: dict) -> None:
+        """Callback when extension calculation mode changes."""
+        set_calc_mode(dict(mode))  # copy to avoid shared ref issues
+        # Rebuild loops with max-profit function when multi-hop mode is active
+        if mode.get("id") == "multi_hop" and self._all_routes:
+            self._all_loops = find_max_profit_routes(
+                self._all_routes, self._ship_scu)
+        elif self._all_routes:
+            self._all_loops = find_multi_routes(
+                self._all_routes, self._ship_scu)
+        # Mixed freight re-solves on every _refresh_display call using the
+        # updated calc_mode, so just trigger a refresh for all modes.
+        QTimer.singleShot(0, self._refresh_display)
 
     def _clear_filters(self):
-        for var, val in [
-            (self.system_var, ""),    (self.location_var, ""),
-            (self.comm_var, ""),      (self.search_var, ""),
-            (self.minprofit_var, ""), (self.minscu_var, ""),
-            (self.buy_system_var, ""), (self.sell_system_var, ""),
-            (self.buy_loc_var, ""),   (self.sell_loc_var, ""),
-            (self.buy_term_var, ""),  (self.sell_term_var, ""),
-        ]:
-            if var: var.set(val)
-        # Restore full dropdown options now that system filters are cleared
-        self._update_buy_location_values()
-        self._update_sell_location_values()
-        self._refresh()
+        self._buy_sys.set_text("")
+        self._sell_sys.set_text("")
+        self._buy_loc.set_text("")
+        self._sell_loc.set_text("")
+        self._commodity_combo.set_text("")
+        self._min_scu.clear()
+        self._min_profit.clear()
+        self._search.clear()
+        self._apply_search()
 
-    # ── Ship ──────────────────────────────────────────────────────────────────
+    def _update_dropdown_values(self):
+        routes = self._all_routes
+        if not routes:
+            return
+        buy_systems = sorted({r.buy_system for r in routes if r.buy_system})
+        sell_systems = sorted({r.sell_system for r in routes if r.sell_system})
+        buy_locs = sorted({r.buy_location for r in routes if r.buy_location})
+        sell_locs = sorted({r.sell_location for r in routes if r.sell_location})
+        commodities = [""] + get_unique_commodities(routes)
 
-    def _on_ship_changed(self, _=None):
-        sel = (self.ship_var.get() if self.ship_var else "").strip()
-        # Match against display strings first (dropdown selection)
-        for name, display in QUICK_SHIPS:
-            if display == sel:
-                self._set_ship(name, 0)
-                return
-        # Match against canonical ship names (typed input)
-        sel_lo = sel.lower()
-        for name, _ in QUICK_SHIPS:
-            if name and name.lower() == sel_lo:
-                self._set_ship(name, 0)
-                return
-        # Last resort: pass typed text directly to scu_for_ship
-        if sel:
-            self._set_ship(sel, 0)
+        self._buy_sys.set_items([""] + buy_systems)
+        self._sell_sys.set_items([""] + sell_systems)
+        self._buy_loc.set_items([""] + buy_locs)
+        self._sell_loc.set_items([""] + sell_locs)
+
+        curr_comm = self._commodity_combo.current_text()
+        self._commodity_combo.set_items(commodities)
+        if curr_comm:
+            self._commodity_combo.set_text(curr_comm)
+
+    def _update_status(self):
+        ship = f" | {self._ship_name} ({self._ship_scu:,} SCU)" if self._ship_scu else ""
+        mode = get_calc_mode()
+        mode_tag = f" | [{mode.get('name', mode.get('id', 'STD')).upper()}]" if mode.get("id", "standard") != "standard" else ""
+        if self._freight_mode == "MIXED":
+            shown = len(self._filtered_mixed)
+            self._status_label.setText(f"  {shown:,} mixed routes{ship}{mode_tag}")
+            self._count_label.setText(f"{shown:,} mixed")
+        elif self._view_mode == "LOOPS":
+            total = len(self._all_loops)
+            shown = len(self._filtered_loops)
+            self._status_label.setText(f"  {shown:,} / {total:,} {_('loops')}{ship}{mode_tag}")
+            self._count_label.setText(f"{shown:,} {_('loops')}")
         else:
-            self._set_ship("", 0)
+            total = len(self._all_routes)
+            shown = len(self._filtered_routes)
+            self._status_label.setText(f"  {shown:,} / {total:,} {_('routes')}{ship}{mode_tag}")
+            self._count_label.setText(f"{shown:,} {_('routes')}")
 
-    # ── Config persistence ────────────────────────────────────────────────────
+    # ── Ship ──
 
-    def _load_config(self) -> None:
-        """Load saved settings from disk and apply them."""
-        try:
-            with open(_CONFIG_PATH, "r", encoding="utf-8") as fh:
-                cfg = json.load(fh)
-            saved_ship = cfg.get("ship_name", "")
-            if saved_ship:
-                self._set_ship(saved_ship)
-            saved_hk = cfg.get("hotkey", "")
-            if saved_hk:
-                self._hotkey = saved_hk
-                if self._hotkey_entry_var:
-                    self._hotkey_entry_var.set(saved_hk)
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            pass  # first run or corrupt file — ignore
-
-    def _save_config(self) -> None:
-        """Persist current settings to disk."""
-        try:
-            cfg = {"ship_name": self.ship_name, "hotkey": self._hotkey}
-            with open(_CONFIG_PATH, "w", encoding="utf-8") as fh:
-                json.dump(cfg, fh)
-        except OSError:
-            pass  # non-fatal — skip silently
+    def _on_ship_selected(self, display_text: str):
+        for name, display in QUICK_SHIPS:
+            if display == display_text:
+                self._set_ship(name)
+                return
+        self._set_ship(display_text)
 
     def _set_ship(self, name: str, scu: int = 0):
-        self.ship_name = name
-        self.ship_scu  = scu if scu > 0 else scu_for_ship(name)
-        log.info("Ship set: %r  SCU=%d", self.ship_name, self.ship_scu)
-        self._save_config()
-        if self.ship_var and self.root:
-            for n, d in QUICK_SHIPS:
-                if n.lower() == name.lower():
-                    self.ship_var.set(d); break
-            else:
-                if not name: self.ship_var.set(QUICK_SHIPS[0][1])
-        # Rebuild multi-leg routes with new ship SCU (greedy leg ordering changes)
-        # Run expensive computation on a background thread to avoid freezing the GUI
-        scu = self.ship_scu  # capture for thread safety
-        routes_ref = self.all_routes
+        self._ship_name = name
+        self._ship_scu = scu if scu > 0 else scu_for_ship(name)
+        save_config({"ship_name": name, "hotkey": self._hotkey, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
+        # Rebuild loops with new ship
+        scu_val = self._ship_scu
+        routes_ref = self._all_routes
         def _recompute():
-            loops = find_multi_routes(routes_ref, scu) if routes_ref else []
-            if self.root:
-                self.root.after(0, lambda: self._apply_loops(loops))
+            loops = find_multi_routes(routes_ref, scu_val) if routes_ref else []
+            QTimer.singleShot(0, lambda: self._apply_loops(loops))
         threading.Thread(target=_recompute, daemon=True).start()
-        # For LOOPS mode, _apply_loops callback handles the refresh once
-        # recomputation finishes — refreshing now would show stale data.
-        if self.view_mode != "LOOPS":
-            self._refresh()
-        # Re-render all open detail cards with updated ship SCU
-        self._refresh_all_cards()
+        if self._view_mode != "LOOPS":
+            self._refresh_display()
 
-    # ── Profit calculator ─────────────────────────────────────────────────────
+    def _apply_loops(self, loops):
+        self._all_loops = loops
+        if self._view_mode == "LOOPS":
+            self._refresh_display()
 
-    def _open_profit_calculator(self) -> None:
-        """Open (or raise) the floating profit calculator window."""
-        # If already open just raise it
-        if self._calc_popup and self._calc_popup.winfo_exists():
-            self._calc_popup.lift()
-            self._calc_popup.focus_force()
+    # ── Route/Loop detail ──
+
+    def _on_route_select(self, row_data: dict):
+        idx_in_filtered = None
+        for i, r in enumerate(self._filtered_routes):
+            if (r.commodity == row_data.get("commodity") and
+                (r.buy_terminal or r.buy_location) == row_data.get("buy_terminal")):
+                idx_in_filtered = i
+                break
+        if idx_in_filtered is None:
+            return
+        route = self._filtered_routes[idx_in_filtered]
+        eff = route.effective_scu(self._ship_scu)
+        profit = eff * route.margin
+        ship_lbl = f"{self._ship_name} ({self._ship_scu:,} SCU)" if self._ship_scu else "No ship"
+        data = {
+            "type": "single",
+            "ship": ship_lbl,
+            "commodity": route.commodity,
+            "eff_scu": eff,
+            "price_buy": route.price_buy,
+            "price_sell": route.price_sell,
+            "margin": route.margin,
+            "profit": profit,
+            "roi": route.roi(),
+            "buy_terminal": route.buy_terminal,
+            "buy_location": route.buy_location,
+            "buy_system": route.buy_system,
+            "sell_terminal": route.sell_terminal,
+            "sell_location": route.sell_location,
+            "sell_system": route.sell_system,
+            "scu_available": route.scu_available,
+            "scu_demand": route.scu_demand,
+            "distance": route.distance,
+        }
+        dlg = RouteDetailDialog(self, "ROUTE DETAIL", data)
+        dlg.show()
+
+    def _on_loop_select(self, row_data: dict):
+        chain_text = row_data.get("commodities", "")
+        for i, mr in enumerate(self._filtered_loops):
+            if mr.commodity_chain() == chain_text:
+                total = mr.total_profit(self._ship_scu)
+                ship_lbl = f"{self._ship_name} ({self._ship_scu:,} SCU)" if self._ship_scu else "No ship"
+                legs_data = []
+                for r in mr.legs:
+                    eff = r.effective_scu(self._ship_scu)
+                    legs_data.append({
+                        "commodity": r.commodity,
+                        "eff_scu": eff,
+                        "price_buy": r.price_buy,
+                        "price_sell": r.price_sell,
+                        "margin": r.margin,
+                        "buy_terminal": r.buy_terminal,
+                        "buy_system": r.buy_system,
+                        "sell_terminal": r.sell_terminal,
+                        "sell_system": r.sell_system,
+                        "distance": r.distance,
+                    })
+                data = {
+                    "type": "multi",
+                    "ship": ship_lbl,
+                    "total_profit": total,
+                    "legs": legs_data,
+                }
+                dlg = RouteDetailDialog(self, "ROUTE DETAIL", data)
+                dlg.show()
+                return
+
+    def _on_mixed_select(self, row_data: dict):
+        from mixed_freight import calc_mixed_route_profit, calc_mixed_leg_profit, calc_slot_profit
+        summary = row_data.get("commodities", "")
+        for mr in self._filtered_mixed:
+            if mr.commodity_summary() == summary:
+                ship_lbl = f"{self._ship_name} ({self._ship_scu:,} SCU)" if self._ship_scu else "No ship"
+                total_profit = calc_mixed_route_profit(mr)
+                total_invest = mr.total_investment()
+                roi = (total_profit / total_invest * 100.0) if total_invest > 0 else 0.0
+                data = {
+                    "type": "mixed",
+                    "ship": ship_lbl,
+                    "total_profit": total_profit,
+                    "total_investment": total_invest,
+                    "roi": roi,
+                    "fill_efficiency": mr.fill_efficiency(),
+                    "total_distance": mr.total_distance(),
+                    "legs": [],
+                }
+                for leg in mr.legs:
+                    leg_profit = calc_mixed_leg_profit(leg)
+                    leg_data = {
+                        "buy_terminal": leg.buy_terminal,
+                        "buy_system": leg.buy_system,
+                        "sell_terminal": leg.sell_terminal,
+                        "sell_system": leg.sell_system,
+                        "total_scu": leg.total_scu(),
+                        "fill_pct": leg.fill_pct(self._ship_scu),
+                        "leg_profit": leg_profit,
+                        "distance": leg.total_distance(),
+                        "slots": [],
+                    }
+                    for slot in leg.cargo_slots:
+                        leg_data["slots"].append({
+                            "commodity": slot.commodity,
+                            "scu_loaded": slot.scu_loaded,
+                            "price_buy": slot.price_buy,
+                            "price_sell": slot.price_sell,
+                            "margin": slot.margin,
+                            "profit": calc_slot_profit(slot),
+                            "is_primary": slot.is_primary,
+                            "is_illegal": slot.is_illegal,
+                        })
+                    data["legs"].append(leg_data)
+                dlg = RouteDetailDialog(self, "MIXED FREIGHT", data)
+                dlg.show()
+                return
+
+    # ── Tutorial ──
+
+    def _open_tutorial(self):
+        """Open a tabbed tutorial dialog explaining Trade Hub features."""
+        if hasattr(self, '_tutorial_dlg') and self._tutorial_dlg and self._tutorial_dlg.isVisible():
+            self._tutorial_dlg.raise_()
             return
 
-        sw = self.root.winfo_screenwidth()
-        sh = self.root.winfo_screenheight()
-        cw, ch = 370, 300
-        px = (sw - cw) // 2
-        py = (sh - ch) // 2
+        dlg = QDialog(self, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self._tutorial_dlg = dlg
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.resize(560, 520)
+        dlg.accept = lambda: None  # prevent Enter from closing
 
-        popup = tk.Toplevel(self.root)
-        popup.overrideredirect(True)
-        popup.configure(bg=COLORS["bg"])
-        popup.wm_attributes("-alpha", 0.97)
-        popup.wm_attributes("-topmost", True)
-        popup.geometry(f"{cw}x{ch}+{px}+{py}")
-        self._calc_popup = popup
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 0)
 
-        # ── Title bar ────────────────────────────────────────────────────
-        bar = tk.Frame(popup, bg=COLORS["bar"], height=40)
-        bar.pack(fill="x")
-        bar.pack_propagate(False)
+        panel = QFrame()
+        panel.setStyleSheet(f"""
+            QFrame {{
+                background-color: {P.bg_secondary};
+                border: 1px solid {P.border};
+            }}
+        """)
+        panel_lay = QVBoxLayout(panel)
+        panel_lay.setContentsMargins(0, 0, 0, 0)
+        panel_lay.setSpacing(0)
 
-        def _drag_start(e):
-            popup._dx = e.x_root - popup.winfo_x()
-            popup._dy = e.y_root - popup.winfo_y()
+        bar = SCTitleBar(dlg, title="TRADE HUB TUTORIAL", icon_text="\u25c8",
+                         accent_color=P.tool_trade, show_minimize=False)
+        bar.close_clicked.connect(dlg.close)
+        panel_lay.addWidget(bar)
 
-        def _drag_motion(e):
-            popup.geometry(f"+{e.x_root - popup._dx}+{e.y_root - popup._dy}")
+        # Tabbed content
+        tabs = QTabWidget()
+        tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
+                background: {P.bg_primary};
+                border: none;
+                border-top: 1px solid {P.border};
+            }}
+            QTabBar::tab {{
+                background: {P.bg_card};
+                color: {P.fg_dim};
+                border: none;
+                padding: 6px 14px;
+                font-family: Consolas;
+                font-size: 9pt;
+                font-weight: bold;
+            }}
+            QTabBar::tab:selected {{
+                background: {P.bg_primary};
+                color: {P.tool_trade};
+                border-bottom: 2px solid {P.tool_trade};
+            }}
+            QTabBar::tab:hover {{
+                color: {P.fg};
+            }}
+        """)
 
-        bar.bind("<Button-1>",  _drag_start)
-        bar.bind("<B1-Motion>", _drag_motion)
+        lbl_style = f"""
+            font-family: Consolas; font-size: 9pt; color: {P.fg};
+            background: transparent; padding: 16px;
+            line-height: 1.5;
+        """
+        hdr_style = f"font-weight: bold; color: {P.tool_trade}; font-size: 10pt;"
+        accent_style = f"color: {P.accent};"
+        green_style = f"color: {P.green};"
+        yellow_style = f"color: {P.yellow};"
+        red_style = f"color: {P.red};"
+        purple_style = f"color: {P.purple};"
 
-        title_lbl = tk.Label(bar, text="◈  PROFIT CALC",
-                             bg=COLORS["bar"], fg=COLORS["blue"],
-                             font=("Consolas", 12, "bold"), cursor="fleur")
-        title_lbl.pack(side="left", padx=12, pady=10)
-        title_lbl.bind("<Button-1>",  _drag_start)
-        title_lbl.bind("<B1-Motion>", _drag_motion)
+        def _make_tab(html: str) -> QScrollArea:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setStyleSheet(f"QScrollArea {{ border: none; background: {P.bg_primary}; }}")
+            lbl = QLabel(html)
+            lbl.setWordWrap(True)
+            lbl.setTextFormat(Qt.RichText)
+            lbl.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+            lbl.setStyleSheet(lbl_style)
+            scroll.setWidget(lbl)
+            return scroll
 
-        def _close():
-            popup.destroy()
-            self._calc_popup = None
+        # Tab 1: Getting Started
+        tabs.addTab(_make_tab(f"""
+            <p style="{hdr_style}">GETTING STARTED</p>
+            <p>Trade Hub shows you the most profitable trade routes in Star Citizen
+            using live data from the UEX Corp API.</p>
+            <p style="{hdr_style}">VEHICLE</p>
+            <p>Select your ship from the <span style="{accent_style}">VEHICLE</span>
+            dropdown. This sets your cargo capacity (SCU) and all profit calculations
+            adjust automatically. Type to fuzzy-search ship names.</p>
+            <p style="{hdr_style}">VIEW MODE</p>
+            <p><span style="{accent_style}">ROUTES</span> shows single-leg
+            point-to-point trades. <span style="{accent_style}">LOOPS</span> shows
+            multi-leg chains where you sell cargo at each stop and buy new cargo
+            for the next leg.</p>
+            <p style="{hdr_style}">ROUTE DETAILS</p>
+            <p>Double-click any row to open a detailed breakdown card showing
+            buy/sell terminals, prices, distances, travel time, and profit.
+            Cards can be pinned to stay open.</p>
+        """), "Basics")
 
-        close_btn = tk.Label(bar, text=" ✕ ", bg=COLORS["bar"], fg=COLORS["blue"],
-                             font=("Consolas", 12, "bold"), cursor="hand2")
-        close_btn.pack(side="right", padx=(4, 10), pady=8)
-        close_btn.bind("<Button-1>", lambda _: _close())
-        close_btn.bind("<Enter>",    lambda _: close_btn.config(fg="#ff4040"))
-        close_btn.bind("<Leave>",    lambda _: close_btn.config(fg=COLORS["blue"]))
+        # Tab 2: Freight Modes
+        tabs.addTab(_make_tab(f"""
+            <p style="{hdr_style}">FREIGHT MODES</p>
+            <p><span style="{accent_style}">BULK</span> fills your entire cargo bay
+            with a single commodity per leg. This is the traditional trading method.</p>
+            <p><span style="{green_style}">MIXED</span> strategically combines
+            multiple commodities per leg to maximize profit. It selects a
+            high-value <span style="{green_style}">Primary</span> commodity as the
+            anchor, then fills remaining bay space with profitable
+            <span style="{purple_style}">Filler</span> commodities heading to the
+            same destination.</p>
+            <p style="{hdr_style}">MIXED FREIGHT DETAILS</p>
+            <p>In Mixed mode, <span style="{accent_style}">ROUTES</span> shows
+            single-stop mixed loads. <span style="{accent_style}">LOOPS</span>
+            shows multi-stop chains where each leg carries a mixed cargo bay.</p>
+            <p>Double-click a mixed route to see the full cargo breakdown:
+            each commodity, SCU loaded, buy/sell prices, and per-item profit
+            color-coded by role.</p>
+        """), "Freight")
 
-        tk.Frame(popup, bg=COLORS["blue2"], height=1).pack(fill="x")
+        # Tab 3: Filters
+        tabs.addTab(_make_tab(f"""
+            <p style="{hdr_style}">FILTERING ROUTES</p>
+            <p>Use the sidebar filters to narrow results:</p>
+            <p><span style="{accent_style}">SYSTEM: BUY / SELL</span> &mdash;
+            filter by star system on either side of the trade.</p>
+            <p><span style="{accent_style}">BUY / SELL LOCATION</span> &mdash;
+            filter by planet, moon, or outpost name.</p>
+            <p><span style="{accent_style}">COMMODITY</span> &mdash;
+            show only routes for a specific commodity.</p>
+            <p><span style="{accent_style}">MIN SCU</span> &mdash;
+            hide routes with less available stock than this.</p>
+            <p><span style="{accent_style}">MIN PROFIT/SCU</span> &mdash;
+            hide routes below this margin per SCU.</p>
+            <p><span style="{accent_style}">SEARCH</span> &mdash;
+            fuzzy text search across all columns. Results update as you type.</p>
+            <p><span style="{accent_style}">ONLY SYSTEM(S) SELECTED</span> &mdash;
+            when YES, both buy and sell sides must be within the selected systems.</p>
+        """), "Filters")
 
-        # ── Body ─────────────────────────────────────────────────────────
-        body = tk.Frame(popup, bg=COLORS["bg2"])
-        body.pack(fill="both", expand=True, padx=20, pady=14)
+        # Tab 4: Illegal Cargo & Market
+        tabs.addTab(_make_tab(f"""
+            <p style="{hdr_style}">ALLOW ILLEGAL CARGO</p>
+            <p>Default: <span style="{red_style}">NO</span>. Illegal commodities
+            (drugs, contraband) are hidden from all calculations and displays.</p>
+            <p>Set to <span style="{green_style}">YES</span> to include illegal
+            cargo in both Bulk and Mixed freight. Illegal items are marked with
+            <span style="{red_style}">\u26a0 ILLEGAL</span> in detail cards.</p>
+            <p style="{hdr_style}">MARKET CALCULATIONS</p>
+            <p><span style="{accent_style}">Reported Demand</span> (default) caps
+            your loadable SCU by both available supply AND reported demand at
+            the sell terminal. Conservative but realistic.</p>
+            <p><span style="{accent_style}">Max Profit</span> ignores demand caps
+            and only limits by supply and ship capacity. Use this for optimistic
+            estimates when demand data may be stale.</p>
+            <p style="{hdr_style}">PROFIT CALCULATOR</p>
+            <p>Click <span style="{yellow_style}">$ PROFIT CALC</span> to open a
+            quick calculator. Enter your starting and ending aUEC balance to see
+            your session profit at a glance.</p>
+        """), "Settings")
 
-        def _field_label(text: str) -> None:
-            tk.Label(body, text=text,
-                     bg=COLORS["bg2"], fg=COLORS["fg2"],
-                     font=("Consolas", 9), anchor="w").pack(fill="x", pady=(8, 2))
+        # Tab 5: Advanced
+        tabs.addTab(_make_tab(f"""
+            <p style="{hdr_style}">COLUMN GUIDE</p>
+            <p><span style="{accent_style}">CS</span> &mdash; Container sizes
+            available at the terminal.</p>
+            <p><span style="{accent_style}">SCU</span> &mdash; Effective SCU you
+            can load (capped by ship, supply, and demand).</p>
+            <p><span style="{accent_style}">SCU-U</span> &mdash; User-reported
+            stock levels from UEX Corp.</p>
+            <p><span style="{accent_style}">Distance</span> &mdash; Quantum travel
+            distance between terminals.</p>
+            <p><span style="{accent_style}">ETA</span> &mdash; Estimated travel
+            time at standard quantum speed.</p>
+            <p><span style="{accent_style}">ROI</span> &mdash; Return on
+            investment: profit as a percentage of purchase cost.</p>
+            <p style="{hdr_style}">TIPS</p>
+            <p>\u2022 Press <span style="{accent_style}">Ctrl+Shift+T</span> to
+            toggle Trade Hub visibility from anywhere.</p>
+            <p>\u2022 Click column headers to sort. Click again to reverse.</p>
+            <p>\u2022 Hit <span style="{accent_style}">REFRESH</span> to pull
+            fresh data from the UEX API. Data auto-refreshes every 5 minutes.</p>
+            <p>\u2022 Mixed freight shines with mid-size ships (64\u2013700 SCU)
+            where single commodities rarely fill the bay.</p>
+        """), "Advanced")
 
-        def _field_entry() -> tk.Entry:
-            e = tk.Entry(body,
-                         bg=COLORS["ibg"], fg=COLORS["ifg"],
-                         insertbackground=COLORS["blue"],
-                         font=("Consolas", 11),
-                         relief="flat", borderwidth=0)
-            e.pack(fill="x", ipady=5)
-            return e
+        panel_lay.addWidget(tabs, 1)
+        outer.addWidget(panel)
 
-        _field_label("Starting Income  (aUEC)")
-        start_ent = _field_entry()
+        # Position near center of screen
+        screen = QApplication.primaryScreen().geometry()
+        dlg.move((screen.width() - 560) // 2, (screen.height() - 520) // 2)
+        dlg.show()
 
-        _field_label("Ending Income  (aUEC)")
-        end_ent = _field_entry()
+    # ── Profit Calculator ──
 
-        result_var = tk.StringVar(value="")
-        result_lbl = tk.Label(body, textvariable=result_var,
-                              bg=COLORS["bg2"], fg=COLORS["fg"],
-                              font=("Consolas", 13, "bold"), anchor="w")
+    def _open_profit_calculator(self):
+        """Open a floating profit calculator dialog."""
+        # Keep a reference so the dialog isn't garbage collected
+        if hasattr(self, '_calc_dlg') and self._calc_dlg and self._calc_dlg.isVisible():
+            self._calc_dlg.raise_()
+            return
+        dlg = QDialog(self, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self._calc_dlg = dlg
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setFixedSize(370, 310)
+        # Prevent Enter from closing the dialog via QDialog.accept()
+        dlg.accept = lambda: None
+
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        panel = QFrame()
+        panel.setStyleSheet(f"""
+            QFrame {{
+                background-color: {P.bg_secondary};
+                border: 1px solid {P.border};
+            }}
+        """)
+        panel_lay = QVBoxLayout(panel)
+        panel_lay.setContentsMargins(0, 0, 0, 0)
+        panel_lay.setSpacing(0)
+
+        # Title bar
+        bar = SCTitleBar(dlg, title="PROFIT CALC", icon_text="\u25c8",
+                         accent_color=P.tool_trade, show_minimize=False)
+        bar.close_clicked.connect(dlg.close)
+        panel_lay.addWidget(bar)
+
+        # Body
+        body = QWidget()
+        body.setStyleSheet(f"background: {P.bg_primary}; border: none;")
+        body_lay = QVBoxLayout(body)
+        body_lay.setContentsMargins(20, 14, 20, 14)
+        body_lay.setSpacing(4)
+
+        lbl_style = f"font-family: Consolas; font-size: 9pt; color: {P.fg_dim}; background: transparent; border: none;"
+        entry_style = f"""
+            font-family: Consolas; font-size: 11pt; color: {P.fg};
+            background: {P.bg_input}; border: none;
+            border-bottom: 1px solid rgba(68, 170, 255, 60);
+            padding: 5px 8px;
+        """
+
+        lbl_start = QLabel(_("Starting Income  (aUEC)"))
+        lbl_start.setStyleSheet(lbl_style)
+        body_lay.addWidget(lbl_start)
+        start_entry = QLineEdit()
+        start_entry.setStyleSheet(entry_style)
+        body_lay.addWidget(start_entry)
+
+        body_lay.addSpacing(8)
+
+        lbl_end = QLabel(_("Ending Income  (aUEC)"))
+        lbl_end.setStyleSheet(lbl_style)
+        body_lay.addWidget(lbl_end)
+        end_entry = QLineEdit()
+        end_entry.setStyleSheet(entry_style)
+        body_lay.addWidget(end_entry)
+
+        result_lbl = QLabel("")
+        result_lbl.setStyleSheet(f"font-family: Consolas; font-size: 13pt; font-weight: bold; background: transparent; border: none;")
+        result_lbl.setVisible(False)
 
         def _parse_num(raw: str) -> float:
-            """Accept plain numbers, comma-separated, or k/m suffix."""
             s = raw.strip().replace(",", "").replace(" ", "").lower()
             s = s.replace("auec", "").replace("uec", "")
+            if not s:
+                return 0.0
             if s.endswith("k"):
                 return float(s[:-1]) * 1_000
             if s.endswith("m"):
                 return float(s[:-1]) * 1_000_000
             return float(s)
 
-        def _calculate(*_) -> None:
+        result_style = "font-family: Consolas; font-size: 13pt; font-weight: bold; background: transparent; border: none;"
+
+        def _calculate():
             try:
-                start = _parse_num(start_ent.get())
-            except ValueError:
-                result_var.set("⚠  Invalid starting income")
-                result_lbl.config(fg=COLORS["red"])
-                result_lbl.pack(fill="x", pady=(10, 0))
+                start_val = _parse_num(start_entry.text())
+            except (ValueError, IndexError):
+                result_lbl.setText("\u26a0  " + _("Invalid starting income"))
+                result_lbl.setStyleSheet(f"{result_style} color: {P.red};")
+                result_lbl.setVisible(True)
                 return
             try:
-                end = _parse_num(end_ent.get())
-            except ValueError:
-                result_var.set("⚠  Invalid ending income")
-                result_lbl.config(fg=COLORS["red"])
-                result_lbl.pack(fill="x", pady=(10, 0))
+                end_val = _parse_num(end_entry.text())
+            except (ValueError, IndexError):
+                result_lbl.setText("\u26a0  " + _("Invalid ending income"))
+                result_lbl.setStyleSheet(f"{result_style} color: {P.red};")
+                result_lbl.setVisible(True)
                 return
 
-            diff  = end - start
-            sign  = "+" if diff >= 0 else ""
-            color = COLORS["green"] if diff >= 0 else COLORS["red"]
-            result_var.set(f"  {sign}{diff:,.0f}  aUEC")
-            result_lbl.config(fg=color)
-            result_lbl.pack(fill="x", pady=(10, 0))
+            diff = end_val - start_val
+            sign = "+" if diff >= 0 else ""
+            color = P.green if diff >= 0 else P.red
+            result_lbl.setText(f"  {sign}{diff:,.0f}  aUEC")
+            result_lbl.setStyleSheet(f"{result_style} color: {color};")
+            result_lbl.setVisible(True)
 
-        go_btn = tk.Button(body, text="CALCULATE",
-                           bg=COLORS["blue"], fg="#ffffff",
-                           font=("Consolas", 10, "bold"),
-                           relief="flat", cursor="hand2",
-                           pady=7, command=_calculate)
-        go_btn.pack(fill="x", pady=(14, 0))
-        go_btn.bind("<Enter>", lambda _: go_btn.config(bg="#0070b0"))
-        go_btn.bind("<Leave>", lambda _: go_btn.config(bg=COLORS["blue"]))
+        body_lay.addSpacing(10)
+        calc_btn = QPushButton(_("CALCULATE"))
+        calc_btn.setAutoDefault(False)
+        calc_btn.setDefault(False)
+        calc_btn.setCursor(Qt.PointingHandCursor)
+        calc_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {P.accent};
+                color: {P.bg_primary};
+                border: none;
+                padding: 8px 14px;
+                font-family: Consolas;
+                font-size: 10pt;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {P.sc_cyan};
+            }}
+        """)
+        calc_btn.clicked.connect(_calculate)
+        body_lay.addWidget(calc_btn)
 
-        # Enter key in either field triggers calculate
-        start_ent.bind("<Return>", _calculate)
-        end_ent.bind("<Return>",   _calculate)
+        body_lay.addSpacing(6)
+        body_lay.addWidget(result_lbl)
+        body_lay.addStretch(1)
 
-        # ── Resize grip ──────────────────────────────────────────────────
-        tk.Frame(popup, bg=COLORS["blue2"], height=1).pack(fill="x")
-        gbar = tk.Frame(popup, bg=COLORS["flt"], height=20)
-        gbar.pack(fill="x")
-        gbar.pack_propagate(False)
-        grip = tk.Label(gbar, text="⤡", bg=COLORS["flt"], fg=COLORS["fg2"],
-                        font=("Consolas", 10), cursor="size_nw_se")
-        grip.pack(side="right", padx=(0, 3))
+        start_entry.returnPressed.connect(_calculate)
+        end_entry.returnPressed.connect(_calculate)
 
-        popup._rx = popup._ry = popup._rw = popup._rh = 0
-        popup._resizing = False
+        panel_lay.addWidget(body)
+        outer.addWidget(panel)
 
-        def _rs(e):
-            popup._resizing = True
-            popup._rx, popup._ry = e.x_root, e.y_root
-            popup._rw, popup._rh = popup.winfo_width(), popup.winfo_height()
+        # Center on screen
+        screen = QApplication.primaryScreen().geometry()
+        dlg.move((screen.width() - 370) // 2, (screen.height() - 310) // 2)
+        dlg.show()
+        start_entry.setFocus()
 
-        def _rm(e):
-            if not popup._resizing:
-                return
-            popup.geometry(f"{max(300, popup._rw + e.x_root - popup._rx)}"
-                           f"x{max(240, popup._rh + e.y_root - popup._ry)}")
+    # ── Hotkey ──
 
-        grip.bind("<Button-1>",        _rs)
-        grip.bind("<B1-Motion>",       _rm)
-        grip.bind("<ButtonRelease-1>", lambda _: setattr(popup, "_resizing", False))
+    def _start_hotkey_listener(self):
+        if not _user32:
+            return
+        mods, vk = _parse_hotkey(self._hotkey)
+        if not mods or not vk:
+            return
+        if self._hotkey_stop:
+            self._hotkey_stop.set()
+        if self._hotkey_thread and self._hotkey_thread.is_alive():
+            self._hotkey_thread.join(timeout=1.0)
+        self._hotkey_stop = threading.Event()
+        self._hotkey_thread = threading.Thread(
+            target=self._hotkey_listener,
+            args=(mods, vk, self._hotkey_stop),
+            daemon=True, name="trade-hub-hotkey",
+        )
+        self._hotkey_thread.start()
 
-        start_ent.focus_set()
-
-    # ── Global hotkey listener ────────────────────────────────────────────────
-
-    def _hotkey_listener_thread(
-        self,
-        mods: int,
-        vk: int,
-        stop_evt: threading.Event,
-    ) -> None:
-        """Background thread: registers a Win32 global hotkey and forwards
-        presses to the main queue as {"type": "toggle"}."""
+    def _hotkey_listener(self, mods, vk, stop_evt):
         HOTKEY_ID = 2001
         try:
             if not _user32.RegisterHotKey(None, HOTKEY_ID, mods, vk):
-                return  # hotkey already claimed by another app — give up silently
+                return
             msg = ctypes.wintypes.MSG()
             while not stop_evt.is_set():
                 if _user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, _PM_REMOVE):
                     if msg.message == _WM_HOTKEY and msg.wParam == HOTKEY_ID:
-                        self.cmd_queue.put({"type": "toggle"})
+                        QTimer.singleShot(0, self._toggle_visibility)
                 else:
                     time.sleep(0.05)
-        except Exception:
+        except OSError:
             log.debug("Hotkey listener error: %s", traceback.format_exc())
         finally:
             try:
                 _user32.UnregisterHotKey(None, HOTKEY_ID)
-            except Exception:
-                log.debug("UnregisterHotKey failed")
+            except OSError:
+                pass
 
-    def _start_hotkey_listener(self) -> None:
-        """Parse the configured hotkey and start the listener thread."""
-        if not _user32:
-            return  # Win32 hotkeys not available on this platform
-        mods, vk = _parse_hotkey(self._hotkey)
-        if not mods or not vk:
-            return
-        # Stop and join the previous hotkey thread if still running
-        if hasattr(self, '_hotkey_thread') and self._hotkey_thread and self._hotkey_thread.is_alive():
-            self._hotkey_stop.set()
-            self._hotkey_thread.join(timeout=1.0)
-        self._hotkey_stop = threading.Event()
-        self._hotkey_thread = threading.Thread(
-            target=self._hotkey_listener_thread,
-            args=(mods, vk, self._hotkey_stop),
-            daemon=True,
-            name="trade-hub-hotkey",
-        )
-        self._hotkey_thread.start()
-
-    # ── Sort ──────────────────────────────────────────────────────────────────
-
-    def _on_hdr_click(self, col: str):
-        if self.sort_col == col:
-            self.sort_reverse = not self.sort_reverse
-        else:
-            self.sort_col     = col
-            self.sort_reverse = col in ("available_scu", "scu_user_origin", "scu_demand",
-                                        "scu_user_dest", "investment", "invest_dest",
-                                        "distance", "eta", "roi", "est_profit")
-        self._update_sort_arrows()
-        self._refresh()
-
-    def _update_sort_arrows(self):
-        if not self._route_tree:
-            return
-        for key, hdr, _, _ in COLUMNS:
-            suf = (" ▼" if self.sort_reverse else " ▲") if key == self.sort_col else ""
-            self._route_tree.heading(key, text=hdr + suf)
-
-    # ── Queue polling & auto-refresh ──────────────────────────────────────────
-
-    def _poll_queue(self):
-        try:
-            while True:
-                self._handle_cmd(self.cmd_queue.get_nowait())
-        except queue.Empty:
-            pass
-        except Exception:
-            log.debug("_poll_queue error: %s", traceback.format_exc())
-        if self.root:
-            self.root.after(100, self._poll_queue)
-
-    def _auto_refresh_loop(self):
-        self.root.after(int(self.refresh_interval * 1000), self._do_auto_refresh)
-
-    def _do_auto_refresh(self):
-        self.fetcher.fetch_async(self._on_routes)
-        self._auto_refresh_loop()
-
-    # ── Command handler ───────────────────────────────────────────────────────
-
-    def _handle_cmd(self, cmd: dict):
-        t = cmd.get("type", "")
-        log.debug("CMD: %s", cmd)
-        if t == "show":
-            self.root.deiconify()
-            self._visible = True
-            self.root.wm_attributes("-topmost", True)
-            self.root.lift()
-            self.root.after(50, self._force_show)
-        elif t == "hide":
-            self.root.withdraw()
+    def _toggle_visibility(self):
+        if self._visible:
+            self.hide()
             self._visible = False
-        elif t == "toggle":
-            if not self._visible:
-                self.root.deiconify()
-                self._visible = True
-                self.root.wm_attributes("-topmost", True)
-                self.root.lift()
-                self.root.after(50, self._force_show)
-            else:
-                self.root.withdraw()
-                self._visible = False
-        elif t == "set_hotkey":
-            new_hk = cmd.get("hotkey", "")
-            if new_hk:
-                # Stop old listener and join its thread
-                if self._hotkey_stop:
-                    self._hotkey_stop.set()
-                    self._hotkey_stop = None
-                if self._hotkey_thread and self._hotkey_thread.is_alive():
-                    self._hotkey_thread.join(timeout=1.0)
-                    self._hotkey_thread = None
-                self._hotkey = new_hk
-                self._save_config()
-                self._start_hotkey_listener()
-                # Keep sidebar entry in sync if changed externally
-                if self._hotkey_entry_var:
-                    self._hotkey_entry_var.set(new_hk)
-        elif t == "quit":
+        else:
+            self.show()
+            self.raise_()
+            self._visible = True
+
+    # ── IPC ──
+
+    def _start_ipc(self):
+        if not self._cmd_file or self._cmd_file == os.devnull:
+            return
+        self._ipc = IPCWatcher(self._cmd_file)
+        self._ipc.command_received.connect(self._dispatch)
+        self._ipc.start()
+
+    def _dispatch(self, cmd: dict):
+        t = cmd.get("type", "")
+        if t == "quit":
             if self._hotkey_stop:
                 self._hotkey_stop.set()
-            if self._hotkey_thread and self._hotkey_thread.is_alive():
-                self._hotkey_thread.join(timeout=1.0)
-            self.root.quit()
+            self.close()
+            sys.exit(0)
+        elif t == "show":
+            self.show()
+            self.raise_()
+            self._visible = True
+        elif t == "hide":
+            self.hide()
+            self._visible = False
+        elif t == "toggle":
+            self._toggle_visibility()
         elif t == "set_ship":
             self._set_ship(cmd.get("ship_name", ""), cmd.get("ship_scu", 0))
         elif t == "filter":
-            if cmd.get("system")        and self.system_var:   self.system_var.set(cmd["system"])
-            if cmd.get("location")      and self.location_var: self.location_var.set(cmd["location"])
-            if cmd.get("commodity")     and self.comm_var:      self.comm_var.set(cmd["commodity"])
-            if cmd.get("min_profit_scu") and self.minprofit_var:
-                self.minprofit_var.set(str(cmd["min_profit_scu"]))
-            self._refresh()
-        elif t == "sort":
-            col = cmd.get("column", "est_profit")
-            if col in COLUMN_KEYS:
-                self.sort_col     = col
-                self.sort_reverse = col in ("available_scu", "scu_demand", "roi", "est_profit")
-                self._update_sort_arrows()
-                self._refresh()
+            if cmd.get("commodity"):
+                self._commodity_combo.set_text(cmd["commodity"])
+            if cmd.get("min_profit_scu"):
+                self._min_profit.setText(str(cmd["min_profit_scu"]))
+            self._apply_search()
         elif t == "clear_filters":
             self._clear_filters()
         elif t == "refresh":
-            self._do_refresh()
-        elif t == "status":
-            self._set_status(cmd.get("message", ""))
+            self._status_label.setText("  Refreshing...")
+            self._fetcher.fetch_async(self._on_routes)
+        elif t == "set_hotkey":
+            new_hk = cmd.get("hotkey", "")
+            if new_hk:
+                self._hotkey_entry.setText(new_hk)
+                self._apply_hotkey()
         elif t == "opacity":
-            self.root.wm_attributes("-alpha", max(0.3, min(1.0, float(cmd.get("value", 0.95)))))
+            val = max(0.3, min(1.0, float(cmd.get("value", 0.95))))
+            self.set_opacity(val)
+        elif t == "set_freight_mode":
+            mode = cmd.get("mode", "BULK")
+            if mode in ("BULK", "MIXED"):
+                self._set_freight_mode(mode)
+        elif t == "set_illegal_cargo":
+            self._set_allow_illegal(bool(cmd.get("allow", False)))
+
+    def closeEvent(self, event) -> None:
+        if hasattr(self, '_ipc'):
+            self._ipc.stop()
+        if self._hotkey_stop:
+            self._hotkey_stop.set()
+        super().closeEvent(event)
 
 
-# ── Command file reader (polls a temp .jsonl file written by the parent) ──────
-
-def _cmd_file_reader(cmd_queue: queue.Queue, cmd_file: str) -> None:
-    """Poll a temp file for newline-delimited JSON commands from the parent process."""
-    try:
-        from shared.ipc import ipc_read_incremental
-    except ImportError:
-        ipc_read_incremental = None
-
-    offset = 0
-    while True:
-        try:
-            if not os.path.exists(cmd_file):
-                # Parent deleted the file — signal quit
-                cmd_queue.put({"type": "quit"})
-                return
-
-            if ipc_read_incremental is not None:
-                commands, offset = ipc_read_incremental(cmd_file, offset)
-                for cmd in commands:
-                    cmd_queue.put(cmd)
-                    if cmd.get("type") == "quit":
-                        return
-            else:
-                # Fallback: manual reading with incomplete-line buffering
-                # Open in binary mode to avoid Windows \r\n offset drift.
-                with open(cmd_file, "rb") as f:
-                    f.seek(offset)
-                    raw_bytes = f.read()
-                    new_offset = f.tell()
-                data = raw_bytes.decode("utf-8", errors="replace")
-                # Only process complete lines (ending with newline)
-                if data:
-                    if not data.endswith('\n'):
-                        # Incomplete last line — don't advance past it
-                        last_nl = raw_bytes.rfind(b'\n')
-                        if last_nl == -1:
-                            # No complete lines yet — wait for more data
-                            pass
-                        else:
-                            offset += last_nl + 1
-                            complete = raw_bytes[:last_nl + 1].decode("utf-8", errors="replace")
-                            for raw in complete.splitlines():
-                                raw = raw.strip()
-                                if not raw:
-                                    continue
-                                try:
-                                    cmd = json.loads(raw)
-                                    cmd_queue.put(cmd)
-                                    if cmd.get("type") == "quit":
-                                        return
-                                except Exception:
-                                    log.debug("Failed to parse command JSON: %s", raw)
-                    else:
-                        offset = new_offset
-                        for raw in data.splitlines():
-                            raw = raw.strip()
-                            if not raw:
-                                continue
-                            try:
-                                cmd = json.loads(raw)
-                                cmd_queue.put(cmd)
-                                if cmd.get("type") == "quit":
-                                    return
-                            except Exception:
-                                log.debug("Failed to parse command JSON: %s", raw)
-        except Exception:
-            log.debug("Command file reader error: %s", traceback.format_exc())
-        time.sleep(0.15)
-
-
-# ── Stdin reader (fallback for manual/test use) ───────────────────────────────
-
-def _stdin_reader(cmd_queue: queue.Queue) -> None:
-    try:
-        for raw in sys.stdin:
-            raw = raw.strip()
-            if not raw:
-                continue
-            try:
-                cmd_queue.put(json.loads(raw))
-            except Exception:
-                log.debug("Failed to parse stdin JSON: %s", raw)
-    except Exception:
-        log.debug("Stdin reader error: %s", traceback.format_exc())
-    cmd_queue.put({"type": "quit"})
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    argv = sys.argv[1:]
+    from shared.crash_logger import init_crash_logging
+    _log = init_crash_logging("trade")
+    try:
+        argv = sys.argv[1:]
 
-    def _safe_arg(i, default, type_fn):
-        try:
-            return type_fn(argv[i])
-        except (IndexError, ValueError, TypeError):
-            return default
+        def _safe_arg(i, default, type_fn):
+            try:
+                return type_fn(argv[i])
+            except (IndexError, ValueError, TypeError):
+                return default
 
-    win_x            = _safe_arg(0, 80, int)
-    win_y            = _safe_arg(1, 80, int)
-    win_w            = _safe_arg(2, 1400, int)
-    win_h            = _safe_arg(3, 900, int)
-    refresh_interval = _safe_arg(4, 300.0, float)
-    max_routes       = _safe_arg(5, 500, int)
-    opacity          = _safe_arg(6, 0.95, float)
-    cmd_file         = _safe_arg(7, "", str)
+        win_x = _safe_arg(0, 80, int)
+        win_y = _safe_arg(1, 80, int)
+        win_w = _safe_arg(2, 1400, int)
+        win_h = _safe_arg(3, 1200, int)
+        refresh_interval = _safe_arg(4, 300.0, float)
+        max_routes = _safe_arg(5, 500, int)
+        opacity = _safe_arg(6, 0.95, float)
+        cmd_file = _safe_arg(7, "", str)
 
-    cmd_q = queue.Queue()
+        app = QApplication(sys.argv)
+        apply_theme(app)
 
-    if cmd_file and os.path.exists(cmd_file):
-        threading.Thread(target=_cmd_file_reader, args=(cmd_q, cmd_file),
-                         daemon=True, name="CmdFileReader").start()
-    else:
-        # Fallback: read from stdin (manual/test use)
-        threading.Thread(target=_stdin_reader, args=(cmd_q,),
-                         daemon=True, name="StdinReader").start()
-
-    win = TradeHubWindow(cmd_q, win_x, win_y, win_w, win_h,
-                         refresh_interval, max_routes, opacity)
-    win.run()
+        win = TradeHubWindow(
+            cmd_file=cmd_file,
+            x=win_x, y=win_y, w=win_w, h=win_h,
+            refresh_interval=refresh_interval,
+            max_routes=max_routes,
+            opacity=opacity,
+        )
+        win.show()
+        sys.exit(app.exec())
+    except Exception:
+        _log.critical("FATAL crash in trade main()", exc_info=True)
+        sys.exit(1)

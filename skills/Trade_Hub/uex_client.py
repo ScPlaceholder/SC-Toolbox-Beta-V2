@@ -3,7 +3,12 @@
 UEX Corp API client for Trade Hub.
 Fetches trade route data from https://api.uexcorp.space/2.0
 Thread-safe, with TTL-based caching and background refresh support.
+
+Uses ``shared.http_client.HttpClient`` for HTTP retry/backoff.
 """
+from __future__ import annotations
+
+import sqlite3
 import threading
 import time
 import logging
@@ -11,11 +16,11 @@ import traceback
 from dataclasses import dataclass
 from typing import Optional, List
 
-import requests
+import shared.path_setup  # noqa: E402  # centralised path config
+from shared.api_config import UEX_BASE_URL as UEX_BASE, UEX_USER_AGENT, UEX_HEADERS, UEX_TIMEOUT, CACHE_TTL_SHORT
+from shared.http_client import HttpClient
 
 logger = logging.getLogger(__name__)
-
-UEX_BASE = "https://api.uexcorp.space/2.0"
 
 
 @dataclass
@@ -35,6 +40,7 @@ class RouteData:
     margin: float = 0.0        # Per-SCU profit
     margin_pct: float = 0.0
     score: float = 0.0
+    is_illegal: bool = False
 
     def effective_scu(self, ship_scu: int = 0) -> int:
         if self.scu_available <= 0:
@@ -65,7 +71,7 @@ class ShipData:
 class UEXClient:
     """Thread-safe UEX Corp API client with TTL caching."""
 
-    def __init__(self, cache_ttl: float = 300.0):
+    def __init__(self, cache_ttl: float = CACHE_TTL_SHORT) -> None:
         self._cache_routes: Optional[List[RouteData]] = None
         self._cache_ships: Optional[List[ShipData]] = None
         self._cache_routes_time: float = 0.0
@@ -73,23 +79,17 @@ class UEXClient:
         self._cache_ttl = cache_ttl
         self._lock = threading.Lock()
         self._fetching_routes = False
-        self._session = requests.Session()
-        self._session.headers.update({
-            "User-Agent": "WingmanAI-TradeHub/1.0",
-            "Accept": "application/json",
-        })
+        self._client = HttpClient(
+            UEX_BASE, headers=UEX_HEADERS, timeout=UEX_TIMEOUT,
+        )
 
-    def close(self):
-        """Close the underlying HTTP session."""
-        try:
-            self._session.close()
-        except Exception:
-            pass
+    def close(self) -> None:
+        """No-op — HttpClient uses stdlib urllib (no persistent session)."""
 
-    def __enter__(self):
+    def __enter__(self) -> UEXClient:
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *exc) -> None:
         self.close()
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ class UEXClient:
 
         return ships
 
-    def refresh_async(self, callback=None):
+    def refresh_async(self, callback=None) -> None:
         """
         Fetch routes in a background thread.
         Tries the local UEXCorp SQLite DB first (same data, no extra API call).
@@ -181,7 +181,7 @@ class UEXClient:
                     if routes:
                         logger.info(f"[TradeHub] Loaded {len(routes)} routes from local DB")
                         return routes, "Local DB"
-            except Exception as exc:
+            except (sqlite3.Error, OSError) as exc:
                 logger.warning("[TradeHub] Local DB read failed: %s\n%s", exc, traceback.format_exc())
 
         # Fall back to live API
@@ -194,47 +194,42 @@ class UEXClient:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _fetch_routes(self) -> List[RouteData]:
-        try:
-            resp = self._session.get(f"{UEX_BASE}/commodities_routes", timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            raw = data.get("data", [])
-            routes = [self._normalize_route(r) for r in raw]
-            routes = [r for r in routes if r.commodity and r.margin > 0]
-            routes.sort(key=lambda x: x.score, reverse=True)
-            logger.info(f"[TradeHub] Fetched {len(routes)} profitable routes from UEX Corp")
-            return routes
-        except Exception as exc:
-            logger.error(f"[TradeHub] Failed to fetch routes: {exc}")
+        result = self._client.get_json("/commodities_routes")
+        if not result.ok:
+            logger.error("[TradeHub] Failed to fetch routes: %s", result.error)
             with self._lock:
                 return self._cache_routes or []
+        raw = result.data.get("data", []) if isinstance(result.data, dict) else result.data
+        routes = [self._normalize_route(r) for r in (raw or [])]
+        routes = [r for r in routes if r.commodity and r.margin > 0]
+        routes.sort(key=lambda x: x.score, reverse=True)
+        logger.info("[TradeHub] Fetched %d profitable routes from UEX Corp", len(routes))
+        return routes
 
     def _fetch_ships(self) -> List[ShipData]:
-        try:
-            resp = self._session.get(f"{UEX_BASE}/vehicles", timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            ships = []
-            for r in data.get("data", []):
-                scu = int(
-                    r.get("scu", 0)
-                    or r.get("cargo_capacity", 0)
-                    or r.get("scu_cargo", 0)
-                    or 0
-                )
-                name = r.get("name", "").strip()
-                if scu > 0 and name:
-                    ships.append(ShipData(
-                        name=name,
-                        scu=scu,
-                        manufacturer=r.get("manufacturer_name", r.get("manufacturer", "")),
-                    ))
-            ships.sort(key=lambda x: x.name)
-            return ships
-        except Exception as exc:
-            logger.error(f"[TradeHub] Failed to fetch ships: {exc}")
+        result = self._client.get_json("/vehicles")
+        if not result.ok:
+            logger.error("[TradeHub] Failed to fetch ships: %s", result.error)
             with self._lock:
                 return self._cache_ships or []
+        raw = result.data.get("data", []) if isinstance(result.data, dict) else result.data
+        ships = []
+        for r in (raw or []):
+            scu = int(
+                r.get("scu", 0)
+                or r.get("cargo_capacity", 0)
+                or r.get("scu_cargo", 0)
+                or 0
+            )
+            name = r.get("name", "").strip()
+            if scu > 0 and name:
+                ships.append(ShipData(
+                    name=name,
+                    scu=scu,
+                    manufacturer=r.get("manufacturer_name", r.get("manufacturer", "")),
+                ))
+        ships.sort(key=lambda x: x.name)
+        return ships
 
     def _normalize_route(self, r: dict) -> RouteData:
         """Map a raw API route dict → RouteData, handling multiple field-name conventions."""

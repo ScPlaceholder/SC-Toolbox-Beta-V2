@@ -1,0 +1,289 @@
+# German translations for SC_Toolbox.
+# Copyright (C) SC_Toolbox Contributors
+# This file is distributed under the same license as the SC_Toolbox package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: SC_Toolbox 1.2\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-28 12:28+0000\n"
+"PO-Revision-Date: 2026-03-28 12:30+0000\n"
+"Last-Translator: Test <test@example.com>\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# ── Launcher UI ──
+
+msgid "PLEDGE STORE"
+msgstr "SHOP"
+
+msgid "Ready"
+msgstr "Bereit"
+
+msgid "Python not found!"
+msgstr "Python nicht gefunden!"
+
+msgid "DISCORD"
+msgstr "DISCORD"
+
+msgid "Available"
+msgstr "Verfügbar"
+
+msgid "Not installed"
+msgstr "Nicht installiert"
+
+msgid "Running"
+msgstr "Läuft"
+
+msgid "Hidden"
+msgstr "Versteckt"
+
+msgid "Launch"
+msgstr "Starten"
+
+# ── Settings panel ──
+
+msgid "LANGUAGE"
+msgstr "SPRACHE"
+
+msgid "KEYBINDS"
+msgstr "TASTENBELEGUNG"
+
+msgid "Format: <shift>+1  <ctrl>+F2  <alt>+q  F5"
+msgstr "Format: <shift>+1  <ctrl>+F2  <alt>+q  F5"
+
+msgid "Hotkey:"
+msgstr "Taste:"
+
+msgid "Apply Hotkeys"
+msgstr "Tasten übernehmen"
+
+msgid "Hotkeys applied"
+msgstr "Tasten übernommen"
+
+msgid "Invalid hotkey"
+msgstr "Ungültige Taste"
+
+msgid "Error"
+msgstr "Fehler"
+
+msgid "Settings & Keybinds"
+msgstr "Einstellungen & Tasten"
+
+msgid "Close Settings"
+msgstr "Einstellungen schließen"
+
+msgid "Window positions are stored per-skill in settings."
+msgstr "Fensterpositionen werden pro Werkzeug gespeichert."
+
+msgid "Restart tools to apply"
+msgstr "Werkzeuge neu starten"
+
+msgid "pynput not installed — hotkeys disabled"
+msgstr "pynput nicht installiert — Hotkeys deaktiviert"
+
+msgid "Hotkey error"
+msgstr "Hotkey-Fehler"
+
+# ── Skill names ──
+
+msgid "DPS Calculator"
+msgstr "DPS-Rechner"
+
+msgid "Cargo Loader"
+msgstr "Frachtlader"
+
+msgid "Mission Database"
+msgstr "Missionsdatenbank"
+
+msgid "Mining Loadout"
+msgstr "Bergbau-Ausrüstung"
+
+msgid "Market Finder"
+msgstr "Marktsuche"
+
+msgid "Trade Hub"
+msgstr "Handelszentrale"
+
+# ── DPS Calculator ──
+
+msgid "#DPS CALCULATOR"
+msgstr "#DPS-RECHNER"
+
+msgid "LIVE"
+msgstr "LIVE"
+
+msgid "Ship"
+msgstr "Schiff"
+
+msgid "Loading..."
+msgstr "Laden..."
+
+msgid "Fetching data from erkul.games..."
+msgstr "Daten von erkul.games abrufen..."
+
+msgid "Refreshing from erkul.games..."
+msgstr "Daten von erkul.games aktualisieren..."
+
+msgid "Select a ship to view stats."
+msgstr "Schiff auswählen, um Werte anzuzeigen."
+
+msgid "No weapon slots."
+msgstr "Keine Waffenplätze."
+
+msgid "WEAPONS"
+msgstr "WAFFEN"
+
+msgid "MISSILE & BOMB RACKS"
+msgstr "RAKETEN & BOMBEN"
+
+msgid "SHIELDS"
+msgstr "SCHILDE"
+
+msgid "COOLERS"
+msgstr "KÜHLER"
+
+msgid "RADARS"
+msgstr "RADARE"
+
+msgid "WEAPON DPS"
+msgstr "WAFFEN-DPS"
+
+msgid "HULL"
+msgstr "HÜLLE"
+
+msgid "SHIP SPECS"
+msgstr "SCHIFFSDATEN"
+
+msgid "Defenses / Systems"
+msgstr "Verteidigung / Systeme"
+
+msgid "Power & Propulsion"
+msgstr "Energie & Antrieb"
+
+msgid "Filter"
+msgstr "Filter"
+
+msgid "Select component or"
+msgstr "Komponente wählen oder"
+
+msgid "leave empty"
+msgstr "leer lassen"
+
+msgid "(empty — click to select)"
+msgstr "(leer — klicken zum Auswählen)"
+
+# ── Cargo Loader ──
+
+msgid "CARGO FILTER"
+msgstr "FRACHTFILTER"
+
+msgid "CARGO CONFIGURATION"
+msgstr "FRACHTKONFIGURATION"
+
+msgid "ASSIGNMENTS"
+msgstr "ZUWEISUNGEN"
+
+msgid "Capacity"
+msgstr "Kapazität"
+
+msgid "Optimize"
+msgstr "Optimieren"
+
+msgid "Clear"
+msgstr "Leeren"
+
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+msgid "Select a ship to begin."
+msgstr "Schiff auswählen, um zu beginnen."
+
+msgid "PLANNING MODE"
+msgstr "PLANUNGSMODUS"
+
+msgid "COMMODITY BRUSH"
+msgstr "WARENPINSEL"
+
+msgid "No brush"
+msgstr "Kein Pinsel"
+
+msgid "Clear Brush"
+msgstr "Pinsel löschen"
+
+# ── Trade Hub ──
+
+msgid "VIEW MODE:"
+msgstr "ANSICHT:"
+
+msgid "VEHICLE:"
+msgstr "FAHRZEUG:"
+
+msgid "ROUTES"
+msgstr "ROUTEN"
+
+msgid "LOOPS"
+msgstr "SCHLEIFEN"
+
+msgid "SEARCH"
+msgstr "SUCHE"
+
+msgid "Initializing..."
+msgstr "Initialisierung..."
+
+msgid "Loading trade data..."
+msgstr "Handelsdaten laden..."
+
+msgid "CALCULATE"
+msgstr "BERECHNEN"
+
+# ── Mining Loadout ──
+
+msgid "LOADOUT STATS"
+msgstr "AUSRÜSTUNGSWERTE"
+
+msgid "LOADOUT PRICE"
+msgstr "AUSRÜSTUNGSPREIS"
+
+msgid "Select a ship and equipment above"
+msgstr "Schiff und Ausrüstung oben auswählen"
+
+msgid "Fetching UEX data..."
+msgstr "UEX-Daten abrufen..."
+
+msgid "API fetch failed — check internet"
+msgstr "API-Abruf fehlgeschlagen — Internet prüfen"
+
+# ── Mission Database ──
+
+msgid "SCMDB // MISSION DATABASE"
+msgstr "SCMDB // MISSIONSDATENBANK"
+
+msgid "Loading data..."
+msgstr "Daten laden..."
+
+msgid "Missions"
+msgstr "Missionen"
+
+msgid "Fabricator"
+msgstr "Fabrikator"
+
+msgid "Resources"
+msgstr "Ressourcen"
+
+# ── Market Finder ──
+
+msgid "MARKET FINDER"
+msgstr "MARKTSUCHE"
+
+msgid "Search items..."
+msgstr "Gegenstände suchen..."
+
+msgid "Select an item to view details"
+msgstr "Gegenstand auswählen für Details"
+
+msgid "Loading prices..."
+msgstr "Preise laden..."

@@ -1,0 +1,68 @@
+# Craft Database — English translations
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "Craft Database"
+msgstr "Craft Database"
+
+msgid "Filters"
+msgstr "Filters"
+
+msgid "Ownable"
+msgstr "Ownable"
+
+msgid "BLUEPRINT TYPE"
+msgstr "BLUEPRINT TYPE"
+
+msgid "RESOURCE NEEDED"
+msgstr "RESOURCE NEEDED"
+
+msgid "MISSION TYPE"
+msgstr "MISSION TYPE"
+
+msgid "LOCATION"
+msgstr "LOCATION"
+
+msgid "CONTRACTOR"
+msgstr "CONTRACTOR"
+
+msgid "Clear all filters"
+msgstr "Clear all filters"
+
+msgid "INGREDIENTS"
+msgstr "INGREDIENTS"
+
+msgid "CRAFT TIME"
+msgstr "CRAFT TIME"
+
+msgid "GLOBAL QUALITY"
+msgstr "GLOBAL QUALITY"
+
+msgid "PARTS"
+msgstr "PARTS"
+
+msgid "STAT SUMMARY"
+msgstr "STAT SUMMARY"
+
+msgid "LAWFUL"
+msgstr "LAWFUL"
+
+msgid "UNLAWFUL"
+msgstr "UNLAWFUL"
+
+msgid "Loading blueprints..."
+msgstr "Loading blueprints..."
+
+msgid "results"
+msgstr "results"
+
+msgid "missions"
+msgstr "missions"
+
+msgid "BLUEPRINTS"
+msgstr "BLUEPRINTS"
+
+msgid "Search by name, resource, contractor..."
+msgstr "Search by name, resource, contractor..."
