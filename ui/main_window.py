@@ -161,6 +161,8 @@ class LauncherWindow(SCWindow):
         grid_rows: int = 3,
         grid_cols: int = 2,
         grid_layout: Optional[Dict[str, str]] = None,
+        scroll_on_hover: bool = False,
+        ui_scale: float = 1.0,
     ) -> None:
         super().__init__(
             title="SC_Toolbox",
@@ -180,6 +182,8 @@ class LauncherWindow(SCWindow):
         self._grid_rows = grid_rows
         self._grid_cols = grid_cols
         self._grid_layout = grid_layout or {}
+        self._scroll_on_hover = scroll_on_hover
+        self._ui_scale = ui_scale
         self._settings_popup: Optional[SettingsPopup] = None
         self._update_bubble: Optional[UpdateBubble] = None
 
@@ -361,6 +365,8 @@ class LauncherWindow(SCWindow):
             current_language=self._current_language,
             available_languages=self._available_languages,
             on_apply=self._on_apply_settings,
+            scroll_on_hover=self._scroll_on_hover,
+            ui_scale=self._ui_scale,
         )
         self._settings_popup.show()
 

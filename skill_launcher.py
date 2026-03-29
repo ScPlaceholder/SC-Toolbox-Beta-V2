@@ -96,6 +96,11 @@ class SCToolboxApp:
         raw_settings = _load_settings_raw()
         self._settings = LauncherSettings.from_dict(raw_settings, self._skills)
 
+        # ── Restore saved launcher opacity ──
+        # The CLI arg carries whatever WingmanAI last passed; override it with
+        # the opacity the user set via the title-bar slider (persisted on exit).
+        geometry.opacity = self._settings.launcher_opacity
+
         # ── Initialise i18n ──
         i18n.init(self._settings.language, os.path.join(_skill_dir, "locales"))
 
@@ -117,7 +122,11 @@ class SCToolboxApp:
 
         # Determine availability and register processes
         self._availability: Dict[str, bool] = {}
-        lang_env = {"SC_TOOLBOX_LANG": self._settings.language}
+        lang_env = {
+            "SC_TOOLBOX_LANG": self._settings.language,
+        }
+        if self._settings.ui_scale != 1.0:
+            lang_env["QT_SCALE_FACTOR"] = str(self._settings.ui_scale)
         for skill in self._skills:
             script_path = resolve_script_path(skill, _skill_dir)
             available = script_path is not None
@@ -157,6 +166,8 @@ class SCToolboxApp:
             grid_rows=self._settings.grid_rows,
             grid_cols=self._settings.grid_cols,
             grid_layout=self._settings.grid_layout,
+            scroll_on_hover=self._settings.scroll_on_hover,
+            ui_scale=self._settings.ui_scale,
         )
 
         # ── Thread-safe dispatch queue ──
@@ -250,10 +261,17 @@ class SCToolboxApp:
                     lambda s=s: self._toggle_skill(s))
         return bindings
 
-    def _apply_settings(self, settings_dict: dict) -> None:
-        """Called by the settings popup when Apply & Restart is clicked.
+    def _save_launcher_opacity(self) -> None:
+        """Persist the current window opacity to the settings file."""
+        self._settings.launcher_opacity = self._window.windowOpacity()
+        _save_settings_raw(self._settings.to_dict())
 
-        Saves all settings to disk and relaunches the launcher process.
+    def _apply_settings(self, settings_dict: dict) -> None:
+        """Called by the settings popup when Apply is clicked.
+
+        Saves all settings to disk and rebuilds the UI in-place.
+        Only does a full process relaunch when QT_SCALE_FACTOR changes
+        (since that must be set before QApplication creation).
         """
         # Update hotkeys
         new_launcher = settings_dict.get("hotkey_launcher", self._launcher_hotkey)
@@ -276,16 +294,89 @@ class SCToolboxApp:
         # Update disabled skills
         self._settings.disabled_skills = settings_dict.get("disabled_skills", [])
 
+        # Update scroll on hover
+        self._settings.scroll_on_hover = settings_dict.get("scroll_on_hover", self._settings.scroll_on_hover)
+
         # Update language
         new_lang = settings_dict.get("language", self._settings.language)
         self._settings.language = new_lang
         self._settings.raw["language"] = new_lang
 
+        # Update UI scale
+        old_scale = self._settings.ui_scale
+        self._settings.ui_scale = settings_dict.get("ui_scale", self._settings.ui_scale)
+
+        # Capture current opacity so it survives
+        self._settings.launcher_opacity = self._window.windowOpacity()
+
         # Save to disk
         _save_settings_raw(self._settings.to_dict())
 
-        # Relaunch
-        self._relaunch()
+        # UI scale requires a full process restart (QT_SCALE_FACTOR is read
+        # once at QApplication creation).  Everything else can be rebuilt
+        # in-place without the flicker of spawning a new process.
+        if self._settings.ui_scale != old_scale:
+            self._relaunch()
+        else:
+            self._rebuild_ui()
+
+    def _rebuild_ui(self) -> None:
+        """Tear down and recreate the window + hotkeys without spawning a new
+        process.  This is nearly instant compared to a full relaunch."""
+        # Remember position / size / opacity of the current window
+        pos = self._window.pos()
+        size = self._window.size()
+        opacity = self._window.windowOpacity()
+
+        # Stop hotkeys (will be re-bound below)
+        self._stop_hotkeys()
+
+        # Reload i18n in case language changed
+        i18n.init(self._settings.language, os.path.join(_skill_dir, "locales"))
+
+        # Update the launcher hotkey reference
+        self._launcher_hotkey = self._settings.hotkey_launcher
+
+        # Close the old window (doesn't quit the app)
+        self._window.close()
+
+        # Build a fresh geometry from the old position
+        geom = WindowGeometry(
+            x=pos.x(), y=pos.y(),
+            w=size.width(), h=size.height(),
+            opacity=opacity,
+        )
+
+        # Create the new window
+        self._window = LauncherWindow(
+            geometry=geom,
+            skills=self._skills,
+            availability=self._availability,
+            launcher_hotkey=self._launcher_hotkey,
+            python_info=self._python_info,
+            on_toggle_skill=self._toggle_skill,
+            on_apply_settings=self._apply_settings,
+            on_shutdown=self._shutdown,
+            current_language=self._settings.language,
+            available_languages=i18n.available_languages(_skill_dir),
+            disabled_skills=self._settings.disabled_skills,
+            grid_rows=self._settings.grid_rows,
+            grid_cols=self._settings.grid_cols,
+            grid_layout=self._settings.grid_layout,
+            scroll_on_hover=self._settings.scroll_on_hover,
+            ui_scale=self._settings.ui_scale,
+        )
+
+        # Restore tile states for any skills that are already running
+        for skill in self._skills:
+            mp = self._pm.get(skill.id)
+            if mp:
+                self._window.update_tile(skill.id, mp.running, mp.visible)
+
+        self._window.show()
+
+        # Restart hotkeys with updated bindings
+        self._start_hotkeys()
 
     def _relaunch(self) -> None:
         """Stop everything and spawn a fresh launcher process, then quit."""
@@ -322,13 +413,16 @@ class SCToolboxApp:
             logger.error("Failed to relaunch: %s", exc)
             return
 
-        # Quit the current process
+        # Quit the current process.
+        # Delay close/quit by ~400ms to give the new process time to show its
+        # window before ours disappears, reducing the visible blank gap.
         self._running.clear()
         self._queue_timer.stop()
-        self._window.close()
+        self._window.setEnabled(False)
+        QTimer.singleShot(400, self._window.close)
         app = QApplication.instance()
         if app:
-            app.quit()
+            QTimer.singleShot(500, app.quit)
 
     # ── IPC command watcher ──────────────────────────────────────────────
 
@@ -389,6 +483,7 @@ class SCToolboxApp:
     # ── Shutdown ─────────────────────────────────────────────────────────
 
     def _shutdown(self) -> None:
+        self._save_launcher_opacity()
         self._running.clear()
         self._queue_timer.stop()
         self._stop_hotkeys()
@@ -433,6 +528,16 @@ def main() -> None:
         opacity=_float(4, 0.95),
     )
     cmd_file = args[5] if len(args) > 5 else os.devnull
+
+    # Apply UI scale factor before QApplication is created
+    raw = _load_settings_raw()
+    ui_scale = raw.get("ui_scale", 1.0)
+    try:
+        ui_scale = max(0.75, min(3.0, float(ui_scale)))
+    except (TypeError, ValueError):
+        ui_scale = 1.0
+    if ui_scale != 1.0:
+        os.environ["QT_SCALE_FACTOR"] = str(ui_scale)
 
     # Create QApplication first (required before any Qt widgets)
     qt_app = QApplication(sys.argv)
