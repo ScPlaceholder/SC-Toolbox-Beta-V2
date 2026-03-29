@@ -86,6 +86,13 @@ def _open_lock(lock_path: str):
     if lf.tell() == 0:
         lf.write(b'\x00')
         lf.flush()
+    else:
+        # Refresh mtime so _recover_stale_lock doesn't treat an actively-used
+        # lock file as orphaned just because no new bytes were written.
+        try:
+            os.utime(lock_path, None)
+        except OSError:
+            pass
     return lf
 
 

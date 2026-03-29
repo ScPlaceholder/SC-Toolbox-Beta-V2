@@ -7,12 +7,12 @@ Grid Layout (customizable NxM grid), and Language selection.
 import logging
 from typing import Callable, Dict, List, Optional
 
-from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QIntValidator
+from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QEvent
+from PySide6.QtGui import QIntValidator, QWheelEvent
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFrame,
     QSizePolicy, QComboBox, QPushButton, QCheckBox, QGridLayout,
-    QScrollArea, QSpinBox,
+    QScrollArea, QSpinBox, QSlider,
 )
 
 from shared.config_models import SkillConfig
@@ -134,6 +134,82 @@ def _btn_qss(bg: str, bg_hover: str, color: str, color_hover: str = P.fg_bright,
     """
 
 
+# ── Scroll-on-hover helper ─────────────────────────────────────────────────────
+
+from PySide6.QtCore import QObject as _QObject
+
+
+class _HoverWheelFilter(_QObject):
+    """App-level event filter that intercepts wheel events and redirects
+    them to QSpinBox / QSlider widgets under the cursor, even when those
+    widgets don't have focus.
+
+    Installed on ``QApplication.instance()`` so it sees every event before
+    any widget.  Only active when ``_enabled`` is True and the cursor is
+    inside the owning popup.
+    """
+
+    def __init__(self, popup: QWidget):
+        super().__init__(popup)
+        self._enabled = False
+        self._popup = popup
+        self._processing = False  # guard against re-entrant sendEvent
+
+    def set_enabled(self, on: bool):
+        self._enabled = on
+
+    def install(self):
+        """Install on the running QApplication."""
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if not self._enabled or self._processing:
+            return False
+        if event.type() != QEvent.Wheel:
+            return False
+
+        # Only act when the cursor is inside our popup
+        if not self._popup.isVisible():
+            return False
+
+        from PySide6.QtWidgets import QApplication
+        global_pos = event.globalPosition().toPoint()
+        widget = QApplication.widgetAt(global_pos)
+        if not widget:
+            return False
+
+        # Check the widget itself and its ancestors for a spinbox or slider
+        target = widget
+        while target is not None:
+            if isinstance(target, (QSpinBox, QSlider)):
+                # Found one — give it focus and forward the wheel event
+                self._processing = True
+                target.setFocus(Qt.OtherFocusReason)
+                # Build a new wheel event in the target's local coords
+                local_pos = target.mapFromGlobal(global_pos)
+                redirected = QWheelEvent(
+                    local_pos,
+                    global_pos,
+                    event.pixelDelta(),
+                    event.angleDelta(),
+                    event.buttons(),
+                    event.modifiers(),
+                    event.phase(),
+                    event.inverted(),
+                )
+                QApplication.sendEvent(target, redirected)
+                self._processing = False
+                return True  # consume original
+            if target is self._popup:
+                break  # don't walk past the popup
+            target = target.parentWidget()
+
+        return False
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Settings Popup
 # ══════════════════════════════════════════════════════════════════════════════
@@ -155,6 +231,8 @@ class SettingsPopup(QWidget):
         current_language: str = "en",
         available_languages: Optional[List[str]] = None,
         on_apply: Optional[Callable[[dict], None]] = None,
+        scroll_on_hover: bool = False,
+        ui_scale: float = 1.0,
         opacity: float = 0.95,
     ) -> None:
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -177,9 +255,19 @@ class SettingsPopup(QWidget):
         self._grid_rows = grid_rows
         self._grid_cols = grid_cols
         self._grid_layout: Dict[str, str] = dict(grid_layout)
+        self._scroll_on_hover = scroll_on_hover
+        self._ui_scale = ui_scale
         self._language = current_language
 
+        # Scroll-on-hover event filter (app-level)
+        self._wheel_filter = _HoverWheelFilter(self)
+        self._wheel_filter.set_enabled(scroll_on_hover)
+
         self._build_ui()
+
+        # Install on QApplication so it intercepts all wheel events
+        self._wheel_filter.install()
+
         self._select_tab(0)
         self._position_near_parent()
 
@@ -325,7 +413,7 @@ class SettingsPopup(QWidget):
         cancel_btn.clicked.connect(self.close)
         b_lay.addWidget(cancel_btn)
 
-        apply_btn = SCButton(_t("Apply & Restart"), bottom, glow_color=P.green)
+        apply_btn = SCButton(_t("Apply"), bottom, glow_color=P.green)
         apply_btn.setStyleSheet(_btn_qss(
             "#1a3020", "#1f3a28", P.green, font_size="8pt", padding="5px 14px",
         ))
@@ -420,6 +508,84 @@ class SettingsPopup(QWidget):
             label = f"{skill.icon} {skill.name}"
             enabled = skill.id not in self._disabled
             self._make_tool_row(c_lay, skill.id, label, self._skill_hotkeys.get(skill.id, skill.hotkey), show_toggle=True, enabled=enabled)
+
+        # ── Scroll on hover toggle ────────────────────────────────────────
+        scroll_sep = QFrame()
+        scroll_sep.setFixedHeight(1)
+        scroll_sep.setStyleSheet(f"background-color: {P.border};")
+        c_lay.addWidget(scroll_sep)
+
+        scroll_row = QWidget()
+        scroll_row.setFixedHeight(32)
+        scroll_row.setStyleSheet("background: transparent;")
+        scr_lay = QHBoxLayout(scroll_row)
+        scr_lay.setSpacing(8)
+        scr_lay.setContentsMargins(0, 0, 0, 0)
+
+        scroll_lbl = QLabel(_t("Scroll on hover"))
+        scroll_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        scr_lay.addWidget(scroll_lbl)
+
+        scroll_desc = QLabel(_t("Mouse wheel adjusts sliders and spinboxes on hover"))
+        scroll_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        scr_lay.addWidget(scroll_desc, stretch=1)
+
+        self._scroll_hover_check = QCheckBox()
+        self._scroll_hover_check.setChecked(self._scroll_on_hover)
+        self._scroll_hover_check.setStyleSheet(_TOGGLE_QSS)
+        self._scroll_hover_check.toggled.connect(self._wheel_filter.set_enabled)
+        scr_lay.addWidget(self._scroll_hover_check)
+
+        c_lay.addWidget(scroll_row)
+
+        # ── UI Scale ─────────────────────────────────────────────────────
+        scale_sep = QFrame()
+        scale_sep.setFixedHeight(1)
+        scale_sep.setStyleSheet(f"background-color: {P.border};")
+        c_lay.addWidget(scale_sep)
+
+        scale_row = QWidget()
+        scale_row.setFixedHeight(32)
+        scale_row.setStyleSheet("background: transparent;")
+        sc_lay = QHBoxLayout(scale_row)
+        sc_lay.setSpacing(8)
+        sc_lay.setContentsMargins(0, 0, 0, 0)
+
+        scale_lbl = QLabel(_t("UI Scale"))
+        scale_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        sc_lay.addWidget(scale_lbl)
+
+        scale_desc = QLabel(_t("Scale all UI elements for high-res monitors"))
+        scale_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        sc_lay.addWidget(scale_desc, stretch=1)
+
+        self._scale_combo = QComboBox()
+        self._scale_combo.setStyleSheet(_COMBO_QSS)
+        self._scale_combo.setFixedWidth(80)
+        self._scale_combo.setFixedHeight(24)
+        _scale_values = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+        for val in _scale_values:
+            self._scale_combo.addItem(f"{val:.2g}x", val)
+        idx = self._scale_combo.findData(self._ui_scale)
+        if idx >= 0:
+            self._scale_combo.setCurrentIndex(idx)
+        else:
+            self._scale_combo.setCurrentIndex(1)  # default 1.0x
+        sc_lay.addWidget(self._scale_combo)
+
+        c_lay.addWidget(scale_row)
 
         c_lay.addStretch(1)
         scroll.setWidget(content)
@@ -704,8 +870,14 @@ class SettingsPopup(QWidget):
                 grid_layout[cell_key] = sid
         result["grid_layout"] = grid_layout
 
+        # Scroll on hover
+        result["scroll_on_hover"] = self._scroll_hover_check.isChecked()
+
         # Language
         result["language"] = self._lang_combo.currentData() or "en"
+
+        # UI Scale
+        result["ui_scale"] = self._scale_combo.currentData() or 1.0
 
         # Validate hotkeys
         for key, val in [("launcher", result["hotkey_launcher"])] + [(k, v) for k, v in skill_hotkeys.items()]:
@@ -713,13 +885,12 @@ class SettingsPopup(QWidget):
                 self._show_status(f"\u2717 {_t('Invalid hotkey')}: {val}", P.red)
                 return
 
-        self._show_status(f"\u2713 {_t('Applying settings and restarting...')}", P.green)
+        # Close popup before relaunch so it doesn't float orphaned
+        # after the parent launcher window has already closed.
+        self.close()
 
         if self._on_apply:
             self._on_apply(result)
-
-        self.applied.emit(result)
-        QTimer.singleShot(300, self.close)
 
     def _show_status(self, msg: str, color: str):
         self._status_label.setText(msg)

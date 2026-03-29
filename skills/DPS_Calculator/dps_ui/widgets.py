@@ -118,6 +118,22 @@ class ComponentTable(QWidget):
 
         row_lay.addStretch(1)
 
+        if item:
+            cart_btn = QPushButton("\U0001f6d2", container)
+            cart_btn.setFixedSize(22, 22)
+            cart_btn.setToolTip("Check UEX market price")
+            cart_btn.setCursor(Qt.PointingHandCursor)
+            cart_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent; color: {FG_DIM};
+                    border: none; font-size: 10pt; padding: 0px;
+                }}
+                QPushButton:hover {{ color: {ACCENT}; }}
+            """)
+            _it = item
+            cart_btn.clicked.connect(lambda checked=False, it=_it: self._open_market(it))
+            row_lay.addWidget(cart_btn)
+
         arrow = QLabel("\u25bc", container)
         arrow.setStyleSheet(
             f"color: {FG_DIM}; font-family: Consolas; font-size: 7pt; "
@@ -126,6 +142,13 @@ class ComponentTable(QWidget):
         row_lay.addWidget(arrow)
 
         self._row_layout.addWidget(container)
+
+    def _open_market(self, item: dict):
+        from dps_ui.market_bubble import MarketBubble
+        bubble = MarketBubble(self.window(), item)
+        bubble.show()
+        bubble.raise_()
+        bubble.activateWindow()
 
     def _open_picker(self):
         popup = ComponentPickerPopup(
@@ -314,7 +337,7 @@ class ComponentPickerPopup(QDialog):
 
     def _populate(self):
         self._model.clear()
-        headers = [_("Sz")] + [h for h, *_ in self._columns]
+        headers = [_("Sz")] + [h for h, *_ in self._columns] + ["\U0001f6d2"]
         self._model.setHorizontalHeaderLabels(headers)
 
         for item in self._items:
@@ -340,10 +363,20 @@ class ComponentPickerPopup(QDialog):
                 si.setTextAlignment(align | Qt.AlignVCenter)
                 row_items.append(si)
 
+            # Cart column — store item ref for click handler
+            cart_item = QStandardItem("\U0001f6d2")
+            cart_item.setData(item, Qt.UserRole + 2)
+            cart_item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+            cart_item.setForeground(QColor(FG_DIM))
+            row_items.append(cart_item)
+
             self._model.appendRow(row_items)
 
         # Resize columns
         self._table.resizeColumnsToContents()
+        # Fix cart column width
+        cart_col = len(self._columns) + 1
+        self._table.setColumnWidth(cart_col, 30)
 
     def _apply_filter(self, text):
         self._proxy.setFilterFixedString(text)
@@ -354,9 +387,22 @@ class ComponentPickerPopup(QDialog):
                          else Qt.AscendingOrder)
 
     def _on_row_click(self, proxy_index: QModelIndex):
+        cart_col = len(self._columns) + 1
+        if proxy_index.column() == cart_col:
+            source_row = self._proxy.mapToSource(proxy_index).row()
+            if 0 <= source_row < len(self._items):
+                self._open_market(self._items[source_row])
+            return
         source_row = self._proxy.mapToSource(proxy_index).row()
         if 0 <= source_row < len(self._items):
             self._select(self._items[source_row])
+
+    def _open_market(self, item: dict):
+        from dps_ui.market_bubble import MarketBubble
+        bubble = MarketBubble(self.window(), item)
+        bubble.show()
+        bubble.raise_()
+        bubble.activateWindow()
 
     def _select(self, item):
         self._result_item = item

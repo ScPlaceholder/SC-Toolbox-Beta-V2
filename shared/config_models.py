@@ -122,8 +122,11 @@ class SkillConfig:
 class LauncherSettings:
     hotkey_launcher: str = "<shift>+`"
     language: str = "en"
+    scroll_on_hover: bool = False  # scroll wheel adjusts spinboxes/sliders on hover
     grid_rows: int = 3
     grid_cols: int = 2
+    launcher_opacity: float = 0.95  # persisted across sessions
+    ui_scale: float = 1.0  # QT_SCALE_FACTOR for high-DPI monitors (0.75 – 3.0)
     disabled_skills: list[str] = field(default_factory=list)
     grid_layout: dict[str, str] = field(default_factory=dict)  # "row,col" -> skill_id
     skill_hotkeys: dict[str, str] = field(default_factory=dict)
@@ -134,8 +137,11 @@ class LauncherSettings:
     def from_dict(cls, data: dict[str, Any], skills: list[SkillConfig]) -> LauncherSettings:
         hotkey_launcher = str(data.get("hotkey_launcher", "<shift>+`"))
         language = str(data.get("language", "en"))
+        scroll_on_hover = bool(data.get("scroll_on_hover", False))
         grid_rows = _clamp(_safe_int(data.get("grid_rows", 3), 3), 1, 10)
         grid_cols = _clamp(_safe_int(data.get("grid_cols", 2), 2), 1, 10)
+        launcher_opacity = max(0.3, min(1.0, _safe_float(data.get("launcher_opacity", 0.95), 0.95)))
+        ui_scale = max(0.75, min(3.0, _safe_float(data.get("ui_scale", 1.0), 1.0)))
         disabled_skills = list(data.get("disabled_skills", []))
         grid_layout = dict(data.get("grid_layout", {}))
 
@@ -151,8 +157,11 @@ class LauncherSettings:
         return cls(
             hotkey_launcher=hotkey_launcher,
             language=language,
+            scroll_on_hover=scroll_on_hover,
             grid_rows=grid_rows,
             grid_cols=grid_cols,
+            launcher_opacity=launcher_opacity,
+            ui_scale=ui_scale,
             disabled_skills=disabled_skills,
             grid_layout=grid_layout,
             skill_hotkeys=skill_hotkeys,
@@ -165,8 +174,11 @@ class LauncherSettings:
         out = dict(self.raw)
         out["hotkey_launcher"] = self.hotkey_launcher
         out["language"] = self.language
+        out["scroll_on_hover"] = self.scroll_on_hover
         out["grid_rows"] = self.grid_rows
         out["grid_cols"] = self.grid_cols
+        out["launcher_opacity"] = self.launcher_opacity
+        out["ui_scale"] = self.ui_scale
         out["disabled_skills"] = self.disabled_skills
         out["grid_layout"] = self.grid_layout
         for sid, hk in self.skill_hotkeys.items():

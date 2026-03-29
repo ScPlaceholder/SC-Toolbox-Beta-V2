@@ -1040,7 +1040,7 @@ onto your Star Citizen ship before you undock.</p>
       commodities onto individual boxes.</li>
 </ol>
 
-<p style="color:#5a6480;font-size:8pt">Data sourced from sc-cargo.space — click ⟳ in the header to refresh.</p>
+<p style="color:#5a6480;font-size:8pt">Data sourced from sc-cargo.space — click ↻ in the header to refresh.</p>
 """,
         # ── Ship & View ───────────────────────────────────────────────────────
         """
@@ -1050,7 +1050,7 @@ onto your Star Citizen ship before you undock.</p>
 <ul>
   <li>Type any part of the ship name — results filter as you type.</li>
   <li>Click <b>▼</b> to browse the full list without typing.</li>
-  <li>Click <b style="color:#5a6480">⟳</b> to fetch the latest ship &amp; capacity data.</li>
+  <li>Click <b style="color:#5a6480">↻</b> to fetch the latest ship &amp; capacity data.</li>
 </ul>
 
 <b style="color:#c8d4e8">Isometric View</b>
@@ -1333,7 +1333,7 @@ class CargoApp(SCWindow):
         self._ship_combo.item_selected.connect(self._load_ship)
         hdr_lay.addWidget(self._ship_combo)
 
-        self._btn_refresh = QPushButton("\u27f3", hdr)
+        self._btn_refresh = QPushButton("\u21bb", hdr)
         btn_refresh = self._btn_refresh
         btn_refresh.setFixedSize(32, 28)
         btn_refresh.setCursor(Qt.PointingHandCursor)
@@ -1508,30 +1508,55 @@ class CargoApp(SCWindow):
         """Build the assignments summary overlay pinned to the top-left of the iso view."""
         overlay = QWidget(self._view.viewport())
         overlay.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        overlay.setFixedWidth(170)
+        overlay.setFixedWidth(182)
+        # More opaque so text composites against a near-solid surface (avoids ClearType blur)
         overlay.setStyleSheet(
-            f"background-color: rgba(11, 14, 20, 210); border: 1px solid {BORDER};"
+            f"background-color: rgba(9, 12, 18, 235); border: 1px solid {P.tool_cargo};"
         )
 
         lay = QVBoxLayout(overlay)
-        lay.setContentsMargins(8, 6, 8, 6)
-        lay.setSpacing(3)
+        lay.setContentsMargins(10, 7, 10, 8)
+        lay.setSpacing(4)
 
-        sum_lbl = QLabel(_("ASSIGNMENTS"), overlay)
+        # Header: accent bar + label
+        hdr_row = QWidget(overlay)
+        hdr_row.setStyleSheet("background: transparent;")
+        hdr_lay = QHBoxLayout(hdr_row)
+        hdr_lay.setContentsMargins(0, 0, 0, 0)
+        hdr_lay.setSpacing(6)
+
+        bar = QWidget(hdr_row)
+        bar.setFixedSize(3, 14)
+        bar.setStyleSheet(f"background-color: {P.tool_cargo}; border: none;")
+        hdr_lay.addWidget(bar)
+
+        sum_lbl = QLabel("ASSIGNMENTS", hdr_row)
         sum_lbl.setStyleSheet(
-            f"color: {ACCENT}; font-family: Electrolize, Consolas; font-size: 8pt; "
-            f"font-weight: bold; background: transparent;"
+            f"color: {P.tool_cargo}; font-family: Electrolize, Consolas; font-size: 9pt; "
+            f"font-weight: bold; letter-spacing: 1px; background: transparent;"
         )
-        lay.addWidget(sum_lbl)
+        hdr_lay.addWidget(sum_lbl)
+        hdr_lay.addStretch(1)
+        lay.addWidget(hdr_row)
 
-        self._assignment_summary_lbl = QLabel(
-            "No assignments yet.\nClick boxes to assign commodities.", overlay
-        )
+        # Thin separator line under header
+        sep = QFrame(overlay)
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet(f"color: {P.tool_cargo}; background: transparent;")
+        sep.setFixedHeight(1)
+        lay.addWidget(sep)
+        lay.addSpacing(1)
+
+        self._assignment_summary_lbl = QLabel(overlay)
         self._assignment_summary_lbl.setStyleSheet(
-            f"color: {FG_DIM}; font-family: Consolas; font-size: 7pt; "
+            f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt; "
             f"background: transparent;"
         )
         self._assignment_summary_lbl.setWordWrap(True)
+        self._assignment_summary_lbl.setText(
+            f"<span style='color:{FG_DIM}'>No assignments yet.<br>"
+            f"Click boxes to assign commodities.</span>"
+        )
         lay.addWidget(self._assignment_summary_lbl)
 
         overlay.adjustSize()

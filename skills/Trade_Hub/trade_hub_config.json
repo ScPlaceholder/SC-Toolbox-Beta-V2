@@ -1,1 +1,1 @@
-{"ship_name": "Ironclad", "hotkey": "ctrl+shift+t"}
+{"ship_name": "C2 Hercules Starlifter", "hotkey": "ctrl+shift+t", "freight_mode": "BULK", "allow_illegal_cargo": false}
