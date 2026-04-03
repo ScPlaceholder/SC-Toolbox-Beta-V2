@@ -107,26 +107,16 @@ if !errorlevel! neq 0 (
 )
 echo  [OK] Dependencies installed.
 
-:: ── Step 6b: Download and bundle Tesseract OCR ──
-set "TESS_ARCHIVE=%BUILD%%TESSERACT_INSTALLER%"
-if not exist "%TESS_ARCHIVE%" (
-    echo  [*] Downloading Tesseract OCR...
-    curl -L -o "%TESS_ARCHIVE%" "%TESSERACT_URL%"
-    if !errorlevel! neq 0 (
-        echo  [!] Tesseract download failed — OCR will auto-download at runtime.
-        goto :skip_tesseract
-    )
-) else (
-    echo  [OK] Tesseract installer already downloaded.
-)
-echo  [*] Extracting Tesseract OCR (silent install)...
-"%TESS_ARCHIVE%" /S /D=%STAGE%\tools\Mining_Signals\tesseract
-if !errorlevel! neq 0 (
-    echo  [!] Tesseract extraction failed — OCR will auto-download at runtime.
-) else (
+:: ── Step 6b: Bundle Tesseract OCR from system install ──
+set "TESS_SRC=C:\Program Files\Tesseract-OCR"
+set "TESS_DEST=%STAGE%\tools\Mining_Signals\tesseract"
+if exist "%TESS_SRC%\tesseract.exe" (
+    echo  [*] Bundling Tesseract from system install...
+    xcopy "%TESS_SRC%" "%TESS_DEST%\" /s /i /q >nul
     echo  [OK] Tesseract bundled.
+) else (
+    echo  [!] Tesseract not found at %TESS_SRC% — OCR will require manual install.
 )
-:skip_tesseract
 
 :: ── Step 7: Stage runtime source files ──
 echo.
@@ -197,13 +187,15 @@ echo  [*] Staging tools...
 for %%T in (Battle_Buddy Mining_Signals) do (
     if exist "%ROOT%\tools\%%T" (
         xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
-        :: Remove cache and log files
+        :: Remove cache, log, and dev files
         del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
         del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
         del /q "%STAGE%\tools\%%T\requirements.txt" 2>nul
+        :: Remove debug screenshots
+        del /q "%STAGE%\tools\%%T\debug_*.png" 2>nul
         :: Remove tesseract installer if accidentally staged
-        del /q "%STAGE%\tools\%%T\tesseract\tesseract_setup.exe" 2>nul
+        del /q "%STAGE%\tools\%%T\tesseract\tesseract-setup.exe" 2>nul
     )
 )
 
@@ -244,8 +236,7 @@ goto :done
 :fail
 echo.
 echo  [!] Build failed. See errors above.
-echo.
+exit /b 1
 
 :done
-pause
-exit /b
+exit /b 0

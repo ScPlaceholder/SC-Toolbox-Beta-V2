@@ -63,6 +63,9 @@ Source: "staging\ui\*";     DestDir: "{app}\ui";     Flags: ignoreversion recurs
 ; Skills
 Source: "staging\skills\*"; DestDir: "{app}\skills"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Tools (Battle Buddy, Mining Signals, etc.)
+Source: "staging\tools\*"; DestDir: "{app}\tools"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+
 ; Locales (if present)
 Source: "staging\locales\*"; DestDir: "{app}\locales"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
 
