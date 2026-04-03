@@ -24,6 +24,8 @@ set "PYTHON_VER=3.12.9"
 set "PYTHON_ZIP=python-%PYTHON_VER%-embed-amd64.zip"
 set "PYTHON_URL=https://www.python.org/ftp/python/%PYTHON_VER%/%PYTHON_ZIP%"
 set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
+set "TESSERACT_URL=https://github.com/UB-Mannheim/tesseract/releases/download/v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
+set "TESSERACT_INSTALLER=tesseract-setup.exe"
 
 :: Inno Setup compiler — check common install locations
 set "ISCC="
@@ -97,13 +99,34 @@ if !errorlevel! neq 0 (
 )
 
 :: ── Step 6: Install runtime dependencies ──
-echo  [*] Installing PySide6, requests, pynput...
-"%STAGE%\python\python.exe" -m pip install PySide6>=6.5.0 requests>=2.28.0 pynput>=1.7.6 --no-warn-script-location --quiet
+echo  [*] Installing PySide6, requests, pynput, mss, pytesseract...
+"%STAGE%\python\python.exe" -m pip install PySide6>=6.5.0 requests>=2.28.0 pynput>=1.7.6 mss>=9.0.0 pytesseract>=0.3.10 cryptography>=42.0.0 --no-warn-script-location --quiet
 if !errorlevel! neq 0 (
     echo  [!] Dependency installation failed.
     goto :fail
 )
 echo  [OK] Dependencies installed.
+
+:: ── Step 6b: Download and bundle Tesseract OCR ──
+set "TESS_ARCHIVE=%BUILD%%TESSERACT_INSTALLER%"
+if not exist "%TESS_ARCHIVE%" (
+    echo  [*] Downloading Tesseract OCR...
+    curl -L -o "%TESS_ARCHIVE%" "%TESSERACT_URL%"
+    if !errorlevel! neq 0 (
+        echo  [!] Tesseract download failed — OCR will auto-download at runtime.
+        goto :skip_tesseract
+    )
+) else (
+    echo  [OK] Tesseract installer already downloaded.
+)
+echo  [*] Extracting Tesseract OCR (silent install)...
+"%TESS_ARCHIVE%" /S /D=%STAGE%\tools\Mining_Signals\tesseract
+if !errorlevel! neq 0 (
+    echo  [!] Tesseract extraction failed — OCR will auto-download at runtime.
+) else (
+    echo  [OK] Tesseract bundled.
+)
+:skip_tesseract
 
 :: ── Step 7: Stage runtime source files ──
 echo.
@@ -169,14 +192,34 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
     )
 )
 
+:: tools/ — copy each tool, then prune non-runtime files
+echo  [*] Staging tools...
+for %%T in (Battle_Buddy Mining_Signals) do (
+    if exist "%ROOT%\tools\%%T" (
+        xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
+        :: Remove cache and log files
+        del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul
+        del /q "%STAGE%\tools\%%T\*.log" 2>nul
+        del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
+        del /q "%STAGE%\tools\%%T\requirements.txt" 2>nul
+        :: Remove tesseract installer if accidentally staged
+        del /q "%STAGE%\tools\%%T\tesseract\tesseract_setup.exe" 2>nul
+    )
+)
+
 :: Global cleanup — remove all __pycache__, .pytest_cache, and tests/ dirs
 echo  [*] Cleaning staging directory...
 powershell -Command "Get-ChildItem -Path '%STAGE%' -Recurse -Directory -Force | Where-Object { $_.Name -in @('__pycache__','.pytest_cache','tests') } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
 
-:: locales/ (translation template — keep for future use)
-if exist "%ROOT%\locales\SC_Toolbox_Source.pot" (
-    mkdir "%STAGE%\locales" 2>nul
-    copy "%ROOT%\locales\SC_Toolbox_Source.pot" "%STAGE%\locales\" >nul
+:: locales/ — only include compiled .mo translation files, not the .pot template
+:: Copies the full locales/ tree but skips .pot files (dev-only)
+if exist "%ROOT%\locales" (
+    for /r "%ROOT%\locales" %%F in (*.mo) do (
+        set "REL=%%~dpF"
+        set "REL=!REL:%ROOT%\locales\=!"
+        mkdir "%STAGE%\locales\!REL!" 2>nul
+        copy "%%F" "%STAGE%\locales\!REL!" >nul
+    )
 )
 
 echo  [OK] Staging complete.
