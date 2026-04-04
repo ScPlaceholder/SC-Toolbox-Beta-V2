@@ -183,7 +183,12 @@ class ManagedProcess:
             self._log_file = subprocess.DEVNULL
 
         cmd = [self._python, self._script] + self._extra_args + [self._cmd_file]
-        proc_env = {**os.environ, **self._env} if self._env else None
+        if self._env:
+            merged = {**os.environ, **self._env}
+            # Empty-string values mean "unset this variable"
+            proc_env = {k: v for k, v in merged.items() if v != ""}
+        else:
+            proc_env = None
         try:
             self._proc = subprocess.Popen(
                 cmd,

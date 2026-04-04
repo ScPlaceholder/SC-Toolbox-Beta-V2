@@ -143,6 +143,8 @@ class SCToolboxApp:
         }
         if self._settings.ui_scale != 1.0:
             lang_env["QT_SCALE_FACTOR"] = str(self._settings.ui_scale)
+        else:
+            lang_env["QT_SCALE_FACTOR"] = ""
         if self._settings.hide_on_tool_active:
             lang_env["SC_TOOLBOX_EXIT_ON_CLOSE"] = "1"
         for skill in self._skills:
@@ -697,6 +699,8 @@ def main() -> None:
         ui_scale = 1.0
     if ui_scale != 1.0:
         os.environ["QT_SCALE_FACTOR"] = str(ui_scale)
+    else:
+        os.environ.pop("QT_SCALE_FACTOR", None)
 
     # Create QApplication first (required before any Qt widgets)
     qt_app = QApplication(sys.argv)
