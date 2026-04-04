@@ -104,7 +104,7 @@ def check_for_updates() -> UpdateResult:
         tag = data.get("tag_name", "")
         release_url = data.get("html_url", releases_url)
 
-        # Find the primary .exe installer asset
+        # Scan all .exe assets and pick the one with the highest version number
         dl_url = ""
         asset_version_tuple: Tuple[int, ...] = (0,)
         asset_version_str = ""
@@ -112,12 +112,14 @@ def check_for_updates() -> UpdateResult:
             if not isinstance(asset, dict):
                 continue
             name = asset.get("name", "")
-            if name.lower().endswith(".exe"):
+            if not name.lower().endswith(".exe"):
+                continue
+            ver = _version_from_asset_name(name)
+            if ver > asset_version_tuple:
+                asset_version_tuple = ver
                 dl_url = asset.get("browser_download_url", "")
-                asset_version_tuple = _version_from_asset_name(name)
-                if asset_version_tuple != (0,):
-                    asset_version_str = ".".join(str(x) for x in asset_version_tuple)
-                break
+                if ver != (0,):
+                    asset_version_str = ".".join(str(x) for x in ver)
 
         if not dl_url:
             dl_url = data.get("zipball_url", "")
