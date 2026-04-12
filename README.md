@@ -110,6 +110,32 @@ Press **Shift + `** to toggle the launcher window.
   <em>Craft Database — browse 1,040 craftable items with full material requirements and mission unlock conditions</em>
 </p>
 
+
+<p align="center">
+  <img src="assets/screenshots/mining_scanner.png" alt="Mining Signals Scanner" width="800"><br>
+  <em>Mining Signals Scanner — breakability calculator showing fleet power, resistance thresholds, and per-resource signal values for 29 mineable resources</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/break_assist.png" alt="Break Assistance" width="400"><br>
+  <em>Advanced Breakability Assistance — real-time readout of rock mass, resistance, and whether your loadout can break it</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/mining_chart.png" alt="Mining Chart" width="800"><br>
+  <em>Mining Chart — live heatmap of resource spawn probabilities across all locations in Stanton, Pyro, and Nyx</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/mining_roster.png" alt="Mining Roster" width="800"><br>
+  <em>Mining Roster — org fleet planner with drag-and-drop team builder, strike groups, ship assignments, and role tags for coordinating mining ops</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/owned_blueprints.png" alt="Owned Blueprints" width="800"><br>
+  <em>Owned Blueprints — track your crafting blueprints with folder organization, auto-detect unlocked recipes by scanning your Star Citizen game logs</em>
+</p>
+
 ---
 
 ## Features
