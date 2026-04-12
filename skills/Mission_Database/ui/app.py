@@ -20,9 +20,11 @@ from shared.qt.title_bar import SCTitleBar
 from shared.qt.ipc_thread import IPCWatcher
 from data.manager import MissionDataManager
 from data import api, cache
+from services.inventory import InventoryService
 from ui.pages.missions import MissionsPage
 from ui.pages.fabricator import FabricatorPage
 from ui.pages.resources import ResourcesPage
+from ui.pages.owned_blueprints import OwnedBlueprintsPage
 from ui.modals.keybind_dialog import show_keybind_dialog
 
 log = logging.getLogger(__name__)
@@ -40,13 +42,14 @@ class MissionDBApp(SCWindow):
 
     def __init__(self, x, y, w, h, opacity, cmd_file) -> None:
         super().__init__(
-            title="SCMDB // Mission Database",
+            title="SC SCMDB // Mission/Crafting Database",
             width=w, height=h, min_w=800, min_h=500,
             opacity=opacity, always_on_top=True,
         )
         self.restore_geometry_from_args(x, y, w, h, opacity)
         self._cmd_file = cmd_file
         self._data = MissionDataManager()
+        self._inventory = InventoryService()
         self._active_channel = "live"
 
         # Thread-safe signals for cross-thread UI updates
@@ -154,7 +157,8 @@ class MissionDBApp(SCWindow):
         self._current_page = "missions"
         for page_key, page_label in [("missions", "\U0001f4cb " + _("Missions")),
                                       ("fabricator", "\U0001f527 " + _("Fabricator")),
-                                      ("resources", "\u26cf " + _("Resources"))]:
+                                      ("resources", "\u26cf " + _("Resources")),
+                                      ("owned", "\U0001f4be " + _("Owned Blueprints"))]:
             btn = QPushButton(page_label)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(f"""
@@ -166,6 +170,17 @@ class MissionDBApp(SCWindow):
             nav_layout.addWidget(btn)
             self._page_btns[page_key] = btn
         nav_layout.addStretch(1)
+
+        planner_btn = QPushButton("\u2191 " + _("Rank Planner"))
+        planner_btn.setCursor(Qt.PointingHandCursor)
+        planner_btn.setStyleSheet(f"""
+            QPushButton {{ background: {P.bg_card}; color: {P.accent}; border: none;
+                          font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 4px 12px; }}
+            QPushButton:hover {{ color: {P.fg_bright}; background: #1a2a30; }}
+        """)
+        planner_btn.clicked.connect(self._open_rank_planner)
+        nav_layout.addWidget(planner_btn)
+
         layout.addWidget(nav)
         self._update_page_btn_style()
 
@@ -180,6 +195,8 @@ class MissionDBApp(SCWindow):
         self._fab_idx = -1
         self._resources = None
         self._res_idx = -1
+        self._owned_page = None
+        self._owned_idx = -1
 
     # ── Page navigation ──
 
@@ -208,7 +225,9 @@ class MissionDBApp(SCWindow):
 
         elif page_key == "fabricator":
             if self._fabricator is None:
-                self._fabricator = FabricatorPage(self._stack, self._data)
+                self._fabricator = FabricatorPage(
+                    self._stack, self._data,
+                    on_open_detail=self._open_blueprint_detail_q)
                 self._fab_idx = self._stack.addWidget(self._fabricator)
             self._stack.setCurrentIndex(self._fab_idx)
             if not self._data.is_crafting_loaded() and self._data.is_data_loaded():
@@ -225,6 +244,33 @@ class MissionDBApp(SCWindow):
                 self._status_label.setText(_("Loading mining/resource data..."))
                 self._data.load_mining(
                     on_done=lambda: self._sig_mining_loaded.fire.emit())
+
+        elif page_key == "owned":
+            if self._owned_page is None:
+                self._owned_page = OwnedBlueprintsPage(
+                    self._stack, self._data, self._inventory,
+                    on_open_detail=self._open_blueprint_detail)
+                self._owned_idx = self._stack.addWidget(self._owned_page)
+            self._stack.setCurrentIndex(self._owned_idx)
+            self._owned_page.refresh()
+            if not self._data.is_crafting_loaded() and self._data.is_data_loaded():
+                self._status_label.setText(_("Loading crafting data..."))
+                self._data.load_crafting(
+                    on_done=lambda: self._sig_crafting_loaded.fire.emit())
+
+    def _open_blueprint_detail(self, bp: dict):
+        self._open_blueprint_detail_q(bp, 750)
+
+    def _open_blueprint_detail_q(self, bp: dict, quality: int):
+        from ui.modals.blueprint_detail import BlueprintDetailModal
+        BlueprintDetailModal(self.window(), bp, self._data,
+                             inventory=self._inventory,
+                             on_inventory_changed=self._on_inventory_changed,
+                             initial_quality=quality)
+
+    def _on_inventory_changed(self):
+        if self._owned_page is not None:
+            self._owned_page.refresh()
 
     # ── Data callbacks ──
 
@@ -244,6 +290,9 @@ class MissionDBApp(SCWindow):
         self._missions.on_filter_change()
 
         if self._current_page == "fabricator":
+            self._status_label.setText(_("Loading crafting data..."))
+            if self._fabricator:
+                self._fabricator.set_count_message(_("Loading crafting data..."))
             self._data.load_crafting(
                 on_done=lambda: self._sig_crafting_loaded.fire.emit())
 
@@ -271,6 +320,9 @@ class MissionDBApp(SCWindow):
         self._status_label.setText(_("Ready"))
         if self._fabricator:
             self._fabricator.on_filter_change()
+        if self._owned_page is not None:
+            self._owned_page.maybe_auto_scan()
+            self._owned_page.refresh()
 
     def _on_mining_loaded(self):
         if not self._data.mining_loaded:
@@ -352,7 +404,22 @@ class MissionDBApp(SCWindow):
 
     def _show_tutorial(self):
         from ui.modals.tutorial import TutorialModal
-        TutorialModal(self)
+        if hasattr(self, "_tutorial_modal") and self._tutorial_modal is not None:
+            try:
+                if self._tutorial_modal.isVisible():
+                    self._tutorial_modal.raise_()
+                    self._tutorial_modal.activateWindow()
+                    return
+            except RuntimeError:
+                pass
+        self._tutorial_modal = TutorialModal(self)
+
+    def _open_rank_planner(self):
+        if not self._data.is_data_loaded():
+            self._status_label.setText("Data still loading...")
+            return
+        from ui.modals.rank_planner import RankPathPlannerModal
+        RankPathPlannerModal(self, self._data)
 
     def _switch_version(self, channel: str):
         if channel == self._active_channel or self._data.loading:
@@ -363,6 +430,7 @@ class MissionDBApp(SCWindow):
         self._missions.rebuild_cards_with([])
         if self._fabricator:
             self._fabricator.clear_grid()
+            self._fabricator.set_count_message(_("Loading crafting data..."))
             self._data.set_crafting_loaded(False)
 
         def _do_switch():
@@ -458,4 +526,9 @@ class MissionDBApp(SCWindow):
     def closeEvent(self, event) -> None:
         if hasattr(self, '_ipc'):
             self._ipc.stop()
+        if self._owned_page is not None:
+            try:
+                self._owned_page.stop_watcher()
+            except Exception:
+                log.exception("failed to stop owned-blueprints watcher")
         super().closeEvent(event)

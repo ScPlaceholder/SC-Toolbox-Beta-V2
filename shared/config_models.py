@@ -128,7 +128,7 @@ class LauncherSettings:
     launcher_opacity: float = 0.95  # persisted across sessions
     ui_scale: float = 1.0  # QT_SCALE_FACTOR for high-DPI monitors (0.75 – 3.0)
     hide_on_tool_active: bool = False  # auto-hide launcher when any tool is open
-    disabled_skills: list[str] = field(default_factory=list)
+    disabled_skills: list[str] = field(default_factory=lambda: ["craft_db"])
     grid_layout: dict[str, str] = field(default_factory=dict)  # "row,col" -> skill_id
     skill_hotkeys: dict[str, str] = field(default_factory=dict)
     skill_windows: dict[str, WindowGeometry] = field(default_factory=dict)
@@ -144,7 +144,7 @@ class LauncherSettings:
         launcher_opacity = max(0.3, min(1.0, _safe_float(data.get("launcher_opacity", 0.95), 0.95)))
         ui_scale = max(0.75, min(3.0, _safe_float(data.get("ui_scale", 1.0), 1.0)))
         hide_on_tool_active = bool(data.get("hide_on_tool_active", False))
-        disabled_skills = list(data.get("disabled_skills", []))
+        disabled_skills = list(data.get("disabled_skills", ["craft_db"]))
         grid_layout = dict(data.get("grid_layout", {}))
 
         skill_hotkeys: dict[str, str] = {}

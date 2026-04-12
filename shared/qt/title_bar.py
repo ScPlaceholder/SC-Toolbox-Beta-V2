@@ -25,7 +25,7 @@ class _TitleButton(QPushButton):
         self._hover_bg = hover_bg
         obj_name = "titleClose" if is_close else "titleMin"
         self.setObjectName(obj_name)
-        self.setFixedSize(32, 28)
+        self.setFixedSize(26, 26)
         self.setCursor(Qt.PointingHandCursor)
         rest_bg = "rgba(255, 60, 60, 0.15)" if is_close else "rgba(200, 200, 200, 0.08)"
         rest_fg = "#cc6666" if is_close else P.fg_dim
@@ -78,12 +78,13 @@ class SCTitleBar(QWidget):
         self._accent_color = QColor(self._accent)
 
         self.setFixedHeight(self.TITLE_HEIGHT)
+        self.setMouseTracking(True)
         # Transparent bg — we paint our own
         self.setStyleSheet("background: transparent;")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 0, 4, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(5)
 
         # Icon
         if icon_text:
@@ -140,8 +141,8 @@ class SCTitleBar(QWidget):
         self._opacity_slider.setValue(
             int(window.windowOpacity() * 100) if hasattr(window, "windowOpacity") else 95
         )
-        self._opacity_slider.setFixedWidth(80)
-        self._opacity_slider.setFixedHeight(20)
+        self._opacity_slider.setFixedWidth(55)
+        self._opacity_slider.setFixedHeight(18)
         self._opacity_slider.setCursor(Qt.PointingHandCursor)
         self._opacity_slider.setToolTip("Adjust window opacity")
         self._opacity_slider.setStyleSheet(f"""
@@ -201,6 +202,32 @@ class SCTitleBar(QWidget):
             layout.addWidget(eb)
 
         # Window controls
+        btn_reset = _TitleButton("\u27f2", "rgba(200, 200, 200, 0.18)", self, is_close=False)
+        btn_reset.setToolTip("Reset layout to default size")
+        btn_reset.clicked.connect(self._on_reset_btn)
+        layout.addWidget(btn_reset)
+
+        # Reset scale — resets child QGraphicsView zooms back to 1:1.
+        # Useful for canvases like the Mining Signals ledger where
+        # wheel-scroll-zoom can leave the view at an odd scale factor.
+        btn_reset_scale = _TitleButton("1:1", "rgba(200, 200, 200, 0.18)", self, is_close=False)
+        btn_reset_scale.setToolTip("Reset canvas zoom to 1:1")
+        btn_reset_scale.clicked.connect(self._on_reset_scale_btn)
+        # 1:1 is slightly wider than the other chrome symbols; shrink
+        # the font a touch so it fits cleanly in the 26px button.
+        btn_reset_scale.setStyleSheet(btn_reset_scale.styleSheet().replace(
+            "font-size: 13pt;", "font-size: 9pt;"
+        ))
+        layout.addWidget(btn_reset_scale)
+
+        # Fullscreen toggle
+        self._btn_fullscreen = _TitleButton(
+            "\u26f6", "rgba(200, 200, 200, 0.18)", self, is_close=False,
+        )
+        self._btn_fullscreen.setToolTip("Toggle fullscreen")
+        self._btn_fullscreen.clicked.connect(self._on_fullscreen_btn)
+        layout.addWidget(self._btn_fullscreen)
+
         self._btn_collapse = _TitleButton("\u25b2", "rgba(200, 200, 200, 0.18)", self, is_close=False)
         self._btn_collapse.setToolTip("Collapse / Expand")
         self._btn_collapse.clicked.connect(self._on_collapse_btn)
@@ -214,6 +241,21 @@ class SCTitleBar(QWidget):
         btn_close = _TitleButton("x", "rgba(220, 50, 50, 0.85)", self, is_close=True)
         btn_close.clicked.connect(self._on_close_btn)
         layout.addWidget(btn_close)
+
+    def _on_reset_btn(self) -> None:
+        """Reset the window to its default size and centre on screen."""
+        if hasattr(self._window, "reset_layout"):
+            self._window.reset_layout()
+
+    def _on_reset_scale_btn(self) -> None:
+        """Reset canvas zoom on child QGraphicsView(s) to 1:1."""
+        if hasattr(self._window, "reset_scale"):
+            self._window.reset_scale()
+
+    def _on_fullscreen_btn(self) -> None:
+        """Toggle fullscreen on the parent window."""
+        if hasattr(self._window, "toggle_fullscreen"):
+            self._window.toggle_fullscreen()
 
     def _on_collapse_btn(self) -> None:
         """Handle collapse button click.  Calls toggle_collapse on the
@@ -290,10 +332,25 @@ class SCTitleBar(QWidget):
         painter.end()
         super().paintEvent(event)
 
+    # ── Helpers ──
+
+    def _is_on_window_edge(self, event) -> bool:
+        """Return True if the mouse position is inside the parent window's
+        resize grip zone.  In that case the event should be forwarded to
+        the window instead of being handled as a title-bar drag."""
+        if not hasattr(self._window, "_edge_at"):
+            return False
+        # Map the position to the parent window's coordinate space
+        win_pos = self.mapTo(self._window, event.position().toPoint())
+        return self._window._edge_at(win_pos) is not None
+
     # ── Drag-to-move ──
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            if self._is_on_window_edge(event):
+                event.ignore()  # let SCWindow handle resize
+                return
             self._dragging = True
             self._drag_pos = event.globalPosition().toPoint() - self._window.pos()
             event.accept()
@@ -302,9 +359,17 @@ class SCTitleBar(QWidget):
         if self._dragging and event.buttons() & Qt.LeftButton:
             self._window.move(event.globalPosition().toPoint() - self._drag_pos)
             event.accept()
+        elif not self._dragging:
+            if self._is_on_window_edge(event):
+                event.ignore()  # let SCWindow show resize cursor
+                return
+            event.accept()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
+            if not self._dragging:
+                event.ignore()
+                return
             self._dragging = False
             event.accept()
 

@@ -8,7 +8,7 @@
 ; =====================================================================
 
 #define MyAppName      "SC Toolbox"
-#define MyAppVersion   "2.1.1"
+#define MyAppVersion   "2.2.0"
 #define MyAppPublisher "SC Toolbox"
 #define MyAppURL       "https://github.com/ScPlaceholder/SC-Toolbox-Beta-V2"
 
@@ -49,7 +49,7 @@ Source: "staging\skill_launcher_settings.json"; DestDir: "{app}"; Flags: ignorev
 Source: "staging\pyproject.toml";               DestDir: "{app}"; Flags: ignoreversion
 Source: "staging\README.txt";                   DestDir: "{app}"; Flags: ignoreversion isreadme
 
-; Launcher wrapper (hides console window)
+; Launcher wrapper (hides console window, checks bundled Python first)
 Source: "staging\SC_Toolbox.vbs"; DestDir: "{app}"; Flags: ignoreversion
 
 ; App icon
@@ -71,14 +71,14 @@ Source: "staging\locales\*"; DestDir: "{app}\locales"; Flags: ignoreversion recu
 
 [Icons]
 ; Start Menu
-Name: "{group}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\SC_Toolbox.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\sc_toolbox.ico"; Comment: "Launch SC Toolbox"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\SC_Toolbox.vbs"; WorkingDir: "{app}"; IconFilename: "{app}\sc_toolbox.ico"; Comment: "Launch SC Toolbox"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
 ; Desktop shortcut
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\SC_Toolbox.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\sc_toolbox.ico"; Tasks: desktopicon; Comment: "Launch SC Toolbox"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\SC_Toolbox.vbs"; WorkingDir: "{app}"; IconFilename: "{app}\sc_toolbox.ico"; Tasks: desktopicon; Comment: "Launch SC Toolbox"
 
 [Run]
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\SC_Toolbox.vbs"""; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\SC_Toolbox.vbs"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallDelete]
 ; Clean up runtime-generated files on uninstall

@@ -31,7 +31,7 @@ _BUILTIN_SKILLS: list[dict] = [
         "settings_key": "hotkey_cargo",
     },
     {
-        "id": "missions", "name": N_("Mission Database"), "icon": "\U0001f4cb",
+        "id": "missions", "name": N_("Mission/Crafting Database"), "icon": "\U0001f4cb",
         "color": "#33dd88", "folder": "Mission_Database",
         "script": "mission_db_app.py", "hotkey": "<shift>+3",
         "settings_key": "hotkey_missions",
