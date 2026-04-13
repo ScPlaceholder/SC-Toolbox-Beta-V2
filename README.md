@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>We got featured by CIG!!! Thank you everyone! We wouldn't be here if it wasn't for your testing, feedback and support!!!</strong>
+  <strong>Upate: I have been informed that Mining Singals may not show up; I will fix this in a new build as soon as I get home. We got featured by CIG!!! Thank you everyone! We wouldn't be here if it wasn't for your testing, feedback and support!!!</strong>
 </p>
 
 <p align="center">
