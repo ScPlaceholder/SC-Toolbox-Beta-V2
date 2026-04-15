@@ -350,6 +350,45 @@ if exist "%PADDLE_PY%" (
     echo  [OK] Paddle sidecar installed from scratch.
 )
 
+:: ── Step 7b.1: Prune Paddle sidecar bloat ──
+:: paddlepaddle + paddleocr pull in many transitive deps (modelscope,
+:: c++ headers, tests, docs) that aren't needed at runtime AND have
+:: deeply nested paths that bust the Windows 260-char MAX_PATH limit
+:: Inno Setup respects. Prune them to make the installer buildable.
+echo  [*] Pruning Paddle sidecar bloat (modelscope, paddle headers, etc.)...
+set "PY313_SP=%PADDLE_DIR%\Lib\site-packages"
+:: modelscope is a speech/vision model hub — NOT used by PaddleOCR's
+:: text recognition pipeline. ~29 MB with 280+ char paths.
+if exist "%PY313_SP%\modelscope" rmdir /s /q "%PY313_SP%\modelscope"
+:: paddle C++ headers — only needed to compile custom ops, never at
+:: runtime. ~200 MB with 270+ char paths.
+if exist "%PY313_SP%\paddle\include" rmdir /s /q "%PY313_SP%\paddle\include"
+:: paddle GPU compiler configs (NVIDIA CINN tile configs) — we run on
+:: CPU, never used. Deep paths (270+ chars).
+if exist "%PY313_SP%\paddle\cinn_config" rmdir /s /q "%PY313_SP%\paddle\cinn_config"
+:: paddle distributed training — inference-only build, never used.
+if exist "%PY313_SP%\paddle\distributed" rmdir /s /q "%PY313_SP%\paddle\distributed"
+if exist "%PY313_SP%\paddle\incubate" rmdir /s /q "%PY313_SP%\paddle\incubate"
+:: paddlex non-OCR inference tasks (doc VLM, open-vocab detection,
+:: segmentation, serving, training pipelines, dataset checkers) —
+:: we call PaddleOCR directly for text recognition.
+if exist "%PY313_SP%\paddlex\configs" rmdir /s /q "%PY313_SP%\paddlex\configs"
+if exist "%PY313_SP%\paddlex\modules" rmdir /s /q "%PY313_SP%\paddlex\modules"
+if exist "%PY313_SP%\paddlex\inference\models\doc_vlm" rmdir /s /q "%PY313_SP%\paddlex\inference\models\doc_vlm"
+if exist "%PY313_SP%\paddlex\inference\models\open_vocabulary_detection" rmdir /s /q "%PY313_SP%\paddlex\inference\models\open_vocabulary_detection"
+if exist "%PY313_SP%\paddlex\inference\models\open_vocabulary_segmentation" rmdir /s /q "%PY313_SP%\paddlex\inference\models\open_vocabulary_segmentation"
+if exist "%PY313_SP%\paddlex\inference\serving" rmdir /s /q "%PY313_SP%\paddlex\inference\serving"
+if exist "%PY313_SP%\paddlex\inference\pipelines" rmdir /s /q "%PY313_SP%\paddlex\inference\pipelines"
+:: test / example / doc subtrees across common packages
+for %%P in (paddle paddleocr paddlex numpy pandas scipy sklearn matplotlib) do (
+    if exist "%PY313_SP%\%%P\tests" rmdir /s /q "%PY313_SP%\%%P\tests"
+    if exist "%PY313_SP%\%%P\test" rmdir /s /q "%PY313_SP%\%%P\test"
+    if exist "%PY313_SP%\%%P\examples" rmdir /s /q "%PY313_SP%\%%P\examples"
+    if exist "%PY313_SP%\%%P\docs" rmdir /s /q "%PY313_SP%\%%P\docs"
+)
+:: __pycache__ dirs inside the sidecar
+powershell -Command "Get-ChildItem -Path '%PADDLE_DIR%' -Recurse -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq '__pycache__' } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
+
 :: ── Step 7c: Validate critical runtime components ──
 echo.
 echo  [*] Validating staging integrity...
