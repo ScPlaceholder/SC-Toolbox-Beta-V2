@@ -106,12 +106,23 @@ def _start_daemon() -> Optional[subprocess.Popen]:
         return None
 
     log.info("paddle_client: starting daemon with %s", py)
+    # Cap the sidecar's thread count. PaddlePaddle + OpenBLAS + MKL
+    # default to using ALL available cores, which pegged user CPUs
+    # at 90%+ while scanning. We only need single-digit-range OCR
+    # on small crops — 2 threads per inference is plenty.
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = "2"
+    env["MKL_NUM_THREADS"] = "2"
+    env["OPENBLAS_NUM_THREADS"] = "2"
+    env["PADDLE_NUM_THREADS"] = "2"
+    env["FLAGS_use_mkldnn"] = "false"  # MKL-DNN is big CPU spin for tiny crops
     try:
         proc = subprocess.Popen(
             [py, _DAEMON_SCRIPT],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
             # Run with no shell and no window on Windows
             creationflags=0x08000000 if sys.platform == "win32" else 0,  # CREATE_NO_WINDOW
         )

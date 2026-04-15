@@ -1,0 +1,21 @@
+name: Announce Release to Discord
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post release to Discord
+        uses: SethCohen/github-releases-to-discord@v1.16.2
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+          color: "2105893"
+          username: "SC Toolbox Releases"
+          avatar_url: "https://github.com/ScPlaceholder.png"
+          content: "@everyone"
+          footer_title: "SC Toolbox"
+          footer_icon_url: "https://github.com/ScPlaceholder.png"
+          footer_timestamp: true

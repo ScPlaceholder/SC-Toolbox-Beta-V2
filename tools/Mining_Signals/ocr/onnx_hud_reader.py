@@ -50,6 +50,13 @@ _harvest_tls = _thr.local()
 _session = None
 _char_classes: str = "0123456789.-%"
 
+# Label-row cache: maps (x, y, w, h) region key → (timestamp, rows).
+# Tesseract label OCR is expensive (~3 subprocess spawns, ~500 ms)
+# but labels don't move within a rock — cache and reuse. Cache is
+# cleared when the panel disappears or after TTL expires.
+_label_cache: dict[tuple[int, int, int, int], tuple[float, dict]] = {}
+_LABEL_CACHE_TTL_SEC = 60.0  # safe upper bound; rocks scan for <60s
+
 # Row detection thresholds
 _MIN_ROW_HEIGHT = 14   # filters thin separator bars (~9px)
 _MIN_VALUE_WIDTH = 15  # filters noise/artifacts in value crops
@@ -991,22 +998,20 @@ def _tesseract_crop(crop_img: Image.Image, whitelist: str = "0123456789.") -> st
         binary = 255 - binary
         binary_pil = Image.fromarray(binary)
 
-        # Try several PSM modes and keep the longest non-empty read.
-        # PSM 7 = single line, PSM 8 = single word, PSM 6 = single
-        # block. For short numeric strings any of these can win
-        # depending on how Tesseract's segmenter hits the glyphs.
-        cfg_base = f"-c tessedit_char_whitelist={whitelist}"
-        best = ""
-        for psm in (7, 8, 6, 13):
-            try:
-                raw = pytesseract.image_to_string(
-                    binary_pil, config=f"--psm {psm} {cfg_base}",
-                ).strip()
-            except Exception:
-                continue
-            if raw and len(raw) > len(best):
-                best = raw
-        return best
+        # Single PSM 7 (single line) — previously we tried PSM 7/8/6/13
+        # and kept the longest, but that's 4 subprocess spawns per
+        # field × 3 fields = 12 spawns per scan, each ~50-100 ms on
+        # Windows. With 1 Hz scanning that burned an entire CPU core
+        # and caused game stuttering on users' machines. PSM 7 alone
+        # works on 95%+ of crops; the edge cases fall back to ONNX or
+        # Paddle in the 3-way reconciler.
+        cfg = f"--psm 7 -c tessedit_char_whitelist={whitelist}"
+        try:
+            return pytesseract.image_to_string(
+                binary_pil, config=cfg,
+            ).strip()
+        except Exception:
+            return ""
     except Exception as exc:
         log.debug("onnx_hud_reader: Tesseract read failed: %s", exc)
         return ""
@@ -1505,6 +1510,7 @@ _paddle_cache: dict[str, tuple[Optional[float], str]] = {
 _paddle_cache_t: float = 0.0   # monotonic timestamp of last successful result
 _paddle_bg_fut = None           # currently-running future, or None
 _PADDLE_CACHE_MAX_AGE = 30.0    # drop cache older than this many seconds
+_PADDLE_MIN_INTERVAL_SEC = 15.0  # minimum gap between successful Paddle dispatches
 
 
 def _paddle_cache_get() -> dict[str, tuple[Optional[float], str]]:
@@ -1556,11 +1562,20 @@ def _paddle_dispatch_bg(
     if not paddle_client.is_available():
         return
 
-    # Cheap liveness check — don't submit if an older call is still
-    # running. Each warm Paddle call is ~9 s so at steady state we
-    # should have one running ~every other scan.
+    # Rate-limit dispatch. Paddle takes ~9 s per warm inference and
+    # uses multi-threaded OpenBLAS/MKL — running back-to-back at the
+    # 1 Hz scan rate was pegging user CPUs at 90%+ across all cores.
+    # We only need Paddle as a tie-breaking third voter when the
+    # cache is empty or very stale. Limit to one call per
+    # _PADDLE_MIN_INTERVAL_SEC seconds and skip when the cache is
+    # still fresh.
     with _paddle_cache_lock:
         if _paddle_bg_fut is not None and not _paddle_bg_fut.done():
+            return
+        # Skip if the last successful result is still fresh enough
+        # to serve as a third voter — no need to redo work.
+        if (_paddle_cache_t > 0.0
+                and (time.monotonic() - _paddle_cache_t) < _PADDLE_MIN_INTERVAL_SEC):
             return
 
     # Snapshot the row coordinates so the worker doesn't race with
@@ -1810,11 +1825,24 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
         log.debug("paddle sidecar unavailable, falling back to dark pipeline")
 
     # Identify the MASS / RESISTANCE / INSTABILITY rows via Tesseract
-    # label OCR with fallback to fixed pixel offsets. Tesseract works
-    # reliably on dark-background panels; if it fails (light-scene
-    # asteroid leak, heavy glare), we fall back to anchoring via the
-    # "SAVRILIUM (ORE)" / "TORITE (ORE)" mineral-name row.
-    label_rows = _find_label_rows(img)
+    # label OCR with fallback to fixed pixel offsets.
+    #
+    # Label positions don't move within a rock — the HUD panel is
+    # screen-locked and the labels are at fixed pixel offsets. Cache
+    # the detected rows and reuse them across scans to skip the
+    # expensive Tesseract label OCR (3+ subprocess spawns per call,
+    # ~500 ms of pure subprocess overhead). Cache is keyed by region
+    # geometry and invalidated when the panel disappears (handled by
+    # the `panel_visible=False` path below which clears _label_cache).
+    global _label_cache
+    cache_key = (region["x"], region["y"], region["w"], region["h"])
+    cached = _label_cache.get(cache_key)
+    if cached is not None and (time.monotonic() - cached[0]) < _LABEL_CACHE_TTL_SEC:
+        label_rows = cached[1]
+    else:
+        label_rows = _find_label_rows(img)
+        if label_rows:
+            _label_cache[cache_key] = (time.monotonic(), label_rows)
     mass_entry = label_rows.get("mass")
     res_entry = label_rows.get("resistance")
     inst_entry = label_rows.get("instability")
@@ -1860,9 +1888,10 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
 
     if mass_row is None and res_row is None and inst_row is None:
         log.debug("onnx_hud_reader: no MASS/RESISTANCE labels found")
-        # Panel not visible — clear the async Paddle cache so the
-        # next rock doesn't see stale values from the previous one.
+        # Panel not visible — clear caches so the next rock/panel
+        # re-detects labels fresh and doesn't see stale values.
         _paddle_cache_clear()
+        _label_cache.clear()
         return result
 
     mass_raw = res_raw = inst_raw = ""

@@ -53,6 +53,20 @@ import sys
 import time
 import warnings
 
+# Cap CPU thread count BEFORE importing any numeric libs. These env
+# vars control OpenMP / MKL / OpenBLAS thread pools used by
+# paddlepaddle internals. Without caps, a single inference can use
+# all available CPU cores — this was pegging user machines at 90%
+# CPU across all cores during scanning. 2 threads per inference is
+# plenty for tiny digit crops. (Also set by the parent paddle_client
+# in the subprocess env, but duplicated here in case env var
+# propagation was blocked or stripped.)
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
+os.environ.setdefault("PADDLE_NUM_THREADS", "2")
+os.environ.setdefault("FLAGS_use_mkldnn", "false")
+
 # Silence noisy warnings that pollute stderr during normal operation.
 warnings.filterwarnings("ignore")
 os.environ.setdefault("GLOG_minloglevel", "2")

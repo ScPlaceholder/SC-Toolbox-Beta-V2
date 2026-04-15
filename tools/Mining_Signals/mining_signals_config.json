@@ -8,10 +8,10 @@
     "y": 630
   },
   "hud_region": {
-    "h": 238,
-    "w": 329,
-    "x": 2426,
-    "y": 915
+    "h": 232,
+    "w": 313,
+    "x": 2437,
+    "y": 913
   },
   "ship_loadouts": {
     "golem": "C:\\Users\\prjgn\\Documents\\SC Loadouts\\mining_golem.json",
@@ -309,6 +309,28 @@
       "completed_at": null,
       "picked_up_at": null,
       "log_event_id": null
+    },
+    {
+      "id": "66fd753c030a",
+      "name": "Beryl @ Stanton2_Orison",
+      "station": "Stanton2_Orison",
+      "commodities": [
+        {
+          "name": "Beryl",
+          "qty": 21275,
+          "quality": 17020,
+          "scu": 25530
+        }
+      ],
+      "method": "XCR Reaction",
+      "cost": 0.0,
+      "processing_seconds": 300,
+      "submitted_at": "2026-04-15T10:51:21.674121+00:00",
+      "expected_completion": "2026-04-15T10:56:21.674085+00:00",
+      "status": "in_process",
+      "completed_at": null,
+      "picked_up_at": null,
+      "log_event_id": null
     }
   ],
   "refinery_auto_scan": true,
@@ -320,7 +342,7 @@
     "y": 564
   },
   "break_bubble_position": {
-    "x": 18,
-    "y": 462
+    "x": 1417,
+    "y": 149
   }
 }

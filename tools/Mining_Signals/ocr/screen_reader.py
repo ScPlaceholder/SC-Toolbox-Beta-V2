@@ -254,8 +254,8 @@ def capture_region(region: dict) -> Optional[object]:
 
 def capture_region_averaged(
     region: dict,
-    n_frames: int = 7,
-    delay_ms: int = 45,
+    n_frames: int = 4,
+    delay_ms: int = 30,
 ) -> Optional[object]:
     """Capture a region multiple times and return a pixel-averaged composite.
 

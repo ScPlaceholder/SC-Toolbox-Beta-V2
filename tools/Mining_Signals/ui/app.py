@@ -3140,7 +3140,7 @@ class MiningSignalsApp(SCWindow):
             if bubble_pos:
                 self._scan_bubble.show_scanning(bubble_pos["x"], bubble_pos["y"])
             else:
-                region = self._config.get("ocr_region", {})
+                region = (self._config.get("ocr_region") or {})
                 self._scan_bubble.show_scanning(
                     region.get("x", 500) + region.get("w", 200) + 10,
                     region.get("y", 400),
@@ -3207,11 +3207,13 @@ class MiningSignalsApp(SCWindow):
 
         if mass_counts:
             best_val = max(mass_counts, key=mass_counts.get)
-            best_n = mass_counts[best_val]
-            if best_n >= 2:
-                self._last_hud_mass = float(best_val)
-            # If no value has 2+ appearances yet, keep showing
-            # whatever was previously committed (or None).
+            # Commit immediately: the mode of the window is always
+            # better than no value at all. With the in-scan 3-engine
+            # majority voting upstream, individual reads are already
+            # fairly reliable — requiring 2+ window appearances was
+            # delaying results too much and on some users' machines
+            # prevented the break bubble from ever populating.
+            self._last_hud_mass = float(best_val)
         elif none_count >= 2:
             # All recent reads are None → panel unreadable, clear.
             self._last_hud_mass = None
@@ -3233,9 +3235,8 @@ class MiningSignalsApp(SCWindow):
 
         if res_counts:
             best_val = max(res_counts, key=res_counts.get)
-            best_n = res_counts[best_val]
-            if best_n >= 2:
-                self._last_hud_resistance = float(best_val)
+            # Same policy as mass: commit the mode immediately.
+            self._last_hud_resistance = float(best_val)
         elif res_nones >= 2:
             self._last_hud_resistance = None
 
@@ -3432,7 +3433,7 @@ class MiningSignalsApp(SCWindow):
                 anchor_x = bubble_pos["x"]
                 anchor_y = bubble_pos["y"]
             else:
-                region = self._config.get("ocr_region", {})
+                region = (self._config.get("ocr_region") or {})
                 anchor_x = region.get("x", 500) + region.get("w", 200) + 10
                 anchor_y = region.get("y", 400)
             try:
@@ -3586,6 +3587,34 @@ class MiningSignalsApp(SCWindow):
 
         configs = self.active_laser_configs()
         if not configs:
+            # No ship loadout loaded. Instead of silently returning
+            # (which leaves the user staring at nothing after the
+            # scanning placeholder disappears), surface a helpful
+            # message in the break bubble.
+            break_pos = self._config.get("break_bubble_position")
+            if break_pos:
+                nx, ny = break_pos["x"], break_pos["y"]
+            else:
+                bubble_pos = self._config.get("bubble_position")
+                if bubble_pos:
+                    nx, ny = bubble_pos["x"], bubble_pos["y"] + 80
+                else:
+                    region = (self._config.get("ocr_region") or {})
+                    nx = region.get("x", 500) + region.get("w", 200) + 10
+                    ny = region.get("y", 400) + 80
+            try:
+                self._break_bubble.show_breakability(
+                    nx, ny,
+                    mass=mass, resistance=resistance,
+                    instability=self._last_hud_instability,
+                    can_break=False, unbreakable=False,
+                    missing_power=0.0,
+                    # Status line reads "CANNOT BREAK" — override via
+                    # gadget_recommendation to hint at the real fix.
+                    gadget_recommendation="Click 'Choose Mining Ship'",
+                )
+            except Exception as exc:
+                log.debug("Break bubble (no-ship) failed: %s", exc)
             return
 
         active = self._config.get("active_ship")
@@ -3602,7 +3631,7 @@ class MiningSignalsApp(SCWindow):
                 bx = bubble_pos["x"]
                 by = bubble_pos["y"] + 80
             else:
-                region = self._config.get("ocr_region", {})
+                region = (self._config.get("ocr_region") or {})
                 bx = region.get("x", 500) + region.get("w", 200) + 10
                 by = region.get("y", 400) + 80
 
@@ -4278,7 +4307,7 @@ class MiningSignalsApp(SCWindow):
         if bubble_pos:
             self._scan_bubble.show_scanning(bubble_pos["x"], bubble_pos["y"])
         else:
-            region = self._config.get("ocr_region", {})
+            region = (self._config.get("ocr_region") or {})
             self._scan_bubble.show_scanning(
                 region.get("x", 500) + region.get("w", 200) + 10,
                 region.get("y", 400),
