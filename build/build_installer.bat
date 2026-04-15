@@ -112,16 +112,50 @@ if !errorlevel! neq 0 (
 )
 echo  [OK] Dependencies installed.
 
-:: ── Step 6b: Bundle Tesseract OCR from system install ──
+:: ── Step 6b: Bundle Tesseract OCR ──
+:: Prefer a system install (fastest), fall back to downloading the
+:: official installer if not present. Either way, validate the
+:: binary + tessdata ended up in staging or fail the build.
 set "TESS_SRC=C:\Program Files\Tesseract-OCR"
 set "TESS_DEST=%STAGE%\tools\Mining_Signals\tesseract"
+set "TESS_INSTALLER=%BUILD%%TESSERACT_INSTALLER%"
+
 if exist "%TESS_SRC%\tesseract.exe" (
-    echo  [*] Bundling Tesseract from system install...
+    echo  [*] Bundling Tesseract from system install at %TESS_SRC%...
     xcopy "%TESS_SRC%" "%TESS_DEST%\" /s /i /q >nul
-    echo  [OK] Tesseract bundled.
 ) else (
-    echo  [!] Tesseract not found at %TESS_SRC% — OCR will require manual install.
+    echo  [*] Tesseract not installed system-wide — downloading installer...
+    if not exist "%TESS_INSTALLER%" (
+        curl -L -o "%TESS_INSTALLER%" "%TESSERACT_URL%"
+        if !errorlevel! neq 0 (
+            echo  [!] Failed to download Tesseract installer.
+            goto :fail
+        )
+    )
+    :: Silent-install the downloaded installer to a temp location,
+    :: then copy the binary + tessdata out of it.
+    set "TESS_TMP=%BUILD%_tess_tmp"
+    if exist "!TESS_TMP!" rmdir /s /q "!TESS_TMP!"
+    echo  [*] Extracting Tesseract...
+    "%TESS_INSTALLER%" /VERYSILENT /SUPPRESSMSGBOXES /DIR="!TESS_TMP!" /NOCANCEL /NORESTART
+    if not exist "!TESS_TMP!\tesseract.exe" (
+        echo  [!] Tesseract extraction failed — no tesseract.exe produced.
+        goto :fail
+    )
+    xcopy "!TESS_TMP!" "%TESS_DEST%\" /s /i /q >nul
+    rmdir /s /q "!TESS_TMP!"
 )
+
+:: Validate Tesseract bundled correctly
+if not exist "%TESS_DEST%\tesseract.exe" (
+    echo  [!] Tesseract bundling failed: tesseract.exe missing from staging
+    goto :fail
+)
+if not exist "%TESS_DEST%\tessdata\eng.traineddata" (
+    echo  [!] Tesseract bundling failed: eng.traineddata missing from staging
+    goto :fail
+)
+echo  [OK] Tesseract bundled and validated.
 
 :: ── Step 7: Stage runtime source files ──
 echo.
@@ -197,11 +231,31 @@ for %%T in (Battle_Buddy Mining_Signals) do (
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
         del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
         del /q "%STAGE%\tools\%%T\requirements.txt" 2>nul
-        :: Remove debug screenshots
+        :: Remove debug screenshots from scanner output
         del /q "%STAGE%\tools\%%T\debug_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\_debug_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\_sample_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\_test_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\refinery_ocr_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\refinery_ocr_debug.txt" 2>nul
         :: Remove tesseract installer if accidentally staged
         del /q "%STAGE%\tools\%%T\tesseract\tesseract-setup.exe" 2>nul
     )
+)
+
+:: Mining_Signals: remove training_data (large, only needed for
+:: offline model retraining — not used at runtime) and any
+:: per-user captures that leaked into the dev tree.
+if exist "%STAGE%\tools\Mining_Signals\training_data" (
+    echo  [*] Removing training_data/ from staging (dev-only, ~50-500 MB)
+    rmdir /s /q "%STAGE%\tools\Mining_Signals\training_data"
+)
+:: Recreate an empty training_data/ so training_collector.py can
+:: write to it if the user ever enables harvest.
+mkdir "%STAGE%\tools\Mining_Signals\training_data" 2>nul
+for %%D in (0 1 2 3 4 5 6 7 8 9) do (
+    mkdir "%STAGE%\tools\Mining_Signals\training_data\%%D" 2>nul
 )
 
 :: Sanitize Mining_Signals config — the dev config contains personal
@@ -241,6 +295,120 @@ echo  [*] Sanitizing Mining_Signals config (stripping personal data)...
 del /q "%STAGE%\tools\Mining_Signals\mining_ledger.json" 2>nul
 del /q "%STAGE%\tools\Mining_Signals\fleet_snapshots.json" 2>nul
 del /q "%STAGE%\tools\Mining_Signals\refinery_orders.json" 2>nul
+del /q "%STAGE%\tools\Mining_Signals\mining_signals.log" 2>nul
+del /q "%STAGE%\tools\Mining_Signals\mining_signals.log.*" 2>nul
+
+:: ── Step 7b: Deterministic Paddle sidecar setup ──
+:: The Paddle sidecar uses its own bundled Python 3.13 with
+:: paddlepaddle + paddleocr installed. When xcopy picks it up from
+:: the dev tree it "just works", but if the dev tree is clean this
+:: silently ships without Paddle and the refinery scanner falls
+:: back to Tesseract-only. Instead, verify the sidecar is present
+:: and functional; if missing, set it up from scratch.
+set "PADDLE_DIR=%STAGE%\tools\Mining_Signals\py313_paddleocr"
+set "PADDLE_PY=%PADDLE_DIR%\python.exe"
+set "PY313_VER=3.13.1"
+set "PY313_ZIP=python-%PY313_VER%-embed-amd64.zip"
+set "PY313_URL=https://www.python.org/ftp/python/%PY313_VER%/%PY313_ZIP%"
+
+if exist "%PADDLE_PY%" (
+    echo  [OK] Paddle sidecar Python 3.13 already staged.
+) else (
+    echo  [*] Paddle sidecar missing — setting up from scratch...
+    set "PY313_ARCHIVE=%BUILD%%PY313_ZIP%"
+    if not exist "!PY313_ARCHIVE!" (
+        echo  [*] Downloading Python %PY313_VER% embeddable...
+        curl -L -o "!PY313_ARCHIVE!" "%PY313_URL%"
+        if !errorlevel! neq 0 (
+            echo  [!] Failed to download Python 3.13. Paddle sidecar will not work.
+            goto :fail
+        )
+    )
+    mkdir "%PADDLE_DIR%" 2>nul
+    echo  [*] Extracting Python 3.13 embeddable into sidecar dir...
+    powershell -Command "Expand-Archive -Force '!PY313_ARCHIVE!' '%PADDLE_DIR%'"
+    :: Enable site-packages in the ._pth file
+    for %%F in ("%PADDLE_DIR%\python*._pth") do (
+        echo.>> "%%F"
+        echo import site>> "%%F"
+    )
+    :: Bootstrap pip into the sidecar's Python 3.13
+    echo  [*] Bootstrapping pip in Paddle sidecar...
+    "%PADDLE_PY%" "%GETPIP%" --no-warn-script-location --quiet
+    if !errorlevel! neq 0 (
+        echo  [!] pip bootstrap failed in Paddle sidecar.
+        goto :fail
+    )
+    :: Install paddlepaddle 3.0.0 + paddleocr + dependencies.
+    :: paddlepaddle 3.3.1 crashes on first inference — pin to 3.0.0.
+    echo  [*] Installing paddlepaddle==3.0.0, paddleocr, numpy, Pillow...
+    "%PADDLE_PY%" -m pip install paddlepaddle==3.0.0 paddleocr numpy Pillow --no-warn-script-location --quiet
+    if !errorlevel! neq 0 (
+        echo  [!] Paddle sidecar dependency install failed.
+        goto :fail
+    )
+    echo  [OK] Paddle sidecar installed from scratch.
+)
+
+:: ── Step 7c: Validate critical runtime components ──
+echo.
+echo  [*] Validating staging integrity...
+set "VALIDATION_OK=1"
+
+:: Mining_Signals ONNX model (digit CNN for HUD mass/resistance)
+if not exist "%STAGE%\tools\Mining_Signals\ocr\models\model_cnn.onnx" (
+    echo  [!] MISSING: ocr\models\model_cnn.onnx — HUD scanner broken
+    set "VALIDATION_OK=0"
+)
+if not exist "%STAGE%\tools\Mining_Signals\ocr\models\model_cnn.onnx.data" (
+    echo  [!] MISSING: ocr\models\model_cnn.onnx.data — HUD scanner broken
+    set "VALIDATION_OK=0"
+)
+
+:: Tesseract binary (all OCR paths depend on this)
+if not exist "%STAGE%\tools\Mining_Signals\tesseract\tesseract.exe" (
+    echo  [!] MISSING: tesseract\tesseract.exe — all OCR broken
+    set "VALIDATION_OK=0"
+)
+if not exist "%STAGE%\tools\Mining_Signals\tesseract\tessdata\eng.traineddata" (
+    echo  [!] MISSING: tesseract\tessdata\eng.traineddata — Tesseract broken
+    set "VALIDATION_OK=0"
+)
+
+:: Paddle sidecar (refinery + light-bg HUD scanning)
+if not exist "%PADDLE_PY%" (
+    echo  [!] MISSING: py313_paddleocr\python.exe — Paddle OCR broken
+    set "VALIDATION_OK=0"
+)
+
+:: Main Python deps that the HUD scanner needs at import time
+if not exist "%STAGE%\python\Lib\site-packages\onnxruntime" (
+    echo  [!] MISSING: onnxruntime pip package — HUD scanner broken
+    set "VALIDATION_OK=0"
+)
+if not exist "%STAGE%\python\Lib\site-packages\numpy" (
+    echo  [!] MISSING: numpy pip package — HUD + refinery scanners broken
+    set "VALIDATION_OK=0"
+)
+if not exist "%STAGE%\python\Lib\site-packages\PIL" (
+    echo  [!] MISSING: Pillow pip package — all image processing broken
+    set "VALIDATION_OK=0"
+)
+
+:: Clean config (no personal data)
+findstr /C:"prjgn" "%STAGE%\tools\Mining_Signals\mining_signals_config.json" >nul 2>&1
+if !errorlevel!==0 (
+    echo  [!] POLLUTED: mining_signals_config.json contains personal paths
+    set "VALIDATION_OK=0"
+)
+
+if "!VALIDATION_OK!"=="0" (
+    echo.
+    echo  [!] Staging validation FAILED — see errors above.
+    echo      Refusing to build installer with missing components.
+    goto :fail
+)
+echo  [OK] All runtime components validated.
 
 :: Global cleanup — remove all __pycache__, .pytest_cache, and tests/ dirs
 echo  [*] Cleaning staging directory...
