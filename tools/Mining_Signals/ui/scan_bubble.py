@@ -30,7 +30,7 @@ RARITY_COLORS: dict[str, str] = {
     "Salvage": "#66ccff",
 }
 
-_FADE_DURATION_MS = 4000
+_FADE_DURATION_MS = 8000  # stay visible between scan ticks
 _ANIMATION_MS = 300
 _WIDTH = 280
 _ROW_HEIGHT = 24
@@ -64,8 +64,74 @@ class ScanBubble(QWidget):
         self._fade_timer.setSingleShot(True)
         self._fade_timer.timeout.connect(self._start_fade_out)
 
-    def show_matches(self, matches: list[SignalMatch], anchor_x: int, anchor_y: int) -> None:
-        """Display one or more match results."""
+    def show_scanning(self, anchor_x: int, anchor_y: int) -> None:
+        """Display a 'Scanning — Please Wait' placeholder bubble."""
+        self._matches = []
+        self._accent = QColor(P.green)
+
+        for lbl in self._labels:
+            self._layout.removeWidget(lbl)
+            lbl.deleteLater()
+        self._labels.clear()
+
+        header = QLabel("Scanning", self)
+        header.setStyleSheet(f"""
+            font-family: Electrolize, Consolas, monospace;
+            font-size: 14pt; font-weight: bold;
+            color: {P.green}; background: transparent;
+        """)
+        self._layout.addWidget(header)
+        self._labels.append(header)
+
+        sub = QLabel("Please Wait", self)
+        sub.setStyleSheet(f"""
+            font-family: Consolas, monospace;
+            font-size: 9pt; color: {P.fg_dim}; background: transparent;
+        """)
+        self._layout.addWidget(sub)
+        self._labels.append(sub)
+
+        self.setFixedSize(_WIDTH, _PADDING + 44)
+
+        anim = getattr(self, "_anim", None)
+        if anim is not None:
+            try:
+                anim.stop()
+            except Exception:
+                pass
+
+        self.move(anchor_x, anchor_y)
+        self.setWindowOpacity(1.0)
+        if not self.isVisible():
+            self.show()
+        self.raise_()
+
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, -1, 0, 0, 0, 0,
+                0x0002 | 0x0001 | 0x0040 | 0x0010,
+            )
+        except Exception:
+            pass
+
+        # No fade timer — stays until a result replaces it
+        self._fade_timer.stop()
+        self.update()
+
+    def show_matches(
+        self,
+        matches: list[SignalMatch],
+        anchor_x: int,
+        anchor_y: int,
+        scanned_value: int | None = None,
+    ) -> None:
+        """Display one or more match results.
+
+        *scanned_value* is the raw OCR number so the user can visually
+        confirm it matches the in-game signature.
+        """
         if not matches:
             return
 
@@ -77,6 +143,8 @@ class ScanBubble(QWidget):
             self._layout.removeWidget(lbl)
             lbl.deleteLater()
         self._labels.clear()
+
+        extra_rows = 0
 
         if len(matches) == 1:
             # Single match — show name large, detail below
@@ -119,12 +187,37 @@ class ScanBubble(QWidget):
 
             total_height = _PADDING + len(matches) * _ROW_HEIGHT
 
+        # Signature confirmation line — shows the scanned value so the
+        # user can eyeball-verify it against the in-game number.
+        if scanned_value is not None:
+            sig_lbl = QLabel(f"Signature: {scanned_value:,}", self)
+            sig_lbl.setStyleSheet(f"""
+                font-family: Consolas, monospace;
+                font-size: 8pt; color: {P.fg_dim}; background: transparent;
+                padding-top: 2px;
+            """)
+            self._layout.addWidget(sig_lbl)
+            self._labels.append(sig_lbl)
+            extra_rows += 1
+
+        total_height += extra_rows * _ROW_HEIGHT
+
         self.setFixedSize(_WIDTH, total_height)
 
-        # Position and show
+        # Stop any in-progress fade-out animation so we can't fade
+        # out the bubble while it's supposed to be showing again.
+        anim = getattr(self, "_anim", None)
+        if anim is not None:
+            try:
+                anim.stop()
+            except Exception:
+                pass
+
+        # Position and show (force visible even if previously hidden)
         self.move(anchor_x, anchor_y)
         self.setWindowOpacity(1.0)
-        self.show()
+        if not self.isVisible():
+            self.show()
         self.raise_()
 
         # Force topmost via Win32 API — fights borderless fullscreen games
@@ -146,9 +239,10 @@ class ScanBubble(QWidget):
         log.info("show_matches: %d match(es) at (%d,%d)",
                  len(matches), anchor_x, anchor_y)
 
-        # Reset fade timer
+        # Persistent — no auto-fade. The scan loop in ui/app.py hides
+        # the bubble when the HUD panel isn't visible (the user looked
+        # away from the rock), so the bubble stays up until then.
         self._fade_timer.stop()
-        self._fade_timer.start(_FADE_DURATION_MS)
         self.update()
 
     # Keep backward compat

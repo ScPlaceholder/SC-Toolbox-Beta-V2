@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# Caches
+.signals_cache.json
+.uex_cache.json
+.api_cache/
+.craft_cache/
+.scmdb_cache.json
+.scunpacked_cache.json
+.erkul_cache.json
+.fy_hardpoints_cache.json
+.cargo_cache.json
+
+# User config / data (keep out of shared repo, but commit once as baseline)
+# mining_signals_config.json  -- tracked as baseline, uncomment to ignore
+# mining_ledger.json          -- tracked as baseline, uncomment to ignore
+
+# Session debug / diagnostic files (temporary, generated during development)
+# Any _-prefixed png is considered a scratch diagnostic, EXCEPT _sample_light_*
+debug_*.png
+debug_*.txt
+_zoom*.png
+_slice*.png
+_probe*.png
+_check*.png
+_mask*.png
+_mask2*.png
+_mask3*.png
+_bin*.png
+_res*.png
+_final*.png
+_test_light*.png
+_test_ref.png
+_lightval_*.png
+_dilated_*.png
+_tight_*.png
+_narrow_*.png
+_chroma_*.png
+_clean_*.png
+_reconstruct_*.png
+_dark_mass_crop.png
+_auto*.png
+_preproc*.png
+_thresh_*.png
+_lvc_*.png
+_verify_*.png
+_zoom3.png
+_zoom4.png
+_zoom_*.png
+_sample_light_inverted.png
+_test_light_mask.png
+_test_light_inverted.png
+_simple_crop.png
+_test_tess_sanity.png
+
+# Training-data is kept for initial snapshot but new auto-collected
+# samples don't need to be tracked incrementally. Leave training_data/
+# tracked as-is.
+
+# NOTE: _sample_light_*.png are KEPT — these are test fixtures for
+# the light-background OCR pipeline. Only the diagnostic _test_* /
+# _mask* / _zoom* are ignored.
+
+# Refinery OCR scratch
+refinery_ocr_capture.png
+refinery_ocr_debug.txt
+
+# Tesseract binary (large, user-specific)
+tesseract/

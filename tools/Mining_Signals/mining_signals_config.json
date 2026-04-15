@@ -1,14 +1,23 @@
 {
   "refresh_interval_minutes": 60,
   "scan_interval_seconds": 1,
-  "ocr_region": {
-    "h": 107,
-    "w": 279,
-    "x": 1772,
-    "y": 455
+  "ocr_region": null,
+  "hud_region": null,
+  "refinery_ocr_region": null,
+  "ship_loadouts": {},
+  "active_ship": null,
+  "gadget_quantities": {
+    "Okunis": 10,
+    "BoreMax": 10,
+    "OptiMax": 10,
+    "Sabir": 10,
+    "Stalwart": 10,
+    "Waveshift": 10
   },
-  "bubble_position": {
-    "x": 718,
-    "y": 405
-  }
+  "always_use_best_gadget": false,
+  "calc_mode": "fleet",
+  "bubble_position": null,
+  "break_bubble_position": null,
+  "ledger_file": null,
+  "game_dir": null
 }

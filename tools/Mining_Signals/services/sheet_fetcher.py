@@ -16,6 +16,7 @@ import urllib.request
 
 from shared.cache_manager import DiskCache
 from shared.errors import Result
+from .http_retry import urlopen_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class SheetFetcher:
                 EXPORT_URL,
                 headers={"User-Agent": "SC-Toolbox/1.0"},
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urlopen_with_retry(req, timeout=30) as resp:
                 raw = resp.read().decode("utf-8-sig")
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
             log.warning("sheet_fetcher: download failed: %s", exc)
