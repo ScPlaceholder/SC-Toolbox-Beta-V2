@@ -303,7 +303,12 @@ def scan_hud_onnx(region: dict) -> dict:
         "panel_visible": False,
     }
     t0 = time.time()
-    img = capture.grab(region)
+    # Use multi-frame averaging (same as legacy) to stabilize the
+    # HUD's subpixel wiggle animation. Single-frame capture produces
+    # shifted glyphs that ONNX misclassifies.
+    img = capture.grab_multi(region, n=4, delay_ms=30)
+    if img is None:
+        img = capture.grab(region)
     if img is None:
         return empty
 
