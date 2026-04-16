@@ -331,28 +331,32 @@ def scan_hud_onnx(region: dict) -> dict:
     result = dict(empty)
     result["panel_visible"] = True
 
-    mr_center = (mineral_row[0] + mineral_row[1]) // 2
     H, W = gray.shape
 
-    # Fixed pixel offsets from the mineral-row center to each value
-    # row. These are PROVEN on the 397×541 test fixture AND the
-    # user's live 397×541 capture. For different panel sizes, scale
-    # proportionally.
-    ref_h = 541  # reference fixture height
-    scale = H / ref_h
-    offsets = {"mass": int(43 * scale), "resistance": int(82 * scale),
-               "instability": int(120 * scale)}
-    label_rights = {"mass": int(110 * scale), "resistance": int(200 * scale),
-                    "instability": int(205 * scale)}
-    row_half = max(5, int(15 * scale))
+    # Use Tesseract label detection to find the EXACT positions of
+    # MASS/RESISTANCE/INSTABILITY labels. This handles ANY rock type
+    # (different mineral names shift the layout). 3 Tesseract calls
+    # for label detection + 3 for values = ~300ms total, vs legacy's
+    # 12-15 calls at 600ms+.
+    from ..onnx_hud_reader import _find_label_rows
+    label_rows = _find_label_rows(img)
+
+    # Fallback to fixed offsets from mineral row if label detection fails
+    if not label_rows:
+        mr_center = (mineral_row[0] + mineral_row[1]) // 2
+        scale = H / 541
+        _ROW_H = int(15 * scale)
+        for field, off, lr in [("mass",43,110),("resistance",82,200),("instability",120,205)]:
+            c = mr_center + int(off * scale)
+            label_rows[field] = (max(0,c-_ROW_H), min(H,c+_ROW_H), int(lr*scale))
 
     fields = ["mass", "resistance", "instability"]
 
     for field in fields:
-        center = mr_center + offsets[field]
-        y1 = max(0, center - row_half)
-        y2 = min(H, center + row_half)
-        lr = label_rights[field]
+        entry = label_rows.get(field)
+        if entry is None:
+            continue
+        y1, y2, lr = entry
 
         value_crop = _find_value_crop(img, gray, y1, y2, x_min=max(0, lr + 6))
         if value_crop is None:
