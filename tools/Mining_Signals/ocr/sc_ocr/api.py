@@ -116,11 +116,13 @@ def _find_mineral_row_universal(img: Image.Image) -> Optional[tuple[int, int]]:
 
     return None
 
-# Fixed HUD geometry offsets (pixel distance from mineral-row center
-# to each value row). Constant across all scans at a given HUD scale.
-_ROW_HEIGHT_HALF = 15
-_OFFSETS = {"mass": 43, "resistance": 82, "instability": 120}
-_LABEL_RIGHTS = {"mass": 110, "resistance": 200, "instability": 205}
+# HUD geometry ratios (fraction of panel HEIGHT from mineral-row center
+# to each value row). Measured from the 397x541 test fixture and
+# verified to scale proportionally across panel sizes.
+_ROW_HEIGHT_HALF_RATIO = 0.028  # ±15/541
+_OFFSET_RATIOS = {"mass": 0.079, "resistance": 0.152, "instability": 0.222}
+# Label right-edge ratios (fraction of panel WIDTH)
+_LABEL_RIGHT_RATIOS = {"mass": 0.277, "resistance": 0.504, "instability": 0.516}
 
 
 # ── Glyph extraction + ONNX classification ────────────────────────
@@ -278,47 +280,97 @@ def scan_hud_onnx(region: dict) -> dict:
     if mineral_row is None:
         return empty
 
-    mr_center = (mineral_row[0] + mineral_row[1]) // 2
     result = dict(empty)
     result["panel_visible"] = True
 
-    # For _find_value_crop: on light backgrounds, invert the
-    # grayscale so the legacy's `gray > 150` text mask sees
-    # the dark text as bright. Also create an inverted PIL image
-    # for the crop extraction.
-    if median_gray > 130:
-        gray_for_crop = 255 - gray
-        img_for_crop = Image.fromarray(
-            255 - np.asarray(img, dtype=np.uint8), mode="RGB",
-        )
-    else:
-        gray_for_crop = gray
-        img_for_crop = img
+    # Instead of fixed ratios (which don't scale across panel sizes),
+    # detect ALL text bands and take the 3 bands immediately after
+    # the mineral row as mass/resistance/instability. This adapts
+    # to any panel size and resolution automatically.
+    from ..onnx_hud_reader import _build_text_mask
+    text_mask = _build_text_mask(gray)
+    row_counts = text_mask.sum(axis=1)
+    H, W = gray.shape
+    min_row_h = max(6, min(14, int(H * 0.026)))
 
-    for field in ("mass", "resistance", "instability"):
-        center = mr_center + _OFFSETS[field]
-        y1 = max(0, center - _ROW_HEIGHT_HALF)
-        y2 = min(img.height, center + _ROW_HEIGHT_HALF)
-        lbl_right = _LABEL_RIGHTS[field]
+    all_bands: list[tuple[int, int, int]] = []
+    in_row = False
+    start_y = 0
+    peak = 0
+    for y_idx in range(H + 1):
+        val = int(row_counts[y_idx]) if y_idx < H else 0
+        if val > 3 and not in_row:
+            in_row = True; start_y = y_idx; peak = val
+        elif val > 3 and in_row:
+            peak = max(peak, val)
+        elif val <= 3 and in_row:
+            in_row = False
+            if y_idx - start_y >= min_row_h:
+                all_bands.append((start_y, y_idx, peak))
 
-        if median_gray < 130:
-            # Dark bg: legacy column-density crop (proven)
-            value_crop = _find_value_crop(
-                img, gray, y1, y2,
-                x_min=max(0, lbl_right + 6),
-            )
-        else:
-            # Light bg: _find_value_crop's column-density clustering
-            # fails on edge-based masks (local contrast produces
-            # fragmented clusters). Just take the full right portion
-            # of the row from the label-right edge — simpler and
-            # more robust. The segmenter will isolate individual
-            # glyphs within this wider strip.
-            x_start = max(0, lbl_right + 6)
-            if x_start < img.size[0] - 10:
-                value_crop = img.crop((x_start, y1, img.size[0], y2))
+    # Find the mineral row's index in the band list
+    mineral_band_idx = None
+    for i, (y1b, y2b, _pk) in enumerate(all_bands):
+        if y1b == mineral_row[0]:
+            mineral_band_idx = i
+            break
+
+    if mineral_band_idx is None:
+        return empty
+
+    # Take the next 3 bands as mass, resistance, instability
+    value_bands = all_bands[mineral_band_idx + 1: mineral_band_idx + 4]
+    fields = ["mass", "resistance", "instability"]
+
+    for i, (y1b, y2b, _pk) in enumerate(value_bands):
+        if i >= len(fields):
+            break
+        field = fields[i]
+
+        # Extract the RIGHTMOST text cluster in the row — that's
+        # always the value. The legacy _find_value_crop picks
+        # LEFTMOST-after-x_min which can grab label text when x_min
+        # is too low. Instead, find all text clusters in the row
+        # and take the rightmost one directly.
+        from ..onnx_hud_reader import _build_text_mask
+        text_mask = _build_text_mask(gray)
+        row_mask = text_mask[y1b:y2b, :]
+        col_text = row_mask.sum(axis=0)
+        hot = col_text >= 3
+
+        # Find spans right-to-left
+        spans: list[tuple[int, int]] = []
+        in_span = False
+        end = 0
+        for x in range(W - 1, -1, -1):
+            if hot[x] and not in_span:
+                in_span = True; end = x + 1
+            elif not hot[x] and in_span:
+                in_span = False
+                if end - (x + 1) >= 3:
+                    spans.append((x + 1, end))
+        if in_span and end - 0 >= 3:
+            spans.append((0, end))
+
+        # Merge into clusters (gap <= 12)
+        if not spans:
+            continue
+        clusters = []
+        cs, ce = spans[0]
+        for ss, se in spans[1:]:
+            if cs - se <= 12:
+                cs = ss
             else:
-                value_crop = None
+                clusters.append((cs, ce))
+                cs, ce = ss, se
+        clusters.append((cs, ce))
+
+        # Take the RIGHTMOST cluster (first in list = rightmost)
+        if not clusters:
+            continue
+        vx_start, vx_end = clusters[0]
+        vx_start = max(0, vx_start - 4)
+        value_crop = img.crop((vx_start, y1b, vx_end, y2b))
         if value_crop is None:
             continue
 

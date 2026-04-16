@@ -581,7 +581,11 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
     row_counts = text_mask.sum(axis=1)
     h = len(row_counts)
 
-    # Build row spans (≥ 14px tall)
+    # Build row spans. Min height scales with panel size: at 541px
+    # height the threshold is 14px (2.6%); at 130px it's ~8px. This
+    # ensures small-panel HUDs (user's native 125x130 crop) don't
+    # have their rows filtered out.
+    min_row_h = max(6, min(14, int(h * 0.026)))
     rows: list[tuple[int, int, int]] = []  # (y1, y2, peak_count)
     in_row = False
     start = 0
@@ -596,7 +600,7 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
             peak = max(peak, val)
         elif val <= 3 and in_row:
             in_row = False
-            if y - start >= _MIN_ROW_HEIGHT:
+            if y - start >= min_row_h:
                 rows.append((start, y, peak))
 
     if len(rows) < 2:
@@ -609,9 +613,21 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
     #
     # Find the first row matching the header signature and return
     # the NEXT qualifying row as the mineral name.
+    # Peak threshold scales with panel width. At 397 px (test fixture),
+    # the header peaks at ~117 = 29% of width. At 125 px (user's small
+    # panel), the same text peaks at ~36 = 29% of width. Using a
+    # proportional threshold handles all panel sizes.
+    W = gray.shape[1]
+    # "SCAN RESULTS" text width doesn't scale linearly with panel
+    # width (same string, different font sizes). At 397px panel it
+    # peaks at 117 (29%); at 332px it peaks at 43 (13%). Use 10%
+    # as the floor to catch both.
+    header_peak_min = max(15, int(W * 0.10))
+    mineral_peak_min = max(10, int(W * 0.06))
+
     header_idx = None
     for i, (y1, y2, peak_cnt) in enumerate(rows):
-        if peak_cnt >= 60 and (y2 - y1) <= 40:
+        if peak_cnt >= header_peak_min and (y2 - y1) <= 40:
             header_idx = i
             break
 
@@ -619,7 +635,7 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
         return None
 
     for y1, y2, peak_cnt in rows[header_idx + 1:]:
-        if peak_cnt >= 60 and (y2 - y1) <= 40:
+        if peak_cnt >= mineral_peak_min and (y2 - y1) <= 40:
             return (y1, y2)
     return None
 
