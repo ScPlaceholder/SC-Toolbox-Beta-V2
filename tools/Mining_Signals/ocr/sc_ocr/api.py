@@ -189,11 +189,29 @@ def _classify_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
 
 def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
     """OCR a tight value crop → (text, per_char_confidences)."""
+    from PIL import ImageFilter
+
     gray = np.array(value_crop.convert("L"), dtype=np.uint8)
-    if np.median(gray) > 140:
+    median = float(np.median(gray))
+
+    if median < 140:
+        # Dark background: standard Otsu (bright text on dark bg)
+        thr = _otsu(gray)
+        binary = (gray > thr).astype(np.uint8) * 255
+    else:
+        # Light background: local-contrast binarization.
+        # Simple inversion + Otsu fails because inverted text and
+        # background end up at similar brightness. Local contrast
+        # detects the text EDGES regardless of absolute brightness.
+        blurred = np.asarray(
+            Image.fromarray(gray).filter(ImageFilter.GaussianBlur(radius=3)),
+            dtype=np.float32,
+        )
+        local_contrast = np.abs(gray.astype(np.float32) - blurred)
+        binary = (local_contrast > 10).astype(np.uint8) * 255
+        # Invert gray for glyph extraction (ONNX expects bright text)
         gray = 255 - gray
-    thr = _otsu(gray)
-    binary = (gray > thr).astype(np.uint8) * 255
+
     crops = _segment_glyphs(gray, binary)
     results = _classify_crops(crops)
     text = "".join(ch for ch, _ in results)
@@ -283,13 +301,24 @@ def scan_hud_onnx(region: dict) -> dict:
         y2 = min(img.height, center + _ROW_HEIGHT_HALF)
         lbl_right = _LABEL_RIGHTS[field]
 
-        # _find_value_crop uses column-density scanning to isolate
-        # just the numeric value, excluding the label text. Uses
-        # polarity-corrected gray so `gray > 150` finds the text.
-        value_crop = _find_value_crop(
-            img_for_crop, gray_for_crop, y1, y2,
-            x_min=max(0, lbl_right + 6),
-        )
+        if median_gray < 130:
+            # Dark bg: legacy column-density crop (proven)
+            value_crop = _find_value_crop(
+                img, gray, y1, y2,
+                x_min=max(0, lbl_right + 6),
+            )
+        else:
+            # Light bg: _find_value_crop's column-density clustering
+            # fails on edge-based masks (local contrast produces
+            # fragmented clusters). Just take the full right portion
+            # of the row from the label-right edge — simpler and
+            # more robust. The segmenter will isolate individual
+            # glyphs within this wider strip.
+            x_start = max(0, lbl_right + 6)
+            if x_start < img.size[0] - 10:
+                value_crop = img.crop((x_start, y1, img.size[0], y2))
+            else:
+                value_crop = None
         if value_crop is None:
             continue
 
