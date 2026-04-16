@@ -97,11 +97,20 @@ def validate_pct(raw: str) -> Optional[float]:
     return None
 
 
-def validate_instability(raw: str) -> Optional[float]:
+def validate_instability(
+    raw: str,
+    confidences: list[float] | None = None,
+) -> Optional[float]:
     """Parse an instability read as a float in [0, 100000].
 
     Wider bounds than pct because instability can reach 4-digit
     values on some ores.
+
+    Special handling: the ONNX model sometimes classifies the '.'
+    glyph as '8' (similar circular shape, low confidence). If the
+    raw string has no dot AND exceeds a plausible instability value,
+    try inserting a dot at the lowest-confidence position to recover
+    the decimal.
     """
     cleaned = re.sub(r"[^0-9.]", "", raw)
     if not cleaned:
@@ -115,6 +124,23 @@ def validate_instability(raw: str) -> Optional[float]:
         return None
     if 0.0 <= val <= 100000.0:
         return val
+
+    # Decimal recovery: if no dot found and value is too large,
+    # try inserting a dot at the lowest-confidence position.
+    if "." not in cleaned and confidences and len(confidences) == len(raw):
+        # Find the lowest-confidence character
+        min_idx = int(min(range(len(confidences)), key=lambda i: confidences[i]))
+        # Try replacing that character with a dot
+        attempt = raw[:min_idx] + "." + raw[min_idx + 1:]
+        attempt_clean = re.sub(r"[^0-9.]", "", attempt)
+        attempt_clean = re.sub(r"\.+", ".", attempt_clean).strip(".")
+        try:
+            val2 = float(attempt_clean)
+            if 0.0 <= val2 <= 100000.0:
+                return val2
+        except ValueError:
+            pass
+
     return None
 
 
