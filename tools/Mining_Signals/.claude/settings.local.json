@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(python scripts/build_templates.py)",
+      "Read(//c/Users/prjgn/AppData/Roaming/ShipBit/WingmanAI/custom_skills/SC_Toolbox_Beta_V1.2/**)",
+      "Bash(python)",
+      "Bash(python tools/Mining_Signals/scripts/build_templates.py)"
+    ]
+  }
+}
