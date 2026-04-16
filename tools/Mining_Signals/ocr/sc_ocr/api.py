@@ -192,81 +192,72 @@ def _classify_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
 def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
     """OCR a tight value crop → (text, per_char_confidences).
 
-    Runs MULTIPLE preprocessing variants through the ONNX model and
-    VOTES on the result — same multi-engine voting pattern as the
-    legacy pipeline but using only ONNX (no Tesseract, no Paddle).
+    Uses Tesseract (single PSM 7 call) as the primary recognizer,
+    with ONNX as a second voter. Tesseract's LSTM handles the SC
+    HUD font much more accurately than our tiny ONNX CNN alone.
 
-    Variants:
-      A: Otsu on grayscale (standard dark-bg text)
-      B: Otsu on max-of-channels (catches colored/red text)
-      C: Fixed threshold 140 on grayscale (backup for low contrast)
-
-    Voting: pick the read that appears most frequently. On ties,
-    prefer the variant with the most glyphs (longer = more likely
-    correct, avoids dropped-digit failures).
+    This is 1 subprocess call per field (3 per scan total = ~150ms)
+    vs the legacy pipeline's 12+ calls (500-2000ms).
     """
+    import pytesseract
+    # Ensure Tesseract binary path is configured
+    from ..screen_reader import _check_tesseract
+    _check_tesseract()
+
     W, H = value_crop.size
 
-    # Auto-upscale small crops
+    # Auto-upscale small crops for both Tesseract and ONNX
     if H < 25:
-        scale = max(2, 28 // max(1, H))
-        value_crop = value_crop.resize((W * scale, H * scale), Image.LANCZOS)
+        scale_up = max(2, 28 // max(1, H))
+        value_crop = value_crop.resize(
+            (W * scale_up, H * scale_up), Image.LANCZOS,
+        )
 
     rgb = np.array(value_crop.convert("RGB"), dtype=np.uint8)
     gray = np.array(value_crop.convert("L"), dtype=np.uint8)
     max_ch = rgb.max(axis=2).astype(np.uint8)
     median = float(np.median(gray))
 
-    # Polarity correction for light backgrounds
+    # Polarity correction
     if median > 140:
         gray = 255 - gray
         max_ch = 255 - max_ch
 
-    # Build multiple binary variants
-    variants: list[tuple[np.ndarray, np.ndarray]] = []
+    # ── Tesseract (primary) ──
+    # Feed the raw value crop DIRECTLY — Tesseract's internal
+    # preprocessing (adaptive threshold, upscaling) handles the
+    # SC HUD font better than our manual pipeline. Verified:
+    # raw crop → "499" correct; 4x+Otsu+flip → empty or wrong.
+    tess_text = ""
+    try:
+        tess_text = pytesseract.image_to_string(
+            value_crop,
+            config="--psm 7 -c tessedit_char_whitelist=0123456789.%",
+        ).strip()
+    except Exception:
+        pass
 
-    # Variant A: Otsu on grayscale
+    # ── ONNX (secondary voter) ──
     thr_a = _otsu(gray)
     bin_a = (gray > thr_a).astype(np.uint8) * 255
-    variants.append((gray, bin_a))
-
-    # Variant B: Otsu on max-of-channels (red/colored text)
-    thr_b = _otsu(max_ch)
-    bin_b = (max_ch > thr_b).astype(np.uint8) * 255
-    variants.append((max_ch, bin_b))
-
-    # Variant C: Fixed threshold 140 (low-contrast backup)
-    bin_c = (gray > 140).astype(np.uint8) * 255
-    variants.append((gray, bin_c))
-
-    # Run ONNX on each variant
-    candidates: list[tuple[str, list[float]]] = []
-    for v_gray, v_binary in variants:
-        crops = _segment_glyphs(v_gray, v_binary)
-        if not crops:
-            continue
+    crops = _segment_glyphs(gray, bin_a)
+    onnx_text = ""
+    onnx_confs: list[float] = []
+    if crops:
         results = _classify_crops(crops)
-        if not results:
-            continue
-        text = "".join(ch for ch, _ in results)
-        confs = [c for _, c in results]
-        if text:
-            candidates.append((text, confs))
+        onnx_text = "".join(ch for ch, _ in results)
+        onnx_confs = [c for _, c in results]
 
-    if not candidates:
+    # ── Vote ──
+    # Prefer Tesseract (more accurate LSTM) unless it returned empty,
+    # in which case fall back to ONNX.
+    if tess_text:
+        # Use Tesseract result with dummy confidences
+        return tess_text, [0.9] * len(tess_text)
+    elif onnx_text:
+        return onnx_text, onnx_confs
+    else:
         return "", []
-
-    # Vote: most frequent read wins. Tie-break by longest string.
-    from collections import Counter
-    vote = Counter(text for text, _ in candidates)
-    best_text = max(vote.keys(), key=lambda t: (vote[t], len(t)))
-
-    # Return the best-text candidate with its confidences
-    for text, confs in candidates:
-        if text == best_text:
-            return text, confs
-
-    return candidates[0]
 
 
 # ── Public API ─────────────────────────────────────────────────────
@@ -312,23 +303,27 @@ def scan_hud_onnx(region: dict) -> dict:
     if img is None:
         return empty
 
+    # Upscale to reference size if the capture is smaller.
+    # The ONNX model was trained on digit crops from a 397x541
+    # panel where text rows are ~24px tall. Smaller panels produce
+    # text too small for accurate classification (e.g. 400x403
+    # produces 22px rows with 10px-wide digits — ONNX can't read
+    # those). Upscaling to the reference height ensures consistent
+    # glyph size regardless of the user's HUD region dimensions.
+    REF_H = 541
+    W_img, H_img = img.size
+    if H_img < REF_H * 0.95:  # only upscale if meaningfully smaller
+        scale_up = REF_H / H_img
+        img = img.resize(
+            (int(W_img * scale_up), REF_H), Image.LANCZOS,
+        )
+
     gray = np.asarray(img.convert("L"), dtype=np.uint8)
 
-    # Polarity dispatch: light-background panels need inversion
-    # before mineral-row detection and value OCR can work.
     median_gray = float(np.median(gray))
     if median_gray > 130:
         gray = 255 - gray
 
-    # Find the mineral-name row (e.g. "SAVRILIUM (ORE)") via pure
-    # NumPy horizontal-projection heuristics. This is the anchor
-    # for the fixed-offset value row positions.
-    #
-    # On light backgrounds, _find_mineral_row needs the image with
-    # inverted polarity so its text-mask heuristic sees text (now
-    # dark) as bright. We create an inverted PIL image for this.
-    # Use the legacy _find_mineral_row which now works on BOTH
-    # backgrounds thanks to the polarity-aware _build_text_mask.
     mineral_row = _find_mineral_row(img)
     if mineral_row is None:
         return empty
