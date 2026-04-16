@@ -331,6 +331,15 @@ def scan_hud_onnx(region: dict) -> dict:
     result = dict(empty)
     result["panel_visible"] = True
 
+    # Debug save: write the raw capture so we can dry-run offline
+    try:
+        import os
+        dbg = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                           "debug_sc_ocr_capture.png")
+        img.save(dbg)
+    except Exception:
+        pass
+
     # Instead of fixed ratios (which don't scale across panel sizes),
     # detect ALL text bands and take the 3 bands immediately after
     # the mineral row as mass/resistance/instability. This adapts
@@ -426,6 +435,8 @@ def scan_hud_onnx(region: dict) -> dict:
         if not text:
             continue
 
+        log.info("sc_ocr raw %s: text=%r confs=%s", field, text,
+                 [f"{c:.2f}" for c in confs[:8]])
         if field == "mass":
             result["mass"] = validate.validate_mass(text)
         elif field == "resistance":
