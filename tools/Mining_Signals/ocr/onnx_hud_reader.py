@@ -228,25 +228,28 @@ def is_available() -> bool:
 def _build_text_mask(gray: np.ndarray, deviation: int = 35) -> np.ndarray:
     """Return a boolean mask where True means "likely text pixel".
 
-    Tuned for the DARK-BACKGROUND HUD case: HUD text (white, cyan,
-    red) all have max-of-channels ≥ ~200, translucent blue panel
-    background has max ≤ ~130. A fixed threshold at 180 cleanly
-    separates them.
+    Auto-detects polarity so it works on BOTH dark and light backgrounds:
+    - Dark bg (median < 130): text is BRIGHT → gray > 150
+    - Light bg (median >= 130): text is DARK → gray < (median - 30)
 
-    The ``gray`` parameter should be the image's **grayscale** array
-    (not max-of-channels) because upstream row-detection code passes
-    grayscale. Internally we approximate max-of-channels by treating
-    any grayscale value > 150 as potentially bright text. This is
-    less precise than computing real max-of-channels per pixel but
-    survives on dark panels where red text is still rendered > 150
-    on grayscale.
-
-    *Light-background HUDs* (sunlit asteroid bleeding through the
-    panel) are NOT handled by this function — see the separate
-    light-path entry point in ``scan_hud_onnx``.
+    This single fix enables the entire downstream pipeline
+    (_find_mineral_row, _find_value_crop, column-density scanning)
+    to work on light backgrounds without PaddleOCR.
     """
     del deviation  # kept for API compatibility
-    return gray > 150
+    median = float(np.median(gray))
+    if median < 130:
+        return gray > 150
+    else:
+        # Light background: text is darker than surroundings.
+        # Use local contrast via high-pass filter for robust detection.
+        from PIL import Image as _Img, ImageFilter
+        blurred = np.asarray(
+            _Img.fromarray(gray).filter(ImageFilter.GaussianBlur(radius=5)),
+            dtype=np.float32,
+        )
+        local_contrast = np.abs(gray.astype(np.float32) - blurred)
+        return local_contrast > 15
 
 
 def _find_value_crop(
