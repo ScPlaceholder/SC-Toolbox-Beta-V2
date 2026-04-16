@@ -192,40 +192,81 @@ def _classify_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
 def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
     """OCR a tight value crop → (text, per_char_confidences).
 
-    Auto-upscales small crops so the ONNX model (trained on 28x28
-    glyphs from ~24px-tall text rows) gets adequate resolution.
-    """
-    from PIL import ImageFilter
+    Runs MULTIPLE preprocessing variants through the ONNX model and
+    VOTES on the result — same multi-engine voting pattern as the
+    legacy pipeline but using only ONNX (no Tesseract, no Paddle).
 
+    Variants:
+      A: Otsu on grayscale (standard dark-bg text)
+      B: Otsu on max-of-channels (catches colored/red text)
+      C: Fixed threshold 140 on grayscale (backup for low contrast)
+
+    Voting: pick the read that appears most frequently. On ties,
+    prefer the variant with the most glyphs (longer = more likely
+    correct, avoids dropped-digit failures).
+    """
     W, H = value_crop.size
 
-    # The ONNX model needs text rows of ~20-30px height for reliable
-    # classification. If the crop is shorter, upscale so individual
-    # digits are large enough after segmentation + resize to 28x28.
+    # Auto-upscale small crops
     if H < 25:
         scale = max(2, 28 // max(1, H))
         value_crop = value_crop.resize((W * scale, H * scale), Image.LANCZOS)
 
+    rgb = np.array(value_crop.convert("RGB"), dtype=np.uint8)
     gray = np.array(value_crop.convert("L"), dtype=np.uint8)
+    max_ch = rgb.max(axis=2).astype(np.uint8)
     median = float(np.median(gray))
 
-    if median < 140:
-        thr = _otsu(gray)
-        binary = (gray > thr).astype(np.uint8) * 255
-    else:
-        blurred = np.asarray(
-            Image.fromarray(gray).filter(ImageFilter.GaussianBlur(radius=3)),
-            dtype=np.float32,
-        )
-        local_contrast = np.abs(gray.astype(np.float32) - blurred)
-        binary = (local_contrast > 10).astype(np.uint8) * 255
+    # Polarity correction for light backgrounds
+    if median > 140:
         gray = 255 - gray
+        max_ch = 255 - max_ch
 
-    crops = _segment_glyphs(gray, binary)
-    results = _classify_crops(crops)
-    text = "".join(ch for ch, _ in results)
-    confs = [c for _, c in results]
-    return text, confs
+    # Build multiple binary variants
+    variants: list[tuple[np.ndarray, np.ndarray]] = []
+
+    # Variant A: Otsu on grayscale
+    thr_a = _otsu(gray)
+    bin_a = (gray > thr_a).astype(np.uint8) * 255
+    variants.append((gray, bin_a))
+
+    # Variant B: Otsu on max-of-channels (red/colored text)
+    thr_b = _otsu(max_ch)
+    bin_b = (max_ch > thr_b).astype(np.uint8) * 255
+    variants.append((max_ch, bin_b))
+
+    # Variant C: Fixed threshold 140 (low-contrast backup)
+    bin_c = (gray > 140).astype(np.uint8) * 255
+    variants.append((gray, bin_c))
+
+    # Run ONNX on each variant
+    candidates: list[tuple[str, list[float]]] = []
+    for v_gray, v_binary in variants:
+        crops = _segment_glyphs(v_gray, v_binary)
+        if not crops:
+            continue
+        results = _classify_crops(crops)
+        if not results:
+            continue
+        text = "".join(ch for ch, _ in results)
+        confs = [c for _, c in results]
+        if text:
+            candidates.append((text, confs))
+
+    if not candidates:
+        return "", []
+
+    # Vote: most frequent read wins. Tie-break by longest string.
+    from collections import Counter
+    vote = Counter(text for text, _ in candidates)
+    best_text = max(vote.keys(), key=lambda t: (vote[t], len(t)))
+
+    # Return the best-text candidate with its confidences
+    for text, confs in candidates:
+        if text == best_text:
+            return text, confs
+
+    return candidates[0]
 
 
 # ── Public API ─────────────────────────────────────────────────────
