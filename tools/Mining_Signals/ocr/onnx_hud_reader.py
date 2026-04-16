@@ -1816,16 +1816,21 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
     try:
         from .sc_ocr.api import scan_hud_onnx as _sc_ocr_scan
         sc_result = _sc_ocr_scan(region)
-        # Only accept SC-OCR if it produced ALL THREE values —
-        # partial reads (only mass, no resistance/instability) are
-        # likely garbage from a misaligned mineral-row detection.
-        # The legacy pipeline is more robust on unfamiliar panel
-        # geometries, so fall through on any partial result.
+        # Only accept SC-OCR if it produced ALL THREE values AND
+        # they pass basic sanity checks. Partial reads or implausible
+        # values (e.g. mass=506800 from a misaligned band) fall
+        # through to legacy which is more robust on unfamiliar panels.
+        sc_mass = sc_result.get("mass")
+        sc_res = sc_result.get("resistance")
+        sc_inst = sc_result.get("instability")
         sc_has_data = (
             sc_result.get("panel_visible")
-            and sc_result.get("mass") is not None
-            and sc_result.get("resistance") is not None
-            and sc_result.get("instability") is not None
+            and sc_mass is not None
+            and sc_res is not None
+            and sc_inst is not None
+            # Sanity: resistance must be 0-100, instability < 10000
+            and 0.0 <= sc_res <= 100.0
+            and sc_inst < 10000.0
         )
         if sc_has_data:
             elapsed = (time.time() - t0) * 1000

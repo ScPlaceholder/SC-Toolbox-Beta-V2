@@ -190,28 +190,35 @@ def _classify_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
 
 
 def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
-    """OCR a tight value crop → (text, per_char_confidences)."""
+    """OCR a tight value crop → (text, per_char_confidences).
+
+    Auto-upscales small crops so the ONNX model (trained on 28x28
+    glyphs from ~24px-tall text rows) gets adequate resolution.
+    """
     from PIL import ImageFilter
+
+    W, H = value_crop.size
+
+    # The ONNX model needs text rows of ~20-30px height for reliable
+    # classification. If the crop is shorter, upscale so individual
+    # digits are large enough after segmentation + resize to 28x28.
+    if H < 25:
+        scale = max(2, 28 // max(1, H))
+        value_crop = value_crop.resize((W * scale, H * scale), Image.LANCZOS)
 
     gray = np.array(value_crop.convert("L"), dtype=np.uint8)
     median = float(np.median(gray))
 
     if median < 140:
-        # Dark background: standard Otsu (bright text on dark bg)
         thr = _otsu(gray)
         binary = (gray > thr).astype(np.uint8) * 255
     else:
-        # Light background: local-contrast binarization.
-        # Simple inversion + Otsu fails because inverted text and
-        # background end up at similar brightness. Local contrast
-        # detects the text EDGES regardless of absolute brightness.
         blurred = np.asarray(
             Image.fromarray(gray).filter(ImageFilter.GaussianBlur(radius=3)),
             dtype=np.float32,
         )
         local_contrast = np.abs(gray.astype(np.float32) - blurred)
         binary = (local_contrast > 10).astype(np.uint8) * 255
-        # Invert gray for glyph extraction (ONNX expects bright text)
         gray = 255 - gray
 
     crops = _segment_glyphs(gray, binary)
