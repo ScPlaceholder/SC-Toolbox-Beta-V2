@@ -1753,6 +1753,12 @@ def _try_harvest_field(
 def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
     """Capture HUD region and extract mass + resistance + instability.
 
+    Tries SC-OCR first (23ms, no subprocesses). If SC-OCR detects a
+    light background (median gray > 130), falls back to the legacy
+    Tesseract-based pipeline for label detection. This gives dark-bg
+    scans the fast path (95% of gameplay) while keeping light-bg
+    scans functional via Tesseract fallback.
+
     Parameters
     ----------
     region : dict
@@ -1781,6 +1787,30 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
         return result
 
     t0 = time.time()
+
+    # ── SC-OCR FAST PATH ──
+    # Try the new SC-OCR engine first (23ms, no subprocesses).
+    # If it detects a light background, it returns _light_bg=True
+    # and we fall through to the legacy Tesseract-based pipeline.
+    try:
+        from .sc_ocr.api import scan_hud_onnx as _sc_ocr_scan
+        sc_result = _sc_ocr_scan(region)
+        is_light = sc_result.pop("_light_bg", False)
+        if not is_light:
+            # SC-OCR handled it (dark background). Return directly.
+            elapsed = (time.time() - t0) * 1000
+            log.info(
+                "sc_ocr fast path: mass=%s resistance=%s instability=%s in %.0fms",
+                sc_result.get("mass"), sc_result.get("resistance"),
+                sc_result.get("instability"), elapsed,
+            )
+            return sc_result
+        # Light background — fall through to legacy pipeline
+        log.debug("sc_ocr: light bg detected, falling back to legacy")
+    except Exception as exc:
+        log.debug("sc_ocr fast path failed, using legacy: %s", exc)
+
+    # ── LEGACY PIPELINE (light-bg fallback + original dark-bg) ──
 
     # Multi-frame averaging defeats the SC HUD's subpixel text
     # jitter animation that otherwise causes inconsistent OCR
