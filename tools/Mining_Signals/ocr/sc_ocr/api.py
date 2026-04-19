@@ -18,6 +18,7 @@ Architecture:
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Optional
 
@@ -28,6 +29,213 @@ from . import capture, fallback, preprocess, validate
 
 log = logging.getLogger(__name__)
 
+# One-shot debug save per field per process session — first successful
+# value crop for each of mass/resistance/instability gets saved to
+# debug_value_<field>_crop.png at the repo root so we can see what the
+# OCR is actually receiving when reads go wrong.
+_SAVED_DEBUG: dict[str, bool] = {}
+
+# Consensus buffer: last 5 raw reads per field. Scans are ~1 Hz so
+# 5 entries cover ~5 seconds. The display layer uses 2-of-3 in the
+# rolling window to suppress single-frame noise; the LOCK layer
+# (further down) requires stricter agreement across the full
+# window to avoid locking in garbage.
+from collections import deque as _deque
+_LOCK_WINDOW = 5  # frames considered for lock decision
+_RECENT_READS: dict[str, _deque] = {
+    "mass": _deque(maxlen=_LOCK_WINDOW),
+    "resistance": _deque(maxlen=_LOCK_WINDOW),
+    "instability": _deque(maxlen=_LOCK_WINDOW),
+}
+# Parallel buffer of downsampled crop images per field. Used by the
+# pre-lock verifier to confirm that the CROP itself is stable
+# (i.e. the row isn't jumping between a digit row and an unrelated
+# UI element like the difficulty progress bar). If the OCR text is
+# consistent but the underlying pixels are wildly different, that's
+# almost certainly a "trash crop" coincidence and we refuse to lock.
+_RECENT_CROPS: dict[str, _deque] = {
+    "mass": _deque(maxlen=_LOCK_WINDOW),
+    "resistance": _deque(maxlen=_LOCK_WINDOW),
+    "instability": _deque(maxlen=_LOCK_WINDOW),
+}
+# Crop fingerprint size — downsample each crop to this resolution
+# before storing, so pairwise comparison is O(N²×64) per field
+# instead of O(N²×W×H). 8×24 keeps enough horizontal detail to
+# distinguish 4-digit vs 1-digit reads, color stripes, etc.
+_CROP_FP_W = 24
+_CROP_FP_H = 8
+# Required agreement across the full window before locking:
+#   * all _LOCK_WINDOW reads must produce the same value
+#   * mean pairwise crop similarity (NCC) ≥ this threshold
+_LOCK_VALUE_AGREEMENT = _LOCK_WINDOW   # all-of-N (strictest)
+_LOCK_CROP_NCC_MIN = 0.85
+# Last displayed (stabilized) value per field. When a scan produces
+# a one-off outlier we stick with this until the buffer confirms a
+# new value.
+_STABLE_VALUE: dict[str, Optional[float]] = {
+    "mass": None, "resistance": None, "instability": None,
+}
+
+
+def _reset_consensus_buffers() -> None:
+    """Clear all consensus buffers. Called when the panel disappears
+    (user stopped looking at a scan result) so the next rock's reads
+    aren't contaminated by the previous rock's values."""
+    for b in _RECENT_READS.values():
+        b.clear()
+    for b in _RECENT_CROPS.values():
+        b.clear()
+    for k in _STABLE_VALUE:
+        _STABLE_VALUE[k] = None
+    _field_lock_cache.clear()
+
+
+def _crop_fingerprint(value_crop: "Image.Image") -> Optional[np.ndarray]:
+    """Downsample a value crop to a fixed (_CROP_FP_H × _CROP_FP_W)
+    grayscale fingerprint for pairwise similarity comparison.
+
+    Returns a zero-mean unit-variance float32 array (NCC-ready), or
+    None if the input is degenerate.
+    """
+    try:
+        gray = value_crop.convert("L").resize(
+            (_CROP_FP_W, _CROP_FP_H), Image.BILINEAR,
+        )
+        arr = np.asarray(gray, dtype=np.float32).ravel()
+        std = float(arr.std())
+        if std < 1e-3:
+            return None
+        return (arr - float(arr.mean())) / std
+    except Exception:
+        return None
+
+
+def _crop_buffer_consistent(field: str) -> tuple[bool, float]:
+    """Return (is_consistent, mean_pairwise_NCC) for the field's crop buffer.
+
+    A buffer is consistent when its frames all look like the same
+    underlying scene — i.e. the row crop has been STABLE across the
+    window. If the row was jumping (digits one frame, progress bar
+    the next), pairwise NCC will be low and we refuse to lock.
+    """
+    fps = [fp for fp in _RECENT_CROPS[field] if fp is not None]
+    if len(fps) < _LOCK_WINDOW:
+        return False, 0.0
+    n = len(fps[0])
+    sims = []
+    for i in range(len(fps)):
+        for j in range(i + 1, len(fps)):
+            sims.append(float(np.dot(fps[i], fps[j]) / n))
+    if not sims:
+        return False, 0.0
+    mean_sim = sum(sims) / len(sims)
+    return mean_sim >= _LOCK_CROP_NCC_MIN, mean_sim
+
+
+def _value_buffer_unanimous(field: str) -> Optional[float]:
+    """Return the unanimous value if the buffer is full and all frames
+    agree, else None. Stricter than _consensus_value's 2-of-3 rule —
+    used as the lock gate."""
+    buf = _RECENT_READS.get(field)
+    if buf is None or len(buf) < _LOCK_WINDOW:
+        return None
+    vals = [round(float(v), 4) for v in buf if v is not None]
+    if len(vals) < _LOCK_WINDOW:
+        return None
+    if len(set(vals)) == 1:
+        return vals[0]
+    return None
+
+
+# ── Field-value lock cache ─────────────────────────────────────────
+#
+# Once a field reads a value that PASSES VALIDATION (and has high
+# enough CNN confidence), we lock it for the duration the panel
+# remains visible. Subsequent scans for the same panel skip the OCR
+# work entirely for that field and return the locked value. The
+# cache is cleared the moment the panel disappears (mineral row
+# undetectable) — i.e. when the user looks away from the rock.
+#
+# Why locking is necessary even with consensus: the consensus buffer
+# requires 2-of-3 agreement to display a value, which means a single
+# good frame surrounded by misreads will still show garbage. Locking
+# treats the FIRST validated read as truth, and only re-evaluates
+# when the panel goes away (rock changed).
+#
+# Keyed by region (x, y, w, h) so multiple scan regions don't share
+# cache state (e.g. two Mining Signals instances).
+#
+# Each entry stores BOTH the locked value AND the crop fingerprint
+# that was in effect when the lock fired. On every subsequent scan
+# we compare the current frame's crop fingerprint against the
+# stored one; a significant divergence drops the lock and resumes
+# OCR. This prevents a wrong locked value from persisting silently
+# if the row geometry drifts after locking (e.g. ship moves and the
+# panel re-anchors slightly differently).
+_field_lock_cache: dict[
+    tuple[int, int, int, int],
+    dict[str, tuple[float, np.ndarray]],
+] = {}
+# Threshold: if current crop NCC vs stored fingerprint < this, the
+# lock is invalidated. Lower than the lock-acquisition threshold
+# (0.85) so transient noise doesn't immediately drop a good lock.
+_LOCK_INVALIDATE_NCC = 0.65
+
+
+def _region_key(region: dict) -> tuple[int, int, int, int]:
+    return (
+        int(region.get("x", 0)),
+        int(region.get("y", 0)),
+        int(region.get("w", 0)),
+        int(region.get("h", 0)),
+    )
+
+
+def _consensus_value(field: str, new_value: Optional[float]) -> Optional[float]:
+    """Sticky consensus: return last stable value unless a new value
+    appears 2+ times in the rolling 3-read buffer.
+
+    Behaviour:
+      * None input → return last stable (don't corrupt buffer).
+      * New value that matches an existing buffer entry → counts go up.
+      * If most-frequent value has >= 2 occurrences → that becomes the
+        new stable value and is returned.
+      * Otherwise → return the previously-displayed stable value
+        (outlier suppressed).
+
+    First-ever non-None read: return it immediately (no history to
+    stick to).
+    """
+    buf = _RECENT_READS.get(field)
+    if buf is None:
+        return new_value
+    if new_value is None:
+        return _STABLE_VALUE.get(field)
+
+    buf.append(new_value)
+    counts: dict[float, int] = {}
+    for v in buf:
+        if v is None:
+            continue
+        key = round(float(v), 4)
+        counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return new_value
+
+    best_key, best_n = max(counts.items(), key=lambda kv: kv[1])
+    if best_n >= 2:
+        # Confirmed — update stable value and return it
+        _STABLE_VALUE[field] = best_key
+        return best_key
+
+    # No 2-agreement yet — prefer the last stable value if we have one,
+    # else accept the new read as provisional
+    last = _STABLE_VALUE.get(field)
+    if last is not None:
+        return last
+    _STABLE_VALUE[field] = new_value
+    return new_value
+
 # Reuse proven legacy helpers that are pure NumPy (no Tesseract dep)
 # Now that _build_text_mask is polarity-aware, _find_mineral_row and
 # _find_value_crop both work on light AND dark backgrounds.
@@ -36,6 +244,45 @@ from ..onnx_hud_reader import (  # noqa: E402
     _find_value_crop,
     _otsu,
 )
+
+
+def _canonicalize_polarity(gray: np.ndarray) -> np.ndarray:
+    """Force the image to bright-text-on-dark-background (model's training polarity).
+
+    The HUD ships values in many colors (white, yellow, cyan, green,
+    red) over many backgrounds (black space, bright sky, dim cloud
+    gradient, snowy asteroid). Background-median heuristics like
+    ``median > 140 → invert`` get fooled by:
+      - Bright sky backgrounds where the sky pixels dominate the
+        median even though the text is BRIGHTER than the sky.
+      - Mixed crops where a UI element occupies more area than the
+        text itself.
+
+    Minority-class rule (background-agnostic):
+      1. Run Otsu on the grayscale image — splits pixels into the
+         two cleanest groups.
+      2. Whichever group has FEWER pixels is the foreground (text).
+         Text is always a small fraction of any reasonable crop;
+         backgrounds always dominate by area.
+      3. If the minority group is DARK, invert so the text ends up
+         BRIGHT (on dark background). The model was trained on
+         bright-text-on-dark-bg crops surrounded by white padding;
+         we preserve that convention here so downstream segmentation
+         and the CNN see what they expect.
+
+    Returns the polarity-normalized grayscale (uint8).
+    """
+    if gray.size == 0:
+        return gray
+    thr = _otsu(gray)
+    bright_count = int((gray > thr).sum())
+    dark_count = int((gray <= thr).sum())
+    # Minority class = text. We want text BRIGHT (matches training
+    # data). If the minority class is already bright, leave alone.
+    # If the minority class is dark, invert to bring it bright.
+    if dark_count < bright_count:
+        return (255 - gray).astype(np.uint8)
+    return gray
 
 
 def _find_mineral_row_universal(img: Image.Image) -> Optional[tuple[int, int]]:
@@ -132,6 +379,11 @@ def _segment_glyphs(gray: np.ndarray, binary: np.ndarray) -> list[np.ndarray]:
 
     Replicates the EXACT preprocessing the ONNX model was trained on:
       glyph from grayscale → pad with 255 → resize 28x28 → / 255.
+
+    Right-anchored: drops spans before the largest gap between
+    consecutive characters. The largest gap usually marks where label-
+    text intrusion (e.g. the trailing colon of "RESISTANCE:") ends and
+    the actual value begins.
     """
     h, w = gray.shape
     proj = np.sum(binary > 0, axis=0)
@@ -144,8 +396,55 @@ def _segment_glyphs(gray: np.ndarray, binary: np.ndarray) -> list[np.ndarray]:
             in_char = True; start = x
         elif val == 0 and in_char:
             in_char = False
-            if x - start >= 3:
+            # Min span width 2 (was 3) so narrow chars like '1' and '.'
+            # aren't dropped — matches the offline extractor that
+            # produced the high-accuracy training data.
+            if x - start >= 2:
                 spans.append((start, x))
+
+    # Right-anchored span filter: SC HUD values are read right-to-left
+    # and the LEFT edge is where label-text intrusion shows up
+    # (e.g. trailing colon of "RESISTANCE:" leaking in front of "0%").
+    if len(spans) >= 2:
+        # (1) Drop ANY leading span whose width OR HEIGHT is small
+        # relative to the median real digit. Catches colons, halo,
+        # chromatic-aberration dots, narrow leading "1"-aliasing.
+        if len(spans) >= 3:
+            widths = sorted(e - s for s, e in spans)
+            median_w = widths[len(widths) // 2]
+            # Width threshold raised 70%->80% to catch wider artifacts.
+            min_real_width = max(4, int(median_w * 0.80))
+            while spans and (spans[0][1] - spans[0][0]) < min_real_width:
+                spans.pop(0)
+        elif len(spans) == 2:
+            w1 = spans[0][1] - spans[0][0]
+            w2 = spans[1][1] - spans[1][0]
+            # Drop leading if it's noticeably narrower than the next.
+            if w1 < w2 * 0.6:
+                spans = spans[1:]
+
+        # (2) Find the largest gap between adjacent spans; discard
+        # everything LEFT of it (label-to-value boundary).
+        # Tightened so even modestly-larger gaps trigger the cut —
+        # inter-digit gaps in SC HUD font are very uniform.
+        if len(spans) >= 2:
+            gaps = [(spans[i + 1][0] - spans[i][1], i) for i in range(len(spans) - 1)]
+            largest_gap, gap_idx = max(gaps, key=lambda g: g[0])
+            sorted_gaps = sorted(g for g, _ in gaps)
+            median_gap = sorted_gaps[len(sorted_gaps) // 2]
+            # gap >1.4× median (was 1.6) OR >8px absolute (was 12)
+            if largest_gap >= max(8, int(median_gap * 1.4 + 1)):
+                spans = spans[gap_idx + 1:]
+
+        # (3) After the gap-cut, if the new leading span is STILL
+        # disproportionately narrow vs the rest, drop it once more.
+        # Catches the case where the "main cluster" itself starts
+        # with a halo char that wasn't separated by a big gap.
+        if len(spans) >= 3:
+            widths = [e - s for s, e in spans[1:]]
+            avg_real = sum(widths) / len(widths)
+            if (spans[0][1] - spans[0][0]) < avg_real * 0.65:
+                spans = spans[1:]
 
     crops: list[np.ndarray] = []
     for x1, x2 in spans:
@@ -189,16 +488,739 @@ def _classify_crops(crops: list[np.ndarray]) -> list[tuple[str, float]]:
     return results
 
 
-def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
+def _crnn_decode(
+    session, classes: str, blank: int,
+    value_crop: Image.Image, h_target: int,
+) -> Optional[tuple[str, list[float]]]:
+    """Run a single CRNN at a single scale and greedy-decode.
+
+    Shared body for both the primary and optional v2 CRNN; caller
+    passes the session + vocabulary + blank index to use.
+    """
+    gray = np.array(value_crop.convert("L"), dtype=np.uint8)
+    if gray.size == 0:
+        return None
+
+    if float(np.median(gray)) > 140:
+        gray = 255 - gray
+
+    H, W = gray.shape
+    w_new = max(16, int(round(W * h_target / max(1, H))))
+    resized = np.array(
+        Image.fromarray(gray).resize((w_new, h_target), Image.BILINEAR),
+        dtype=np.float32,
+    ) / 255.0
+
+    inp = resized.reshape(1, 1, h_target, w_new).astype(np.float32)
+    try:
+        inp_name = session.get_inputs()[0].name
+        logits = session.run(None, {inp_name: inp})[0]
+    except Exception as exc:
+        log.debug("sc_ocr: CRNN inference failed at h=%d: %s", h_target, exc)
+        return None
+
+    if logits.ndim == 3:
+        logits_tc = logits[:, 0, :]
+    elif logits.ndim == 2:
+        logits_tc = logits
+    else:
+        return None
+
+    shifted = logits_tc - logits_tc.max(axis=-1, keepdims=True)
+    probs = np.exp(shifted)
+    probs /= probs.sum(axis=-1, keepdims=True)
+    preds = probs.argmax(axis=-1)
+    confs = probs.max(axis=-1)
+
+    text_chars: list[str] = []
+    per_char: list[float] = []
+    prev = -1
+    for t in range(len(preds)):
+        p = int(preds[t])
+        if p != prev and p != blank and 0 <= p < len(classes):
+            text_chars.append(classes[p])
+            per_char.append(float(confs[t]))
+        prev = p
+    return "".join(text_chars), per_char
+
+
+def _crnn_recognize_single(
+    value_crop: Image.Image, h_target: int,
+) -> Optional[tuple[str, list[float]]]:
+    """Primary-CRNN single-scale pass. Kept as a thin wrapper over
+    ``_crnn_decode`` so callers that only want the primary model
+    don't need to know about the ensemble partner."""
+    if not fallback._ensure_crnn_model():
+        return None
+    return _crnn_decode(
+        fallback._crnn_session,
+        fallback._crnn_classes,
+        fallback._crnn_blank_idx,
+        value_crop, h_target,
+    )
+
+
+def _crnn_recognize(value_crop: Image.Image) -> Optional[tuple[str, list[float]]]:
+    """End-to-end CRNN read with multi-scale + multi-model ensembling.
+
+    Runs inference at 3 different input heights (base−8, base, base+16)
+    on EACH available CRNN (primary + optional v2 partner) and picks
+    the read with the highest mean confidence across all candidates.
+
+    Two-model ensemble is the default when ``model_crnn_v2.onnx``
+    exists on disk; otherwise falls back to single-model multi-scale.
+    The v2 partner is expected to have been trained with different
+    init / augmentation than the primary so their errors decorrelate.
+    """
+    if not fallback._ensure_crnn_model():
+        return None
+
+    base_h = int(fallback._crnn_input_height)
+    # The shipped ONNX models were exported with height FIXED (only
+    # batch + width are dynamic axes), so off-scale probes at
+    # base_h-8 / base_h+16 fail with INVALID_ARGUMENT and are silently
+    # dropped. Restrict to base_h to stop the wasted inference calls
+    # and log noise. A future retrain with dynamic height could re-
+    # introduce the multi-scale ensemble; guard via model metadata.
+    scales = [base_h]
+
+    # Assemble the list of (session, classes, blank, tag) pairs. Each
+    # is a complete recognizer; we probe each at each scale.
+    recognizers: list[tuple[object, str, int, str]] = [
+        (fallback._crnn_session, fallback._crnn_classes,
+         fallback._crnn_blank_idx, "v1"),
+    ]
+    if fallback._ensure_crnn2_model():
+        recognizers.append((
+            fallback._crnn2_session, fallback._crnn2_classes,
+            fallback._crnn2_blank_idx, "v2",
+        ))
+
+    candidates: list[tuple[str, list[float], str, int]] = []  # +tag, +scale
+    for sess, classes, blank, tag in recognizers:
+        for h in scales:
+            r = _crnn_decode(sess, classes, blank, value_crop, h)
+            if r is not None and r[0]:
+                candidates.append((r[0], r[1], tag, h))
+
+    if not candidates:
+        # Every probe returned empty — fall back to a single primary
+        # pass at base height (may still return empty; caller handles).
+        r = _crnn_recognize_single(value_crop, base_h)
+        return r
+
+    # Rank by mean confidence, ties broken by length (more preserved
+    # chars ⇒ CTC collapsed correctly at that scale).
+    def _score(item):
+        _text, confs, _tag, _h = item
+        mean = sum(confs) / len(confs) if confs else 0.0
+        return (mean, len(_text))
+    candidates.sort(key=_score, reverse=True)
+    winner = candidates[0]
+    # Audit logging only when >1 recognizer actually ran, to keep the
+    # single-model case quiet.
+    if len(recognizers) > 1:
+        _wtxt, _wconfs, _wtag, _wh = winner
+        _wmean = sum(_wconfs) / len(_wconfs) if _wconfs else 0.0
+        log.debug(
+            "sc_ocr: crnn-ensemble winner=%s@h%d text=%r mean=%.2f "
+            "(ncand=%d)", _wtag, _wh, _wtxt, _wmean, len(candidates),
+        )
+    return winner[0], winner[1]
+
+
+def _crnn_recognize_old_UNUSED(value_crop: Image.Image) -> Optional[tuple[str, list[float]]]:
+    """Unused — kept temporarily so the file still parses during
+    refactor. The active entry point is ``_crnn_recognize`` above.
+    This function is dead code; the body below is left intact but
+    unreachable to avoid accidental git-hunk mixups with the
+    refactor. Delete in a follow-up commit.
+    """
+    if False:
+        pass
+    if not fallback._ensure_crnn_model():
+        return None
+
+    gray = np.array(value_crop.convert("L"), dtype=np.uint8)
+    if gray.size == 0:
+        return None
+
+    if float(np.median(gray)) > 140:
+        gray = 255 - gray
+
+    H, W = gray.shape
+    h_target = int(fallback._crnn_input_height)
+    w_new = max(16, int(round(W * h_target / max(1, H))))
+    resized = np.array(
+        Image.fromarray(gray).resize((w_new, h_target), Image.BILINEAR),
+        dtype=np.float32,
+    ) / 255.0
+
+    inp = resized.reshape(1, 1, h_target, w_new).astype(np.float32)
+    try:
+        session = fallback._crnn_session
+        inp_name = session.get_inputs()[0].name
+        logits = session.run(None, {inp_name: inp})[0]
+    except Exception as exc:
+        log.debug("sc_ocr: CRNN inference failed: %s", exc)
+        return None
+
+    if logits.ndim == 3:
+        logits_tc = logits[:, 0, :]
+    elif logits.ndim == 2:
+        logits_tc = logits
+    else:
+        log.debug("sc_ocr: unexpected CRNN logits shape %s", logits.shape)
+        return None
+
+    shifted = logits_tc - logits_tc.max(axis=-1, keepdims=True)
+    probs = np.exp(shifted)
+    probs /= probs.sum(axis=-1, keepdims=True)
+    preds = probs.argmax(axis=-1)
+    confs = probs.max(axis=-1)
+
+    classes = fallback._crnn_classes
+    blank = fallback._crnn_blank_idx
+    text_chars: list[str] = []
+    per_char: list[float] = []
+    prev = -1
+    for t in range(len(preds)):
+        p = int(preds[t])
+        if p != prev and p != blank and 0 <= p < len(classes):
+            text_chars.append(classes[p])
+            per_char.append(float(confs[t]))
+        prev = p
+    return "".join(text_chars), per_char
+
+
+def _try_tesseract_eng_sc(value_crop: Image.Image) -> str:
+    """Primary Tesseract read using eng_sc + 3x+ upscale.
+
+    Extracted from the main body of ``_ocr_value_crop`` so it can be
+    called ahead of CRNN for digit-only fields. Returns "" on any
+    failure (eng_sc model missing, pytesseract not installed, crop
+    dimensions invalid, etc.).
+    """
+    try:
+        import pytesseract
+        from ..screen_reader import _check_tesseract
+        _check_tesseract()
+    except Exception:
+        return ""
+
+    _tessdata_local = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "ocr", "tessdata",
+    )
+    _have_sc = os.path.isfile(os.path.join(_tessdata_local, "eng_sc.traineddata"))
+    if not _have_sc:
+        return ""
+
+    W, H = value_crop.size
+    shortest = min(W, H)
+    if shortest < 80:
+        scale = max(3, 100 // max(1, shortest))
+        tess_input = value_crop.resize((W * scale, H * scale), Image.LANCZOS)
+    else:
+        tess_input = value_crop
+
+    # Pad with a polarity-appropriate border. Tesseract's PSM 7/8 both
+    # need "quiet space" around the text to lock onto a baseline; a
+    # tightly-cropped number sometimes returns empty when the text
+    # touches the image edge. Use the image's corner pixel as the fill
+    # color to keep polarity consistent with the crop.
+    _pad = max(16, tess_input.height // 4)
+    _corner = tess_input.getpixel((0, 0))
+    if isinstance(_corner, tuple):
+        _bg = _corner
+    else:
+        _bg = _corner  # grayscale int
+    try:
+        from PIL import ImageOps as _ImageOps
+        tess_input = _ImageOps.expand(tess_input, border=_pad, fill=_bg)
+    except Exception:
+        pass
+
+    prev_env = os.environ.get("TESSDATA_PREFIX")
+    os.environ["TESSDATA_PREFIX"] = _tessdata_local
+
+    def _run(psm: int) -> str:
+        try:
+            return pytesseract.image_to_string(
+                tess_input,
+                config=(
+                    f"-l eng_sc --psm {psm} "
+                    "-c tessedit_char_whitelist=0123456789.%"
+                ),
+            ).strip()
+        except Exception:
+            return ""
+
+    try:
+        # PSM 7 first (single text line, best when the crop is already
+        # line-shaped). Fall back to PSM 8 (single word) which is more
+        # forgiving when PSM 7 can't find a baseline.
+        text = _run(7)
+        if not text:
+            text = _run(8)
+    finally:
+        if prev_env is None:
+            os.environ.pop("TESSDATA_PREFIX", None)
+        else:
+            os.environ["TESSDATA_PREFIX"] = prev_env
+    return text
+
+
+def _parallel_vote(
+    field: str,
+    crnn_text: str,
+    crnn_confs: list[float],
+    tess_text: str,
+) -> Optional[tuple[str, list[float]]]:
+    """Field-aware voter between a CRNN read and a Tesseract read.
+
+    Both engines run every scan (not a cascade) and their outputs are
+    reconciled here. Returns the winning (text, confs) pair or None
+    to indicate no confident agreement (caller should fall through to
+    the ONNX segmenter).
+
+    Decision rules (in order):
+      1. Both empty → None (caller falls through).
+      2. Only one produced text → use that one.
+      3. Texts are identical after stripping non-digit/./% → return
+         that text with CRNN's confidences (or fabricated 0.95 if
+         only Tesseract spoke).
+      4. Disagree: apply field-specific validity filters. For
+         percentages anything > 100 is invalid; for instability,
+         > 200 is suspicious. The read that passes its field's
+         sanity check wins. If both pass (or neither passes), prefer
+         CRNN when mean conf ≥ 0.80 else prefer Tesseract (eng_sc
+         is generally more stable on digit-only HUD text at small
+         sizes).
+    """
+    def _digits_only(s: str) -> str:
+        return "".join(c for c in s if c in "0123456789.%")
+
+    c_norm = _digits_only(crnn_text or "")
+    t_norm = _digits_only(tess_text or "")
+
+    if not c_norm and not t_norm:
+        return None
+    if c_norm and not t_norm:
+        return c_norm, crnn_confs or [0.85] * len(c_norm)
+    if t_norm and not c_norm:
+        return t_norm, [0.9] * len(t_norm)
+    if c_norm == t_norm:
+        return c_norm, crnn_confs or [0.95] * len(c_norm)
+
+    # Disagreement — apply field sanity checks.
+    def _field_ok(s: str) -> bool:
+        try:
+            if field == "resistance":
+                v = float(s.replace("%", "")) if s else -1.0
+                return 0.0 <= v <= 100.0
+            if field == "instability":
+                v = float(s) if s and "%" not in s else -1.0
+                return 0.0 <= v <= 10000.0
+            if field == "mass":
+                v = float(s) if s and "%" not in s else -1.0
+                return 0.1 <= v <= 10_000_000.0
+        except ValueError:
+            return False
+        return True
+
+    c_ok = _field_ok(c_norm)
+    t_ok = _field_ok(t_norm)
+    if c_ok and not t_ok:
+        return c_norm, crnn_confs or [0.85] * len(c_norm)
+    if t_ok and not c_ok:
+        return t_norm, [0.9] * len(t_norm)
+
+    # Both pass (or both fail) — prefer Tesseract eng_sc. The shipped
+    # CRNN (47% val snapshot) is poorly calibrated: it frequently hits
+    # 0.85–0.90 mean confidence on wrong reads. eng_sc is SC-Datarunner
+    # trained on the actual HUD font and reads live crops reliably.
+    # Only override Tesseract when CRNN is VERY confident (≥0.95) AND
+    # the CRNN read has more digits (usually indicates Tesseract chopped
+    # a leading digit). This keeps the ensemble benefit without letting
+    # overconfident CRNN hallucinations dominate. Retraining the CRNN
+    # re-calibrates its confidences — this threshold can drop to 0.85
+    # once the model hits >80% val and its confidence distribution
+    # becomes reliable.
+    mean_c = (sum(crnn_confs) / len(crnn_confs)) if crnn_confs else 0.0
+    c_longer = len(c_norm) > len(t_norm)
+    crnn_wins = mean_c >= 0.95 and c_longer
+    log.info(
+        "sc_ocr: vote-disagree field=%s crnn=%r(%.2f,%d) tess=%r(%d) -> %s",
+        field, c_norm, mean_c, len(c_norm),
+        t_norm, len(t_norm),
+        "crnn" if crnn_wins else "tess",
+    )
+    if crnn_wins:
+        return c_norm, crnn_confs
+    return t_norm, [0.9] * len(t_norm)
+
+
+_FULL_ROW_DEBUG_SAVED: dict[str, bool] = {}
+
+
+def _ocr_full_row(
+    img: Image.Image, y1: int, y2: int, field: str,
+) -> tuple[str, list[float]]:
+    """OCR the full row (label + value) and extract the trailing number.
+
+    Robust against label-right-edge mis-detection because we don't
+    need to know WHERE the value starts — we let the label itself
+    serve as a baseline anchor for Tesseract, then regex out the
+    trailing numeric token after decode.
+
+    Pipeline:
+      1. Crop ``img[y1_pad:y2_pad, 0:W]`` — full panel width.
+      2. Polarity-correct + upscale if small + border-pad.
+      3. Run Tesseract eng_sc with NO char whitelist (letters must
+         decode properly so "MASS:", "RESISTANCE:", "INSTABILITY:"
+         anchor the line).
+      4. Regex: find all ``\\d[\\d.,]*%?`` tokens, return rightmost.
+
+    Returns (text, confidences) or ("", []) on any failure. Caller
+    falls through to ``_ocr_value_crop`` for a second opinion.
+    """
+    try:
+        import pytesseract
+        from ..screen_reader import _check_tesseract
+        _check_tesseract()
+    except Exception:
+        return "", []
+
+    _tessdata = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "ocr", "tessdata",
+    )
+    if not os.path.isfile(os.path.join(_tessdata, "eng_sc.traineddata")):
+        return "", []
+
+    # Full-width row crop with small vertical padding.
+    y1_p = max(0, y1 - 2)
+    y2_p = min(img.height, y2 + 2)
+    row = img.crop((0, y1_p, img.width, y2_p))
+
+    # Polarity correction: Tesseract prefers dark-text-on-light.
+    gray = np.array(row.convert("L"), dtype=np.uint8)
+    if float(np.median(gray)) < 130:
+        row = Image.fromarray(255 - gray)
+
+    # Contrast stretch. Pull min/max to full [0, 255] range so
+    # thin-stroke digits on dim backgrounds get Tesseract's full
+    # signal. No-op when the row already uses full range.
+    try:
+        _arr = np.array(row.convert("L"), dtype=np.float32)
+        _mn, _mx = float(_arr.min()), float(_arr.max())
+        if _mx - _mn > 10:
+            _arr = (_arr - _mn) * (255.0 / (_mx - _mn))
+            row = Image.fromarray(np.clip(_arr, 0, 255).astype(np.uint8))
+    except Exception:
+        pass
+
+    # Upscale small rows to ~120 px tall so Tesseract's LSTM has
+    # plenty of room even on extraction-mode tiny panels (rows as
+    # small as 20 px get a full 6× upscale → 120 px). Bumped from
+    # the previous 80-px target because 80 was marginal on thin
+    # digits rendered at small native size.
+    W, H = row.size
+    if H < 100:
+        scale = max(3, 120 // max(1, H))
+        row = row.resize((W * scale, H * scale), Image.LANCZOS)
+
+    # Unsharp-mask after upscale to restore stroke sharpness lost
+    # during interpolation. Modest strength — heavier values hurt
+    # more than help because they exaggerate anti-aliasing artifacts.
+    try:
+        from PIL import ImageFilter as _ImageFilter
+        row = row.filter(_ImageFilter.UnsharpMask(radius=1.2, percent=130, threshold=2))
+    except Exception:
+        pass
+
+    # Border pad so PSM 7 can lock onto a baseline.
+    try:
+        from PIL import ImageOps as _ImageOps
+        _pad = max(20, row.height // 4)
+        _corner = row.getpixel((0, 0))
+        row = _ImageOps.expand(row, border=_pad, fill=_corner)
+    except Exception:
+        pass
+
+    # Save one debug sample per field per session so we can inspect
+    # what Tesseract actually received.
+    try:
+        if not _FULL_ROW_DEBUG_SAVED.get(field):
+            row.save(f"debug_fullrow_{field}.png")
+            _FULL_ROW_DEBUG_SAVED[field] = True
+    except Exception:
+        pass
+
+    prev_env = os.environ.get("TESSDATA_PREFIX")
+    os.environ["TESSDATA_PREFIX"] = _tessdata
+    try:
+        # image_to_data so we get per-word bounding boxes; lets us
+        # crop the right-of-label pixel region for targeted reads
+        # even when Tesseract fails on the value digits in its own
+        # full-row pass. No char whitelist so labels decode cleanly.
+        data = pytesseract.image_to_data(
+            row, config="-l eng_sc --psm 7",
+            output_type=pytesseract.Output.DICT,
+        )
+        # Reassemble the text in Tesseract's reading order for the
+        # regex-extraction fast path below.
+        words = [w for w in data.get("text", []) if (w or "").strip()]
+        text = " ".join(words)
+    except Exception:
+        data = {}
+        text = ""
+    finally:
+        if prev_env is None:
+            os.environ.pop("TESSDATA_PREFIX", None)
+        else:
+            os.environ["TESSDATA_PREFIX"] = prev_env
+
+    import re
+
+    # Fast path: did Tesseract see a numeric token in the full-row read?
+    if text:
+        matches = re.findall(r"\d[\d.,]*%?", text)
+        if matches:
+            value = matches[-1].replace(",", "")
+            log.info(
+                "sc_ocr: row-ocr field=%s decoded=%r -> %r (fast-path)",
+                field, text, value,
+            )
+            return value, [0.95] * len(value)
+
+    # Slow path: Tesseract saw the LABEL but couldn't decode the
+    # value digits (small extraction-mode panels hit this). Find the
+    # label word's bounding box, crop the pixel region to its right,
+    # upscale aggressively, and run CRNN + Tesseract on the value-
+    # only crop. This uses Tesseract as a row anchor but relies on
+    # CRNN for actual digit recognition where it's often stronger.
+    if not data:
+        return "", []
+    label_prefix = {"mass": "mass", "resistance": "resi", "instability": "inst"}.get(field, "")
+    if not label_prefix:
+        log.debug("sc_ocr: row-ocr field=%s decoded=%r no_numeric_token", field, text)
+        return "", []
+
+    # Walk words in reading order; find the last one whose alpha-only
+    # form contains the 4-char prefix (e.g. 'MASS:' → 'mass' → OK).
+    anchor = None
+    n_words = len(data.get("text", []))
+    for i in range(n_words):
+        w = (data["text"][i] or "").strip()
+        if not w:
+            continue
+        alpha = "".join(c for c in w if c.isalpha()).lower()
+        if label_prefix in alpha:
+            anchor = (
+                int(data["left"][i]),
+                int(data["top"][i]),
+                int(data["width"][i]),
+                int(data["height"][i]),
+            )
+    if anchor is None:
+        log.debug(
+            "sc_ocr: row-ocr field=%s decoded=%r no_label_anchor",
+            field, text,
+        )
+        return "", []
+
+    lx, ly, lw, lh = anchor
+    row_W, row_H = row.size
+    # Leave a tiny gap after the colon
+    value_x0 = min(row_W - 4, lx + lw + max(4, lh // 2))
+    value_x1 = row_W
+    # Vertically pad so descenders/ascenders survive
+    value_y0 = max(0, ly - max(4, lh // 4))
+    value_y1 = min(row_H, ly + lh + max(4, lh // 4))
+    value_only = row.crop((value_x0, value_y0, value_x1, value_y1))
+
+    # Aggressive upscale to ~200 px tall — only the small value crop
+    # gets this treatment, not the whole row, so per-digit pixel
+    # count rises far beyond what Tesseract sees in its full-row pass.
+    vw, vh = value_only.size
+    if vh > 0 and vh < 200:
+        vscale = max(2, 220 // vh)
+        value_only = value_only.resize(
+            (vw * vscale, vh * vscale), Image.LANCZOS,
+        )
+
+    # Re-contrast + unsharp — the slow path earns heavier treatment
+    try:
+        from PIL import ImageFilter as _IF
+        _va = np.array(value_only.convert("L"), dtype=np.float32)
+        _mn, _mx = float(_va.min()), float(_va.max())
+        if _mx - _mn > 8:
+            _va = (_va - _mn) * (255.0 / (_mx - _mn))
+            value_only = Image.fromarray(np.clip(_va, 0, 255).astype(np.uint8))
+        value_only = value_only.filter(
+            _IF.UnsharpMask(radius=1.5, percent=180, threshold=2),
+        )
+    except Exception:
+        pass
+
+    try:
+        if not _FULL_ROW_DEBUG_SAVED.get(field + "_value"):
+            value_only.save(f"debug_value_slowpath_{field}.png")
+            _FULL_ROW_DEBUG_SAVED[field + "_value"] = True
+    except Exception:
+        pass
+
+    # Run both engines on the targeted value crop.
+    crnn_result = _crnn_recognize(value_only)
+    crnn_text = ""
+    crnn_confs: list[float] = []
+    if crnn_result is not None:
+        _ct, _cc = crnn_result
+        # Same digit-mapping as in the main _ocr_value_crop path.
+        _mapped = (_ct.replace("I", "1").replace("l", "1")
+                     .replace("O", "0").replace("o", "0")
+                     .replace("S", "5").replace("s", "5")
+                     .replace("B", "8").replace("Z", "2")
+                     .replace("G", "6").replace("q", "9"))
+        crnn_text = "".join(c for c in _mapped if c in "0123456789.%")
+        crnn_confs = _cc
+
+    tess_text = _try_tesseract_eng_sc(value_only)
+
+    log.info(
+        "sc_ocr: row-ocr field=%s slow-path decoded=%r anchor=%r "
+        "crnn=%r tess=%r",
+        field, text, anchor, crnn_text, tess_text,
+    )
+
+    voted = _parallel_vote(field, crnn_text, crnn_confs, tess_text)
+    if voted is None:
+        return "", []
+    return voted
+
+
+def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list[float]]:
     """OCR a tight value crop → (text, per_char_confidences).
 
-    Uses Tesseract (single PSM 7 call) as the primary recognizer,
-    with ONNX as a second voter. Tesseract's LSTM handles the SC
-    HUD font much more accurately than our tiny ONNX CNN alone.
-
-    This is 1 subprocess call per field (3 per scan total = ~150ms)
-    vs the legacy pipeline's 12+ calls (500-2000ms).
+    Parallel CRNN + Tesseract voting for digit-only fields — both
+    engines run every scan and their outputs are reconciled by
+    ``_parallel_vote``. Falls through to the 28×28 ONNX segmenter only
+    when both engines produce nothing agreeable.
     """
+    # ── CRNN (primary) ──
+    # Acceptance gate is deliberately strict. The initial CRNN was
+    # trained on sc_templates-derived synthetic crops which don't
+    # perfectly match the real SC HUD rendering — so its confidence
+    # on real crops is lower than on synth. Requiring length >= 2 AND
+    # mean confidence > 0.95 keeps the CRNN out of the way for
+    # typical runs while still letting a future retrain (with
+    # real-crop training data) take over once accuracy improves.
+    # Gate tuning (two-tier):
+    # * High-confidence CRNN read → use directly
+    # * Low-confidence CRNN read → fall through to eng_sc Tesseract
+    #   (which is rock-solid on digit-only HUD values via SC-Datarunner
+    #   trained model). eng_sc can't do letters as well, so we still
+    #   accept the CRNN for letter-containing text at a lower bar.
+    # HUD values (mass/resistance/instability) must be numeric-only.
+    # For those fields, reject any CRNN output containing letters —
+    # letters are always hallucinations on numeric fields (the
+    # infamous 'I' → '1' confusion, or trailing letter noise). For
+    # other fields (explicitly labelled as text), allow the letter
+    # gate.
+    _digit_only_field = field in ("mass", "resistance", "instability")
+
+    # ─── CUSTOM ONNX MODEL (priority for digit fields) ───
+    # The user-trained 28x28 CNN classifier (in fallback._session) is
+    # ~99% accurate on real SC HUD glyphs — beats both CRNN
+    # (synth-trained) and Tesseract (general-purpose) on this domain.
+    # Run it FIRST for digit-only fields. If it returns confident
+    # output, use it directly and skip CRNN+Tesseract entirely.
+    if _digit_only_field:
+        try:
+            _rgb_pri = np.array(value_crop.convert("RGB"), dtype=np.uint8)
+            _gray_pri = np.array(value_crop.convert("L"), dtype=np.uint8)
+            # Background-agnostic polarity normalization (handles
+            # bright-sky panels where median-based inversion fails).
+            # After canonicalization text is BRIGHT (matches CNN's
+            # training convention: bright glyphs on dark bg, padded
+            # with white in _segment_glyphs).
+            _gray_pri = _canonicalize_polarity(_gray_pri)
+            _thr_pri = _otsu(_gray_pri)
+            _bin_pri = (_gray_pri > _thr_pri).astype(np.uint8) * 255
+            _crops_pri = _segment_glyphs(_gray_pri, _bin_pri)
+            if _crops_pri:
+                _results_pri = _classify_crops(_crops_pri)
+                _txt_pri = "".join(ch for ch, _ in _results_pri)
+                _confs_pri = [c for _, c in _results_pri]
+                # Strict: only use if every char hit ≥ 0.85 confidence
+                # AND output is purely numeric/./%
+                if (_txt_pri
+                        and all(c in "0123456789.%" for c in _txt_pri)
+                        and _confs_pri
+                        and min(_confs_pri) >= 0.85):
+                    _mean = sum(_confs_pri) / len(_confs_pri)
+                    log.info(
+                        "sc_ocr: PRIMARY field=%s text=%r mean=%.2f (custom CNN)",
+                        field, _txt_pri, _mean,
+                    )
+                    return _txt_pri, _confs_pri
+        except Exception as _exc:
+            log.debug("sc_ocr: primary ONNX path failed: %s", _exc)
+
+    # ── Parallel CRNN + Tesseract vote ──
+    # Both engines run every scan (not a cascade) and _parallel_vote
+    # reconciles their outputs using field-aware sanity checks. The
+    # ONNX segmenter below is reached only when both engines agree
+    # on nothing (rare — usually one or both returns something).
+    if _digit_only_field:
+        _crnn_raw = _crnn_recognize(value_crop)
+        _crnn_text, _crnn_confs = ("", [])
+        if _crnn_raw is not None:
+            _ctxt, _cconfs = _crnn_raw
+            # Digit-mapping on CRNN output so the voter compares apples
+            # to apples against Tesseract (which is char-whitelisted to
+            # digits/./%).
+            if _ctxt:
+                _mapped = (_ctxt.replace("I", "1").replace("l", "1")
+                                .replace("O", "0").replace("o", "0")
+                                .replace("S", "5").replace("s", "5")
+                                .replace("B", "8").replace("Z", "2")
+                                .replace("G", "6").replace("q", "9"))
+                _crnn_text = "".join(c for c in _mapped if c in "0123456789.%")
+                _crnn_confs = _cconfs
+
+        _tess_text = _try_tesseract_eng_sc(value_crop)
+        voted = _parallel_vote(field, _crnn_text, _crnn_confs, _tess_text)
+        if voted is not None:
+            _vt, _vc = voted
+            _vmean = (sum(_vc) / len(_vc)) if _vc else 0.0
+            log.info(
+                "sc_ocr: vote field=%s text=%r mean=%.2f (crnn=%r tess=%r)",
+                field, _vt, _vmean, _crnn_text, _tess_text,
+            )
+            return _vt, _vc
+        log.debug(
+            "sc_ocr: parallel vote produced nothing for field=%s "
+            "(crnn=%r tess=%r); falling through to ONNX segmenter",
+            field, _crnn_text, _tess_text,
+        )
+
+    # Non-digit field: keep the original CRNN-first flow (letter text
+    # can't be voted against the digit-only eng_sc model anyway).
+    if not _digit_only_field:
+        crnn_result = _crnn_recognize(value_crop)
+        if crnn_result is not None:
+            text, confs = crnn_result
+            mean_conf = (sum(confs) / len(confs)) if confs else 0.0
+            if text and mean_conf > 0.75:
+                log.info(
+                    "sc_ocr: crnn(text-field) text=%r mean=%.2f field=%s",
+                    text, mean_conf, field,
+                )
+                return text, confs
+
     import pytesseract
     # Ensure Tesseract binary path is configured
     from ..screen_reader import _check_tesseract
@@ -206,7 +1228,9 @@ def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
 
     W, H = value_crop.size
 
-    # Auto-upscale small crops for both Tesseract and ONNX
+    # Auto-upscale small crops — keep the original upscale here so the
+    # ONNX segmenter sees reasonable text sizes. Tesseract gets its own
+    # more aggressive upscale below (see _tess_input).
     if H < 25:
         scale_up = max(2, 28 // max(1, H))
         value_crop = value_crop.resize(
@@ -228,14 +1252,59 @@ def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
     # preprocessing (adaptive threshold, upscaling) handles the
     # SC HUD font better than our manual pipeline. Verified:
     # raw crop → "499" correct; 4x+Otsu+flip → empty or wrong.
+    #
+    # Uses the SC-specific Tesseract LSTM (``eng_sc.traineddata``)
+    # from the SC-Datarunner-UEX project when available. That model
+    # is fine-tuned on SC HUD renderings and is dramatically more
+    # robust than default ``eng`` at scale — default eng hallucinates
+    # characters (e.g. '499' → '43%' at 4× upscale) while eng_sc
+    # reads '499' stably. Our local tessdata dir ships the SC model
+    # alongside a copy of eng for fallback.
+    import os as _os
+    _tessdata_local = _os.path.join(
+        _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))),
+        "ocr", "tessdata",
+    )
+    _have_sc = _os.path.isfile(_os.path.join(_tessdata_local, "eng_sc.traineddata"))
+    _tess_env = _os.environ.copy()
+    if _have_sc:
+        _tess_env["TESSDATA_PREFIX"] = _tessdata_local
+    _tess_lang = "eng_sc" if _have_sc else "eng"
+    _tess_cfg = f"-l {_tess_lang} --psm 7 -c tessedit_char_whitelist=0123456789.%"
+    _prev_env = {}
+    if _have_sc:
+        _prev_env["TESSDATA_PREFIX"] = _os.environ.get("TESSDATA_PREFIX")
+        _os.environ["TESSDATA_PREFIX"] = _tessdata_local
+    # Tesseract does best when text height is ~80-120 px. If the
+    # current crop is smaller, upscale JUST for Tesseract (don't
+    # touch the pipeline-shared ``value_crop`` which ONNX needs).
+    # Empirically, x2 hits a Tesseract failure mode with the SC font
+    # (clean '499' reads empty at x2 but correctly at x1/x3/x4). So
+    # we jump straight to x3+ when upscaling is needed.
+    _tW, _tH = value_crop.size
+    _t_short = min(_tW, _tH)
+    if _t_short < 80:
+        _t_scale = max(3, 100 // max(1, _t_short))
+        _tess_input = value_crop.resize(
+            (_tW * _t_scale, _tH * _t_scale), Image.LANCZOS,
+        )
+    else:
+        _tess_input = value_crop
+
     tess_text = ""
     try:
         tess_text = pytesseract.image_to_string(
-            value_crop,
-            config="--psm 7 -c tessedit_char_whitelist=0123456789.%",
+            _tess_input,
+            config=_tess_cfg,
         ).strip()
     except Exception:
         pass
+    finally:
+        if _have_sc:
+            if _prev_env["TESSDATA_PREFIX"] is None:
+                _os.environ.pop("TESSDATA_PREFIX", None)
+            else:
+                _os.environ["TESSDATA_PREFIX"] = _prev_env["TESSDATA_PREFIX"]
 
     # ── ONNX (secondary voter) ──
     thr_a = _otsu(gray)
@@ -247,6 +1316,17 @@ def _ocr_value_crop(value_crop: Image.Image) -> tuple[str, list[float]]:
         results = _classify_crops(crops)
         onnx_text = "".join(ch for ch, _ in results)
         onnx_confs = [c for _, c in results]
+
+    # ── Consensus → collect for CRNN retraining ──
+    # When Tesseract AND ONNX agree on the exact same text, that's
+    # ground truth we can trust. Save the original value crop with
+    # this label so a future CRNN retrain has domain-matched data.
+    if tess_text and onnx_text and tess_text == onnx_text:
+        try:
+            from ..training_collector import collect_crnn_value_sample
+            collect_crnn_value_sample(value_crop, tess_text, source="live_consensus")
+        except Exception as exc:
+            log.debug("sc_ocr: CRNN sample save failed: %s", exc)
 
     # ── Vote ──
     # Prefer Tesseract (more accurate LSTM) unless it returned empty,
@@ -294,14 +1374,31 @@ def scan_hud_onnx(region: dict) -> dict:
         "panel_visible": False,
     }
     t0 = time.time()
-    # Use multi-frame averaging (same as legacy) to stabilize the
-    # HUD's subpixel wiggle animation. Single-frame capture produces
-    # shifted glyphs that ONNX misclassifies.
-    img = capture.grab_multi(region, n=4, delay_ms=30)
+    # Reset diagnostic overlay for this scan.
+    try:
+        from . import debug_overlay as _dbg
+        _dbg.reset()
+    except Exception:
+        _dbg = None
+    # Single-frame capture. The previous 12-frame averaging blurred
+    # text rendering enough to confuse OCR on tight glyphs, and the
+    # anchor-based row reconciliation in _find_label_rows handles
+    # jiggle-related row mis-identification structurally instead.
+    img = capture.grab(region)
     if img is None:
         img = capture.grab(region)
     if img is None:
         return empty
+    if _dbg is not None:
+        _dbg.set_image(img)
+        # Write IMMEDIATELY so the viewer reflects the latest capture
+        # even if any downstream step crashes before reaching the
+        # end-of-scan write. End-of-scan write overwrites with the
+        # fully-annotated version.
+        try:
+            _dbg.write()
+        except Exception as _wexc:
+            log.warning("debug_overlay early write failed: %s", _wexc)
 
     # Upscale to reference size if the capture is smaller.
     # The ONNX model was trained on digit crops from a 397x541
@@ -326,10 +1423,54 @@ def scan_hud_onnx(region: dict) -> dict:
 
     mineral_row = _find_mineral_row(img)
     if mineral_row is None:
+        # No panel visible — reset consensus buffers AND drop any
+        # locked field values for this region. The user looked away
+        # from the rock; next rock starts fresh.
+        _reset_consensus_buffers()
+        _field_lock_cache.pop(_region_key(region), None)
+        # Write a (mostly-empty) overlay so the viewer reflects
+        # "no panel detected" instead of stale data.
+        if _dbg is not None:
+            try:
+                _dbg.write()
+            except Exception:
+                pass
         return empty
 
     result = dict(empty)
     result["panel_visible"] = True
+
+    # ── Field-value lock fast-path ──
+    # If all three fields are already locked from previous scans,
+    # short-circuit the entire OCR pipeline. This is the steady-state
+    # behavior once the user has stopped on a rock — we read each
+    # field once, validate it, and then just return the locked values
+    # until the panel disappears OR until any field's crop drifts
+    # from its stored fingerprint (drop the lock, re-OCR).
+    _rk = _region_key(region)
+    _locks = _field_lock_cache.get(_rk, {})
+    if (
+        "mass" in _locks
+        and "resistance" in _locks
+        and "instability" in _locks
+    ):
+        result["mass"] = _locks["mass"][0]
+        result["resistance"] = _locks["resistance"][0]
+        result["instability"] = _locks["instability"][0]
+        elapsed_ms = (time.time() - t0) * 1000
+        log.info(
+            "sc_ocr: ALL LOCKED mass=%s resistance=%s instability=%s in %.0fms",
+            result["mass"], result["resistance"], result["instability"],
+            elapsed_ms,
+        )
+        if _dbg is not None:
+            for _f in ("mass", "resistance", "instability"):
+                _dbg.set_lock(_f, _locks[_f][0])
+            try:
+                _dbg.write()
+            except Exception:
+                pass
+        return result
 
     H, W = gray.shape
 
@@ -340,6 +1481,67 @@ def scan_hud_onnx(region: dict) -> dict:
     # 12-15 calls at 600ms+.
     from ..onnx_hud_reader import _find_label_rows
     label_rows = _find_label_rows(img)
+    if _dbg is not None:
+        _dbg.set_image(img)
+        _dbg.set_label_rows(label_rows)
+        # Write the overlay immediately after label-row detection so
+        # the viewer always reflects what the panel finder produced,
+        # even if downstream OCR raises an exception. End-of-scan
+        # write() below will overwrite with the fully-populated
+        # version including OCR text + lock state.
+        try:
+            _dbg.write()
+        except Exception:
+            pass
+
+    # ── Detect difficulty label once per scan ──
+    # The EASY / MEDIUM / HARD / EXTREME / IMPOSSIBLE label is rendered
+    # as a single large word below the instability row. Reading it
+    # gives us a game-logic prior that bounds instability's valid
+    # range — a correctly-placed 'EASY' tag means instability ≈ 0-25.
+    # Reuses the full-panel Tesseract pass from _find_label_rows
+    # (re-runs because that function doesn't expose the raw text).
+    _difficulty: Optional[str] = None
+    try:
+        from . import priors
+        import pytesseract as _pt
+        from ..screen_reader import _check_tesseract
+        if _check_tesseract():
+            # Try multiple Tesseract configurations — the difficulty
+            # label is inside a colored progress bar (EASY = green,
+            # HARD = red) that Tesseract doesn't always see at PSM 11.
+            # PSM 6 (uniform block) + both polarities + two crop regions
+            # catches more cases. First hit wins.
+            _left = img.crop((0, 0, int(img.width * 0.55), img.height))
+            _left_gray = np.array(_left.convert("L"), dtype=np.uint8)
+            _rgb = np.array(_left.convert("RGB"), dtype=np.uint8)
+            _max_ch = _rgb.max(axis=2).astype(np.uint8)  # catches colored labels
+            _thr = _otsu(_left_gray)
+            _thr_c = _otsu(_max_ch)
+
+            _variants = [
+                ("gray_bright_psm11", np.where(_left_gray > _thr, 0, 255).astype(np.uint8), "--psm 11"),
+                ("gray_bright_psm6",  np.where(_left_gray > _thr, 0, 255).astype(np.uint8), "--psm 6"),
+                ("max_bright_psm6",   np.where(_max_ch > _thr_c, 0, 255).astype(np.uint8), "--psm 6"),
+                ("gray_dark_psm11",   np.where(_left_gray < _thr, 0, 255).astype(np.uint8), "--psm 11"),
+            ]
+            for _name, _bw, _cfg in _variants:
+                try:
+                    _t = _pt.image_to_string(Image.fromarray(_bw), config=_cfg)
+                except Exception:
+                    continue
+                _d = priors.detect_difficulty(_t)
+                if _d:
+                    _difficulty = _d
+                    log.info(
+                        "sc_ocr: difficulty detected=%r (via %s)",
+                        _difficulty, _name,
+                    )
+                    break
+            if _difficulty is None:
+                log.debug("sc_ocr: difficulty not detected (tried 4 variants)")
+    except Exception as _exc:
+        log.debug("sc_ocr: difficulty detection failed: %s", _exc)
 
     # Fallback to fixed offsets from mineral row if label detection fails
     if not label_rows:
@@ -353,29 +1555,355 @@ def scan_hud_onnx(region: dict) -> dict:
     fields = ["mass", "resistance", "instability"]
 
     for field in fields:
+        # Locked-field fast path with self-invalidation.
+        # We always compute the current value crop (cheap), save it
+        # for the live viewer, and compare it against the stored
+        # fingerprint that was in effect when the lock fired. If
+        # the fingerprint similarity drops below
+        # _LOCK_INVALIDATE_NCC, the panel content has changed under
+        # us — drop the lock and fall through to full OCR.
+        if field in _locks:
+            _locked_val, _locked_fp = _locks[field]
+            try:
+                _entry = label_rows.get(field)
+                _current_vc = None
+                if _entry is not None:
+                    _y1, _y2, _lr = _entry
+                    if _y2 > _y1 and (_y2 - _y1) >= 6:
+                        _current_vc = _find_value_crop(
+                            img, gray, _y1, _y2,
+                            x_min=max(0, _lr + 26),
+                        )
+                if _current_vc is not None:
+                    _current_vc.save(f"debug_value_{field}_crop.png")
+                    _current_fp = _crop_fingerprint(_current_vc)
+                    if _current_fp is not None and _locked_fp is not None:
+                        _sim = float(np.dot(_current_fp, _locked_fp) / len(_current_fp))
+                        if _sim < _LOCK_INVALIDATE_NCC:
+                            log.info(
+                                "sc_ocr: LOCK INVALIDATED field=%s "
+                                "(crop drifted, NCC=%.2f < %.2f) — re-OCR",
+                                field, _sim, _LOCK_INVALIDATE_NCC,
+                            )
+                            if _dbg is not None:
+                                _dbg.set_lock(field, None, invalidated=True)
+                            del _field_lock_cache[_rk][field]
+                            # Also flush per-field consensus + crop
+                            # buffers so a stale value doesn't lock
+                            # back in immediately.
+                            _RECENT_READS[field].clear()
+                            _RECENT_CROPS[field].clear()
+                            # Fall through to full OCR below
+                            _locks = _field_lock_cache.get(_rk, {})
+                        else:
+                            # Lock is still valid — use it.
+                            if field == "mass":
+                                result["mass"] = _locked_val
+                            elif field == "resistance":
+                                result["resistance"] = _locked_val
+                            elif field == "instability":
+                                result["instability"] = _locked_val
+                            if _dbg is not None:
+                                _dbg.set_lock(field, _locked_val)
+                                # Reconstruct crop box for overlay
+                                try:
+                                    _vc_w, _vc_h = _current_vc.size
+                                    _ax_left = max(0, _lr + 26)
+                                    _ax_right = min(img.width, _ax_left + _vc_w)
+                                    _dbg.set_value_crop(
+                                        field,
+                                        (_ax_left, _y1, _ax_right, _y1 + _vc_h),
+                                    )
+                                except Exception:
+                                    pass
+                            continue
+                else:
+                    # Couldn't compute a current crop — keep using
+                    # the lock as-is for now (don't drop on noise).
+                    if field == "mass":
+                        result["mass"] = _locked_val
+                    elif field == "resistance":
+                        result["resistance"] = _locked_val
+                    elif field == "instability":
+                        result["instability"] = _locked_val
+                    continue
+            except Exception as _exc:
+                log.debug(
+                    "sc_ocr: lock-validation failed for %s: %s — "
+                    "keeping lock", field, _exc,
+                )
+                if field == "mass":
+                    result["mass"] = _locked_val
+                elif field == "resistance":
+                    result["resistance"] = _locked_val
+                elif field == "instability":
+                    result["instability"] = _locked_val
+                continue
+
         entry = label_rows.get(field)
         if entry is None:
+            log.info("sc_ocr: field=%s MISSING from label_rows (panel layout?)", field)
             continue
         y1, y2, lr = entry
 
-        value_crop = _find_value_crop(img, gray, y1, y2, x_min=max(0, lr + 6))
-        if value_crop is None:
+        # Sanity-check the row geometry. In fracture/extraction mode
+        # the panel is positioned differently than ship-scan mode, and
+        # fixed offsets from the mineral row can shoot past the image
+        # bottom — returning (y1=547, y2=541) when image is only 541
+        # tall. The full-row OCR path would then crop an empty strip
+        # and Tesseract would hallucinate garbage like '¤- ¤8'.
+        # Skip the field outright if the geometry is inverted or
+        # degenerate (< 6 px tall).
+        if y1 >= y2 or (y2 - y1) < 6 or y2 > img.height or y1 < 0:
+            log.info(
+                "sc_ocr: field=%s row geometry invalid y=%d-%d "
+                "(img_h=%d) — skipping", field, y1, y2, img.height,
+            )
             continue
 
-        text, confs = _ocr_value_crop(value_crop)
+        # Full-row OCR runs before _find_value_crop; the full-row path
+        # has its own sanity checks and can still succeed when the
+        # tight crop would fail. Compute value_crop for the slow-path
+        # fallback but don't bail if it's None — row OCR may carry.
+        value_crop = _find_value_crop(img, gray, y1, y2, x_min=max(0, lr + 26))
+        # Telemetry: record the value crop box for the debug overlay.
+        if _dbg is not None and value_crop is not None:
+            try:
+                _vc_w, _vc_h = value_crop.size
+                # value_crop is cropped from img; we need its position
+                # in img coords. Reconstruct via the bounds used
+                # inside _find_value_crop (x_min + small offset, y1).
+                # For overlay purposes, the right-anchored crop ends
+                # near img.width and starts at img.width - _vc_w.
+                # Use a heuristic: pick centered around shared lr.
+                _approx_x_left = max(0, lr + 26)
+                _approx_x_right = min(img.width, _approx_x_left + _vc_w)
+                _dbg.set_value_crop(
+                    field, (_approx_x_left, y1, _approx_x_right, y1 + _vc_h),
+                )
+            except Exception:
+                pass
+        if value_crop is None:
+            # Save the full row for offline inspection so we can
+            # see WHY _find_value_crop missed the value.
+            try:
+                _debug_row = img.crop((0, max(0, y1 - 2), img.width, min(img.height, y2 + 2)))
+                _debug_row.save(f"debug_row_{field}_failed.png")
+            except Exception:
+                pass
+            log.info(
+                "sc_ocr: field=%s value_crop is None "
+                "(y=%d-%d x_lr=%d saved debug_row_%s_failed.png)",
+                field, y1, y2, lr, field,
+            )
+            continue
+
+        # Save successful crops on EVERY scan so the live viewer
+        # (scripts/live_crop_viewer.py) can show what the OCR sees in
+        # real time. Old behavior was once-per-process; live viewer
+        # needs the file to update on each scan.
+        try:
+            value_crop.save(f"debug_value_{field}_crop.png")
+        except Exception:
+            pass
+
+        # Capture every value crop to a pending/ buffer for later manual
+        # labeling + retraining. Rate-limited internally to ~5 s per
+        # field, so the hot path stays cheap.
+        try:
+            from ..training_collector import save_pending_crop
+            save_pending_crop(value_crop, field)
+        except Exception:
+            pass
+
+        # ── Value-crop OCR (PRIMARY — custom CNN inside) ──
+        # Run the value-crop path FIRST. The user-trained 28×28 CNN
+        # has 99% val_acc on real SC HUD glyphs and is wired as the
+        # top voter inside _ocr_value_crop. Only fall back to the
+        # full-row Tesseract path when the value-crop OCR returns
+        # nothing or doesn't validate.
+        text, confs = _ocr_value_crop(value_crop, field=field)
+        _valid_primary = None
+        if text:
+            if field == "mass":
+                _valid_primary = validate.validate_mass(text)
+            elif field == "resistance":
+                _valid_primary = validate.validate_pct(text)
+            elif field == "instability":
+                _valid_primary = validate.validate_instability(text, confidences=confs)
+        if _valid_primary is None:
+            # Primary failed — try full-row Tesseract as fallback.
+            row_text, row_confs = _ocr_full_row(img, y1, y2, field)
+            if row_text:
+                _valid_row = None
+                if field == "mass":
+                    _valid_row = validate.validate_mass(row_text)
+                elif field == "resistance":
+                    _valid_row = validate.validate_pct(row_text)
+                elif field == "instability":
+                    _valid_row = validate.validate_instability(row_text, confidences=row_confs)
+                if _valid_row is not None:
+                    log.debug(
+                        "sc_ocr: PRIMARY failed for %s, using row-fallback %r",
+                        field, row_text,
+                    )
+                    text, confs = row_text, row_confs
         if not text:
+            log.info("sc_ocr: field=%s ocr returned empty text", field)
             continue
 
         log.info("sc_ocr raw %s: text=%r confs=%s", field, text,
                  [f"{c:.2f}" for c in confs[:8]])
+        if _dbg is not None:
+            _dbg.set_ocr_text(field, text, confs)
         if field == "mass":
-            result["mass"] = validate.validate_mass(text)
+            raw_val = validate.validate_mass(text)
         elif field == "resistance":
-            result["resistance"] = validate.validate_pct(text)
+            raw_val = validate.validate_pct(text)
         elif field == "instability":
-            result["instability"] = validate.validate_instability(
-                text, confidences=confs,
-            )
+            raw_val = validate.validate_instability(text, confidences=confs)
+        else:
+            raw_val = None
+
+        # ── Game-logic priors + NCC template fallback ──
+        # If the voted value contradicts game knowledge (e.g. EASY
+        # difficulty but instability=278), try the NCC template voter
+        # as a fourth opinion. Templates are deterministic — 100%
+        # accurate when the font matches — so they're the right
+        # tiebreaker when all three neural/heuristic engines disagree
+        # with the rock's observed difficulty.
+        try:
+            from . import priors as _priors
+            _ctx = {"difficulty": _difficulty} if _difficulty else {}
+
+            # ── Proactive decimal recovery for instability ──
+            # Most mineable rocks have instability in the 0-30 range,
+            # with rare edge cases up to ~200. A raw read ≥ 30 that
+            # contains NO decimal point almost certainly lost one —
+            # e.g. `4.65` → `465`, `12.10` → `1210`. We try this BEFORE
+            # the plausibility check so we don't depend on difficulty
+            # detection (which misses when the EASY/MEDIUM bar has
+            # non-standard polarity, e.g. white text on green).
+            if (field == "instability"
+                    and raw_val is not None
+                    and float(raw_val) >= 30.0
+                    and "." not in (text or "")):
+                _recovered = _priors.try_decimal_recovery(field, text, _ctx)
+                if _recovered is not None and 0.0 <= _recovered <= 200.0:
+                    log.info(
+                        "sc_ocr: proactive-decimal-recover field=%s "
+                        "raw=%r orig_val=%s -> %s",
+                        field, text, raw_val, _recovered,
+                    )
+                    raw_val = _recovered
+
+            _ok = True
+            if raw_val is not None:
+                _ok, _reason = _priors.is_plausible(field, float(raw_val), _ctx)
+                if not _ok:
+                    # Second-chance decimal recovery when priors reject
+                    # (e.g. difficulty IS detected and bounds say value
+                    # is out-of-range).
+                    _recovered = _priors.try_decimal_recovery(field, text, _ctx)
+                    if _recovered is not None:
+                        log.info(
+                            "sc_ocr: prior-decimal-recover field=%s "
+                            "raw=%r rejected_val=%s -> %s",
+                            field, text, raw_val, _recovered,
+                        )
+                        raw_val = _recovered
+                        _ok = True
+                    else:
+                        log.info(
+                            "sc_ocr: prior-reject field=%s val=%s (%s) — "
+                            "trying NCC templates",
+                            field, raw_val, _reason,
+                        )
+            if (raw_val is None) or (not _ok):
+                # Template-voter fallback
+                try:
+                    from .. import templates_furore as _tf
+                    _ttext, _tconfs = _tf.match_value_crop(value_crop)
+                    if _ttext:
+                        _mean = sum(_tconfs) / len(_tconfs) if _tconfs else 0.0
+                        if field == "mass":
+                            _tv = validate.validate_mass(_ttext)
+                        elif field == "resistance":
+                            _tv = validate.validate_pct(_ttext)
+                        elif field == "instability":
+                            _tv = validate.validate_instability(_ttext, confidences=_tconfs)
+                        else:
+                            _tv = None
+                        _t_ok = False
+                        if _tv is not None:
+                            _t_ok, _ = _priors.is_plausible(field, float(_tv), _ctx)
+                        log.info(
+                            "sc_ocr: templates field=%s text=%r val=%s "
+                            "mean=%.2f plausible=%s",
+                            field, _ttext, _tv, _mean, _t_ok,
+                        )
+                        if _tv is not None and _t_ok and _mean >= 0.55:
+                            raw_val = _tv
+                except Exception as _texc:
+                    log.debug("sc_ocr: template voter failed: %s", _texc)
+        except Exception as _pexc:
+            log.debug("sc_ocr: priors check failed: %s", _pexc)
+
+        if field == "mass":
+            result["mass"] = _consensus_value("mass", raw_val)
+        elif field == "resistance":
+            result["resistance"] = _consensus_value("resistance", raw_val)
+        elif field == "instability":
+            result["instability"] = _consensus_value("instability", raw_val)
+
+        # ── Push crop fingerprint into the per-field buffer ──
+        # Used by the pre-lock verifier to confirm the underlying
+        # crop pixels are stable across the lock window (catches the
+        # "row jumped to a progress bar" case where OCR text might
+        # coincidentally match but the crop content is unrelated).
+        _RECENT_CROPS[field].append(_crop_fingerprint(value_crop))
+
+        # ── Strict lock gate ──
+        # Two independent checks must both pass:
+        #   (1) ALL N reads in the window agreed on the same value
+        #       (much stricter than _consensus_value's 2-of-3 — a
+        #       coincidental misread can satisfy 2-of-3 but rarely
+        #       satisfies all-of-N).
+        #   (2) Mean pairwise NCC of the last N CROP IMAGES is ≥
+        #       _LOCK_CROP_NCC_MIN — the row crop has been visually
+        #       stable, not jumping between targets.
+        # If either fails, no lock this frame; we keep evaluating
+        # next scan with the rolling window.
+        if field not in _locks:
+            _unanimous = _value_buffer_unanimous(field)
+            _crop_ok, _crop_sim = _crop_buffer_consistent(field)
+            _displayed = result.get(field)
+            if (
+                _unanimous is not None
+                and _displayed is not None
+                and float(_unanimous) == float(_displayed)
+                and _crop_ok
+            ):
+                # Store the most recent crop fingerprint alongside
+                # the value; lock self-invalidation compares against
+                # this on subsequent scans to detect drift.
+                _fp = _crop_fingerprint(value_crop)
+                _locks_for_region = _field_lock_cache.setdefault(_rk, {})
+                _locks_for_region[field] = (float(_unanimous), _fp)
+                log.info(
+                    "sc_ocr: LOCKED field=%s value=%s "
+                    "(unanimous %d/%d frames, crop-NCC=%.2f)",
+                    field, _unanimous, _LOCK_WINDOW, _LOCK_WINDOW, _crop_sim,
+                )
+                if _dbg is not None:
+                    _dbg.set_lock(field, float(_unanimous))
+            else:
+                log.debug(
+                    "sc_ocr: lock-gate field=%s unanimous=%s "
+                    "crop_ok=%s crop_sim=%.2f (need %.2f)",
+                    field, _unanimous, _crop_ok, _crop_sim,
+                    _LOCK_CROP_NCC_MIN,
+                )
 
     elapsed_ms = (time.time() - t0) * 1000
     log.info(
@@ -383,6 +1911,11 @@ def scan_hud_onnx(region: dict) -> dict:
         result["mass"], result["resistance"], result["instability"],
         elapsed_ms,
     )
+    if _dbg is not None:
+        try:
+            _dbg.write()
+        except Exception:
+            pass
     return result
 
 

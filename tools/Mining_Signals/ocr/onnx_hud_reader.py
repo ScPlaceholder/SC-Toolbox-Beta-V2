@@ -225,6 +225,115 @@ def is_available() -> bool:
 # Row detection
 # ─────────────────────────────────────────────────────────────
 
+def _find_panel_lines(
+    gray: np.ndarray,
+    min_width_frac: float = 0.30,
+    max_thickness: int = 3,
+) -> list[tuple[int, int, int]]:
+    """Detect horizontal HUD separator lines.
+
+    The SC scan-results panel is bounded by thin horizontal HUD lines:
+    one under the SCAN RESULTS header (above the mineral name) and
+    one below the difficulty bar (above COMPOSITION). These lines are:
+      - 1-2 px tall (much thinner than text rows, which are 14+ px)
+      - span most of the panel width
+      - high-contrast vs the panel background
+      - rendered HUD chrome → present in EVERY scan, regardless of
+        ship variant or HUD color
+
+    Detection is polarity-independent (uses the existing edge mask)
+    so light, dark, and noisy backgrounds all work the same.
+
+    Returns a list of ``(y_center, x_left, x_right)`` tuples, sorted
+    top-to-bottom. Each tuple gives the line's middle row and its
+    horizontal endpoints.
+
+    Notes:
+      - Multiple consecutive bright rows are coalesced into one line.
+      - Lines shorter than ``min_width_frac`` of image width are
+        discarded (filters out cluster bars and short underlines).
+      - Lines thicker than ``max_thickness`` are discarded (those are
+        actual text rows, not HUD chrome).
+    """
+    h, w = gray.shape
+    if h == 0 or w == 0:
+        return []
+
+    mask = _build_text_mask(gray)
+    row_density = mask.sum(axis=1)
+    min_width = int(w * min_width_frac)
+
+    # Find consecutive runs of high-density rows.
+    in_run = False
+    run_start = 0
+    runs: list[tuple[int, int]] = []
+    for y in range(h + 1):
+        d = row_density[y] if y < h else 0
+        is_hot = d >= min_width
+        if is_hot and not in_run:
+            in_run = True
+            run_start = y
+        elif not is_hot and in_run:
+            in_run = False
+            runs.append((run_start, y))
+
+    lines: list[tuple[int, int, int]] = []
+    for y_start, y_end in runs:
+        thickness = y_end - y_start
+        if thickness == 0 or thickness > max_thickness:
+            continue
+        # Endpoints: leftmost and rightmost True column anywhere in
+        # the line's vertical extent. Use ``any`` so a single broken
+        # pixel doesn't truncate the line.
+        line_mask = mask[y_start:y_end, :].any(axis=0)
+        xs = np.where(line_mask)[0]
+        if xs.size == 0:
+            continue
+        x_left = int(xs[0])
+        x_right = int(xs[-1]) + 1
+        span = x_right - x_left
+        if span < min_width:
+            continue
+        # ── Continuity check ──
+        # Span alone doesn't distinguish a real HUD separator (near-
+        # solid, ≥95% of columns lit) from a 1-3 px text slice where
+        # letter caps/baselines happen to span wide (e.g. "SCAN RESULTS"
+        # at the top of the panel: wide, but ~50-70% lit because of
+        # inter-letter gaps). Without this filter, text rows get
+        # promoted to HUD lines and the panel-finder anchors the whole
+        # geometry at the wrong y, compressing MASS/RESIST/INSTAB
+        # boxes onto the header. Require ≥ 80% fill within the span.
+        fill = int(line_mask[x_left:x_right].sum())
+        if fill < int(span * 0.80):
+            continue
+        y_center = (y_start + y_end) // 2
+        lines.append((y_center, x_left, x_right))
+    return lines
+
+
+# Per-scan cache for _find_panel_lines results. Keyed by id(gray) +
+# shape so that the three-way row call (mass, resist, instab) inside
+# a single scan only pays the detection cost once.
+_panel_lines_cache: tuple[int, tuple[int, int], list[tuple[int, int, int]]] | None = None
+
+
+def _get_panel_lines_cached(gray: np.ndarray) -> list[tuple[int, int, int]]:
+    """Return _find_panel_lines(gray), cached per gray-array identity.
+
+    Three rows in a single scan share the same gray; cache hits keep
+    repeated calls free.
+    """
+    global _panel_lines_cache
+    key = (id(gray), gray.shape)
+    if _panel_lines_cache is not None:
+        cid, cshape, clines = _panel_lines_cache
+        if cid == key[0] and cshape == key[1]:
+            return clines
+    lines = _find_panel_lines(gray)
+    _panel_lines_cache = (key[0], key[1], lines)
+    return lines
+
+
 def _build_text_mask(gray: np.ndarray, deviation: int = 35) -> np.ndarray:
     """Return a boolean mask where True means "likely text pixel".
 
@@ -261,8 +370,23 @@ def _find_value_crop(
 ) -> Optional[Image.Image]:
     """Crop the rightmost text cluster in a row — the numeric value.
 
-    Uses a single, uniform strategy that works for both white/cyan
-    labels+values AND red warning text:
+    GEOMETRIC FAST PATH (when x_min > 0):
+        The panel is a fixed-layout UI. Once we know the label's right
+        edge (x_min, set by the caller from the colon position), the
+        value column is at a known offset to the right with a known
+        width. We just slice that strip directly — no cluster
+        searching, so background debris/reticle bits/HUD glare never
+        contaminate the crop. This is the path used in production
+        because _find_label_rows always provides a colon-anchored
+        x_min. The CNN downstream handles whatever's actually inside
+        the strip (digits, possibly empty, possibly with stray
+        background pixels — Otsu + minority-class polarity normalize
+        all of those).
+
+    LEGACY CLUSTER PATH (x_min == 0):
+        Kept for callers that don't know the label position. Uses a
+        single, uniform strategy that works for both white/cyan
+        labels+values AND red warning text:
 
       1. Build a per-column count of "definitely-text" pixels, where
          "definitely-text" means max(R,G,B) > 180. Cyan text peaks at
@@ -284,14 +408,73 @@ def _find_value_crop(
     (which broke the previous "red-first" strategy) because the
     fringes are never dense enough to beat the cyan text itself.
     """
-    # Polarity-independent text mask: pixels that deviate from the
-    # local background (~51 px neighborhood mean) by more than 35
-    # brightness units are text. Works on both bright-on-dark and
-    # dark-on-bright panels. The mask is built on the FULL gray
-    # image so the local-bg estimate uses real neighbor pixels on
-    # all sides — cropping first would corrupt pixels near the row
-    # boundary by shrinking their neighborhood.
-    full_mask = _build_text_mask(gray, deviation=30)
+    # ─── GEOMETRIC BOUNDING (line-anchored when possible) ───
+    # The cluster search below is what actually picks the value, but
+    # on light backgrounds it can lock onto sky debris or the reticle
+    # blob. We use panel geometry to set BOUNDS on what the cluster
+    # search is allowed to see: anything outside the value column is
+    # zeroed out before clustering.
+    #
+    # Best bounds come from the HUD's horizontal separator lines
+    # (rendered chrome → always present, always span the panel
+    # content width). The lines' right endpoint is exactly where the
+    # value column ends; the lines' midpoint is past any label.
+    # Falls back to fractional bounds when line detection fails
+    # (e.g. partial panel capture).
+    _geom_x_lo = 0
+    _geom_x_hi = img.width
+    if x_min > 0:
+        _lines = _get_panel_lines_cached(gray)
+        if _lines:
+            # Use the WIDEST detected line as the canonical content
+            # span (stops false positives from short underlines under
+            # the difficulty bar).
+            _ll, _lr = max(((lr - ll, ll, lr)
+                            for _y, ll, lr in _lines),
+                           key=lambda t: t[0])[1:]
+            # Value column right edge = line's right endpoint minus
+            # a few px of margin. Left edge = past colon, but never
+            # past the line's midpoint (values never start in the
+            # left half of the panel).
+            _line_mid = (_ll + _lr) // 2
+            _geom_x_hi = max(_line_mid + 1, _lr - 4)
+            _geom_x_lo = max(x_min + 14, _line_mid)
+            _geom_x_lo = max(0, min(_geom_x_lo, _geom_x_hi - _MIN_VALUE_WIDTH))
+        else:
+            # Fractional fallback (the pre-line heuristic).
+            _geom_x_hi = int(img.width * 0.85)
+            _geom_x_lo = max(x_min + 14, int(img.width * 0.30))
+            _geom_x_lo = max(0, min(_geom_x_lo, _geom_x_hi - _MIN_VALUE_WIDTH))
+
+    # ─── LEGACY CLUSTER PATH ───
+    # Build a text mask that catches BOTH white/cyan labels AND
+    # colored status text (red resistance, green instability). We
+    # can't use ``_build_text_mask`` here because its dark-bg branch
+    # uses a hard ``gray > 150`` cut — red HUD text has max-channel
+    # around 100-140 after monitor capture gamma, below that cut.
+    #
+    # Inline strategy: threshold is ``median + max(40, 2.5×std)`` on
+    # the max-channel image. For a dark HUD panel with median ~30
+    # and std ~25, that yields ~90 — which catches red (~120+) AND
+    # green (~160+) AND white (~240) without catching background
+    # noise (~30-60).
+    try:
+        rgb = np.asarray(img.convert("RGB"), dtype=np.uint8)
+        detect_channel = rgb.max(axis=2)
+    except Exception:
+        detect_channel = gray
+    _med = float(np.median(detect_channel))
+    if _med < 130:  # dark background
+        # Fixed-ish threshold: median + 40, clamped to [70, 120]. On
+        # dark panels median is ~25-40, giving threshold ~65-80. The
+        # clamp keeps the threshold from chasing bright LABEL pixels
+        # upward (if a bright white label is on the same row as a
+        # dimmer colored value, std-based thresholds get pulled past
+        # the value's brightness and miss it).
+        _thr = max(70, min(120, int(_med + 40)))
+        full_mask = detect_channel > _thr
+    else:  # light background — keep legacy dark-text detection
+        full_mask = _build_text_mask(detect_channel, deviation=30)
     text_mask = full_mask[y1:y2, :]
     h, w = text_mask.shape
 
@@ -302,6 +485,16 @@ def _find_value_crop(
     # the source image, which would corrupt the text mask).
     if x_min > 0:
         col_text[:x_min] = 0
+
+    # Also zero out columns OUTSIDE the geometric value-column band
+    # (computed above). On light backgrounds the panel margins can
+    # contain bright sky debris / reticle blobs that pass the density
+    # gate and become spurious "rightmost clusters". Bounding the
+    # cluster search to the known value column eliminates those.
+    if _geom_x_hi < col_text.shape[0]:
+        col_text[_geom_x_hi:] = 0
+    if _geom_x_lo > 0:
+        col_text[:_geom_x_lo] = 0
 
     # Density gate: a column is "hot" (part of real text) only if at
     # least 3 pixels in that column are text-mask pixels. Filters
@@ -330,32 +523,61 @@ def _find_value_crop(
     if not spans:
         return None
 
-    # Build merged clusters from right to left: merge spans with gaps ≤ 12px.
-    # A gap > 12px starts a new cluster. Collect all clusters, then pick
-    # the rightmost one that's wide enough. 12 comfortably bridges
-    # inter-digit gaps (2-6px) while staying well below the 50-100px
-    # gap between a label and its value.
+    # Build merged clusters from right to left: merge spans with gaps ≤ 20px.
+    # A gap > 20px starts a new cluster. 20 comfortably bridges the
+    # decimal point in thin-stroke colored text (green "12.10" has a
+    # ~14px dead zone around the dot) and inter-digit gaps in wider
+    # percent signs, while staying well below the ~50-100 px gap
+    # between a label and its value.
     clusters: list[tuple[int, int]] = []  # (start, end)
     c_start = spans[0][0]
     c_end = spans[0][1]
     for s_start, s_end in spans[1:]:
-        if c_start - s_end <= 12:
+        if c_start - s_end <= 20:
             c_start = s_start  # extend cluster leftward
         else:
             clusters.append((c_start, c_end))
             c_start, c_end = s_start, s_end
     clusters.append((c_start, c_end))
 
-    # Pick the LEFTMOST qualifying cluster (i.e. the first cluster
-    # after any x_min). clusters were built by scanning right-to-
-    # left, so the leftmost cluster is the LAST entry in the list.
-    # Values are always the first text cluster right after a label,
-    # so we want the leftmost viable cluster — noise pixels further
-    # right (asteroid scene bleeding through the right edge of the
-    # panel) should be ignored.
-    for c_start, c_end in reversed(clusters):
+    # Pick the RIGHTMOST qualifying cluster.
+    # SC HUD values are right-aligned. Anything LEFT of the value is
+    # almost always label intrusion (e.g. "STANCE:" leaking past
+    # x_min when the label-edge scan terminates mid-word). Picking
+    # the rightmost qualifying cluster avoids that intrusion entirely
+    # because the value is always the rightmost real text on the row.
+    # Right-most-wins also tolerates label-edge detection errors:
+    # x_min can land mid-label and we'll still skip past it.
+    # clusters were built right-to-left → clusters[0] is rightmost,
+    # so we iterate the list in its natural order.
+    for c_start, c_end in clusters:
         if c_end - c_start >= _MIN_VALUE_WIDTH and c_start >= x_min:
-            vx_start = max(0, c_start - 4)
+            vx_start = max(0, c_start - 6)
+
+            # Tighten the Y-band to JUST the densest text row.
+            # _find_label_rows can return a band that overlaps the
+            # adjacent rows (e.g. resistance band picks up the bottom
+            # of MASS and the top of INSTABILITY), which produces
+            # phantom characters in the value crop. Use the column-
+            # restricted text mask to find the row of max ink, then
+            # keep only contiguous rows that hit ≥40% of peak density.
+            cluster_mask = full_mask[y1:y2, vx_start:c_end]
+            row_density = cluster_mask.sum(axis=1)
+            if row_density.size > 0 and int(row_density.max()) > 0:
+                peak = int(np.argmax(row_density))
+                threshold = max(1, int(row_density.max() * 0.40))
+                # Walk up from peak while density stays above threshold
+                up = peak
+                while up > 0 and row_density[up - 1] >= threshold:
+                    up -= 1
+                # Walk down from peak similarly
+                down = peak
+                while down < row_density.size - 1 and row_density[down + 1] >= threshold:
+                    down += 1
+                # Apply a tiny ±2 px margin (anti-alias halo)
+                y1_tight = max(y1, y1 + up - 2)
+                y2_tight = min(y2, y1 + down + 3)
+                return img.crop((vx_start, y1_tight, c_end, y2_tight))
             return img.crop((vx_start, y1, c_end, y2))
 
     return None
@@ -424,7 +646,9 @@ def _segment_and_infer(gray: np.ndarray, binary: np.ndarray) -> list[tuple[str, 
 
     h, w = gray.shape
 
-    # Vertical projection segmentation
+    # Vertical projection segmentation. Min span width 2 (was 3) so
+    # narrow chars like '1' and '.' aren't dropped — matches the
+    # offline extractor that produced the high-accuracy training data.
     proj = np.sum(binary > 0, axis=0)
     spans: list[tuple[int, int]] = []
     in_char = False
@@ -436,8 +660,27 @@ def _segment_and_infer(gray: np.ndarray, binary: np.ndarray) -> list[tuple[str, 
             start = x
         elif val == 0 and in_char:
             in_char = False
-            if x - start >= 3:
+            if x - start >= 2:
                 spans.append((start, x))
+
+    # Right-anchored span filter:
+    # SC HUD values are read right-to-left and the LEFT edge is where
+    # label-text intrusion shows up (e.g. trailing colon of
+    # "RESISTANCE:" leaking in front of "0%"). Find the largest gap
+    # between adjacent spans; if it's much wider than the typical
+    # gap, discard everything LEFT of it (those are label artifacts).
+    if len(spans) >= 2:
+        gaps = [(spans[i + 1][0] - spans[i][1], i) for i in range(len(spans) - 1)]
+        largest_gap, gap_idx = max(gaps, key=lambda g: g[0])
+        if gaps:
+            sorted_gaps = sorted(g for g, _ in gaps)
+            median_gap = sorted_gaps[len(sorted_gaps) // 2]
+        else:
+            median_gap = 0
+        # Heuristic: a gap that's >2× the median or >18 px absolute
+        # marks the boundary between label text and the value cluster.
+        if largest_gap >= max(18, median_gap * 2 + 4):
+            spans = spans[gap_idx + 1:]
 
     # Crop, pad, resize each character to 28×28
     char_images: list[np.ndarray] = []
@@ -473,12 +716,19 @@ def _segment_and_infer(gray: np.ndarray, binary: np.ndarray) -> list[tuple[str, 
     inp_name = _session.get_inputs()[0].name
     logits = _session.run(None, {inp_name: batch})[0]
 
+    # Confidence-filtered predictions. Glyphs that the CNN can't classify
+    # confidently (typically: chunks of label text accidentally captured
+    # in the value crop) are dropped rather than mislabeled.
+    _MIN_CONFIDENCE = 0.40
     results: list[tuple[str, float]] = []
     for i in range(len(char_images)):
         probs = np.exp(logits[i] - np.max(logits[i]))
         probs /= probs.sum()
         idx = int(np.argmax(probs))
-        results.append((_char_classes[idx], float(probs[idx])))
+        conf = float(probs[idx])
+        if conf < _MIN_CONFIDENCE:
+            continue
+        results.append((_char_classes[idx], conf))
     return results
 
 
@@ -523,15 +773,19 @@ def _ocr_crop(crop_img: Image.Image) -> str:
         gray = 255 - gray
         max_ch = 255 - max_ch
 
-    # Engine A: Otsu threshold on grayscale (white/cyan text)
+    # Engine A: Otsu threshold on grayscale (white/cyan text).
+    # Now feeds the GRAY channel to the model — matches training data.
     thr_a = _otsu(gray)
     binary_a = (gray > thr_a).astype(np.uint8) * 255
     results_a = _segment_and_infer(gray, binary_a)
 
-    # Engine C: Otsu threshold on max-of-channels (red text)
+    # Engine C: Otsu threshold on max-of-channels for red text detection,
+    # BUT feed the GRAY pixels to the model — the custom CNN was trained
+    # on luminance crops; max-of-channels has a different intensity
+    # profile that systematically biases predictions (e.g. 0->9, 1->7).
     thr_c = _otsu(max_ch)
     binary_c = (max_ch > thr_c).astype(np.uint8) * 255
-    results_c = _segment_and_infer(max_ch, binary_c)
+    results_c = _segment_and_infer(gray, binary_c)
 
     # Engine B (fixed threshold 140 on grayscale) removed — its high
     # per-character confidence on wrong characters was poisoning the
@@ -542,23 +796,28 @@ def _ocr_crop(crop_img: Image.Image) -> str:
     if not engines:
         return ""
 
-    # Find the maximum length across engines. Short reads are almost
-    # always wrong (segmentation fused two glyphs into one or missed
-    # a glyph entirely), so filter to engines that hit the max length.
-    max_len = max(len(r) for r in engines)
-    max_len_engines = [r for r in engines if len(r) == max_len]
+    # Engine selection: pick the engine with the highest MEAN
+    # confidence per character. Previously we picked the engine with
+    # the most characters, which let phantom leading digits (label-
+    # text intrusion bleeding into the value crop) outvote the truth
+    # — e.g. "20%" beating "0%" on length even though the leading
+    # "2" was a low-confidence garbage prediction.
+    def _mean_conf(rs: list[tuple[str, float]]) -> float:
+        return sum(c for _, c in rs) / len(rs) if rs else 0.0
 
-    # Among engines that found the most characters, vote per-position
-    # by highest per-character confidence.
-    if len(max_len_engines) > 1:
+    # If all engines agree on length, do per-position confidence vote.
+    if len(set(len(r) for r in engines)) == 1:
+        n = len(engines[0])
         text = ""
-        for i in range(max_len):
-            options = [e[i] for e in max_len_engines]
+        for i in range(n):
+            options = [e[i] for e in engines]
             ch, _ = max(options, key=lambda x: x[1])
             text += ch
         return text
 
-    return "".join(ch for ch, _ in max_len_engines[0])
+    # Otherwise, pick the engine with the highest mean confidence.
+    best = max(engines, key=_mean_conf)
+    return "".join(ch for ch, _ in best)
 
 
 def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
@@ -640,20 +899,274 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
     return None
 
 
-def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
-    """Find MASS / RESIST / INSTAB rows via Tesseract with polarity retries.
+def _find_label_rows_by_position(
+    img: Image.Image,
+) -> dict[str, tuple[int, int, int]]:
+    """Position-based label-row finder — NO TESSERACT.
 
-    Strategy:
-      1. Crop the left 55% of the panel (labels live in this band).
-      2. Try up to three binary renderings and keep the best result:
-         (a) Otsu on grayscale as-is
-         (b) Otsu on inverted grayscale  (for light-background panels)
-         (c) Otsu on max-of-channels (for colored label text)
-      3. Parse Tesseract word-level output for "mass", "resistance",
-         "instability" substring matches.
-      4. Return rows whose label y-span was detected, along with the
-         label's right edge computed via column-density scan.
+    Uses HUD geometry instead of OCR:
+      1. Detect the two horizontal HUD separator lines that bracket
+         the SCAN RESULTS data area (``_find_panel_lines``).
+      2. Run horizontal-projection text-band detection inside the
+         band between those lines.
+      3. The band always contains exactly 5 text rows in a fixed
+         order: [mineral_name, MASS, RESISTANCE, INSTABILITY,
+         difficulty_bar]. Assign roles by ORDINAL POSITION — no need
+         to read the labels.
+      4. For each row, compute the label's right edge (colon
+         position) via column-density scan in the left half of the
+         row.
+
+    This eliminates Tesseract from the critical row-positioning
+    path. Tesseract was the source of "MASS detected at RESISTANCE's
+    y" bugs because its LSTM is trained on printed documents and
+    misbehaves on bright-sky / colored / anti-aliased HUD text.
+    Position-based assignment is structurally immune to that
+    failure mode: if 5 bands exist between the lines, they ARE
+    [mineral, mass, resist, instab, difficulty].
+
+    Returns the same shape as ``_find_label_rows`` so callers don't
+    care which engine produced it. Returns ``{}`` when:
+      - Fewer than 2 HUD lines detected (panel not visible)
+      - Fewer than 4 text bands between the lines (panel too small
+        or sky bleed corrupted the projection)
     """
+    gray = np.array(img.convert("L"), dtype=np.uint8)
+    lines = _get_panel_lines_cached(gray)
+    if not lines:
+        return {}
+
+    # ── Multi-anchor row detection ──
+    # Single-peak detection was unstable: text rows have ascender +
+    # x-height sub-peaks that get counted as separate rows on dark
+    # backgrounds, AND merged bands on light backgrounds caused
+    # rejections. Multi-anchor approach uses 3 independent anchors:
+    #   ANCHOR 1: top HUD line (above mineral name)
+    #   ANCHOR 2: mineral-name BAND (first text band below top line)
+    #   ANCHOR 3: row pitch (panel-scaled, refined from line pair if
+    #             both top and bottom lines are detected)
+    # Then MASS/RESIST/INSTAB y-positions are EXTRAPOLATED from the
+    # mineral-name anchor using fixed pitch. Only one anchor needs
+    # to be correct for the whole geometry to fall out — and the
+    # mineral name is the easiest to detect because it's always the
+    # FIRST text band right below the top HUD line.
+    top_y = lines[0][0]
+
+    # Search up to 250 px below top line for the data area
+    search_h = min(img.height - top_y, 250)
+    if search_h < 80:
+        return {}
+    band = gray[top_y:top_y + search_h, :]
+    text_mask = _build_text_mask(band)
+    proj = text_mask.sum(axis=1).astype(np.float32)
+    if proj.size < 20 or float(proj.max()) <= 0:
+        return {}
+
+    # Heavy smoothing (7-px box) to merge ascender+x-height sub-peaks
+    # within one row into a single peak.
+    if proj.size >= 9:
+        kernel = np.ones(7, dtype=np.float32) / 7.0
+        proj = np.convolve(proj, kernel, mode="same")
+
+    # ── ANCHOR 2: mineral name band ──
+    # Collect every contiguous text band above 30% of max projection
+    # and pick the band with the STRONGEST peak — the mineral name
+    # (e.g. "BERYL (RAW)") is rendered noticeably bolder than the
+    # "SCAN RESULTS" header that now sits above it, so its row
+    # profile has a clearly higher peak. Taking the first band
+    # instead (old behaviour) anchored onto the header and pushed
+    # every downstream MASS/RESIST/INSTAB row one slot too high.
+    band_thr = float(proj.max()) * 0.30
+    bands: list[tuple[int, int, float]] = []  # (y_start, y_end, peak)
+    in_band = False
+    bs = 0
+    for y in range(proj.size):
+        v = float(proj[y])
+        if v >= band_thr and not in_band:
+            in_band = True
+            bs = y
+        elif v < band_thr and in_band:
+            in_band = False
+            bands.append((bs, y, float(proj[bs:y].max())))
+    if in_band:
+        bands.append((bs, int(proj.size), float(proj[bs:].max())))
+
+    if not bands:
+        log.debug(
+            "onnx_hud_reader: position-based — no mineral band found "
+            "below top_line=%d", top_y,
+        )
+        return {}
+
+    # Mineral name is the row with the strongest peak within the
+    # first ~120 px below the top line. Restrict to early bands so
+    # unusually bright value rows (e.g. red "IMPOSSIBLE" fill) can't
+    # win against the mineral-name text.
+    _MINERAL_SEARCH_MAX = 150
+    eligible = [b for b in bands if b[0] <= _MINERAL_SEARCH_MAX] or bands
+    mineral_y_rel, mineral_y_end_rel, _ = max(eligible, key=lambda b: b[2])
+    mineral_center_rel = (mineral_y_rel + mineral_y_end_rel) // 2
+    mineral_y_abs = top_y + mineral_center_rel
+
+    # ── ANCHOR 3: row pitch ──
+    # Default: panel-scaled constant (30 px on 397-wide reference).
+    # Refined: if a SECOND HUD line is detected at a plausible
+    # distance below the top line (80-220 px), use the line pair
+    # to compute a more accurate pitch. The data area between the
+    # two lines holds: mineral row + 3 value rows + EASY bar = 5
+    # rows total, so pitch ≈ (line_gap) / 5.
+    REF_PITCH = 30
+    panel_scale = max(0.5, float(img.width) / 397.0)
+    pitch = int(REF_PITCH * panel_scale)
+    bot_line_y: Optional[int] = None
+    # Real panels have a line gap in the 150-450 px range depending on
+    # capture/upscale dimensions. The old 80-250 window rejected the
+    # correct bottom separator on taller captures (e.g. after the
+    # sc_ocr.api upscale to 541 px height), forcing pitch to fall back
+    # to the under-estimated panel-scaled default.
+    for ly, _, _ in lines[1:]:
+        if 150 <= ly - top_y <= 450:
+            bot_line_y = ly
+            break
+    if bot_line_y is not None:
+        # Refine pitch from the mineral-row-to-bottom-line span. This
+        # is independent of whether a "SCAN RESULTS" header sits above
+        # the mineral name (which the old ``(line_gap - 12) / 5``
+        # formula got wrong whenever the header was present — it
+        # undercounted by one row and produced a too-small pitch).
+        #
+        # From the mineral row center down to the bottom HUD line:
+        # 4 pitches cover MASS / RESIST / INSTAB / IMPOSSIBLE-bar-center,
+        # plus roughly one more pitch of visual padding between the
+        # IMPOSSIBLE bar and the bottom separator. Dividing the span
+        # by 5 matches measured game panels closely (±2 px).
+        span = bot_line_y - mineral_y_abs
+        refined_pitch = max(15, int(span / 5))
+        # Sanity: accept any physically plausible panel pitch. The
+        # old check (±30% of REF_PITCH=30) rejected correct pitches
+        # in the 40-65 range that real panels actually produce, which
+        # left extrapolated MASS/RESIST/INSTAB rows bunched up near
+        # the header instead of landing on their labels.
+        if 20 <= refined_pitch <= 80:
+            pitch = refined_pitch
+
+    # ── Compute MASS/RESIST/INSTAB y centers via extrapolation ──
+    label_keys = ["mass", "resistance", "instability"]
+    target_centers = [
+        mineral_y_abs + pitch,
+        mineral_y_abs + 2 * pitch,
+        mineral_y_abs + 3 * pitch,
+    ]
+    half_h = max(8, int(pitch * 0.45))
+
+    # Validate that all centers fit inside the image
+    for c in target_centers:
+        if c - half_h < 0 or c + half_h > img.height:
+            log.debug(
+                "onnx_hud_reader: position-based — extrapolated row "
+                "center %d out of image bounds (h=%d)", c, img.height,
+            )
+            return {}
+
+    target_rows = [
+        (max(0, c - half_h), min(img.height, c + half_h))
+        for c in target_centers
+    ]
+
+    # Compute label-right (colon position) per row via column-density
+    # scan in the left half. Pure NumPy, no OCR.
+    text_mask = _build_text_mask(gray, deviation=30)
+    half_w = img.width // 2
+    _PAD = 3
+    _GAP_THRESHOLD = 14
+    # Per-key fallback right-edge fractions (used only when the
+    # column scan fails to find any label pixels).
+    _FALLBACK_RIGHT_FRAC = {"mass": 0.18, "resistance": 0.34, "instability": 0.36}
+
+    # First pass: scan each row's label-right (colon position).
+    per_row_label_right: dict[str, int] = {}
+    for key, (y1, y2) in zip(label_keys, target_rows):
+        col_hot = text_mask[y1:y2, :].sum(axis=0) >= 2
+        hot_idxs = np.where(col_hot[:half_w])[0]
+        if hot_idxs.size == 0:
+            per_row_label_right[key] = int(img.width * _FALLBACK_RIGHT_FRAC[key])
+            continue
+        x_start = int(hot_idxs[0])
+        scanned_right = x_start
+        gap_run = 0
+        x = x_start
+        while x < col_hot.shape[0]:
+            if col_hot[x]:
+                scanned_right = x + 1
+                gap_run = 0
+            else:
+                gap_run += 1
+                if gap_run >= _GAP_THRESHOLD:
+                    break
+            x += 1
+        per_row_label_right[key] = min(scanned_right, half_w)
+
+    # ── Shared value-column anchor ──
+    # The HUD left-aligns ALL three values to a SINGLE column whose
+    # left edge is past the LONGEST label (INSTABILITY:). MASS,
+    # RESISTANCE, and INSTABILITY values therefore all start at the
+    # same x. Use the MAX label-right across rows as the shared
+    # value-column-left anchor — every row's value crop uses this
+    # same x_min downstream.
+    shared_label_right = max(per_row_label_right.values())
+
+    result: dict[str, tuple[int, int, int]] = {}
+    for key, (y1, y2) in zip(label_keys, target_rows):
+        result[key] = (
+            max(0, y1 - _PAD),
+            min(img.height, y2 + _PAD),
+            shared_label_right,
+        )
+    log.debug(
+        "onnx_hud_reader: label_rows_by_position OK "
+        "(top_line=%d, mineral_y=%d, pitch=%d, bot_line=%s, "
+        "shared_label_right=%d, mass_y=%d-%d)",
+        top_y, mineral_y_abs, pitch, bot_line_y,
+        shared_label_right,
+        result["mass"][0], result["mass"][1],
+    )
+    # Stash telemetry for the debug overlay viewer.
+    try:
+        from .sc_ocr import debug_overlay as _dbg
+        _dbg.set_hud_lines(lines)
+        _dbg.set_panel_finder(
+            top_y=top_y,
+            mineral_y_top=top_y + (mineral_y_rel or 0),
+            mineral_y_bot=top_y + (mineral_y_end_rel or 0),
+            mineral_center=mineral_y_abs,
+            pitch=pitch,
+            bot_line_y=bot_line_y,
+            source="by_position",
+        )
+    except Exception:
+        pass
+    return result
+
+
+def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
+    """Find MASS / RESIST / INSTAB rows.
+
+    Two-stage strategy:
+      1. ``_find_label_rows_by_position`` — line-anchored, no OCR.
+         This is the primary path: HUD lines bracket the data area,
+         text bands are assigned by ordinal position. Structurally
+         immune to "Tesseract noise on bright sky → wrong row" bugs.
+      2. Tesseract-based fallback (this function's body, kept for
+         compatibility) — used only when the position-based finder
+         can't locate enough HUD geometry (e.g. partial panel
+         capture, panel cut off at the top).
+    """
+    # Try position-based finder first
+    pos_result = _find_label_rows_by_position(img)
+    if pos_result:
+        return pos_result
+
+    # ── Tesseract fallback ──
     if not _check_tesseract():
         return {}
     try:
@@ -684,10 +1197,16 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
         ("max_bright",  np.where(max_ch > thr_max, 0, 255).astype(np.uint8)),
     ]
 
+    # 4-character prefix matching. Shorter needles tolerate Tesseract
+    # mis-reads in the label tail (e.g. 'RESI5TANCE' still matches
+    # 'resi'; 'INSTABITY' still matches 'inst'). Also resolution-
+    # robust — smaller render sizes lose trailing characters first,
+    # but the 4-char stem ('MASS', 'RESI', 'INST') survives at any
+    # panel scale where labels are even partially legible.
     targets = {
         "mass":        "mass",
-        "resistance":  "resist",
-        "instability": "instab",
+        "resistance":  "resi",
+        "instability": "inst",
     }
 
     best: dict[str, tuple[int, int, int, int]] = {}  # key -> (y1,y2,lbl_left,score)
@@ -707,8 +1226,13 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
         n = len(data.get("text", []))
         for i in range(n):
             text = (data["text"][i] or "").strip().lower()
-            if len(text) < 4:
+            # Drop whitespace and punctuation for prefix matching — a
+            # small text like 'MASS:' should hit 'mass' even though
+            # the strict-lowered form is 'mass:'.
+            stripped = "".join(c for c in text if c.isalpha())
+            if len(stripped) < 4:
                 continue
+            text = stripped
             x = int(data["left"][i])
             y = int(data["top"][i])
             h_ = int(data["height"][i])
@@ -723,6 +1247,177 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
     if not best:
         return {}
 
+    # ─── Anchor-based row reconciliation ───
+    # The SC HUD panel has a FIXED vertical layout: MASS, then
+    # RESISTANCE one row below, then INSTABILITY one row below that.
+    # Per-row Tesseract searches are unreliable because:
+    #   - Tesseract sometimes misreads "RESISTANCE" as containing
+    #     the "mass" stem (or vice versa)
+    #   - Same y-position can match multiple stems
+    #   - Frame averaging across HUD jiggle blurs the row boundaries
+    # Once we have ANY reliable row anchor, we can compute the others
+    # from known relative pixel offsets (panel-scaled).
+    #
+    # Strategy:
+    #   1. Pick the highest-confidence detected row as the anchor.
+    #   2. Estimate row spacing from observed inter-row deltas.
+    #   3. Override any detected row whose y is wildly off the
+    #      expected anchor + N*row_spacing position.
+    #
+    # We use MASS as the preferred anchor when present (it's the
+    # topmost row and most distinctive), else fall back to whichever
+    # row scored highest.
+    _ROW_ORDER = ["mass", "resistance", "instability"]
+
+    # ─── Multi-anchor row reconciliation ───
+    # When multiple rows are detected, use them to MEASURE the actual
+    # row spacing (not assume a panel-scaled constant) and to detect
+    # outlier detections that don't fit the line through the others.
+    # Then clamp final positions against the HUD's top/bottom
+    # separator lines (rows can never live outside the data band).
+
+    # Step 1: Estimate row height from whatever was detected (used
+    # later for crop padding).
+    _heights = [best[k][1] - best[k][0] for k in best]
+    raw_row_height = max(8, max(_heights) if _heights else 8)
+    row_height = int(raw_row_height * 1.6) + 4
+
+    # Step 2: Compute expected_spacing. If 2+ rows detected, use the
+    # MEASURED spacing — this absorbs any panel-scale or HUD-resize
+    # variation automatically. Falls back to the panel-scaled
+    # constant only when a single row is all we have.
+    #
+    # IMPORTANT: when 3 rows are detected, use the LONGEST BASELINE
+    # (idx 0 to idx 2) divided by 2, NOT the average of adjacent
+    # deltas. Averaging adjacent deltas is unstable: if Tesseract
+    # confuses two adjacent rows (e.g. detects MASS at RESISTANCE's
+    # y), one delta collapses to ~0 and the average halves, which
+    # then poisons outlier rejection. The longest-baseline spacing
+    # is far less sensitive to a single noisy detection because the
+    # bad row contributes only one error to a much larger interval.
+    _REF_PANEL_W = 397
+    panel_scale = max(0.5, float(img.width) / _REF_PANEL_W)
+    _const_spacing = max(raw_row_height + 8, int(30 * panel_scale))
+
+    detected_pairs = sorted(
+        (_ROW_ORDER.index(k), best[k][0])
+        for k in best
+        if k in _ROW_ORDER
+    )  # [(idx, y), ...] sorted by row index
+
+    if len(detected_pairs) >= 2:
+        # Use the longest baseline for the most robust spacing.
+        first_idx, first_y = detected_pairs[0]
+        last_idx, last_y = detected_pairs[-1]
+        idx_span = max(1, last_idx - first_idx)
+        measured_spacing = int(round((last_y - first_y) / idx_span))
+        # Sanity-bound against the panel-scaled constant.
+        if 0.4 * _const_spacing <= measured_spacing <= 2.0 * _const_spacing:
+            expected_spacing = measured_spacing
+        else:
+            expected_spacing = _const_spacing
+    else:
+        expected_spacing = _const_spacing
+
+    # Step 3: Outlier rejection. Use the longest-baseline spacing
+    # (computed above) and the FIRST AND LAST detected rows as the
+    # reference line, then drop any middle row that doesn't fit.
+    # This is more robust than median-pivot because the endpoints
+    # define the longest baseline; a noisy middle row can't poison
+    # the line.
+    if len(detected_pairs) == 3:
+        first_idx, first_y = detected_pairs[0]
+        last_idx, last_y = detected_pairs[-1]
+        for idx, y in detected_pairs:
+            if idx in (first_idx, last_idx):
+                continue
+            predicted = first_y + (idx - first_idx) * expected_spacing
+            if abs(y - predicted) > expected_spacing * 0.5:
+                _outlier_key = _ROW_ORDER[idx]
+                log.debug(
+                    "onnx_hud_reader: dropping outlier middle row %s (y=%d, "
+                    "predicted=%d, spacing=%d)",
+                    _outlier_key, y, predicted, expected_spacing,
+                )
+                best.pop(_outlier_key, None)
+        # Also check: if the FIRST and LAST themselves are
+        # implausibly close (idx_span * spacing collapsed because
+        # one of them was misdetected at the same y as the other),
+        # reject the smaller-scoring of the pair.
+        if abs(last_y - first_y) < expected_spacing * (last_idx - first_idx) * 0.5:
+            _f_score = best[_ROW_ORDER[first_idx]][3] if _ROW_ORDER[first_idx] in best else 0
+            _l_score = best[_ROW_ORDER[last_idx]][3] if _ROW_ORDER[last_idx] in best else 0
+            _drop_idx = first_idx if _f_score < _l_score else last_idx
+            _drop_key = _ROW_ORDER[_drop_idx]
+            log.debug(
+                "onnx_hud_reader: endpoints collapsed (first_y=%d last_y=%d "
+                "span=%d, expected≈%d); dropping lower-score endpoint %s",
+                first_y, last_y, last_idx - first_idx,
+                (last_idx - first_idx) * expected_spacing, _drop_key,
+            )
+            best.pop(_drop_key, None)
+
+    # Step 4: Pick the anchor (prefer MASS, else highest-score row).
+    if "mass" in best:
+        anchor_key = "mass"
+    elif best:
+        anchor_key = max(best, key=lambda k: best[k][3])
+    else:
+        # All rows were rejected as outliers — return empty so the
+        # caller falls back to mineral-row offset estimation.
+        log.debug("onnx_hud_reader: all rows rejected as outliers")
+        return {}
+
+    anchor_y, anchor_y2, anchor_left, _ = best[anchor_key]
+    anchor_idx = _ROW_ORDER.index(anchor_key)
+
+    # Step 5: HUD-line Y bounds. The two horizontal HUD separator
+    # lines bracket the data area. Any row Y outside that band is
+    # provably wrong; clamp the anchor before we propagate it.
+    _lines = _get_panel_lines_cached(np.array(img.convert("L"), dtype=np.uint8))
+    _y_min_bound = 0
+    _y_max_bound = img.height
+    if len(_lines) >= 2:
+        # Top line = first line above the anchor; bottom line = first
+        # line below the anchor's last expected row.
+        _last_expected_y = anchor_y + (len(_ROW_ORDER) - 1 - anchor_idx) * expected_spacing
+        _above = [ly for ly, _, _ in _lines if ly < anchor_y]
+        _below = [ly for ly, _, _ in _lines if ly > _last_expected_y]
+        if _above:
+            _y_min_bound = max(_above)  # closest line above anchor
+        if _below:
+            _y_max_bound = min(_below)  # closest line below last row
+
+    _Y_PAD_TOP = 4
+    for idx, key in enumerate(_ROW_ORDER):
+        expected_y = anchor_y + (idx - anchor_idx) * expected_spacing
+        # Clamp expected_y inside the HUD-line band (with padding for
+        # row height — the row's TOP must be far enough below the top
+        # line that the row's BOTTOM doesn't push past the bottom line).
+        if expected_y < _y_min_bound:
+            expected_y = _y_min_bound + _Y_PAD_TOP
+        if expected_y + row_height > _y_max_bound:
+            expected_y = _y_max_bound - row_height
+        if 0 <= expected_y < img.height - row_height:
+            y_top = max(0, expected_y - _Y_PAD_TOP)
+            y_bot = expected_y + row_height
+            if key in best:
+                detected_y = best[key][0]
+                if abs(detected_y - expected_y) > expected_spacing * 0.6:
+                    best[key] = (
+                        y_top,
+                        y_bot,
+                        best[key][2],
+                        best[key][3],
+                    )
+            else:
+                best[key] = (
+                    y_top,
+                    y_bot,
+                    anchor_left,
+                    1,
+                )
+
     # Compute real label right edges via column-density on the
     # polarity-independent text mask of the full image. If the mask
     # is too noisy (e.g. asteroid leak), fall back to a fixed
@@ -732,19 +1427,34 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
 
     result: dict[str, tuple[int, int, int]] = {}
     _PAD = 3
-    _GAP_THRESHOLD = 5
+    # Walk-right gap tolerance: inter-letter gaps in SC's HUD font can
+    # exceed 5 px (especially at small panel scales), causing the scan
+    # to terminate mid-label. Bumped 5 -> 14 so the scan bridges
+    # intra-label gaps but still detects the much larger 30-50 px gap
+    # between the label's trailing colon and the value's first digit.
+    _GAP_THRESHOLD = 14
     # Fixed fallback right edges — from known panel geometry
     _FALLBACK_RIGHTS = {"mass": 110, "resistance": 200, "instability": 205}
 
+    # Panel width heuristic — the hardcoded fallback rights were
+    # measured on a 397px-wide reference panel. Scale them if the
+    # current panel is wider/narrower. ``left`` was cropped at 55% of
+    # img.width so the label column is always in the left half.
+    _REF_PANEL_W = 397
+    panel_scale = max(0.5, float(img.width) / _REF_PANEL_W)
+
     for key, (y1, y2, lbl_left, _score) in best.items():
-        # Scan hot columns in this row to find the label right edge
+        # Scan hot columns in this row to find the label right edge.
+        # The label is darkest immediately after ``lbl_left`` and
+        # fades into the gap between label and value. Walk rightward
+        # tolerating small gaps inside the label glyphs.
         col_hot = text_mask[y1:y2, :].sum(axis=0) >= 2
-        lbl_right = lbl_left
+        scanned_right = lbl_left
         gap_run = 0
         x = lbl_left
         while x < col_hot.shape[0]:
             if col_hot[x]:
-                lbl_right = x + 1
+                scanned_right = x + 1
                 gap_run = 0
             else:
                 gap_run += 1
@@ -752,12 +1462,22 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
                     break
             x += 1
 
-        # Sanity check — on dark panels the column-density scan is
-        # unreliable when the text mask shape varies, and on light
-        # panels it's corrupted by asteroid bleed. Always use the
-        # fixed right-edge values measured from the panel geometry.
-        # (Row spacing and label widths are constant across scans.)
-        lbl_right = _FALLBACK_RIGHTS[key]
+        # Use the scanned edge when it's plausibly past the label —
+        # require at least 20 px of label extent. Reject the scan if
+        # it ran clear across the row (text_mask bleed from asteroid
+        # scene), which we detect by comparing against a scaled cap.
+        fallback_right = int(_FALLBACK_RIGHTS[key] * panel_scale)
+        scan_extent = scanned_right - lbl_left
+        max_plausible = int(min(img.width * 0.45, fallback_right * 1.8))
+        if 20 <= scan_extent and scanned_right <= max_plausible:
+            lbl_right = scanned_right
+        else:
+            lbl_right = fallback_right
+            log.debug(
+                "sc_ocr: label_rows key=%s scan_extent=%d out of "
+                "bounds, using scaled fallback=%d (panel_scale=%.2f)",
+                key, scan_extent, fallback_right, panel_scale,
+            )
 
         result[key] = (
             max(0, y1 - _PAD),
@@ -1940,7 +2660,10 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
     # Use label_right as the x_min hint so the value crop ignores
     # anything left of the label, eliminating label+value fusion
     # without corrupting the text-mask local-background estimate.
-    _LABEL_GAP = 6
+    # Bumped 6 -> 14 so the trailing colon and any anti-alias halo of
+    # "RESISTANCE:"/"INSTABILITY:" don't leak into the value crop and
+    # produce phantom leading digits in front of "0%" etc.
+    _LABEL_GAP = 14
 
     def _value_crop_for(entry: tuple[int, int, int] | None) -> Optional[Image.Image]:
         if entry is None:

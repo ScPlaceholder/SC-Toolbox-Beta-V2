@@ -55,12 +55,20 @@ def _candidate_paths() -> list[str]:
 
     local = os.environ.get("LOCALAPPDATA", "")
     if local:
+        # ── Explicit winget pythoncore-3.14-64 (SC_Toolbox preferred) ──
+        # Forced FIRST so the toolbox always uses Python 3.14 even when
+        # an unrelated Python 3.13 install exists at
+        # %LOCALAPPDATA%\Programs\Python\Python313 (e.g. installed
+        # separately for the OCR torch trainer).
+        candidates.append(
+            os.path.join(local, "Python", "pythoncore-3.14-64", "python.exe"))
+
         # Standard python.org installer
         for ver in _VERSIONS_SHORT:
             candidates.append(
                 os.path.join(local, "Programs", "Python", f"Python{ver}", "python.exe"))
 
-        # Winget / Windows package-manager installs
+        # Winget / Windows package-manager installs (other versions)
         py_local = os.path.join(local, "Python")
         if os.path.isdir(py_local):
             try:
