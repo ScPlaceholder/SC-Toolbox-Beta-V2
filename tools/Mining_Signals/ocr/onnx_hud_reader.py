@@ -227,7 +227,7 @@ def is_available() -> bool:
 
 def _find_panel_lines(
     gray: np.ndarray,
-    min_width_frac: float = 0.30,
+    min_width_frac: float = 0.18,
     max_thickness: int = 3,
 ) -> list[tuple[int, int, int]]:
     """Detect horizontal HUD separator lines.
@@ -362,225 +362,143 @@ def _build_text_mask(gray: np.ndarray, deviation: int = 35) -> np.ndarray:
 
 
 def _find_value_crop(
-    img: Image.Image,
-    gray: np.ndarray,
+    img: "Image.Image",
+    gray: "np.ndarray",
     y1: int,
     y2: int,
     x_min: int = 0,
-) -> Optional[Image.Image]:
-    """Crop the rightmost text cluster in a row — the numeric value.
+) -> "Optional[Image.Image]":
+    """Crop the value sub-region of a row.
 
-    GEOMETRIC FAST PATH (when x_min > 0):
-        The panel is a fixed-layout UI. Once we know the label's right
-        edge (x_min, set by the caller from the colon position), the
-        value column is at a known offset to the right with a known
-        width. We just slice that strip directly — no cluster
-        searching, so background debris/reticle bits/HUD glare never
-        contaminate the crop. This is the path used in production
-        because _find_label_rows always provides a colon-anchored
-        x_min. The CNN downstream handles whatever's actually inside
-        the strip (digits, possibly empty, possibly with stray
-        background pixels — Otsu + minority-class polarity normalize
-        all of those).
+    SIMPLE PROVEN RECIPE (matches scripts/test_sc_ocr_on_annotations.py
+    which reads the digits at 99-100% confidence):
 
-    LEGACY CLUSTER PATH (x_min == 0):
-        Kept for callers that don't know the label position. Uses a
-        single, uniform strategy that works for both white/cyan
-        labels+values AND red warning text:
+      1. Crop the row strip [y1:y2, :].
+      2. Polarity-canonicalize so text is BRIGHT (CNN training convention).
+      3. Otsu threshold -> binary.
+      4. Project to columns, find contiguous spans (>=2 px wide).
+      5. Find the LARGEST gap between consecutive spans -- that's the
+         label-to-value separator.
+      6. Take all spans to the RIGHT of the largest gap as the value.
+      7. Crop with ~4 px margin on each side.
 
-      1. Build a per-column count of "definitely-text" pixels, where
-         "definitely-text" means max(R,G,B) > 180. Cyan text peaks at
-         ~243, red text peaks at ~250, white label at ~240. Blue HUD
-         background peaks at ~120 and is safely below. The asteroid
-         scene leaking through has sparse >180 pixels but they're
-         scattered (1 per column).
-      2. Require per-column density ≥ 3 to mark a column as "hot" —
-         filters out scattered scene noise while keeping character
-         strokes (which stack 3+ text pixels vertically).
-      3. Scan hot columns right-to-left and build spans, merging
-         with gap ≤ 12 (bridges inter-digit gaps but stays well
-         below the ~70-100 px gap between label and value).
-      4. Return the rightmost span that's at least _MIN_VALUE_WIDTH
-         wide. If multiple spans are found, the rightmost one is
-         always the value because the label is to the left.
+    The previous implementation accumulated ~250 lines of cluster
+    width filters, geometric fallbacks, line-mid clamping and
+    multi-pass cluster acceptance; none of it improved on the simple
+    recipe above for typical HUD content. Fewer moving parts,
+    cleaner failure modes, easier to debug.
 
-    Rejects sub-pixel red fringing from cyan text anti-aliasing
-    (which broke the previous "red-first" strategy) because the
-    fringes are never dense enough to beat the cyan text itself.
+    Returns None only if the row is degenerate or no spans are found.
     """
-    # ─── GEOMETRIC BOUNDING (line-anchored when possible) ───
-    # The cluster search below is what actually picks the value, but
-    # on light backgrounds it can lock onto sky debris or the reticle
-    # blob. We use panel geometry to set BOUNDS on what the cluster
-    # search is allowed to see: anything outside the value column is
-    # zeroed out before clustering.
-    #
-    # Best bounds come from the HUD's horizontal separator lines
-    # (rendered chrome → always present, always span the panel
-    # content width). The lines' right endpoint is exactly where the
-    # value column ends; the lines' midpoint is past any label.
-    # Falls back to fractional bounds when line detection fails
-    # (e.g. partial panel capture).
-    _geom_x_lo = 0
-    _geom_x_hi = img.width
-    if x_min > 0:
-        _lines = _get_panel_lines_cached(gray)
-        if _lines:
-            # Use the WIDEST detected line as the canonical content
-            # span (stops false positives from short underlines under
-            # the difficulty bar).
-            _ll, _lr = max(((lr - ll, ll, lr)
-                            for _y, ll, lr in _lines),
-                           key=lambda t: t[0])[1:]
-            # Value column right edge = line's right endpoint minus
-            # a few px of margin. Left edge = past colon, but never
-            # past the line's midpoint (values never start in the
-            # left half of the panel).
-            _line_mid = (_ll + _lr) // 2
-            _geom_x_hi = max(_line_mid + 1, _lr - 4)
-            _geom_x_lo = max(x_min + 14, _line_mid)
-            _geom_x_lo = max(0, min(_geom_x_lo, _geom_x_hi - _MIN_VALUE_WIDTH))
-        else:
-            # Fractional fallback (the pre-line heuristic).
-            _geom_x_hi = int(img.width * 0.85)
-            _geom_x_lo = max(x_min + 14, int(img.width * 0.30))
-            _geom_x_lo = max(0, min(_geom_x_lo, _geom_x_hi - _MIN_VALUE_WIDTH))
+    if y2 <= y1 or (y2 - y1) < 4:
+        return None
+    H, W = gray.shape
+    y1 = max(0, y1)
+    y2 = min(H, y2)
+    if y2 - y1 < 4:
+        return None
 
-    # ─── LEGACY CLUSTER PATH ───
-    # Build a text mask that catches BOTH white/cyan labels AND
-    # colored status text (red resistance, green instability). We
-    # can't use ``_build_text_mask`` here because its dark-bg branch
-    # uses a hard ``gray > 150`` cut — red HUD text has max-channel
-    # around 100-140 after monitor capture gamma, below that cut.
+    # ── User's mental model (matches the annotated panel) ──
+    #   GREEN line  = x_min  (just past INSTABILITY: colon)
+    #   PURPLE line = W      (panel right edge)
+    #   The VALUE LIVES BETWEEN green and purple. There can be NO label
+    #   text in this region (we already moved past the colons).
     #
-    # Inline strategy: threshold is ``median + max(40, 2.5×std)`` on
-    # the max-channel image. For a dark HUD panel with median ~30
-    # and std ~25, that yields ~90 — which catches red (~120+) AND
-    # green (~160+) AND white (~240) without catching background
-    # noise (~30-60).
+    # Algorithm:
+    #   1. Crop the value column [x_min : W] from the row strip.
+    #   2. Use MAX-OF-CHANNELS for text detection (so red/green/yellow
+    #      text registers as bright — luminance grayscale loses red).
+    #   3. Two-tier vertical-density mask (strict for strokes,
+    #      permissive for dots, joined by adjacency dilation).
+    #   4. Find contiguous text spans.
+    #   5. Crop tight around all spans (they're ALL value text since
+    #      labels are excluded by x_min).
+    x_lo = max(0, x_min) if x_min > 0 else 0
+    x_hi = W
+    if x_hi - x_lo < 8:
+        return None
+
+    # Slice once to the value-column region (saves a copy and bounds
+    # all subsequent indices).
     try:
         rgb = np.asarray(img.convert("RGB"), dtype=np.uint8)
-        detect_channel = rgb.max(axis=2)
+        detect_region = rgb[y1:y2, x_lo:x_hi].max(axis=2)
     except Exception:
-        detect_channel = gray
-    _med = float(np.median(detect_channel))
-    if _med < 130:  # dark background
-        # Fixed-ish threshold: median + 40, clamped to [70, 120]. On
-        # dark panels median is ~25-40, giving threshold ~65-80. The
-        # clamp keeps the threshold from chasing bright LABEL pixels
-        # upward (if a bright white label is on the same row as a
-        # dimmer colored value, std-based thresholds get pulled past
-        # the value's brightness and miss it).
-        _thr = max(70, min(120, int(_med + 40)))
-        full_mask = detect_channel > _thr
-    else:  # light background — keep legacy dark-text detection
-        full_mask = _build_text_mask(detect_channel, deviation=30)
-    text_mask = full_mask[y1:y2, :]
-    h, w = text_mask.shape
+        detect_region = gray[y1:y2, x_lo:x_hi]
 
-    col_text = np.sum(text_mask, axis=0)
+    # Polarity-canonicalize so text is the BRIGHT class.
+    thr_d = _otsu(detect_region)
+    bright_count = int((detect_region > thr_d).sum())
+    dark_count = detect_region.size - bright_count
+    if dark_count < bright_count:
+        detect_canon = (255 - detect_region).astype(np.uint8)
+    else:
+        detect_canon = detect_region.astype(np.uint8)
 
-    # Zero out columns to the left of x_min so label pixels can't
-    # contaminate the value cluster. Simple clamp (no blanking of
-    # the source image, which would corrupt the text mask).
-    if x_min > 0:
-        col_text[:x_min] = 0
+    # Binary text mask via Otsu on the canonicalized region.
+    thr2 = _otsu(detect_canon)
+    binary = (detect_canon > thr2).astype(np.uint8)
 
-    # Also zero out columns OUTSIDE the geometric value-column band
-    # (computed above). On light backgrounds the panel margins can
-    # contain bright sky debris / reticle blobs that pass the density
-    # gate and become spurious "rightmost clusters". Bounding the
-    # cluster search to the known value column eliminates those.
-    if _geom_x_hi < col_text.shape[0]:
-        col_text[_geom_x_hi:] = 0
-    if _geom_x_lo > 0:
-        col_text[:_geom_x_lo] = 0
+    # Two-tier density: strict floor catches text strokes, permissive
+    # floor catches dots, joined by adjacency dilation.
+    row_h = y2 - y1
+    region_w = x_hi - x_lo
+    strict_floor = max(4, int(row_h * 0.25))
+    permissive_floor = 3
+    proj = binary.sum(axis=0)
+    strict_hot = proj >= strict_floor
+    permissive_hot = proj >= permissive_floor
 
-    # Density gate: a column is "hot" (part of real text) only if at
-    # least 3 pixels in that column are text-mask pixels. Filters
-    # scattered scene noise while keeping character strokes.
-    hot = col_text >= 3
+    if strict_hot.any():
+        dilate_radius = 6
+        kernel = np.ones(2 * dilate_radius + 1, dtype=np.int32)
+        dilated = np.convolve(
+            strict_hot.astype(np.int32), kernel, mode="same",
+        ) > 0
+        hot = dilated & permissive_hot
+    else:
+        hot = strict_hot
 
-    # Find hot spans scanning from the right
-    spans: list[tuple[int, int]] = []  # (start_x, end_x), right-to-left
-    in_span = False
+    # Find contiguous text spans (right-to-left scan per the user's
+    # spec — purple back toward green — so we naturally identify the
+    # rightmost text cluster first).
+    spans_rtl: list[tuple[int, int]] = []
+    in_run = False
     end = 0
-    for x in range(w - 1, -1, -1):
-        if hot[x] and not in_span:
-            in_span = True
-            end = x + 1
-        elif not hot[x] and in_span:
-            in_span = False
-            spans.append((x + 1, end))
-    if in_span:
-        spans.append((0, end))
+    for i in range(region_w - 1, -1, -1):
+        if hot[i] and not in_run:
+            in_run = True
+            end = i + 1
+        elif not hot[i] and in_run:
+            in_run = False
+            if end - (i + 1) >= 2:
+                spans_rtl.append((i + 1, end))
+    if in_run and end >= 2:
+        spans_rtl.append((0, end))
 
-    if not spans:
+    if not spans_rtl:
         return None
 
-    # Filter out tiny noise spans (< 3px) — single-pixel artifacts
-    spans = [(s, e) for s, e in spans if e - s >= 3]
-    if not spans:
+    # spans_rtl is right-to-left ordered. Convert to left-to-right
+    # for cropping bounds.
+    spans = list(reversed(spans_rtl))
+
+    # Crop from the GREEN LINE (x_lo) to the rightmost text + margin.
+    # Per user spec: "start reading rows right of MASS: green line,
+    # slide to purple line, scan back to green to find numerical
+    # values". So the LEFT edge stays at x_lo (the green line) — we
+    # don't trim inward to where the digits visually start. The
+    # RIGHT edge is the rightmost text + small margin (so we don't
+    # waste pipeline cycles on empty pixels past the value).
+    v_right_local = min(region_w, spans[-1][1] + 4)
+    if v_right_local < 4:
         return None
 
-    # Build merged clusters from right to left: merge spans with gaps ≤ 20px.
-    # A gap > 20px starts a new cluster. 20 comfortably bridges the
-    # decimal point in thin-stroke colored text (green "12.10" has a
-    # ~14px dead zone around the dot) and inter-digit gaps in wider
-    # percent signs, while staying well below the ~50-100 px gap
-    # between a label and its value.
-    clusters: list[tuple[int, int]] = []  # (start, end)
-    c_start = spans[0][0]
-    c_end = spans[0][1]
-    for s_start, s_end in spans[1:]:
-        if c_start - s_end <= 20:
-            c_start = s_start  # extend cluster leftward
-        else:
-            clusters.append((c_start, c_end))
-            c_start, c_end = s_start, s_end
-    clusters.append((c_start, c_end))
+    # LEFT edge = 0 (which maps to x_lo in image coords) — preserves
+    # the user's "start at green line" anchor.
+    return img.crop((x_lo, y1, x_lo + v_right_local, y2))
 
-    # Pick the RIGHTMOST qualifying cluster.
-    # SC HUD values are right-aligned. Anything LEFT of the value is
-    # almost always label intrusion (e.g. "STANCE:" leaking past
-    # x_min when the label-edge scan terminates mid-word). Picking
-    # the rightmost qualifying cluster avoids that intrusion entirely
-    # because the value is always the rightmost real text on the row.
-    # Right-most-wins also tolerates label-edge detection errors:
-    # x_min can land mid-label and we'll still skip past it.
-    # clusters were built right-to-left → clusters[0] is rightmost,
-    # so we iterate the list in its natural order.
-    for c_start, c_end in clusters:
-        if c_end - c_start >= _MIN_VALUE_WIDTH and c_start >= x_min:
-            vx_start = max(0, c_start - 6)
 
-            # Tighten the Y-band to JUST the densest text row.
-            # _find_label_rows can return a band that overlaps the
-            # adjacent rows (e.g. resistance band picks up the bottom
-            # of MASS and the top of INSTABILITY), which produces
-            # phantom characters in the value crop. Use the column-
-            # restricted text mask to find the row of max ink, then
-            # keep only contiguous rows that hit ≥40% of peak density.
-            cluster_mask = full_mask[y1:y2, vx_start:c_end]
-            row_density = cluster_mask.sum(axis=1)
-            if row_density.size > 0 and int(row_density.max()) > 0:
-                peak = int(np.argmax(row_density))
-                threshold = max(1, int(row_density.max() * 0.40))
-                # Walk up from peak while density stays above threshold
-                up = peak
-                while up > 0 and row_density[up - 1] >= threshold:
-                    up -= 1
-                # Walk down from peak similarly
-                down = peak
-                while down < row_density.size - 1 and row_density[down + 1] >= threshold:
-                    down += 1
-                # Apply a tiny ±2 px margin (anti-alias halo)
-                y1_tight = max(y1, y1 + up - 2)
-                y2_tight = min(y2, y1 + down + 3)
-                return img.crop((vx_start, y1_tight, c_end, y2_tight))
-            return img.crop((vx_start, y1, c_end, y2))
-
-    return None
 
 
 def _find_text_rows(channel: np.ndarray, min_height: int = 8) -> list[tuple[int, int]]:
@@ -899,6 +817,278 @@ def _find_mineral_row(img: Image.Image) -> Optional[tuple[int, int]]:
     return None
 
 
+# Cache of SCAN RESULTS title position per region key. Once we know
+# where the title is in the captured region, the entire panel layout
+# follows by FIXED PROPORTIONAL OFFSETS — no per-frame guessing.
+# Cleared when the panel disappears (handled by callers via
+# _label_cache.clear() / _scan_results_anchor_cache.clear()).
+_scan_results_anchor_cache: dict[tuple[int, int], tuple[float, dict]] = {}
+
+
+def _find_scan_results_anchor(img: Image.Image) -> Optional[dict]:
+    """Find the SCAN RESULTS title via Tesseract and return geometry.
+
+    The SC mining HUD has a FIXED layout. Once we locate the SCAN
+    RESULTS title — large bold static text, easy for Tesseract to
+    read reliably across light/dark/noisy backgrounds — every other
+    row position is a known proportional offset.
+
+    Returns a dict::
+
+        {
+            "title_x": int,   # left edge of "SCAN" word
+            "title_y": int,   # top of title text
+            "title_h": int,   # title text height
+            "title_w": int,   # extent across "SCAN RESULTS"
+        }
+
+    or None if Tesseract can't find the title (panel not visible,
+    occluded, or PaddleOCR-only path).
+
+    Tesseract is run with a UPPERCASE-letters whitelist (the title
+    is always rendered in caps) and PSM 11 (sparse text), which is
+    fast and tolerant of HUD backgrounds.
+    """
+    if not _check_tesseract():
+        return None
+    try:
+        import pytesseract
+    except ImportError:
+        return None
+
+    # Search the top half of the image — title is always near the top.
+    w_img, h_img = img.size
+    top = img.crop((0, 0, w_img, min(h_img, max(120, h_img // 2))))
+    gray = np.array(top.convert("L"), dtype=np.uint8)
+
+    # Run two polarity variants (dark- and light-background HUDs)
+    thr = _otsu(gray)
+    variants = [
+        np.where(gray > thr, 0, 255).astype(np.uint8),
+        np.where(gray < thr, 0, 255).astype(np.uint8),
+    ]
+    best: Optional[tuple[int, int, int, int]] = None
+    for binary in variants:
+        binary_pil = Image.fromarray(binary)
+        try:
+            data = pytesseract.image_to_data(
+                binary_pil,
+                config=(
+                    "--psm 11 -c tessedit_char_whitelist="
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                ),
+                output_type=pytesseract.Output.DICT,
+            )
+        except Exception:
+            continue
+        n = len(data.get("text", []))
+        # Collect all "SCAN" and "RESULTS" hits with their bboxes
+        scan_hits: list[tuple[int, int, int, int]] = []
+        result_hits: list[tuple[int, int, int, int]] = []
+        for i in range(n):
+            txt = (data["text"][i] or "").strip().upper()
+            if not txt or len(txt) < 3:
+                continue
+            x = int(data["left"][i])
+            y = int(data["top"][i])
+            ww = int(data["width"][i])
+            hh = int(data["height"][i])
+            if "SCAN" in txt:
+                scan_hits.append((x, y, ww, hh))
+            elif "RESULT" in txt:
+                result_hits.append((x, y, ww, hh))
+        # Find a SCAN+RESULTS pair on roughly the same line
+        for sx, sy, sw, sh in scan_hits:
+            for rx, ry, rw, rh in result_hits:
+                if abs(sy - ry) > max(sh, rh):
+                    continue  # not on the same line
+                if rx <= sx:
+                    continue  # RESULTS should be to the right of SCAN
+                title_x = sx
+                title_y = min(sy, ry)
+                title_h = max(sh, rh)
+                title_w = (rx + rw) - sx
+                if best is None or title_h > best[3]:
+                    best = (title_x, title_y, title_w, title_h)
+    if best is None:
+        return None
+    title_x, title_y, title_w, title_h = best
+    return {
+        "title_x": title_x,
+        "title_y": title_y,
+        "title_h": title_h,
+        "title_w": title_w,
+    }
+
+
+# ── Fixed proportional offsets from SCAN RESULTS title to each row ──
+# These are measured against the title HEIGHT (which scales with
+# panel scale automatically). Center y of each row is computed as:
+#   row_y_center = title_y + title_h * MULTIPLIER
+# Multipliers measured from the 397-px reference panel:
+#   title bottom is at title_y + title_h
+#   mineral row center ≈ title bottom + 1.6 * title_h
+#   mass row center    ≈ title bottom + 3.0 * title_h
+#   resist row center  ≈ title bottom + 4.4 * title_h
+#   instab row center  ≈ title bottom + 5.8 * title_h
+#   outcome bar center ≈ title bottom + 7.4 * title_h
+_ROW_OFFSET_MULTS = {
+    "_mineral_row": 1.6,
+    "mass":         3.0,
+    "resistance":   4.4,
+    "instability":  5.8,
+}
+_ROW_HEIGHT_MULT = 0.9   # half-height = 0.9 * title_h
+# Label-right (value-column-left anchor) as a fraction of img.width.
+# Measured from the reference panel: ~52%.
+_VALUE_COL_LEFT_FRAC = 0.52
+
+
+def _label_rows_from_anchor(
+    img: Image.Image, anchor: dict,
+) -> dict[str, tuple[int, int, int]]:
+    """Compute label rows + mineral row from the SCAN RESULTS anchor.
+
+    Pure geometry — no projection, no peak detection, no per-frame
+    guessing. Once the anchor is correct, every row IS where it
+    structurally must be.
+    """
+    title_y = anchor["title_y"]
+    title_h = anchor["title_h"]
+    title_bottom = title_y + title_h
+    half_h = max(8, int(title_h * _ROW_HEIGHT_MULT * 0.5))
+    label_right = int(img.width * _VALUE_COL_LEFT_FRAC)
+    result: dict[str, tuple[int, int, int]] = {}
+    for key, mult in _ROW_OFFSET_MULTS.items():
+        center_y = title_bottom + int(title_h * (mult - 1.0))
+        y1 = max(0, center_y - half_h)
+        y2 = min(img.height, center_y + half_h)
+        result[key] = (y1, y2, label_right)
+    return result
+
+
+def _find_label_rows_by_hud_grid(
+    img: Image.Image,
+) -> dict[str, tuple[int, int, int]]:
+    """HUD-grid label-row finder — pure geometry, no text detection.
+
+    The SCAN RESULTS panel is a fixed UI grid bounded by two HUD
+    chrome separator lines:
+
+        ─── TOP LINE ───  (under "SCAN RESULTS" title)
+            Resource (mineral name)
+            Mass:        <value>
+            Resistance:  <value>
+            Instability: <value>
+            ( DIFFICULTY )
+        ─── BOT LINE ───  (above "COMPOSITION")
+
+    Every row sits at a FIXED FRACTION of the span between these
+    two lines. No per-frame band detection, no Tesseract anchor —
+    just pick the correct line pair and apply the constants.
+
+    Returns the same dict shape as ``_find_label_rows`` plus the
+    special ``_mineral_row`` key. Returns ``{}`` when fewer than
+    2 HUD lines are detected (panel not visible / partial capture).
+    """
+    gray = np.array(img.convert("L"), dtype=np.uint8)
+    lines = _get_panel_lines_cached(gray)
+    if len(lines) < 2:
+        return {}
+
+    # Choose the bracketing line pair. The SCAN RESULTS data area
+    # has a span typically 100-400 px depending on capture scale.
+    # We pick the FIRST line pair (i, j) where the gap is in that
+    # range and i is as high as possible.
+    top_y: Optional[int] = None
+    bot_y: Optional[int] = None
+    for i in range(len(lines)):
+        for j in range(i + 1, len(lines)):
+            gap = lines[j][0] - lines[i][0]
+            if 100 <= gap <= 450:
+                top_y = lines[i][0]
+                bot_y = lines[j][0]
+                break
+        if top_y is not None:
+            break
+
+    # If no plausible pair, fall back to (lines[0], lines[1]) if
+    # they're at least 80 px apart, else give up.
+    if top_y is None or bot_y is None:
+        if len(lines) >= 2 and (lines[1][0] - lines[0][0]) >= 80:
+            top_y = lines[0][0]
+            bot_y = lines[1][0]
+        else:
+            return {}
+
+    span = bot_y - top_y
+
+    # ── Fixed fractions (calibrated from real game panels) ──
+    # The data area between the two HUD lines holds 5 rows in
+    # roughly even spacing:
+    #
+    #   ═══ TOP LINE ═══         frac = 0.00
+    #   Resource (mineral)       frac = 0.13   ← centered
+    #   Mass: <value>            frac = 0.31
+    #   Resistance: <value>      frac = 0.49
+    #   Instability: <value>     frac = 0.67
+    #   ( DIFFICULTY )           frac = 0.86
+    #   ═══ BOT LINE ═══         frac = 1.00
+    #
+    # These are FIXED — the SCAN RESULTS panel is a static UI
+    # element. No per-frame guessing.
+    _ROW_FRACTIONS = {
+        "_mineral_row": 0.13,
+        "mass":         0.31,
+        "resistance":   0.49,
+        "instability":  0.67,
+    }
+
+    # Half-row-height: 4.5% of span on each side of center, giving
+    # 9% total row height. Row pitch is ~18% of span, so the gap
+    # between adjacent rows is ~9% — comfortable margin so the row
+    # bands NEVER overlap, which would cause _find_value_crop's
+    # y-tightening to grab the wrong row's content.
+    half_h = max(8, int(span * 0.045))
+
+    # Value-column-left anchor: a fixed fraction of image width
+    # past the longest label. Calibrated to ~52%.
+    label_right = int(img.width * 0.52)
+
+    result: dict[str, tuple[int, int, int]] = {}
+    for key, frac in _ROW_FRACTIONS.items():
+        cy = top_y + int(span * frac)
+        result[key] = (
+            max(0, cy - half_h),
+            min(img.height, cy + half_h),
+            label_right,
+        )
+
+    log.debug(
+        "onnx_hud_reader: HUD grid OK (top=%d, bot=%d, span=%d, "
+        "half_h=%d, lr=%d)",
+        top_y, bot_y, span, half_h, label_right,
+    )
+
+    # Push telemetry to debug overlay.
+    try:
+        from .sc_ocr import debug_overlay as _dbg
+        _dbg.set_hud_lines(lines)
+        _dbg.set_panel_finder(
+            top_y=top_y,
+            mineral_y_top=result["_mineral_row"][0],
+            mineral_y_bot=result["_mineral_row"][1],
+            mineral_center=(result["_mineral_row"][0] + result["_mineral_row"][1]) // 2,
+            pitch=int(span * 0.18),
+            bot_line_y=bot_y,
+            source="hud_grid",
+        )
+    except Exception:
+        pass
+
+    return result
+
+
 def _find_label_rows_by_position(
     img: Image.Image,
 ) -> dict[str, tuple[int, int, int]]:
@@ -952,11 +1142,17 @@ def _find_label_rows_by_position(
     # FIRST text band right below the top HUD line.
     top_y = lines[0][0]
 
-    # Search up to 250 px below top line for the data area
-    search_h = min(img.height - top_y, 250)
+    # Search starts a few px BELOW top_y to skip the HUD line itself.
+    # The HUD line is bright enough (yellow ~180+ gray) to register
+    # as text in the polarity mask. Without this offset the very
+    # first detected band IS the line, which then becomes "Resource"
+    # and shifts every subsequent row assignment by one slot.
+    _LINE_SKIP = 5
+    search_origin = top_y + _LINE_SKIP
+    search_h = min(img.height - search_origin, 250)
     if search_h < 80:
         return {}
-    band = gray[top_y:top_y + search_h, :]
+    band = gray[search_origin:search_origin + search_h, :]
     text_mask = _build_text_mask(band)
     proj = text_mask.sum(axis=1).astype(np.float32)
     if proj.size < 20 or float(proj.max()) <= 0:
@@ -968,15 +1164,25 @@ def _find_label_rows_by_position(
         kernel = np.ones(7, dtype=np.float32) / 7.0
         proj = np.convolve(proj, kernel, mode="same")
 
-    # ── ANCHOR 2: mineral name band ──
-    # Collect every contiguous text band above 30% of max projection
-    # and pick the band with the STRONGEST peak — the mineral name
-    # (e.g. "BERYL (RAW)") is rendered noticeably bolder than the
-    # "SCAN RESULTS" header that now sits above it, so its row
-    # profile has a clearly higher peak. Taking the first band
-    # instead (old behaviour) anchored onto the header and pushed
-    # every downstream MASS/RESIST/INSTAB row one slot too high.
-    band_thr = float(proj.max()) * 0.30
+    # ── DIRECT 5-band detection (no extrapolation) ──
+    # The SCAN RESULTS panel between the top and bottom HUD lines
+    # contains EXACTLY 5 text bands in a fixed order:
+    #   index 0: Resource (mineral name, e.g. "BERYL (RAW)")
+    #   index 1: Mass row
+    #   index 2: Resistance row
+    #   index 3: Instability row
+    #   index 4: Outcome bar (EASY / MEDIUM / HARD / EXTREME / IMPOSSIBLE)
+    #
+    # Previously we tried to extrapolate from the mineral row using a
+    # single pitch value. That meant any error in mineral detection
+    # cascaded — and on this panel the SCAN RESULTS title's HUD
+    # underline kept being picked up as the "first band" instead of
+    # the actual mineral name, which shifted every downstream row by
+    # one slot.
+    #
+    # Direct assignment by ordinal position is structurally immune to
+    # that whole class of bug: detect all bands, assign by index.
+    band_thr = max(8.0, float(proj.max()) * 0.12)
     bands: list[tuple[int, int, float]] = []  # (y_start, y_end, peak)
     in_band = False
     bs = 0
@@ -993,85 +1199,130 @@ def _find_label_rows_by_position(
 
     if not bands:
         log.debug(
-            "onnx_hud_reader: position-based — no mineral band found "
-            "below top_line=%d", top_y,
+            "onnx_hud_reader: position-based — no bands found "
+            "below top_line=%d (max_proj=%.1f, threshold=%.1f)",
+            top_y, float(proj.max()), band_thr,
         )
         return {}
 
-    # Mineral name is the row with the strongest peak within the
-    # first ~120 px below the top line. Restrict to early bands so
-    # unusually bright value rows (e.g. red "IMPOSSIBLE" fill) can't
-    # win against the mineral-name text.
-    _MINERAL_SEARCH_MAX = 150
-    eligible = [b for b in bands if b[0] <= _MINERAL_SEARCH_MAX] or bands
-    mineral_y_rel, mineral_y_end_rel, _ = max(eligible, key=lambda b: b[2])
-    mineral_center_rel = (mineral_y_rel + mineral_y_end_rel) // 2
-    mineral_y_abs = top_y + mineral_center_rel
+    # Filter by reasonable height for a single text row.
+    # Outcome bar (rendering trick) can be slightly taller (~35 px),
+    # so we use a 60 px ceiling. Floor at 4 px to drop any 1-px
+    # divider artifacts.
+    bands = [b for b in bands if 4 <= (b[1] - b[0]) <= 60]
 
-    # ── ANCHOR 3: row pitch ──
-    # Default: panel-scaled constant (30 px on 397-wide reference).
-    # Refined: if a SECOND HUD line is detected at a plausible
-    # distance below the top line (80-220 px), use the line pair
-    # to compute a more accurate pitch. The data area between the
-    # two lines holds: mineral row + 3 value rows + EASY bar = 5
-    # rows total, so pitch ≈ (line_gap) / 5.
-    REF_PITCH = 30
-    panel_scale = max(0.5, float(img.width) / 397.0)
-    pitch = int(REF_PITCH * panel_scale)
+    if len(bands) < 4:
+        log.debug(
+            "onnx_hud_reader: position-based — only %d bands found "
+            "(need at least 4 for mineral+mass+resist+instab)",
+            len(bands),
+        )
+        return {}
+
+    # If the panel finder over-detected (sometimes happens when
+    # a thin separator line between resource and mass survives the
+    # height filter), drop bands that are very close to a stronger
+    # neighbour: any pair with center-to-center distance < 12 px,
+    # keep the taller one.
+    bands.sort(key=lambda b: b[0])
+    deduped: list[tuple[int, int, float]] = []
+    for b in bands:
+        if deduped:
+            prev = deduped[-1]
+            prev_center = (prev[0] + prev[1]) // 2
+            this_center = (b[0] + b[1]) // 2
+            if (this_center - prev_center) < 12:
+                # Merge — keep whichever has the higher peak
+                if b[2] > prev[2]:
+                    deduped[-1] = b
+                continue
+        deduped.append(b)
+    bands = deduped
+
+    # ── Skip the SCAN RESULTS title if it accidentally got into bands ──
+    # When the line detector picks up a decorative element above the
+    # SCAN RESULTS title (a known false positive on some captures),
+    # top_y lands above the title. The first text band found is then
+    # the title itself, NOT the mineral name. The reliable signature
+    # of this failure mode: a HUD line sits BETWEEN bands[0] and
+    # bands[1] in absolute image coordinates (the line under SCAN
+    # RESULTS that separates title from data area).
+    #
+    # Detection: walk the line list; if any line's y is strictly
+    # between bands[0].y_end and bands[1].y_start (in absolute
+    # coords), bands[0] is the title — drop it.
+    if len(bands) >= 2 and lines:
+        b0_end_abs = search_origin + bands[0][1]
+        b1_start_abs = search_origin + bands[1][0]
+        for ly, _, _ in lines:
+            if b0_end_abs < ly < b1_start_abs:
+                log.debug(
+                    "onnx_hud_reader: dropping bands[0] (SCAN RESULTS "
+                    "title) — HUD line found at y=%d between band[0] "
+                    "(ends y=%d) and band[1] (starts y=%d)",
+                    ly, b0_end_abs, b1_start_abs,
+                )
+                bands = bands[1:]
+                break
+
+    # Take the first 5 bands — Resource, Mass, Resistance, Instability,
+    # Outcome (in that order). If fewer than 5, the outcome bar is
+    # presumed missing (rare); we still assign indices 0..3.
+    bands = bands[:5]
+
+    # Anchor outputs:
+    #   mineral row     = bands[0]
+    #   mass / resist / instab rows = bands[1] / bands[2] / bands[3]
+    mineral_y_rel, mineral_y_end_rel, _ = bands[0]
+    mineral_center_rel = (mineral_y_rel + mineral_y_end_rel) // 2
+    mineral_y_abs = search_origin + mineral_center_rel
+
+    # ── DIRECT band assignment (no extrapolation) ──
+    # bands[0] = Resource (mineral), bands[1] = Mass,
+    # bands[2] = Resistance, bands[3] = Instability,
+    # bands[4] = Outcome (if present, only used for telemetry).
+    # If we have only 4 bands (outcome bar undetected on a noisy
+    # frame), still take indices 1..3 for the value rows.
+    label_keys = ["mass", "resistance", "instability"]
+    if len(bands) < 4:
+        log.debug(
+            "onnx_hud_reader: position-based — only %d bands after "
+            "dedupe (need 4+ for mass/resist/instab)", len(bands),
+        )
+        return {}
+
+    # Convert all 5 bands to absolute image coordinates.
+    abs_band_rows = [(search_origin + s, search_origin + e) for s, e, _ in bands]
+
+    # Pick mass/resist/instab in order. Add small ±_PAD so character
+    # ascenders/descenders aren't clipped (the existing _PAD constant
+    # below is used for the same purpose at output time, but we want
+    # the box to be a bit wider here so OCR has breathing room).
+    target_rows = [
+        abs_band_rows[1],   # mass
+        abs_band_rows[2],   # resistance
+        abs_band_rows[3],   # instability
+    ]
+
+    # Compute pitch from the actual measured spacing between detected
+    # bands (used by downstream consumers / debug overlay).
+    spacings = [
+        abs_band_rows[i + 1][0] - abs_band_rows[i][0]
+        for i in range(min(3, len(abs_band_rows) - 1))
+    ]
+    if spacings:
+        pitch = int(round(sum(spacings) / len(spacings)))
+    else:
+        pitch = 30  # fallback
+
+    # Find the bottom HUD line for telemetry only (not used for pitch
+    # anymore). Range is generous because some captures stretch the
+    # panel vertically.
     bot_line_y: Optional[int] = None
-    # Real panels have a line gap in the 150-450 px range depending on
-    # capture/upscale dimensions. The old 80-250 window rejected the
-    # correct bottom separator on taller captures (e.g. after the
-    # sc_ocr.api upscale to 541 px height), forcing pitch to fall back
-    # to the under-estimated panel-scaled default.
     for ly, _, _ in lines[1:]:
-        if 150 <= ly - top_y <= 450:
+        if 100 <= ly - top_y <= 600:
             bot_line_y = ly
             break
-    if bot_line_y is not None:
-        # Refine pitch from the mineral-row-to-bottom-line span. This
-        # is independent of whether a "SCAN RESULTS" header sits above
-        # the mineral name (which the old ``(line_gap - 12) / 5``
-        # formula got wrong whenever the header was present — it
-        # undercounted by one row and produced a too-small pitch).
-        #
-        # From the mineral row center down to the bottom HUD line:
-        # 4 pitches cover MASS / RESIST / INSTAB / IMPOSSIBLE-bar-center,
-        # plus roughly one more pitch of visual padding between the
-        # IMPOSSIBLE bar and the bottom separator. Dividing the span
-        # by 5 matches measured game panels closely (±2 px).
-        span = bot_line_y - mineral_y_abs
-        refined_pitch = max(15, int(span / 5))
-        # Sanity: accept any physically plausible panel pitch. The
-        # old check (±30% of REF_PITCH=30) rejected correct pitches
-        # in the 40-65 range that real panels actually produce, which
-        # left extrapolated MASS/RESIST/INSTAB rows bunched up near
-        # the header instead of landing on their labels.
-        if 20 <= refined_pitch <= 80:
-            pitch = refined_pitch
-
-    # ── Compute MASS/RESIST/INSTAB y centers via extrapolation ──
-    label_keys = ["mass", "resistance", "instability"]
-    target_centers = [
-        mineral_y_abs + pitch,
-        mineral_y_abs + 2 * pitch,
-        mineral_y_abs + 3 * pitch,
-    ]
-    half_h = max(8, int(pitch * 0.45))
-
-    # Validate that all centers fit inside the image
-    for c in target_centers:
-        if c - half_h < 0 or c + half_h > img.height:
-            log.debug(
-                "onnx_hud_reader: position-based — extrapolated row "
-                "center %d out of image bounds (h=%d)", c, img.height,
-            )
-            return {}
-
-    target_rows = [
-        (max(0, c - half_h), min(img.height, c + half_h))
-        for c in target_centers
-    ]
 
     # Compute label-right (colon position) per row via column-density
     # scan in the left half. Pure NumPy, no OCR.
@@ -1122,12 +1373,23 @@ def _find_label_rows_by_position(
             min(img.height, y2 + _PAD),
             shared_label_right,
         )
+    # ── Surface the mineral-name row too ──
+    # Stored under a leading-underscore key so callers iterating the
+    # dict for label rows (mass/resistance/instability) won't pick it
+    # up by accident. scan_hud_onnx uses this to OCR the mineral
+    # name with the alphabet model (or Tesseract as placeholder)
+    # and add it to the scan result.
+    result["_mineral_row"] = (
+        max(0, search_origin + mineral_y_rel - _PAD),
+        min(img.height, search_origin + mineral_y_end_rel + _PAD),
+        shared_label_right,
+    )
     log.debug(
         "onnx_hud_reader: label_rows_by_position OK "
-        "(top_line=%d, mineral_y=%d, pitch=%d, bot_line=%s, "
-        "shared_label_right=%d, mass_y=%d-%d)",
-        top_y, mineral_y_abs, pitch, bot_line_y,
-        shared_label_right,
+        "(top_line=%d, search_origin=%d, mineral_y=%d, pitch=%d, "
+        "bot_line=%s, bands=%d, shared_label_right=%d, mass_y=%d-%d)",
+        top_y, search_origin, mineral_y_abs, pitch, bot_line_y,
+        len(bands), shared_label_right,
         result["mass"][0], result["mass"][1],
     )
     # Stash telemetry for the debug overlay viewer.
@@ -1136,8 +1398,8 @@ def _find_label_rows_by_position(
         _dbg.set_hud_lines(lines)
         _dbg.set_panel_finder(
             top_y=top_y,
-            mineral_y_top=top_y + (mineral_y_rel or 0),
-            mineral_y_bot=top_y + (mineral_y_end_rel or 0),
+            mineral_y_top=search_origin + (mineral_y_rel or 0),
+            mineral_y_bot=search_origin + (mineral_y_end_rel or 0),
             mineral_center=mineral_y_abs,
             pitch=pitch,
             bot_line_y=bot_line_y,
@@ -1148,25 +1410,440 @@ def _find_label_rows_by_position(
     return result
 
 
+def _find_label_rows_by_ncc(
+    img: Image.Image,
+) -> dict[str, tuple[int, int, int]]:
+    """NCC-template-match adapter — wraps ``label_match.find_label_positions``
+    into the standard ``_find_label_rows`` return shape.
+
+    Returns the standard dict with keys mass/resistance/instability/
+    _mineral_row, where:
+      * Each row's y1, y2 = match.y - small_pad, match.y + match.h + small_pad
+      * shared label_right = max of (match.x + match.w) across the 3
+        matched labels — that's the rightmost colon position, used as
+        the value-column-left anchor for ALL rows (HUD values are
+        left-aligned to a single column).
+      * mineral row is synthesized from MASS row position minus one
+        pitch (computed from observed row spacing).
+
+    Returns ``{}`` on no/insufficient matches → caller falls back.
+    """
+    try:
+        from .sc_ocr import label_match
+    except Exception as exc:
+        log.debug("label_match import failed: %s", exc)
+        return {}
+
+    matches = label_match.find_label_positions(img)
+    # MASS is the anchor. If we don't have MASS, we have nothing
+    # reliable to anchor on — fall back. (Other rows can be missing;
+    # we synthesize them from MASS via fixed pitch.)
+    if "mass" not in matches:
+        log.debug(
+            "label_match: MASS not matched — falling back "
+            "(matches=%s)", list(matches.keys()),
+        )
+        return {}
+
+    _PAD_Y = 4
+
+    # Compute shared_label_right = rightmost ACTUAL text column across
+    # all matched label regions. Don't trust the template's reported
+    # width — bootstrap templates were extracted with padding AND
+    # Tesseract often over-estimated the bbox width, so match.x +
+    # match.w lands ~30-50 px past the colon (in the value area).
+    #
+    # For each matched label, scan the matched x-range for the
+    # rightmost column with significant text density. That column is
+    # the colon. Take the max across labels.
+    try:
+        gray_full = np.array(img.convert("L"), dtype=np.uint8)
+        rgb_full = np.array(img.convert("RGB"), dtype=np.uint8)
+        detect_full = rgb_full.max(axis=2).astype(np.uint8)
+    except Exception:
+        gray_full = None
+        detect_full = None
+
+    def _scan_actual_label_right(m: dict) -> int:
+        if detect_full is None:
+            return m["x"] + m["w"]
+        x1 = max(0, m["x"])
+        x2 = min(detect_full.shape[1], m["x"] + m["w"])
+        y1 = max(0, m["y"])
+        y2 = min(detect_full.shape[0], m["y"] + m["h"])
+        if x2 <= x1 or y2 <= y1:
+            return m["x"] + m["w"]
+        region = detect_full[y1:y2, x1:x2]
+        # Polarity-canonicalize so text is BRIGHT
+        thr = _otsu(region)
+        bright = int((region > thr).sum())
+        if (region.size - bright) < bright:
+            region_canon = (255 - region).astype(np.uint8)
+        else:
+            region_canon = region
+        thr2 = _otsu(region_canon)
+        col_density = (region_canon > thr2).sum(axis=0)
+        # Rightmost column with at least 25% of region height as text
+        floor = max(2, int((y2 - y1) * 0.25))
+        idxs = np.where(col_density >= floor)[0]
+        if idxs.size == 0:
+            return m["x"] + m["w"]
+        # Convert local idx to image-coord x and add small margin (the
+        # colon's right edge halo).
+        return x1 + int(idxs[-1]) + 2
+
+    # ── MASS is the anchor ──
+    # MASS_y, MASS_h define the entire panel geometry. Other rows are
+    # at fixed proportional offsets from MASS. Other matches (RESIST,
+    # INSTAB) are CROSS-CHECKS: if they line up with MASS-derived
+    # predictions, great; if not, we trust MASS and synthesize the
+    # others. This prevents one bad NCC false-positive (e.g. RESIST
+    # matched to asteroid noise far below the real panel) from
+    # dragging the whole row stack off-panel.
+    mass_match = matches["mass"]
+    mass_cy = mass_match["y"] + mass_match["h"] // 2
+    mass_h = mass_match["h"]
+
+    # ── Pitch (vertical distance between adjacent rows) ──
+    # Three sources, in order of preference:
+    #
+    # 1. HUD line pair: top_line under SCAN RESULTS + bot_line above
+    #    COMPOSITION bracket the data area, which holds 5 rows
+    #    (mineral + mass + resist + instab + outcome). pitch =
+    #    line_gap / 5. This is MEASURED, not guessed — most reliable.
+    #
+    # 2. Observed MASS→RESISTANCE distance: if RESISTANCE was also
+    #    matched at a plausible position below MASS, take that delta.
+    #
+    # 3. Fallback: mass_h × 1.0 (template height). Used only when
+    #    neither HUD lines nor RESISTANCE match are available.
+    pitch: Optional[int] = None
+    pitch_source = "fallback"
+
+    # Source 1: HUD line pair
+    try:
+        gray_for_lines = (
+            gray_full if gray_full is not None
+            else np.array(img.convert("L"), dtype=np.uint8)
+        )
+        lines = _get_panel_lines_cached(gray_for_lines)
+        if len(lines) >= 2:
+            # Find a line pair where the top line is above MASS and
+            # the bottom line is below MASS by at least 2 pitches.
+            ys = sorted({ly for ly, _, _ in lines})
+            top_candidates = [y for y in ys if y < mass_cy]
+            bot_candidates = [y for y in ys if y > mass_cy]
+            if top_candidates and bot_candidates:
+                top_y_line = max(top_candidates)
+                bot_y_line = min(bot_candidates)
+                # Search for the line pair that brackets the largest
+                # plausible data area below mass. The default-and-
+                # nearest pair is the safest first guess.
+                line_gap = bot_y_line - top_y_line
+                # If gap is in plausible range, derive pitch.
+                if 80 <= line_gap <= 600:
+                    candidate_pitch = int(round(line_gap / 5.0))
+                    if 15 <= candidate_pitch <= 90:
+                        pitch = candidate_pitch
+                        pitch_source = (
+                            f"line_pair (top={top_y_line}, "
+                            f"bot={bot_y_line}, gap={line_gap})"
+                        )
+    except Exception as _exc:
+        log.debug("label_match: line-pair pitch failed: %s", _exc)
+
+    # Source 2: observed MASS→RESISTANCE distance
+    if "resistance" in matches:
+        rmass_y = matches["resistance"]["y"] + matches["resistance"]["h"] // 2
+        observed_pitch = rmass_y - mass_cy
+        # Only trust if plausible AND consistent with line-pair pitch.
+        if 15 <= observed_pitch <= 90:
+            if pitch is None:
+                pitch = observed_pitch
+                pitch_source = f"resist_match (observed={observed_pitch})"
+            elif abs(observed_pitch - pitch) < pitch * 0.20:
+                # Cross-check: observed agrees with line-pair within 20%.
+                # Use observed (more direct measurement).
+                pitch = observed_pitch
+                pitch_source = (
+                    f"resist_match (observed={observed_pitch}, "
+                    f"line_pair_agreed)"
+                )
+
+    # Source 3: fallback to template height
+    if pitch is None:
+        pitch = max(15, int(round(mass_h * 1.0)))
+        pitch_source = f"fallback (mass_h={mass_h})"
+
+    log.debug("label_match: pitch=%d (%s)", pitch, pitch_source)
+
+    # Row half-height MUST be smaller than pitch/2 so adjacent rows
+    # don't overlap (which would let RESISTANCE crop pick up the
+    # INSTABILITY row below it, INSTABILITY pick up the EASY bar,
+    # etc.). Use 40% of pitch — leaves a 20% gap between rows.
+    half_h = max(8, int(pitch * 0.40))
+
+    # ── Compute shared_label_right by direct per-row scan ──
+    # Values are LEFT-ALIGNED to the column just past the LONGEST
+    # label (INSTABILITY:). Don't infer from templates — JUST SCAN
+    # EACH ROW for where its label ends in actual pixels.
+    #
+    # Per row:
+    #   1. Crop the row strip
+    #   2. Polarity-canonicalize, Otsu threshold
+    #   3. Find the FIRST contiguous bright text cluster from the left
+    #      (that's the label)
+    #   4. The rightmost column of that cluster = the colon
+    # shared_label_right = max across all rows
+    def _row_label_end(row_y1: int, row_y2: int) -> Optional[int]:
+        if detect_full is None:
+            return None
+        ry1 = max(0, row_y1)
+        ry2 = min(detect_full.shape[0], row_y2)
+        if ry2 - ry1 < 4:
+            return None
+        # Use only the LEFT 60% of the image — the value column lives
+        # in the right 40% and we don't want to scan into it for the
+        # label end.
+        rx2 = int(detect_full.shape[1] * 0.60)
+        region = detect_full[ry1:ry2, :rx2]
+        if region.size == 0:
+            return None
+        # Polarity-canonicalize so text is BRIGHT
+        thr = _otsu(region)
+        bright = int((region > thr).sum())
+        if (region.size - bright) < bright:
+            region_canon = (255 - region).astype(np.uint8)
+        else:
+            region_canon = region
+        thr2 = _otsu(region_canon)
+        col_d = (region_canon > thr2).sum(axis=0)
+        floor = max(3, int((ry2 - ry1) * 0.25))
+        hot = col_d >= floor
+        if not hot.any():
+            return None
+        # Find FIRST contiguous bright run (the label).
+        idxs = np.where(hot)[0]
+        first_hot = int(idxs[0])
+        # Walk right from first_hot, allowing small inter-letter gaps
+        # (≤ 8 px) but breaking on the BIG gap between label and value
+        # (≥ 14 px expected, but anything > 10 should suffice).
+        last_hot = first_hot
+        gap = 0
+        i = first_hot
+        while i < hot.size:
+            if hot[i]:
+                last_hot = i
+                gap = 0
+            else:
+                gap += 1
+                if gap >= 12:
+                    break
+            i += 1
+        return int(last_hot) + 2  # small margin for anti-alias halo
+
+    # Predict approximate row positions from MASS anchor + pitch
+    # (not yet finalized — that's done in the row_offsets loop below,
+    # but we need rough y-bounds NOW to scan for label ends).
+    rough_pitch = pitch
+    rough_half_h = mass_h // 2 + _PAD_Y
+    label_ends: list[int] = []
+    for mult in (0, 1, 2):  # mass, resistance, instability rows
+        cy = mass_cy + mult * rough_pitch
+        end = _row_label_end(cy - rough_half_h, cy + rough_half_h)
+        if end is not None:
+            label_ends.append(end)
+
+    if label_ends:
+        shared_label_right = max(label_ends)
+    else:
+        # Fallback: MASS template's actual colon scan
+        shared_label_right = _scan_actual_label_right(mass_match)
+
+    # ── Synthesize all 4 rows from MASS anchor + fixed offsets ──
+    #   _mineral_row = MASS_y - pitch
+    #   mass         = MASS_y                (the anchor)
+    #   resistance   = MASS_y + pitch
+    #   instability  = MASS_y + 2 × pitch
+    result: dict[str, tuple[int, int, int]] = {}
+    row_offsets = [
+        ("_mineral_row", -1),
+        ("mass",          0),
+        ("resistance",    1),
+        ("instability",   2),
+    ]
+    for key, mult in row_offsets:
+        cy = mass_cy + mult * pitch
+        y1 = max(0, cy - half_h)
+        y2 = min(img.height, cy + half_h)
+        if y2 - y1 < 6:
+            continue
+        result[key] = (y1, y2, shared_label_right)
+
+    log.debug(
+        "label_match: rows OK (mass_y=%d-%d, resist_y=%d-%d, "
+        "instab_y=%d-%d, shared_lr=%d)",
+        result["mass"][0], result["mass"][1],
+        result["resistance"][0], result["resistance"][1],
+        result["instability"][0], result["instability"][1],
+        shared_label_right,
+    )
+
+    # Telemetry for debug overlay.
+    try:
+        from .sc_ocr import debug_overlay as _dbg
+        _dbg.set_panel_finder(
+            top_y=None,
+            mineral_y_top=result["_mineral_row"][0],
+            mineral_y_bot=result["_mineral_row"][1],
+            mineral_center=(result["_mineral_row"][0] + result["_mineral_row"][1]) // 2,
+            pitch=pitch,
+            bot_line_y=None,
+            source="ncc_label_match",
+        )
+    except Exception:
+        pass
+
+    return result
+
+
+# Module-level "current region" stash. The OCR pipeline (api.py
+# scan_hud_onnx) sets this before calling _find_label_rows so we can
+# look up persistent calibration without changing _find_label_rows'
+# signature (which has dozens of callers across legacy code paths).
+_current_region: Optional[dict] = None
+
+
+def _set_current_region(region: Optional[dict]) -> None:
+    global _current_region
+    _current_region = region
+
+
+# Rate-limit calibration-state logging so we don't spam the log on every
+# scan. Re-log only when the region changes or the load result flips.
+_calibration_log_state: dict = {"key": None, "loaded": None}
+
+
+def _log_calibration_state(region: dict, cal_result) -> None:
+    key = (
+        int(region.get("x", 0)), int(region.get("y", 0)),
+        int(region.get("w", 0)), int(region.get("h", 0)),
+    )
+    loaded = bool(cal_result)
+    if (
+        _calibration_log_state["key"] == key
+        and _calibration_log_state["loaded"] == loaded
+    ):
+        return
+    _calibration_log_state["key"] = key
+    _calibration_log_state["loaded"] = loaded
+    if loaded:
+        log.info(
+            "calibration: USING saved rows for region=%s fields=%s "
+            "(detection skipped)",
+            key, sorted(cal_result.keys()),
+        )
+    else:
+        # Inspect the file to give an actionable reason.
+        try:
+            from .sc_ocr import calibration as _cal
+            cal = _cal.load({"x": key[0], "y": key[1], "w": key[2], "h": key[3]})
+            if cal is None:
+                reason = "no entry for this region key"
+            else:
+                rows = cal.get("rows") or {}
+                missing = [
+                    f for f in ("mass", "resistance", "instability")
+                    if f not in rows
+                ]
+                if not rows:
+                    reason = "entry exists but rows={} (no rows locked)"
+                elif missing:
+                    reason = f"missing rows: {missing}"
+                else:
+                    reason = "rows present but to_label_rows returned None"
+        except Exception as exc:
+            reason = f"load failed: {exc}"
+        log.warning(
+            "calibration: NOT applied for region=%s — %s — falling back "
+            "to live detection (boxes will move scan-to-scan)",
+            key, reason,
+        )
+
+
 def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
     """Find MASS / RESIST / INSTAB rows.
 
-    Two-stage strategy:
-      1. ``_find_label_rows_by_position`` — line-anchored, no OCR.
-         This is the primary path: HUD lines bracket the data area,
-         text bands are assigned by ordinal position. Structurally
-         immune to "Tesseract noise on bright sky → wrong row" bugs.
-      2. Tesseract-based fallback (this function's body, kept for
-         compatibility) — used only when the position-based finder
-         can't locate enough HUD geometry (e.g. partial panel
-         capture, panel cut off at the top).
+    Strategy:
+      0. CALIBRATION: if the user has saved per-row calibration via
+         the Calibration Dialog, return those coordinates DIRECTLY.
+         No detection, no drift. This is the steady-state path
+         after first-time setup.
+      1. NCC label template matching (auto-detect)
+      2. Position-based 5-band scan
+      3. HUD-grid fractional fallback
+      4. Tesseract per-label search (deepest fallback)
     """
-    # Try position-based finder first
+    # ── ZEROTH: persistent calibration ──
+    # If the user has saved calibration for the current region, use it
+    # and skip ALL detection.
+    if _current_region is not None:
+        try:
+            from .sc_ocr import calibration as _cal
+            cal_result = _cal.to_label_rows(
+                _current_region, img.width, img.height, img=img,
+            )
+            # One-shot diagnostic: log whether calibration is loaded for
+            # this region so the user can verify in the log file. The
+            # rate-limiter guards against per-scan log spam.
+            try:
+                _log_calibration_state(_current_region, cal_result)
+            except Exception:
+                pass
+            if cal_result:
+                # Push telemetry to debug overlay
+                try:
+                    from .sc_ocr import debug_overlay as _dbg
+                    _dbg.set_panel_finder(
+                        top_y=None,
+                        mineral_y_top=cal_result.get("_mineral_row", (0, 0, 0))[0],
+                        mineral_y_bot=cal_result.get("_mineral_row", (0, 0, 0))[1],
+                        mineral_center=None,
+                        pitch=None,
+                        bot_line_y=None,
+                        source="calibration",
+                    )
+                except Exception:
+                    pass
+                log.debug(
+                    "label_rows from calibration: %s",
+                    {k: v for k, v in cal_result.items()},
+                )
+                return cal_result
+        except Exception as exc:
+            log.debug("calibration lookup failed: %s", exc)
+
+    # ── PRIMARY: NCC label template matching ──
+    # Concrete per-row pixel positions from matching the rendered
+    # MASS:/RESISTANCE:/INSTABILITY: label templates against the
+    # panel image. No geometry inference, no Tesseract subprocess —
+    # just NumPy correlation against canonicalized templates.
+    # Cached per region in the caller.
+    ncc_result = _find_label_rows_by_ncc(img)
+    if ncc_result:
+        return ncc_result
+
+    # ── SECONDARY: position-based finder (5-band scan from actual text) ──
     pos_result = _find_label_rows_by_position(img)
     if pos_result:
         return pos_result
 
-    # ── Tesseract fallback ──
+    # ── TERTIARY: HUD-line-bracketed grid + fixed fractions ──
+    grid_result = _find_label_rows_by_hud_grid(img)
+    if grid_result:
+        return grid_result
+
+    # ── Tesseract fallback (deepest) ──
     if not _check_tesseract():
         return {}
     try:
@@ -2539,7 +3216,10 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
         )
         return sc_result
     except Exception as exc:
-        log.error("sc_ocr failed: %s", exc)
+        # Include the full traceback so we can locate the actual line
+        # that's raising — the bare ``%s`` was masking 1000+ identical
+        # ``KeyError: 'instability'`` failures with no line info.
+        log.error("sc_ocr failed: %s", exc, exc_info=True)
         return result
 
     # ── LEGACY PIPELINE (disabled — kept for reference) ──

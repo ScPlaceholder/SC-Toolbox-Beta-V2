@@ -56,6 +56,41 @@ from . import chart_bubble
 
 log = logging.getLogger(__name__)
 
+
+# ── Persistent scan-worker pool ──
+# The hot scan path (`_do_scan → _run`) submits the signal and HUD
+# scans to this pool. It's kept alive for the lifetime of the
+# process so that a SINGLE slow worker (e.g. Paddle's ~15–20 s daemon
+# boot on the first scan) can't block the caller during
+# `with ThreadPoolExecutor() as pool:` teardown, which waits on every
+# worker. Abandoned futures complete in the background and are
+# discarded; `_scan_in_progress` flips back to False as soon as
+# `_run` returns, so the next timer tick can fire on schedule.
+_scan_pool = None
+
+
+def _get_scan_pool():
+    """Return the module-level scan pool, creating it on first use.
+
+    Sized DELIBERATELY LARGE (64 workers, nearly always idle). The
+    hot-path guarantee here is: a hung `scan_hud_onnx` or
+    `scan_region` call that exceeded our `.result(timeout=…)` budget
+    must never starve a subsequent scan. Because we abandon hung
+    futures without cancelling them, each hang permanently consumes
+    one worker; sizing the pool small (4) meant ~4 stuck HUD calls
+    were enough to lock the pool and every later scan's
+    `sig_future.result(timeout=15)` timed out BEFORE scan_region
+    even started running (it was queued, not executing).
+    """
+    global _scan_pool
+    if _scan_pool is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _scan_pool = ThreadPoolExecutor(
+            max_workers=64, thread_name_prefix="mining_scan",
+        )
+    return _scan_pool
+
+
 # Turret name lookup — avoids importing Mining_Loadout models in the UI
 _TURRET_NAMES: dict[str, list[str]] = {
     "Prospector": ["Main Turret"],
@@ -375,6 +410,7 @@ class MiningSignalsApp(SCWindow):
         from collections import deque
         self._last_hud_mass: float | None = None          # confirmed (displayed)
         self._last_hud_resistance: float | None = None    # confirmed (displayed)
+        self._last_hud_mineral: str | None = None         # mineral name (e.g. "Beryl")
         # Raw recent reads, newest at the right. `maxlen=7` means a
         # stable value needs roughly 4 correct scans out of the last
         # 7 to become the displayed value — robust against per-scan
@@ -382,6 +418,7 @@ class MiningSignalsApp(SCWindow):
         # at 1 Hz before a new rock commits).
         self._hud_mass_window: deque = deque(maxlen=7)
         self._hud_resistance_window: deque = deque(maxlen=7)
+        self._hud_instability_window: deque = deque(maxlen=7)
         # Kept for back-compat with any code that reads these; the
         # real decision happens in `_commit_hud_from_window`.
         self._prev_hud_mass: float | None = None
@@ -395,6 +432,15 @@ class MiningSignalsApp(SCWindow):
 
         # Initial data load
         self._loader.load()
+
+        # First-launch nudge to calibrate the OCR (only fires if not
+        # dismissed and no calibration exists yet for the current
+        # HUD region). Delay so the main window finishes laying out
+        # before the popup appears.
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(
+            1500, self._maybe_show_first_launch_calibration_prompt,
+        )
 
         # Pre-warm the UEX item database in a background thread so the
         # first breakability calculation doesn't freeze the UI.
@@ -561,6 +607,23 @@ class MiningSignalsApp(SCWindow):
         self._btn_set_hud_region.clicked.connect(self._on_set_hud_region)
         self._btn_set_hud_region.setStyleSheet(_btn_style)
         ocr_layout.addWidget(self._btn_set_hud_region)
+
+        # ── Calibrate Mining Crops ──
+        # Opens a non-modal dialog where the user can confirm each
+        # row's crop coordinates and lock them in. Saved to disk;
+        # the OCR pipeline uses the saved coords directly at runtime
+        # (skipping all detection — zero drift, zero edge-case bugs).
+        self._btn_calibrate = QPushButton("Calibrate Mining Crops", self._ocr_row)
+        self._btn_calibrate.setCursor(Qt.PointingHandCursor)
+        self._btn_calibrate.setToolTip(
+            "Open the calibration dialog to lock in each row's crop "
+            "coordinates. Once calibrated, the OCR uses your "
+            "confirmed positions instead of auto-detecting (more "
+            "stable, faster, works on any background)."
+        )
+        self._btn_calibrate.clicked.connect(self._on_calibrate_crops)
+        self._btn_calibrate.setStyleSheet(_btn_style)
+        ocr_layout.addWidget(self._btn_calibrate)
 
         self._btn_scan_toggle = QPushButton("Start Scan", self._ocr_row)
         self._btn_scan_toggle.setCursor(Qt.PointingHandCursor)
@@ -2838,6 +2901,31 @@ class MiningSignalsApp(SCWindow):
         self._rows = rows
         self._matcher.update(rows)
 
+        # Feed the same value set into sc_ocr's signal voter as a
+        # tie-breaker. When Tesseract returns multiple plausible
+        # candidates across PSM/scale variants, the voter prefers a
+        # value that exact-matches a known signature in the chart —
+        # which kills the dominant flicker pattern (e.g. 17,020 ↔
+        # 17,011 where only 17,020 is a real Silicon × 4-rocks value).
+        try:
+            from ocr.sc_ocr.api import set_known_signal_values
+            known: set[int] = set()
+            for r in rows:
+                for col_n in range(1, 21):
+                    v = r.get(str(col_n), 0)
+                    if v:
+                        try:
+                            known.add(int(v))
+                        except (TypeError, ValueError):
+                            pass
+            set_known_signal_values(known)
+            log.info(
+                "UI: registered %d known signature values with sc_ocr voter",
+                len(known),
+            )
+        except Exception as exc:
+            log.debug("UI: could not register signal values: %s", exc)
+
         # Build table data with rarity-aware formatting
         table_data: list[dict] = []
         for row in rows:
@@ -3110,6 +3198,128 @@ class MiningSignalsApp(SCWindow):
         _save_config(self._config)
         log.info("Break bubble position set: (%d, %d)", pos["x"], pos["y"])
 
+    def _on_calibrate_crops(self) -> None:
+        """Open the calibration dialog for the current HUD region.
+
+        Single-instance: only ONE Mining HUD OCR Calibration dialog
+        may be open at a time across the whole machine. If one is
+        already open (in this process or another), bring it to the
+        front instead of creating a duplicate.
+        """
+        hud_region = self._config.get("hud_region")
+        if not hud_region or not hud_region.get("w"):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, "HUD region not set",
+                "Set the Mining HUD Region first (use the button to "
+                "the left), then come back to calibrate.",
+            )
+            return
+
+        # In-process raise: a dialog already exists in this app.
+        existing = getattr(self, "_calibration_dialog", None)
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            return
+
+        try:
+            from ui.calibration_dialog import CalibrationDialog
+            from ocr.onnx_hud_reader import scan_hud_onnx
+            # NOTE: package is named ``mining_shared`` (not ``shared``)
+            # to avoid collision with the SC_Toolbox-wide
+            # ``shared/`` package one directory up.  When the launcher
+            # bootstraps ``import shared.path_setup``, it binds the
+            # name ``shared`` to that other package in ``sys.modules``,
+            # and any submodule lookup (``shared.single_instance``)
+            # will only ever consult that package's ``__path__`` —
+            # ``invalidate_caches()`` and ``sys.path`` tweaks cannot
+            # un-shadow it.
+            from mining_shared.single_instance import SingleInstance
+
+            dlg = CalibrationDialog(
+                region=dict(hud_region),
+                scan_callback=scan_hud_onnx,
+                parent=self,
+            )
+
+            # Cross-process raise: another app instance may already
+            # have the slot. acquire() pokes that holder to come to
+            # the front. Either way we abort our own open.
+            guard = SingleInstance("calibration_dialog", dlg)
+            if not guard.acquire():
+                dlg.deleteLater()
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self, "Calibration already open",
+                    "Mining HUD OCR Calibration is already open in "
+                    "another window. It has been brought to the "
+                    "front.",
+                )
+                return
+            # Pin the guard onto the dialog so its lifetime matches
+            # the window's. Slot is released automatically on close.
+            dlg._single_instance = guard
+
+            dlg.show()
+            self._calibration_dialog = dlg  # keep ref so it isn't GC'd
+        except Exception as exc:
+            log.error("calibration dialog failed: %s", exc, exc_info=True)
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "Calibration error",
+                f"Could not open calibration dialog:\n\n{exc}",
+            )
+
+    def _maybe_show_first_launch_calibration_prompt(self) -> None:
+        """If the user hasn't dismissed it AND no calibration exists,
+        nudge them to calibrate. Called once per app start when the
+        scanner page is first activated."""
+        try:
+            from ocr.sc_ocr import calibration as _cal
+        except Exception:
+            return
+        if _cal.is_first_launch_prompt_dismissed():
+            return
+        hud_region = self._config.get("hud_region")
+        if hud_region and _cal.is_complete(dict(hud_region)):
+            return  # already calibrated
+        from PySide6.QtWidgets import (
+            QDialog, QCheckBox, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+        )
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mining Signals — One-time setup recommended")
+        v = QVBoxLayout(dlg)
+        msg = QLabel(
+            "<h3 style='color:#33dd88;'>Calibrate the Mining HUD OCR</h3>"
+            "<p>For best accuracy, take ~30 seconds to <b>calibrate "
+            "the crop coordinates</b> for each value row "
+            "(MASS / RESISTANCE / INSTABILITY).</p>"
+            "<p>Once calibrated, the OCR uses your confirmed positions "
+            "directly — no detection drift, works on any background.</p>"
+            "<p>Click <b style='color:#33dd88;'>Calibrate Mining Crops</b> "
+            "in the scanner bar to start. (You can do this any time.)</p>"
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet("padding: 8px; font-family: Consolas; font-size: 10pt;")
+        v.addWidget(msg)
+        cb = QCheckBox("Don't show this again")
+        v.addWidget(cb)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        ok = QPushButton("OK")
+        ok.setStyleSheet(
+            "QPushButton { background: #33dd88; color: black; "
+            "padding: 6px 14px; font-weight: bold; border: none; }"
+        )
+        ok.setDefault(True)
+        ok.clicked.connect(dlg.accept)
+        row.addWidget(ok)
+        v.addLayout(row)
+        dlg.exec()
+        if cb.isChecked():
+            _cal.dismiss_first_launch_prompt()
+
     def _on_scan_toggle(self, checked: bool) -> None:
         if checked:
             # Save expanded size before collapsing
@@ -3184,7 +3394,20 @@ class MiningSignalsApp(SCWindow):
         resistance: float | None,
         instability: float | None,
     ) -> None:
-        """Push raw HUD reads into rolling windows and commit majority."""
+        """Push raw HUD reads into rolling windows and commit majority.
+
+        Each field has TWO commit paths:
+          1. **Rock-change snap** — if the latest 2 reads agree with
+             each other but differ from the currently-displayed value
+             by more than a noise threshold, we treat that as the user
+             having aimed at a different rock and commit the new value
+             immediately (also flushing the window so future mode-
+             voting uses the new baseline). Without this, mode-of-7
+             voting would hold the OLD rock's value for 3-4 seconds
+             after the user moves the crosshair to a new rock.
+          2. **Mode-of-window** — fallback when the rock didn't change.
+             Suppresses single-frame OCR noise.
+        """
         # Mass ────
         if mass is not None:
             # Round to int for cleaner majority matching —
@@ -3194,29 +3417,46 @@ class MiningSignalsApp(SCWindow):
             self._hud_mass_window.append(None)
         self._prev_hud_mass = mass  # back-compat
 
-        # Commit: pick the most common non-None value in the window.
-        # Need at least 2 reads before committing anything, and the
-        # winner must appear ≥ 2× to be trusted.
-        mass_counts: dict[int, int] = {}
-        none_count = 0
-        for v in self._hud_mass_window:
-            if v is None:
-                none_count += 1
-            else:
-                mass_counts[v] = mass_counts.get(v, 0) + 1
+        # 1) Rock-change snap: 2 consecutive reads agreeing on a
+        # value that's >5% different (and >5 kg absolute) from the
+        # currently displayed mass means the user is now aiming at
+        # a different rock. Commit immediately.
+        last_two_mass = [v for v in list(self._hud_mass_window)[-2:] if v is not None]
+        if (
+            len(last_two_mass) == 2
+            and last_two_mass[0] == last_two_mass[1]
+            and self._last_hud_mass is not None
+            and abs(last_two_mass[0] - self._last_hud_mass) > max(5, self._last_hud_mass * 0.05)
+        ):
+            log.info(
+                "_push_hud_read: mass rock-change snap %s → %s",
+                self._last_hud_mass, last_two_mass[0],
+            )
+            self._last_hud_mass = float(last_two_mass[0])
+            self._hud_mass_window.clear()
+            self._hud_mass_window.append(last_two_mass[0])
+        else:
+            # 2) Mode-of-window vote (existing logic).
+            mass_counts: dict[int, int] = {}
+            none_count = 0
+            for v in self._hud_mass_window:
+                if v is None:
+                    none_count += 1
+                else:
+                    mass_counts[v] = mass_counts.get(v, 0) + 1
 
-        if mass_counts:
-            best_val = max(mass_counts, key=mass_counts.get)
-            # Commit immediately: the mode of the window is always
-            # better than no value at all. With the in-scan 3-engine
-            # majority voting upstream, individual reads are already
-            # fairly reliable — requiring 2+ window appearances was
-            # delaying results too much and on some users' machines
-            # prevented the break bubble from ever populating.
-            self._last_hud_mass = float(best_val)
-        elif none_count >= 2:
-            # All recent reads are None → panel unreadable, clear.
-            self._last_hud_mass = None
+            if mass_counts:
+                best_val = max(mass_counts, key=mass_counts.get)
+                # Commit immediately: the mode of the window is always
+                # better than no value at all. With the in-scan 3-engine
+                # majority voting upstream, individual reads are already
+                # fairly reliable — requiring 2+ window appearances was
+                # delaying results too much and on some users' machines
+                # prevented the break bubble from ever populating.
+                self._last_hud_mass = float(best_val)
+            elif none_count >= 2:
+                # All recent reads are None → panel unreadable, clear.
+                self._last_hud_mass = None
 
         # Resistance ────
         if resistance is not None:
@@ -3225,51 +3465,126 @@ class MiningSignalsApp(SCWindow):
             self._hud_resistance_window.append(None)
         self._prev_hud_resistance = resistance
 
-        res_counts: dict[int, int] = {}
-        res_nones = 0
-        for v in self._hud_resistance_window:
-            if v is None:
-                res_nones += 1
-            else:
-                res_counts[v] = res_counts.get(v, 0) + 1
+        # 1) Rock-change snap: resistance steps in 1% increments and
+        # changes ≥10% are clearly a different rock (resistance is
+        # rock-property, not animation-jittery).
+        last_two_res = [v for v in list(self._hud_resistance_window)[-2:] if v is not None]
+        if (
+            len(last_two_res) == 2
+            and last_two_res[0] == last_two_res[1]
+            and self._last_hud_resistance is not None
+            and abs(last_two_res[0] - self._last_hud_resistance) >= 10
+        ):
+            log.info(
+                "_push_hud_read: resistance rock-change snap %s → %s",
+                self._last_hud_resistance, last_two_res[0],
+            )
+            self._last_hud_resistance = float(last_two_res[0])
+            self._hud_resistance_window.clear()
+            self._hud_resistance_window.append(last_two_res[0])
+        else:
+            res_counts: dict[int, int] = {}
+            res_nones = 0
+            for v in self._hud_resistance_window:
+                if v is None:
+                    res_nones += 1
+                else:
+                    res_counts[v] = res_counts.get(v, 0) + 1
 
-        if res_counts:
-            best_val = max(res_counts, key=res_counts.get)
-            # Same policy as mass: commit the mode immediately.
-            self._last_hud_resistance = float(best_val)
-        elif res_nones >= 2:
-            self._last_hud_resistance = None
+            if res_counts:
+                best_val = max(res_counts, key=res_counts.get)
+                # Same policy as mass: commit the mode immediately.
+                self._last_hud_resistance = float(best_val)
+            elif res_nones >= 2:
+                self._last_hud_resistance = None
 
-        # Instability: no window — a single valid read is enough
-        # to flag an IMPOSSIBLE rock. A None read clears the cached
-        # value so the flag drops when we move to a new rock.
-        self._last_hud_instability = instability
+        # Instability ────
+        # Bucket to 0.01 for majority keying — the SC HUD always
+        # renders instability to two decimals and the OCR-confidence
+        # gate in sc_ocr already rejects obviously-wrong frames, so
+        # we can preserve the full hundredths resolution here. Earlier
+        # 0.1 bucketing hid legitimate reads like 2.22 behind 2.2.
+        if instability is not None:
+            self._hud_instability_window.append(round(instability * 100))
+        else:
+            self._hud_instability_window.append(None)
+
+        # 1) Rock-change snap: instability buckets are integers of
+        # 1/100. A jump of ≥50 buckets (= 0.5 instability units) is
+        # well outside HUD jitter and indicates a different rock.
+        last_two_inst = [v for v in list(self._hud_instability_window)[-2:] if v is not None]
+        if (
+            len(last_two_inst) == 2
+            and last_two_inst[0] == last_two_inst[1]
+            and self._last_hud_instability is not None
+            and abs(last_two_inst[0] / 100.0 - self._last_hud_instability) >= 0.5
+        ):
+            log.info(
+                "_push_hud_read: instability rock-change snap %s → %s",
+                self._last_hud_instability, last_two_inst[0] / 100.0,
+            )
+            self._last_hud_instability = last_two_inst[0] / 100.0
+            self._hud_instability_window.clear()
+            self._hud_instability_window.append(last_two_inst[0])
+        else:
+            inst_counts: dict[int, int] = {}
+            inst_nones = 0
+            for v in self._hud_instability_window:
+                if v is None:
+                    inst_nones += 1
+                else:
+                    inst_counts[v] = inst_counts.get(v, 0) + 1
+
+            if inst_counts:
+                best_key = max(inst_counts, key=inst_counts.get)
+                self._last_hud_instability = best_key / 100.0
+            elif inst_nones >= 2:
+                self._last_hud_instability = None
 
     def _do_scan(self) -> None:
         region = self._config.get("ocr_region")
         if not region:
+            log.info("_do_scan: no ocr_region set — skipping")
             return
 
         # Skip if the previous scan is still running (prevents pileup
         # on slower machines where OCR takes longer than the interval)
         if self._scan_in_progress:
+            log.info("_do_scan: previous scan still in flight — skipping")
             return
+        log.info("_do_scan: firing region=%s", region)
 
         self._scan_in_progress = True
         hud_region = self._config.get("hud_region")
 
         def _run():
             try:
-                from concurrent.futures import ThreadPoolExecutor
+                # Use a PERSISTENT module-level pool. A `with
+                # ThreadPoolExecutor() as pool:` block calls
+                # pool.shutdown(wait=True) on exit, which waits for
+                # every worker thread to finish — including futures
+                # we've already abandoned via `.result(timeout=…)`.
+                # On the first scan, the Paddle daemon inside
+                # scan_region needs ~15–20 s to boot, so the context
+                # manager's shutdown blocks that long and leaves
+                # `_scan_in_progress` stuck True, starving every
+                # subsequent timer tick.
+                pool = _get_scan_pool()
+                sig_future = pool.submit(scan_region, region)
 
-                with ThreadPoolExecutor(max_workers=2) as pool:
-                    sig_future = pool.submit(scan_region, region)
+                hud_future = None
+                if hud_region:
+                    hud_future = pool.submit(scan_hud_onnx, hud_region)
 
-                    hud_future = None
-                    if hud_region:
-                        hud_future = pool.submit(scan_hud_onnx, hud_region)
+                try:
+                    signal_value = sig_future.result(timeout=6)
+                except Exception as exc:
+                    log.info(
+                        "signal scan timed out/failed after 6s: %r", exc,
+                    )
+                    signal_value = None
 
-                    signal_value = sig_future.result(timeout=15)
+                if True:
 
                     if hud_future is not None:
                         try:
@@ -3283,11 +3598,18 @@ class MiningSignalsApp(SCWindow):
                             # scans typically finish in <5 s anyway
                             # so the higher budget only costs time on
                             # actual light panels.
-                            hud_result = hud_future.result(timeout=14)
+                            hud_result = hud_future.result(timeout=3)
                             hud_mass = hud_result.get("mass")
                             hud_res = hud_result.get("resistance")
                             hud_inst = hud_result.get("instability")
+                            hud_mineral = hud_result.get("mineral_name")
                             panel_visible = hud_result.get("panel_visible", False)
+                            if hud_mineral:
+                                # Stash on the app so the breakability
+                                # popup / HUD UI can pick it up. Stays
+                                # set until the panel disappears (cleared
+                                # below in the `not panel_visible` branch).
+                                self._last_hud_mineral = hud_mineral
 
                             # If the scan panel isn't visible at all (the
                             # tall mineral-name row wasn't found), the
@@ -3298,10 +3620,12 @@ class MiningSignalsApp(SCWindow):
                                 self._last_hud_mass = None
                                 self._last_hud_resistance = None
                                 self._last_hud_instability = None
+                                self._last_hud_mineral = None
                                 self._prev_hud_mass = None
                                 self._prev_hud_resistance = None
                                 self._hud_mass_window.clear()
                                 self._hud_resistance_window.clear()
+                                self._hud_instability_window.clear()
                                 # Hide the BREAK bubble (HUD data is gone)
                                 # but do NOT clear signal matches or hide
                                 # the scan bubble — the signal scanner is
@@ -3328,7 +3652,10 @@ class MiningSignalsApp(SCWindow):
                                     hud_mass, hud_res, hud_inst
                                 )
                         except Exception as exc:
-                            log.debug("HUD ONNX scan failed: %s", exc)
+                            log.info(
+                                "HUD ONNX scan timed out/failed after 3s: %r",
+                                exc,
+                            )
 
                     if signal_value is not None:
                         QMetaObject.invokeMethod(
@@ -3706,7 +4033,15 @@ class MiningSignalsApp(SCWindow):
             if fleet_result.user_can_solo:
                 # User's ship can handle it — show normal bubble
                 result = fleet_result.solo_result
-                resource_name = getattr(self, "_last_matched_resource", "")
+                # Prefer the HUD-OCR'd mineral name (read from the SCAN
+                # RESULTS panel directly) over the signal-scanner match.
+                # The HUD text is authoritative — it's what the player
+                # sees. Fall back to the signal-scanner match if HUD
+                # OCR didn't find a mineral name this scan.
+                resource_name = (
+                    getattr(self, "_last_hud_mineral", None)
+                    or getattr(self, "_last_matched_resource", "")
+                )
                 try:
                     cp = result.charge_profile
                     self._break_bubble.show_breakability(
@@ -3792,7 +4127,15 @@ class MiningSignalsApp(SCWindow):
                 _save_config(self._config)
                 self._update_consumables_display()
 
-        resource_name = getattr(self, "_last_matched_resource", "")
+        # Prefer the HUD-OCR'd mineral name (read from the SCAN
+        # RESULTS panel directly) over the signal-scanner match.
+        # The HUD text is authoritative — it's what the player sees.
+        # Fall back to the signal-scanner match if HUD OCR didn't
+        # find a mineral name this scan.
+        resource_name = (
+            getattr(self, "_last_hud_mineral", None)
+            or getattr(self, "_last_matched_resource", "")
+        )
 
         try:
             # Extract charge simulation data if available
@@ -4383,12 +4726,14 @@ class MiningSignalsApp(SCWindow):
         mass, resistance = self._get_mass_resistance()
         instability = self._last_hud_instability
         ship_label = self._active_ship_label()
+        mineral = getattr(self, "_last_hud_mineral", None)
 
         configs = self.active_laser_configs()
         if not configs:
             panel.update_state(
                 mass=mass, resistance=resistance, instability=instability,
                 ship_label=ship_label, result=None, no_ship=True,
+                mineral=mineral,
             )
             return
 
@@ -4396,6 +4741,7 @@ class MiningSignalsApp(SCWindow):
             panel.update_state(
                 mass=mass, resistance=resistance, instability=instability,
                 ship_label=ship_label, result=None,
+                mineral=mineral,
             )
             return
 
@@ -4406,6 +4752,7 @@ class MiningSignalsApp(SCWindow):
         panel.update_state(
             mass=mass, resistance=resistance, instability=instability,
             ship_label=ship_label, result=result,
+            mineral=mineral,
         )
 
     def _active_ship_label(self) -> str:

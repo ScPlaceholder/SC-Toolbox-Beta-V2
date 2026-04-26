@@ -42,7 +42,6 @@ TOOL = THIS.parent.parent
 OVERLAY_PATH = TOOL / "debug_panel_overlay.png"
 
 POLL_MS = 400
-MAX_VIEW_W = 900   # scale down if overlay is wider than this
 
 
 class Viewer(QWidget):
@@ -52,6 +51,7 @@ class Viewer(QWidget):
         self.setMinimumSize(640, 720)
 
         self._last_mtime = 0.0
+        self._cached_pil = None  # latest loaded overlay PNG
 
         v = QVBoxLayout(self)
         v.setSpacing(4)
@@ -93,11 +93,26 @@ class Viewer(QWidget):
         bottom.addWidget(refresh_btn)
         v.addLayout(bottom)
 
+        # Pause-on-move: skip the polling tick while the user is
+        # dragging the window so the title-bar drag doesn't fight
+        # for the main thread with the file-load + LANCZOS-resize
+        # work. Polling resumes ~350 ms after the last move event.
+        import time as _time
+        self._time = _time
+        self._move_pause_until = 0.0
+        self._move_pause_seconds = 0.35
+
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(POLL_MS)
 
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._move_pause_until = self._time.monotonic() + self._move_pause_seconds
+
     def _tick(self):
+        if self._time.monotonic() < self._move_pause_until:
+            return
         if not OVERLAY_PATH.is_file():
             self._meta.setText(f"(file not found: {OVERLAY_PATH.name})")
             self._img.setText("Waiting for the OCR pipeline to write the overlay…")
@@ -117,14 +132,31 @@ class Viewer(QWidget):
         except Exception as exc:
             self._img.setText(f"open failed: {exc}")
             return
-        # Scale to fit width
-        if pil.width > MAX_VIEW_W:
-            ratio = MAX_VIEW_W / pil.width
-            pil = pil.resize(
-                (MAX_VIEW_W, int(pil.height * ratio)),
-                Image.LANCZOS,
-            )
-        self._img.setPixmap(QPixmap.fromImage(ImageQt(pil)))
+        self._cached_pil = pil
+        self._render()
+
+    def _render(self):
+        """Scale the cached PIL image to fit the QLabel's CURRENT
+        available size (preserving aspect ratio) and center it."""
+        pil = getattr(self, "_cached_pil", None)
+        if pil is None:
+            return
+        # Use the QLabel's actual current size (updated on resize).
+        avail_w = max(40, self._img.width() - 8)
+        avail_h = max(40, self._img.height() - 8)
+        # Fit to whichever dimension is more constraining.
+        ratio = min(avail_w / pil.width, avail_h / pil.height)
+        # Allow scaling UP small images too — user wants the captured
+        # region fully visible regardless of original size.
+        new_w = max(20, int(pil.width * ratio))
+        new_h = max(20, int(pil.height * ratio))
+        scaled = pil.resize((new_w, new_h), Image.LANCZOS)
+        self._img.setPixmap(QPixmap.fromImage(ImageQt(scaled)))
+
+    def resizeEvent(self, event):
+        """Re-render on window resize so the image keeps fitting."""
+        super().resizeEvent(event)
+        self._render()
 
 
 def main():
@@ -132,6 +164,21 @@ def main():
     win = Viewer()
     primary = app.primaryScreen().availableGeometry()
     win.move(primary.left() + 50, primary.top() + 50)
+
+    # Cross-process single-instance enforcement. Shares the slot with
+    # the popout opened from the calibration dialog so they can't
+    # both be visible at the same time.
+    # Note: package is named ``mining_shared`` to avoid collision with
+    # the SC_Toolbox-wide ``shared/`` package one directory up.
+    if str(TOOL) not in sys.path:
+        sys.path.insert(0, str(TOOL))
+    from mining_shared.single_instance import SingleInstance
+    guard = SingleInstance("panel_finder", win)
+    if not guard.acquire():
+        # Holder already poked. Exit without showing our own copy.
+        return 0
+    win._single_instance = guard
+
     win.show()
     win.raise_()
     win.activateWindow()
