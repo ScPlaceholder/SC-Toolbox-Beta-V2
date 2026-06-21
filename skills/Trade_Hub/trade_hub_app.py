@@ -25,6 +25,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSplitter, QFrame, QTabWidget, QLineEdit, QDialog, QScrollArea,
+    QMessageBox, QInputDialog,
 )
 
 from shared.qt.theme import P, apply_theme
@@ -53,6 +54,11 @@ from trade_hub_data import (
     _dist_cache,
 )
 from basket_view import BasketView
+from starmap.panel import StarMapPanel
+from heatmap_view import HeatmapView
+from commodities_view import CommoditiesView
+from career import Career
+from career_view import CareerView
 
 # Platform-guarded Win32 imports
 if sys.platform == 'win32':
@@ -154,6 +160,18 @@ def _pin_btn_qss(pinned: bool) -> str:
     """
 
 
+def _career_btn_qss(color: str) -> str:
+    """Stylesheet for the Complete / Failed / Favorite buttons on a route popup."""
+    return (
+        f"QPushButton {{ background-color: rgba(255,255,255,18); color: {color}; "
+        f"border: 1px solid {color}; font-family: Consolas; font-size: 8pt; font-weight: bold; "
+        f"padding: 4px 12px; }} "
+        f"QPushButton:hover {{ background-color: {color}; color: #0b0e14; }} "
+        f"QPushButton:disabled {{ color: {P.fg_disabled}; border-color: {P.border}; "
+        f"background-color: transparent; }}"
+    )
+
+
 # ── Route detail dialog ──────────────────────────────────────────────────────
 
 class RouteDetailDialog(QDialog):
@@ -163,6 +181,8 @@ class RouteDetailDialog(QDialog):
 
     def __init__(self, parent, title: str, route_data: dict) -> None:
         super().__init__(parent)
+        self._th = parent
+        self._route_data = route_data
         self.setWindowTitle(title)
         # Use Qt.Tool instead of Qt.Dialog to prevent Qt auto-centering
         self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -201,15 +221,43 @@ class RouteDetailDialog(QDialog):
         bar.close_clicked.connect(self.close)
         c_layout.addWidget(bar)
 
-        # Pin button row
+        # Action / pin button row
         pin_row = QHBoxLayout()
         pin_row.setContentsMargins(12, 6, 12, 2)
+        self._btn_show_route = SCButton("Show Route", self, glow_color=P.energy_cyan)
+        self._btn_show_route.setStyleSheet(_pin_btn_qss(False))
+        self._btn_show_route.clicked.connect(self._show_on_map)
+        pin_row.addWidget(self._btn_show_route)
+        self._btn_show_hub = SCButton("Show Trade Hub", self, glow_color=P.accent)
+        self._btn_show_hub.setStyleSheet(_pin_btn_qss(False))
+        self._btn_show_hub.clicked.connect(self._show_trade_hub)
+        pin_row.addWidget(self._btn_show_hub)
         pin_row.addStretch(1)
         self._pin_btn = SCButton("Pin", self, glow_color=P.tool_trade)
         self._pin_btn.setStyleSheet(_pin_btn_qss(False))
         self._pin_btn.clicked.connect(self._toggle_pin)
         pin_row.addWidget(self._pin_btn)
         c_layout.addLayout(pin_row)
+
+        # Career action row: log the run to My Career or save it as a favorite.
+        act_row = QHBoxLayout()
+        act_row.setContentsMargins(12, 0, 12, 4)
+        self._btn_complete = QPushButton("✓ Complete Route")
+        self._btn_complete.setCursor(Qt.PointingHandCursor)
+        self._btn_complete.setStyleSheet(_career_btn_qss(P.green))
+        self._btn_complete.clicked.connect(self._complete_route)
+        act_row.addWidget(self._btn_complete)
+        self._btn_failed = QPushButton("✕ Route Failed")
+        self._btn_failed.setCursor(Qt.PointingHandCursor)
+        self._btn_failed.setStyleSheet(_career_btn_qss(P.red))
+        self._btn_failed.clicked.connect(self._route_failed)
+        act_row.addWidget(self._btn_failed)
+        self._btn_fav = QPushButton("★ Add Favorite")
+        self._btn_fav.setCursor(Qt.PointingHandCursor)
+        self._btn_fav.setStyleSheet(_career_btn_qss(P.tool_trade))
+        self._btn_fav.clicked.connect(self._add_favorite)
+        act_row.addWidget(self._btn_fav)
+        c_layout.addLayout(act_row)
 
         # Content area
         scroll = QScrollArea()
@@ -229,6 +277,91 @@ class RouteDetailDialog(QDialog):
         c_layout.addWidget(scroll, 1)
 
         layout.addWidget(container)
+
+    def _show_on_map(self):
+        """Draw this route on the star map and switch the Trade Hub to it."""
+        th = self._th
+        if th is None:
+            return
+        try:
+            if hasattr(th, "_starmap_panel"):
+                wps = self._route_waypoints(self._route_data)
+                if wps:
+                    th._starmap_panel.show_route(wps)
+            if hasattr(th, "_set_view_mode"):
+                th._set_view_mode("STARMAP")
+        except Exception:
+            pass
+
+    def _show_trade_hub(self):
+        """Switch the Trade Hub back to the routes table."""
+        th = self._th
+        if th is not None and hasattr(th, "_set_view_mode"):
+            try:
+                th._set_view_mode("ROUTES")
+            except Exception:
+                pass
+
+    # ── career actions ──
+    def _complete_route(self):
+        th = self._th
+        if th is not None and hasattr(th, "_career_complete"):
+            try:
+                th._career_complete(self._route_data)
+            except Exception:
+                pass
+        QTimer.singleShot(0, self.close)   # the bubble exits on completion
+
+    def _route_failed(self):
+        th = self._th
+        if th is None or not hasattr(th, "_career_fail"):
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle("Route Failed")
+        box.setText("Was this a full loss or a partial loss?")
+        full_btn = box.addButton("Full failure", QMessageBox.DestructiveRole)
+        partial_btn = box.addButton("Partial…", QMessageBox.ActionRole)
+        box.addButton("Cancel", QMessageBox.RejectRole)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is full_btn:
+            th._career_fail(self._route_data, "full", None)
+            QTimer.singleShot(0, self.close)
+        elif clicked is partial_btn:
+            loss, ok = QInputDialog.getInt(self, "Partial Failure",
+                                           "UEC lost on this run:", 0, 0, 2_000_000_000, 1000)
+            if ok:
+                th._career_fail(self._route_data, "partial", loss)
+                QTimer.singleShot(0, self.close)
+
+    def _add_favorite(self):
+        th = self._th
+        ok = False
+        if th is not None and hasattr(th, "_career_favorite"):
+            try:
+                ok = th._career_favorite(self._route_data)
+            except Exception:
+                ok = False
+        self._btn_fav.setText("★ Favorited" if ok else "Already a favorite")
+        self._btn_fav.setEnabled(False)
+
+    @staticmethod
+    def _route_waypoints(d: dict) -> list:
+        if d.get("type", "single") == "single":
+            return [(d.get("buy_location", ""), d.get("buy_system", ""), "buy"),
+                    (d.get("sell_location", ""), d.get("sell_system", ""), "sell")]
+        wps = []
+        legs = d.get("legs", []) or []
+        for i, leg in enumerate(legs):
+            bl = leg.get("buy_location") or leg.get("origin") or ""
+            bs = leg.get("buy_system") or leg.get("origin_system") or ""
+            sl = leg.get("sell_location") or leg.get("destination") or ""
+            ss = leg.get("sell_system") or leg.get("destination_system") or ""
+            if i == 0 and bl:
+                wps.append((bl, bs, "buy"))
+            if sl:
+                wps.append((sl, ss, "sell" if i == len(legs) - 1 else "stop"))
+        return wps
 
     def _build_content(self, d: dict):
         """Build the detail content from route data dict."""
@@ -788,6 +921,23 @@ class TradeHubWindow(SCWindow):
         vmw.setStyleSheet("background: transparent;")
         vmw.setLayout(vm_row)
         sb_lay.addWidget(vmw)
+        # Star Map gets its own full-width row — a 4th button overflows vm_row.
+        self._btn_starmap = QPushButton(_("STAR MAP"))
+        self._btn_starmap.setCursor(Qt.PointingHandCursor)
+        self._btn_starmap.clicked.connect(lambda: self._set_view_mode("STARMAP"))
+        sb_lay.addWidget(self._btn_starmap)
+        self._btn_heatmap = QPushButton(_("HEATMAP"))
+        self._btn_heatmap.setCursor(Qt.PointingHandCursor)
+        self._btn_heatmap.clicked.connect(lambda: self._set_view_mode("HEATMAP"))
+        sb_lay.addWidget(self._btn_heatmap)
+        self._btn_commodities = QPushButton(_("COMMODITIES"))
+        self._btn_commodities.setCursor(Qt.PointingHandCursor)
+        self._btn_commodities.clicked.connect(lambda: self._set_view_mode("COMMODITIES"))
+        sb_lay.addWidget(self._btn_commodities)
+        self._btn_career = QPushButton(_("MY CAREER"))
+        self._btn_career.setCursor(Qt.PointingHandCursor)
+        self._btn_career.clicked.connect(lambda: self._set_view_mode("CAREER"))
+        sb_lay.addWidget(self._btn_career)
         self._update_view_mode_btns()
 
         # Freight mode
@@ -1034,6 +1184,23 @@ class TradeHubWindow(SCWindow):
         self._basket_view.hide()
         right_lay.addWidget(self._basket_view, 1)
 
+        self._career = Career()   # lifetime trade ledger (persisted)
+        # Star Map — interactive galaxy view (pop-out capable)
+        self._starmap_panel = StarMapPanel(self)
+        self._starmap_panel.set_trade_hub(self)
+        self._starmap_panel.hide()
+        right_lay.addWidget(self._starmap_panel, 1)
+        self._heatmap_view = HeatmapView(self)
+        self._heatmap_view.hide()
+        right_lay.addWidget(self._heatmap_view, 1)
+        self._commodities_view = CommoditiesView(self)
+        self._commodities_view.hide()
+        right_lay.addWidget(self._commodities_view, 1)
+        self._career_view = CareerView(self)
+        self._career_view.hide()
+        right_lay.addWidget(self._career_view, 1)
+        self._launch_snapshot_done = False   # local price-history: force one snapshot at launch
+
         body.addWidget(right)
         body.setStretchFactor(1, 1)
         layout.addWidget(body, 1)
@@ -1062,6 +1229,14 @@ class TradeHubWindow(SCWindow):
         self._btn_loops.setStyleSheet(active_ss if self._view_mode == "LOOPS" else inactive_ss)
         if hasattr(self, "_btn_basket"):
             self._btn_basket.setStyleSheet(active_ss if self._view_mode == "BASKET" else inactive_ss)
+        if hasattr(self, "_btn_starmap"):
+            self._btn_starmap.setStyleSheet(active_ss if self._view_mode == "STARMAP" else inactive_ss)
+        if hasattr(self, "_btn_heatmap"):
+            self._btn_heatmap.setStyleSheet(active_ss if self._view_mode == "HEATMAP" else inactive_ss)
+        if hasattr(self, "_btn_commodities"):
+            self._btn_commodities.setStyleSheet(active_ss if self._view_mode == "COMMODITIES" else inactive_ss)
+        if hasattr(self, "_btn_career"):
+            self._btn_career.setStyleSheet(active_ss if self._view_mode == "CAREER" else inactive_ss)
 
     def _update_oss_btns(self):
         active_ss = f"QPushButton {{ background: {P.accent}; color: #ffffff; border: none; font-family: Consolas; font-size: 9pt; font-weight: bold; padding: 3px; }}"
@@ -1107,7 +1282,24 @@ class TradeHubWindow(SCWindow):
         self._mixed_table.hide()
         if hasattr(self, "_basket_view"):
             self._basket_view.hide()
-        if self._view_mode == "BASKET" and hasattr(self, "_basket_view"):
+        if hasattr(self, "_starmap_panel"):
+            self._starmap_panel.hide()
+        if hasattr(self, "_heatmap_view"):
+            self._heatmap_view.hide()
+        if hasattr(self, "_commodities_view"):
+            self._commodities_view.hide()
+        if hasattr(self, "_career_view"):
+            self._career_view.hide()
+        if self._view_mode == "STARMAP" and hasattr(self, "_starmap_panel"):
+            self._starmap_panel.show()
+        elif self._view_mode == "HEATMAP" and hasattr(self, "_heatmap_view"):
+            self._heatmap_view.show()
+        elif self._view_mode == "COMMODITIES" and hasattr(self, "_commodities_view"):
+            self._commodities_view.show()
+        elif self._view_mode == "CAREER" and hasattr(self, "_career_view"):
+            self._career_view.refresh()
+            self._career_view.show()
+        elif self._view_mode == "BASKET" and hasattr(self, "_basket_view"):
             self._basket_view.show()
         elif self._freight_mode == "MIXED":
             self._mixed_table.show()
@@ -1179,6 +1371,9 @@ class TradeHubWindow(SCWindow):
         self._all_loops = find_multi_routes(routes, scu) if routes else []
         if hasattr(self, "_basket_view"):
             self._basket_view.refresh_data()
+        if hasattr(self, "_starmap_panel"):
+            self._starmap_panel.on_routes_loaded()
+        self._snapshot_prices()
         self._refresh_display()
         self._status_label.setText(f"  {len(self._all_routes):,} routes | distances loaded")
 
@@ -1197,8 +1392,22 @@ class TradeHubWindow(SCWindow):
         self._update_dropdown_values()
         if hasattr(self, "_basket_view"):
             self._basket_view.refresh_data()
+        if hasattr(self, "_starmap_panel"):
+            self._starmap_panel.on_routes_loaded()
+        self._snapshot_prices()
         self._refresh_display()
         self._refresh_btn.setEnabled(True)
+
+    def _snapshot_prices(self) -> None:
+        """Local price-history snapshot — force one at launch, then once per day
+        (maybe_snapshot only writes when today has no row yet). Runs off-thread.
+        Called from both route-apply slots so it fires on every data load."""
+        try:
+            from starmap import price_log
+            price_log.maybe_snapshot(force=not self._launch_snapshot_done)
+            self._launch_snapshot_done = True
+        except Exception:
+            log.exception("snapshot hook failed")
 
     def _auto_refresh(self):
         self._fetcher.fetch_async(
@@ -1211,6 +1420,12 @@ class TradeHubWindow(SCWindow):
     # ── Display refresh ──
 
     def _refresh_display(self):
+        if self._view_mode in ("STARMAP", "COMMODITIES", "CAREER"):
+            return
+        if self._view_mode == "HEATMAP":
+            if hasattr(self, "_heatmap_view"):
+                self._heatmap_view.refresh(self._all_routes)
+            return
         f = self._read_filters()
         f.allow_illegal = self._allow_illegal
 
@@ -1554,6 +1769,11 @@ class TradeHubWindow(SCWindow):
         if idx_in_filtered is None:
             return
         route = self._filtered_routes[idx_in_filtered]
+        self._open_route_detail(route, show_on_map=True)
+
+    def _open_route_detail(self, route, show_on_map: bool = False):
+        """Open the standard Route Detail popup (with its Pin button) for a Route.
+        Shared by the main route table and the Heatmap view."""
         eff = route.effective_scu(self._ship_scu)
         profit = eff * route.margin
         ship_lbl = f"{self._ship_name} ({self._ship_scu:,} SCU)" if self._ship_scu else "No ship"
@@ -1579,6 +1799,65 @@ class TradeHubWindow(SCWindow):
         }
         dlg = RouteDetailDialog(self, "ROUTE DETAIL", data)
         dlg.show()
+        if show_on_map and hasattr(self, "_starmap_panel"):
+            self._starmap_panel.show_route([
+                (route.buy_location, route.buy_system, "buy"),
+                (route.sell_location, route.sell_system, "sell"),
+            ])
+        return dlg
+
+    def _open_route_data(self, data: dict):
+        """Open a Route Detail popup directly from a stored data dict (favorites)."""
+        dlg = RouteDetailDialog(self, "ROUTE DETAIL", data)
+        dlg.show()
+        return dlg
+
+    # ── career ledger (from the route popup buttons) ──────────────────────────
+    def _career_entry(self, data: dict) -> dict:
+        scu = int(data.get("eff_scu") or 0)
+        pb = float(data.get("price_buy") or 0)
+        return {
+            "commodity": data.get("commodity", ""),
+            "ship": self._ship_name or "—",
+            "scu": scu,
+            "profit": float(data.get("profit") or 0),
+            "investment": pb * scu,
+            "buy_system": data.get("buy_system", ""),
+            "sell_system": data.get("sell_system", ""),
+            "buy_location": data.get("buy_location", ""),
+            "sell_location": data.get("sell_location", ""),
+        }
+
+    def _career_complete(self, data: dict) -> None:
+        self._career.complete(self._career_entry(data))
+        self._refresh_career()
+
+    def _career_fail(self, data: dict, kind: str, loss) -> None:
+        e = self._career_entry(data)
+        e["loss"] = e.get("investment", 0) if kind == "full" else float(loss or 0)
+        e["kind"] = kind
+        e.pop("profit", None)
+        self._career.fail(e)
+        self._refresh_career()
+
+    def _career_favorite(self, data: dict) -> bool:
+        fav = dict(data)
+        fav["ship"] = self._ship_name or "—"
+        ok = self._career.add_favorite(fav)
+        self._refresh_career()
+        return ok
+
+    def _refresh_career(self) -> None:
+        if hasattr(self, "_career_view"):
+            try:
+                self._career_view.refresh()
+            except Exception:
+                pass
+        if hasattr(self, "_starmap_panel"):      # refresh the 'My Runs' map heat
+            try:
+                self._starmap_panel._rebuild_overlay()
+            except Exception:
+                pass
 
     def _on_loop_select(self, row_data: dict):
         chain_text = row_data.get("commodities", "")
@@ -2142,6 +2421,8 @@ class TradeHubWindow(SCWindow):
             self._set_allow_illegal(bool(cmd.get("allow", False)))
 
     def closeEvent(self, event) -> None:
+        if hasattr(self, '_starmap_panel'):
+            self._starmap_panel.shutdown()
         if hasattr(self, '_ipc'):
             self._ipc.stop()
         if self._hotkey_stop:
