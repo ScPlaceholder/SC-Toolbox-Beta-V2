@@ -74,6 +74,7 @@ class SystemView(QWidget):
     terminalClicked = Signal(str, str)   # double-click a terminal body -> (name, system)
     jumpRequested = Signal(str)     # click a gateway's "Jump to X" -> destination system name
     bodyActivated = Signal(str, str)     # double-click a non-planet/non-terminal body -> (name, system)
+    loreRequested = Signal(str, str)     # right-click a body/star -> (name, system) lore lookup
 
     def __init__(self, system_code: str, system_name: str = "",
                  bodies: Optional[List[Body]] = None, terminal_names=None,
@@ -457,7 +458,8 @@ class SystemView(QWidget):
     def _draw_hud(self, p: QPainter, w: int, h: int) -> None:
         f = QFont(); f.setPointSizeF(8); p.setFont(f); p.setPen(QColor(P.fg_dim))
         p.drawText(12, h - 13,
-                   "drag rotate · wheel zoom (in: planet · out: galaxy) · double-click a planet")
+                   "drag rotate · wheel zoom (in: planet · out: galaxy) · "
+                   "double-click a planet · right-click: lore")
         ft = QFont(); ft.setPointSizeF(13); ft.setBold(True); p.setFont(ft)
         p.setPen(QColor(P.tool_trade)); p.drawText(14, 28, f"{self._name.upper()} SYSTEM")
         fc = QFont(); fc.setPointSizeF(8); p.setFont(fc); p.setPen(QColor(P.fg_dim))
@@ -522,12 +524,27 @@ class SystemView(QWidget):
 
     def mouseReleaseEvent(self, ev) -> None:
         was_click = self._moved < 4.0
+        btn = ev.button()
         self._mode = None
         self._last = None
-        if was_click:
-            dest = self._hit_jump(ev.position())
-            if dest:
-                self.jumpRequested.emit(dest)
+        if not was_click:
+            return
+        if btn == Qt.RightButton:               # right-click -> lore for that body / the star
+            b = self._hit(ev.position())
+            name = b.name if b is not None else self._star_lore_name(ev.position())
+            if name:
+                self.loreRequested.emit(name, self._code)
+            return
+        dest = self._hit_jump(ev.position())
+        if dest:
+            self.jumpRequested.emit(dest)
+
+    def _star_lore_name(self, pt) -> Optional[str]:
+        """If the cursor is on the central star, lore-lookup the system itself."""
+        w, h = self.width(), self.height()
+        cx, cy = w / 2.0, h / 2.0
+        sx, sy, _ = self._cam.project(0, 0, 0, cx, cy, self._scale(w, h))
+        return self._name if math.hypot(sx - pt.x(), sy - pt.y()) < 16 else None
 
     def mouseDoubleClickEvent(self, ev) -> None:
         b = self._hit(ev.position())

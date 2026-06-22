@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from shared.qt.theme import P
 
 from .charts import BarChart, LineChart
+from .ui import make_close_button
 from .uex import CommodityFetcher
 
 
@@ -70,14 +71,7 @@ class CommodityView(QDialog):
         self._btn_routes.clicked.connect(self._routes)
         head.addWidget(self._btn_wiki)
         head.addWidget(self._btn_routes)
-        close = QPushButton("✕")
-        close.setFixedSize(28, 28)
-        close.setCursor(Qt.PointingHandCursor)
-        close.setStyleSheet(
-            f"QPushButton{{background:{P.bg_input}; color:{P.fg_dim}; border:1px solid {P.border}; "
-            f"border-radius:5px; font-size:11pt;}} QPushButton:hover{{color:{P.red}; border-color:{P.red};}}")
-        close.clicked.connect(self.close)
-        head.addWidget(close)
+        head.addWidget(make_close_button(self.close))
         headw = QWidget()
         headw.setLayout(head)
         headw.setStyleSheet(f"background:{P.bg_header};")

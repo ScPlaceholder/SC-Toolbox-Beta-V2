@@ -74,6 +74,65 @@ class Career:
         self.data["failures"].append(e)
         self.save()
 
+    # ── edit / remove logged runs ──────────────────────────────────────────────
+    def completed_runs(self) -> List[dict]:
+        return list(self.data["completed"])
+
+    def failed_runs(self) -> List[dict]:
+        return list(self.data["failures"])
+
+    def remove_entry(self, entry: dict, failed: bool) -> bool:
+        """Delete a single logged run, matched by object identity."""
+        lst = self.data["failures"] if failed else self.data["completed"]
+        for i, e in enumerate(lst):
+            if e is entry:
+                lst.pop(i)
+                self.save()
+                return True
+        return False
+
+    def set_completed(self, entry: dict) -> bool:
+        """Move a failed run back to completed, restoring its profit (recomputed
+        from its stored prices if the profit wasn't recorded on an old entry)."""
+        for i, e in enumerate(self.data["failures"]):
+            if e is entry:
+                self.data["failures"].pop(i)
+                if not e.get("profit"):
+                    e["profit"] = self._infer_profit(e)
+                self.data["completed"].append(e)
+                self.save()
+                return True
+        return False
+
+    def set_failed(self, entry: dict, kind: str = "full", loss=None, reasons=None) -> bool:
+        """Move a completed run to failures with explicit failure details (kind,
+        loss, reasons). A full loss defaults to the run's investment."""
+        kind = kind or "full"
+        for i, e in enumerate(self.data["completed"]):
+            if e is entry:
+                self.data["completed"].pop(i)
+                e["kind"] = kind
+                e["reasons"] = list(reasons or [])
+                e["loss"] = (e.get("investment", 0) or 0) if kind == "full" else float(loss or 0)
+                self.data["failures"].append(e)
+                self.save()
+                return True
+        return False
+
+    @staticmethod
+    def _infer_profit(e: dict) -> float:
+        """Best-effort profit for a run = (sell - buy) * SCU, when the prices were
+        stored with it; else falls back to whatever 'profit' is recorded."""
+        try:
+            ps = float(e.get("price_sell") or 0)
+            pb = float(e.get("price_buy") or 0)
+            scu = float(e.get("scu") or 0)
+            if ps and scu:
+                return (ps - pb) * scu
+        except (TypeError, ValueError):
+            pass
+        return float(e.get("profit") or 0)
+
     # ── favorites ─────────────────────────────────────────────────────────────
     def add_favorite(self, fav: dict) -> bool:
         key = _fav_key(fav)

@@ -110,7 +110,7 @@ class HeatmapView(QWidget):
             return max(vals) if vals else None
 
         def prof(r):
-            return float(getattr(r, "profit", 0) or 0)
+            return self._profit(r)
 
         top = sorted(routes, key=lambda r: -prof(r))[:LIMIT]
         flows = sorted(routes, key=lambda r: (-traffic[(r.buy_location, r.sell_location)], -prof(r)))[:LIMIT]
@@ -129,13 +129,23 @@ class HeatmapView(QWidget):
             table.setItem(i, 0, QTableWidgetItem(r.commodity))
             table.setItem(i, 1, QTableWidgetItem(f"{r.buy_location}  ·  {r.buy_system}"))
             table.setItem(i, 2, QTableWidgetItem(f"{r.sell_location}  ·  {r.sell_system}"))
-            pit = QTableWidgetItem(_f(getattr(r, "profit", 0)))
+            pit = QTableWidgetItem(_f(self._profit(r)))
             pit.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             table.setItem(i, 3, pit)
             mit = QTableWidgetItem(metric(r))
             mit.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             table.setItem(i, 4, mit)
         table.setMinimumHeight(min(640, 40 + len(routes) * 24))
+
+    def _profit(self, r) -> float:
+        """Per-run profit for the user's current ship (caps SCU like the route
+        detail does + respects the Max-Profit / Reported-Demand toggle) — NOT the
+        raw UEX max-quantity 'profit' field, which assumes you move all stock."""
+        scu = getattr(self._th, "_ship_scu", 0) or 0
+        try:
+            return float(r.estimated_profit(scu))
+        except Exception:
+            return float(getattr(r, "profit", 0) or 0)
 
     @staticmethod
     def _age(fresh) -> str:

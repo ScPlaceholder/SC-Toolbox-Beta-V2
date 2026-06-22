@@ -55,6 +55,7 @@ class CareerView(QWidget):
         self._career = th._career
         self._fav_ship = ""
         self._fav_rows: List[dict] = []
+        self._current_day = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -93,17 +94,24 @@ class CareerView(QWidget):
         b.addWidget(self._cmd_heatmap)
 
         b.addWidget(self._section("CAREER CALENDAR", P.energy_cyan))
+        sub_cal = QLabel("click a day, then ⇄ to flip a run success⇄failure, or ✕ to delete it")
+        sub_cal.setStyleSheet(f"color:{P.fg_dim}; font-size:8pt;")
+        b.addWidget(sub_cal)
         cal_row = QHBoxLayout(); cal_row.setSpacing(10)
         self._cal = CareerCalendar()
         self._cal.day_selected.connect(self._show_day)
         self._cal.setMinimumHeight(300)
         cal_row.addWidget(self._cal, 3)
-        self._day = self._rich(8)
-        self._day.setText("Click a day to see its trades.")
-        self._day.setAlignment(Qt.AlignTop)
-        self._day.setStyleSheet(f"font-family:Consolas; font-size:8pt; color:{P.fg}; "
-                                f"background:{P.bg_card}; border:1px solid {P.border}; padding:8px;")
-        self._day.setFixedWidth(280)
+        self._day = QWidget()
+        self._day.setFixedWidth(290)
+        self._day.setStyleSheet(f"background:{P.bg_card}; border:1px solid {P.border};")
+        self._day_lay = QVBoxLayout(self._day)
+        self._day_lay.setContentsMargins(8, 8, 8, 8)
+        self._day_lay.setSpacing(3)
+        self._day_lay.setAlignment(Qt.AlignTop)
+        ph = QLabel("Click a day to see its trades.")
+        ph.setStyleSheet(f"color:{P.fg_dim}; font-size:8pt;")
+        self._day_lay.addWidget(ph)
         cal_row.addWidget(self._day)
         cw = QWidget(); cw.setLayout(cal_row); b.addWidget(cw)
 
@@ -118,6 +126,34 @@ class CareerView(QWidget):
         self._btn_undo.clicked.connect(self._undo)
         rr.addWidget(self._btn_reset); rr.addWidget(self._btn_undo); rr.addStretch(1)
         rw = QWidget(); rw.setLayout(rr); b.addWidget(rw)
+
+        # full route history — two plain lists (every success / every failure),
+        # each sortable by its own variables (date is one of them).
+        b.addWidget(self._section("COMPLETED ROUTES   ·   full history", P.green))
+        cr = QHBoxLayout()
+        cl = QLabel("Sort by:"); cl.setStyleSheet(f"color:{P.fg_dim}; font-size:9pt;")
+        cr.addWidget(cl)
+        self._comp_sort = QComboBox()
+        self._comp_sort.addItems(["Date (newest)", "Profit", "Commodity", "Ship"])
+        self._comp_sort.setStyleSheet(self._combo_ss())
+        self._comp_sort.currentTextChanged.connect(lambda *_: self._fill_completed())
+        cr.addWidget(self._comp_sort); cr.addStretch(1)
+        crw = QWidget(); crw.setLayout(cr); b.addWidget(crw)
+        self._comp_table = self._table(["Date", "Commodity", "Route", "Ship", "Profit"], stretch=2)
+        b.addWidget(self._comp_table)
+
+        b.addWidget(self._section("FAILED ROUTES   ·   full history", P.red))
+        fr2 = QHBoxLayout()
+        fl2 = QLabel("Sort by:"); fl2.setStyleSheet(f"color:{P.fg_dim}; font-size:9pt;")
+        fr2.addWidget(fl2)
+        self._fail_sort = QComboBox()
+        self._fail_sort.addItems(["Date (newest)", "Loss", "Failure Type", "Commodity", "Ship"])
+        self._fail_sort.setStyleSheet(self._combo_ss())
+        self._fail_sort.currentTextChanged.connect(lambda *_: self._fill_failed())
+        fr2.addWidget(self._fail_sort); fr2.addStretch(1)
+        frw = QWidget(); frw.setLayout(fr2); b.addWidget(frw)
+        self._fail_table = self._table(["Date", "Commodity", "Route", "Ship", "Type", "Loss"], stretch=2)
+        b.addWidget(self._fail_table)
 
         b.addWidget(self._section("FAVORITE ROUTES", P.green))
         fr = QHBoxLayout()
@@ -186,7 +222,11 @@ class CareerView(QWidget):
         self._cal.set_data(c.per_day())
         self._fill_favorites()
         self._fill_leaderboard()
+        self._fill_completed()
+        self._fill_failed()
         self._btn_undo.setEnabled(c.has_undo())
+        if self._current_day is not None:
+            self._show_day(self._current_day)
 
     # ── favorites ──────────────────────────────────────────────────────────────
     def _on_ship_filter(self, ship: str) -> None:
@@ -252,24 +292,144 @@ class CareerView(QWidget):
             t.setItem(i, 4, _NumItem(r["roi"], f"{r['roi']:.0f}%"))
             t.setItem(i, 5, _NumItem(r["avg"], _m(r["avg"])))
 
-    # ── calendar day detail ────────────────────────────────────────────────────
+    # ── calendar day detail (editable) ──────────────────────────────────────────
     def _show_day(self, d: date) -> None:
+        self._current_day = d
+        lay = self._day_lay
+        while lay.count():
+            it = lay.takeAt(0)
+            w = it.widget()
+            if w is not None:
+                w.deleteLater()
         comp, fail = self._career.trades_on(d)
         net = sum(float(e.get("profit", 0) or 0) for e in comp) - \
             sum(float(e.get("loss", 0) or 0) for e in fail)
         col = P.green if net >= 0 else P.red
-        lines = [f"<b style='color:{P.fg_bright}'>{d:%A %d %b %Y}</b>",
-                 f"Net: <b style='color:{col}'>{_m(net)} aUEC</b> &nbsp; "
-                 f"({len(comp)} done, {len(fail)} failed)<br>"]
-        for e in comp:
-            lines.append(f"<span style='color:{P.green}'>+{_m(e.get('profit',0))}</span> "
-                         f"{e.get('commodity','?')} · {e.get('ship','')}")
-        for e in fail:
-            lines.append(f"<span style='color:{P.red}'>−{_m(e.get('loss',0))}</span> "
-                         f"{e.get('commodity','?')} ({e.get('kind','full')})")
+        hdr = QLabel(f"<b style='color:{P.fg_bright}'>{d:%A %d %b %Y}</b><br>"
+                     f"Net: <b style='color:{col}'>{_m(net)} aUEC</b> "
+                     f"({len(comp)} done, {len(fail)} failed)")
+        hdr.setTextFormat(Qt.RichText); hdr.setWordWrap(True)
+        hdr.setStyleSheet("font-family:Consolas; font-size:8pt;")
+        lay.addWidget(hdr)
         if not comp and not fail:
-            lines.append(f"<span style='color:{P.fg_dim}'>No trades this day.</span>")
-        self._day.setText("<br>".join(lines))
+            none = QLabel("No trades this day.")
+            none.setStyleSheet(f"color:{P.fg_dim}; font-size:8pt;")
+            lay.addWidget(none)
+            return
+        for e in comp:
+            lay.addWidget(self._run_row(e, False))
+        for e in fail:
+            lay.addWidget(self._run_row(e, True))
+
+    def _run_row(self, e: dict, failed: bool) -> QWidget:
+        row = QWidget()
+        h = QHBoxLayout(row); h.setContentsMargins(0, 0, 0, 0); h.setSpacing(3)
+        col = P.red if failed else P.green
+        amt = e.get("loss", 0) if failed else e.get("profit", 0)
+        sign = "−" if failed else "+"
+        extra = (" · " + self._fail_type(e)) if failed else ""
+        lab = QLabel(f"<span style='color:{col}'>{sign}{_m(amt)}</span> "
+                     f"{e.get('commodity','?')} · {e.get('ship','')}{extra}")
+        lab.setTextFormat(Qt.RichText); lab.setWordWrap(True)
+        lab.setStyleSheet("font-size:8pt;")
+        h.addWidget(lab, 1)
+        tog = QPushButton("⇄")
+        tog.setFixedSize(22, 20); tog.setCursor(Qt.PointingHandCursor)
+        tog.setToolTip("Switch to success" if failed else "Switch to failure")
+        tog.setStyleSheet(self._mini_ss(P.energy_cyan))
+        tog.clicked.connect(lambda *_a, x=e, f=failed: self._toggle_run(x, f))
+        h.addWidget(tog)
+        dele = QPushButton("✕")
+        dele.setFixedSize(22, 20); dele.setCursor(Qt.PointingHandCursor)
+        dele.setToolTip("Delete this run")
+        dele.setStyleSheet(self._mini_ss(P.red))
+        dele.clicked.connect(lambda *_a, x=e, f=failed: self._delete_run(x, f))
+        h.addWidget(dele)
+        return row
+
+    def _toggle_run(self, e: dict, failed: bool) -> None:
+        if failed:                                            # failure -> success
+            self._career.set_completed(e)                    # restores/recomputes profit
+            self._after_edit()
+        elif hasattr(self._th, "_career_reclassify_fail"):    # success -> failure
+            self._th._career_reclassify_fail(e)               # pops the fail dialog + refreshes
+
+    def _delete_run(self, e: dict, failed: bool) -> None:
+        if QMessageBox.question(
+                self, "Delete run",
+                f"Delete this logged run?\n\n{e.get('commodity','?')} · {e.get('ship','')}",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+            return
+        self._career.remove_entry(e, failed)
+        self._after_edit()
+
+    def _after_edit(self) -> None:
+        # refresh this view (re-shows the open day) + the map 'My Runs' overlay
+        if hasattr(self._th, "_refresh_career"):
+            self._th._refresh_career()
+        else:
+            self.refresh()
+
+    # ── route history lists ─────────────────────────────────────────────────────
+    def _fill_completed(self) -> None:
+        rows = self._sorted_runs(self._career.completed_runs(),
+                                 self._comp_sort.currentText())
+        t = self._comp_table
+        t.setRowCount(len(rows))
+        for i, e in enumerate(rows):
+            t.setItem(i, 0, _NumItem(e.get("ts", 0), self._date_str(e)))
+            t.setItem(i, 1, QTableWidgetItem(e.get("commodity", "?")))
+            t.setItem(i, 2, QTableWidgetItem(
+                f"{e.get('buy_location','')} → {e.get('sell_location','')}"))
+            t.setItem(i, 3, QTableWidgetItem(e.get("ship", "—")))
+            t.setItem(i, 4, _NumItem(e.get("profit", 0), _m(e.get("profit", 0))))
+
+    def _fill_failed(self) -> None:
+        rows = self._sorted_runs(self._career.failed_runs(),
+                                 self._fail_sort.currentText())
+        t = self._fail_table
+        t.setRowCount(len(rows))
+        for i, e in enumerate(rows):
+            t.setItem(i, 0, _NumItem(e.get("ts", 0), self._date_str(e)))
+            t.setItem(i, 1, QTableWidgetItem(e.get("commodity", "?")))
+            t.setItem(i, 2, QTableWidgetItem(
+                f"{e.get('buy_location','')} → {e.get('sell_location','')}"))
+            t.setItem(i, 3, QTableWidgetItem(e.get("ship", "—")))
+            t.setItem(i, 4, QTableWidgetItem(self._fail_type(e)))
+            t.setItem(i, 5, _NumItem(e.get("loss", 0), _m(e.get("loss", 0))))
+
+    def _sorted_runs(self, rows: List[dict], key: str) -> List[dict]:
+        if key.startswith("Date"):
+            return sorted(rows, key=lambda e: float(e.get("ts", 0) or 0), reverse=True)
+        if key == "Profit":
+            return sorted(rows, key=lambda e: float(e.get("profit", 0) or 0), reverse=True)
+        if key == "Loss":
+            return sorted(rows, key=lambda e: float(e.get("loss", 0) or 0), reverse=True)
+        if key == "Failure Type":
+            return sorted(rows, key=lambda e: self._fail_type(e).lower())
+        if key == "Commodity":
+            return sorted(rows, key=lambda e: (e.get("commodity", "") or "").lower())
+        if key == "Ship":
+            return sorted(rows, key=lambda e: (e.get("ship", "") or "").lower())
+        return rows
+
+    @staticmethod
+    def _mini_ss(color: str) -> str:
+        return (f"QPushButton{{background:transparent; color:{color}; border:1px solid {color}; "
+                f"border-radius:3px; font-size:9pt; padding:0px;}} "
+                f"QPushButton:hover{{background:{color}; color:#0b0e14;}}")
+
+    @staticmethod
+    def _date_str(e: dict) -> str:
+        try:
+            return f"{date.fromtimestamp(float(e.get('ts', 0))):%d %b %Y}"
+        except (ValueError, OSError, OverflowError):
+            return "—"
+
+    @staticmethod
+    def _fail_type(e: dict) -> str:
+        reasons = ", ".join(e.get("reasons") or [])
+        return reasons or (e.get("kind", "full") or "full").title()
 
     # ── reset / undo ───────────────────────────────────────────────────────────
     def _reset(self) -> None:
@@ -316,7 +476,7 @@ class CareerView(QWidget):
                           f"font-weight:bold; padding-top:4px;")
         return lbl
 
-    def _table(self, cols: List[str]) -> QTableWidget:
+    def _table(self, cols: List[str], stretch: int = 0) -> QTableWidget:
         t = QTableWidget(0, len(cols))
         t.setHorizontalHeaderLabels(cols)
         t.verticalHeader().setVisible(False)
@@ -331,9 +491,9 @@ class CareerView(QWidget):
             f"QHeaderView::section{{background:{P.bg_header}; color:{P.fg_dim}; border:none; "
             f"padding:4px; font-weight:bold;}}")
         hdr = t.horizontalHeader()
-        hdr.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col in range(1, len(cols)):
-            hdr.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        for col in range(len(cols)):
+            hdr.setSectionResizeMode(
+                col, QHeaderView.Stretch if col == stretch else QHeaderView.ResizeToContents)
         t.setMinimumHeight(150)
         return t
 

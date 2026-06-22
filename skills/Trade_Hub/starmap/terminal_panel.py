@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from shared.qt.theme import P
 
 from .data import LOC_ALIASES, norm_loc
+from .ui import make_close_button
 
 
 def _norm(s: str) -> str:
@@ -79,15 +80,7 @@ class TerminalDialog(QDialog):
             f"QPushButton:hover{{background:#ffd84a;}}")
         btn_plot.clicked.connect(self._plot)
         head.addWidget(btn_plot)
-        btn_close = QPushButton("✕")
-        btn_close.setFixedSize(28, 28)
-        btn_close.setCursor(Qt.PointingHandCursor)
-        btn_close.setStyleSheet(
-            f"QPushButton{{background:{P.bg_input}; color:{P.fg_dim}; border:1px solid {P.border}; "
-            f"border-radius:5px; font-size:11pt;}} "
-            f"QPushButton:hover{{color:{P.red}; border-color:{P.red};}}")
-        btn_close.clicked.connect(self.close)
-        head.addWidget(btn_close)
+        head.addWidget(make_close_button(self.close))
         lay.addLayout(head)
 
         sub = QLabel(f"{system} system   ·   commodity terminal")

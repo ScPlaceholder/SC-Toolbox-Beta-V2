@@ -36,6 +36,8 @@ from .planet_view import PlanetView
 from .system_view import SystemView
 from .terminal_panel import TerminalDialog
 from .commodity_view import CommodityView
+from .lore import LoreBubble, LoreFetcher
+from .ui import make_close_button
 
 _OPACITY_STEPS: List[float] = [1.0, 0.85, 0.7, 0.55]
 _OVERLAY_LAYERS = (("flows", "Trade Flows"), ("top", "Top Routes"), ("activity", "Activity"),
@@ -60,6 +62,9 @@ class StarMapPanel(QWidget):
         self._overlay = None
         self._overlay_flags = {"flows": False, "top": False, "activity": False, "career": False}
         self._overlay_ready.connect(self._apply_overlay)
+        self._lore_bubble: Optional[LoreBubble] = None
+        self._lore_fetcher = LoreFetcher()
+        self._lore_fetcher.done.connect(self._on_lore_done)
         self._galaxy: Optional[GalaxyView] = None
         self._galaxy_data: Optional[Galaxy] = None
         self._bodies = {}
@@ -96,6 +101,7 @@ class StarMapPanel(QWidget):
         self._galaxy.viewChanged.connect(self._save_soon)
         self._galaxy.systemEntered.connect(self._enter_system)
         self._galaxy.drillIn.connect(self._enter_system)
+        self._galaxy.loreRequested.connect(self._show_lore)
         self._galaxy.routePlotted.connect(lambda *_: self._btn_route.setText("✕ Clear route"))
 
         # Map area (this whole widget is what reparents on pop-out).
@@ -292,6 +298,7 @@ class StarMapPanel(QWidget):
         view.terminalClicked.connect(self._open_terminal)
         view.jumpRequested.connect(self._jump_to_system)
         view.bodyActivated.connect(self._on_body_activated)
+        view.loreRequested.connect(self._show_lore)
         view.set_trade_route(self._route_pts_for(code.upper()))
         view.set_overlay(self._overlay, self._overlay_flags)
         self._push(f"{name.upper()} system", view)
@@ -311,7 +318,11 @@ class StarMapPanel(QWidget):
         card = QWidget()
         card.setStyleSheet(f"background:{P.bg_card}; border:2px solid {P.tool_trade}; border-radius:12px;")
         outer.addWidget(card)
-        lay = QVBoxLayout(card); lay.setContentsMargins(28, 22, 28, 20); lay.setSpacing(10)
+        lay = QVBoxLayout(card); lay.setContentsMargins(28, 14, 28, 22); lay.setSpacing(10)
+        toprow = QHBoxLayout(); toprow.setContentsMargins(0, 0, 0, 0)
+        toprow.addStretch(1)
+        toprow.addWidget(make_close_button(dlg.close))
+        lay.addLayout(toprow)
         title = QLabel("Buy more ships!")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(f"color:{P.tool_trade}; font-family:Consolas; font-size:19pt; font-weight:bold;")
@@ -327,14 +338,45 @@ class StarMapPanel(QWidget):
         link.setAlignment(Qt.AlignCenter); link.setCursor(Qt.PointingHandCursor)
         link.setStyleSheet("font-family:Consolas; font-size:11pt; padding:4px;")
         lay.addWidget(link)
-        close = QPushButton("✕ Close")
-        close.setCursor(Qt.PointingHandCursor); close.setStyleSheet(_btn_ss())
-        close.clicked.connect(dlg.close)
-        lay.addWidget(close, 0, Qt.AlignCenter)
         self._cig_dlg = dlg               # keep a ref (non-modal)
         dlg.show(); dlg.adjustSize()
         c = self.mapToGlobal(self.rect().center())
         dlg.move(c.x() - dlg.width() // 2, c.y() - dlg.height() // 2)
+
+    # ── location lore (right-click) ──────────────────────────────────────────
+    def _show_lore(self, name: str, _system: str = "") -> None:
+        """Pop a single lore bubble for a body/location. Opening a new one
+        replaces the previous; the bubble streams its wiki picture + text."""
+        name = (name or "").strip()
+        if not name:
+            return
+        old = self._lore_bubble
+        if old is not None:
+            old.close()                  # -> _on_bubble_closed clears + deletes it
+        bub = LoreBubble(name, name, self)
+        self._lore_bubble = bub
+        bub.closed.connect(self._on_bubble_closed)
+        bub.show()
+        self._place_lore_bubble(bub)
+        self._lore_fetcher.fetch(name)
+
+    def _on_lore_done(self, name: str, info) -> None:
+        bub = self._lore_bubble
+        if bub is not None and bub._req_name == name:
+            bub.apply(info)
+            self._place_lore_bubble(bub)
+
+    def _on_bubble_closed(self, bub) -> None:
+        if self._lore_bubble is bub:
+            self._lore_bubble = None
+        bub.deleteLater()
+
+    def _place_lore_bubble(self, bub) -> None:
+        """Anchor near the top-centre of the map area so it grows downward."""
+        bub.adjustSize()
+        tl = self.mapToGlobal(self.rect().topLeft())
+        x = tl.x() + max(12, (self.width() - bub.width()) // 2)
+        bub.move(x, tl.y() + 56)
 
     def _jump_to_system(self, dest_name: str) -> None:
         # Deferred: emitted from the system view's own click handler — navigating
@@ -361,6 +403,7 @@ class StarMapPanel(QWidget):
         view.drillOut.connect(self._go_back)
         view.terminalClicked.connect(self._open_terminal)
         view.bodyActivated.connect(self._on_body_activated)
+        view.loreRequested.connect(self._show_lore)
         self._push(f"{planet_name} & moons", view)
 
     def _enter_globe(self, code: str, body_name: str) -> None:
@@ -372,6 +415,7 @@ class StarMapPanel(QWidget):
         view.drillOut.connect(self._go_back)
         view.terminalClicked.connect(self._open_terminal)
         view.bodyActivated.connect(self._on_body_activated)
+        view.loreRequested.connect(self._show_lore)
         self._push(body_name.upper(), view)
 
     # ── terminals + trade hub (UEX overlay) ──────────────────────────────────
@@ -796,6 +840,9 @@ class StarMapPanel(QWidget):
 
     def shutdown(self) -> None:
         """Called by Trade Hub on close: persist, then tear down any pop-out."""
+        if self._lore_bubble is not None:
+            self._lore_bubble.close()
+            self._lore_bubble = None
         self.save_state()
         if self._popout is not None:
             win = self._popout

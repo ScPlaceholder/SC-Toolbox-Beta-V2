@@ -33,6 +33,7 @@ class PlanetSystemView(QWidget):
     drillOut = Signal()
     terminalClicked = Signal(str, str)   # double-click a station with terminals -> (name, system)
     bodyActivated = Signal(str, str)     # double-click any other body (e.g. CIG HQ) -> (name, system)
+    loreRequested = Signal(str, str)     # right-click a body -> (name, system) lore lookup
 
     def __init__(self, system_code: str, planet_name: str,
                  bodies: Optional[List[Body]] = None, terminal_names=None,
@@ -170,7 +171,7 @@ class PlanetSystemView(QWidget):
         f = QFont(); f.setPointSizeF(8); p.setFont(f); p.setPen(QColor(P.fg_dim))
         p.drawText(12, h - 13,
                    "drag rotate · wheel zoom (in: surface · out: system) · "
-                   "double-click a body to land")
+                   "double-click a body to land · right-click: lore")
         ft = QFont(); ft.setPointSizeF(13); ft.setBold(True); p.setFont(ft)
         p.setPen(QColor(P.tool_trade))
         p.drawText(14, 28, f"{self._planet_name.upper()} & MOONS")
@@ -231,8 +232,16 @@ class PlanetSystemView(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, ev) -> None:
+        was_click = self._moved < 4.0
+        btn = ev.button()
         self._mode = None
         self._last = None
+        if was_click and btn == Qt.RightButton:     # right-click -> lore for that body
+            b = self._hit(ev.position())
+            name = b.name if b is not None else (self._planet_name
+                                                 if self._planet is not None else None)
+            if name:
+                self.loreRequested.emit(name, self._system)
 
     def mouseDoubleClickEvent(self, ev) -> None:
         b = self._hit(ev.position())

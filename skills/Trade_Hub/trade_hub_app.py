@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSplitter, QFrame, QTabWidget, QLineEdit, QDialog, QScrollArea,
     QMessageBox, QInputDialog,
+    QCheckBox, QRadioButton, QButtonGroup, QSpinBox, QDialogButtonBox,
 )
 
 from shared.qt.theme import P, apply_theme
@@ -172,6 +173,94 @@ def _career_btn_qss(color: str) -> str:
     )
 
 
+class RouteFailDialog(QDialog):
+    """Logs a failed run: which failure reasons applied (checkboxes) + whether it
+    was a full or partial loss (with the UEC amount for a partial loss)."""
+
+    REASONS = ("Pirate Attack", "Unable to Sell", "Ship Loss", "Price Change")
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Route Failed")
+        self.kind = "full"
+        self.loss = None
+        self.reasons: list = []
+        self.setStyleSheet(
+            f"QDialog{{background:{P.bg_primary};}} "
+            f"QLabel{{color:{P.fg}; font-family:Consolas; font-size:9pt;}} "
+            f"QCheckBox,QRadioButton{{color:{P.fg}; font-family:Consolas; font-size:10pt; "
+            f"spacing:8px; padding:3px;}} "
+            f"QCheckBox::indicator,QRadioButton::indicator{{width:16px; height:16px;}} "
+            f"QRadioButton::indicator:unchecked{{border:2px solid {P.fg_dim}; border-radius:9px; "
+            f"background:{P.bg_input};}} "
+            f"QRadioButton::indicator:checked{{border:2px solid {P.energy_cyan}; border-radius:9px; "
+            f"background:{P.energy_cyan};}} "
+            f"QCheckBox::indicator:unchecked{{border:2px solid {P.fg_dim}; border-radius:3px; "
+            f"background:{P.bg_input};}} "
+            f"QCheckBox::indicator:checked{{border:2px solid {P.energy_cyan}; border-radius:3px; "
+            f"background:{P.energy_cyan};}} "
+            f"QSpinBox{{background:{P.bg_input}; color:{P.fg}; border:1px solid {P.border}; "
+            f"border-radius:4px; padding:3px 6px;}} "
+            f"QPushButton{{background:{P.bg_card}; color:{P.fg}; border:1px solid {P.border}; "
+            f"border-radius:4px; padding:5px 14px; font-family:Consolas; font-size:9pt;}} "
+            f"QPushButton:hover{{border-color:{P.energy_cyan}; color:{P.fg_bright};}}")
+        v = QVBoxLayout(self)
+        v.setContentsMargins(18, 16, 18, 14)
+        v.setSpacing(8)
+
+        hdr = QLabel("What went wrong?  (check all that apply)")
+        hdr.setStyleSheet(f"color:{P.tool_trade}; font-weight:bold; font-size:10pt;")
+        v.addWidget(hdr)
+        self._checks = []
+        for name in self.REASONS:
+            cb = QCheckBox(name)
+            cb.setCursor(Qt.PointingHandCursor)
+            self._checks.append(cb)
+            v.addWidget(cb)
+
+        line = QLabel("How much did you lose?")
+        line.setStyleSheet(f"color:{P.tool_trade}; font-weight:bold; font-size:10pt; padding-top:6px;")
+        v.addWidget(line)
+        self._grp = QButtonGroup(self)
+        self._full = QRadioButton("Full loss  (cargo + investment)")
+        self._full.setChecked(True)
+        self._full.setCursor(Qt.PointingHandCursor)
+        self._partial = QRadioButton("Partial loss:")
+        self._partial.setCursor(Qt.PointingHandCursor)
+        self._grp.addButton(self._full)
+        self._grp.addButton(self._partial)
+        v.addWidget(self._full)
+        prow = QHBoxLayout()
+        prow.addWidget(self._partial)
+        self._loss = QSpinBox()
+        self._loss.setRange(0, 2_000_000_000)
+        self._loss.setSingleStep(1000)
+        self._loss.setGroupSeparatorShown(True)
+        self._loss.setSuffix(" aUEC")
+        self._loss.setButtonSymbols(QSpinBox.UpDownArrows)
+        prow.addWidget(self._loss, 1)
+        v.addLayout(prow)
+        # The amount field is always editable; changing it selects "Partial loss"
+        # (so you don't have to pick the radio first — that was confusing).
+        self._loss.valueChanged.connect(lambda *_: self._partial.setChecked(True))
+
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.button(QDialogButtonBox.Ok).setText("Log Failure")
+        bb.accepted.connect(self._accept)
+        bb.rejected.connect(self.reject)
+        v.addWidget(bb)
+
+    def _accept(self) -> None:
+        self.reasons = [cb.text() for cb in self._checks if cb.isChecked()]
+        if self._partial.isChecked():
+            self.kind = "partial"
+            self.loss = self._loss.value()
+        else:
+            self.kind = "full"
+            self.loss = None
+        self.accept()
+
+
 # ── Route detail dialog ──────────────────────────────────────────────────────
 
 class RouteDetailDialog(QDialog):
@@ -316,23 +405,11 @@ class RouteDetailDialog(QDialog):
         th = self._th
         if th is None or not hasattr(th, "_career_fail"):
             return
-        box = QMessageBox(self)
-        box.setWindowTitle("Route Failed")
-        box.setText("Was this a full loss or a partial loss?")
-        full_btn = box.addButton("Full failure", QMessageBox.DestructiveRole)
-        partial_btn = box.addButton("Partial…", QMessageBox.ActionRole)
-        box.addButton("Cancel", QMessageBox.RejectRole)
-        box.exec()
-        clicked = box.clickedButton()
-        if clicked is full_btn:
-            th._career_fail(self._route_data, "full", None)
-            QTimer.singleShot(0, self.close)
-        elif clicked is partial_btn:
-            loss, ok = QInputDialog.getInt(self, "Partial Failure",
-                                           "UEC lost on this run:", 0, 0, 2_000_000_000, 1000)
-            if ok:
-                th._career_fail(self._route_data, "partial", loss)
-                QTimer.singleShot(0, self.close)
+        dlg = RouteFailDialog(self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        th._career_fail(self._route_data, dlg.kind, dlg.loss, dlg.reasons)
+        QTimer.singleShot(0, self.close)
 
     def _add_favorite(self):
         th = self._th
@@ -1816,10 +1893,13 @@ class TradeHubWindow(SCWindow):
     def _career_entry(self, data: dict) -> dict:
         scu = int(data.get("eff_scu") or 0)
         pb = float(data.get("price_buy") or 0)
+        ps = float(data.get("price_sell") or 0)
         return {
             "commodity": data.get("commodity", ""),
             "ship": self._ship_name or "—",
             "scu": scu,
+            "price_buy": pb,
+            "price_sell": ps,
             "profit": float(data.get("profit") or 0),
             "investment": pb * scu,
             "buy_system": data.get("buy_system", ""),
@@ -1832,13 +1912,24 @@ class TradeHubWindow(SCWindow):
         self._career.complete(self._career_entry(data))
         self._refresh_career()
 
-    def _career_fail(self, data: dict, kind: str, loss) -> None:
+    def _career_fail(self, data: dict, kind: str, loss, reasons=None) -> None:
         e = self._career_entry(data)
         e["loss"] = e.get("investment", 0) if kind == "full" else float(loss or 0)
         e["kind"] = kind
-        e.pop("profit", None)
+        e["reasons"] = list(reasons or [])
+        # keep 'profit' on the entry so the run can be toggled back to a success
         self._career.fail(e)
         self._refresh_career()
+
+    def _career_reclassify_fail(self, entry: dict) -> bool:
+        """My Career ⇄ toggle on a SUCCESS: pop the failure dialog (reasons + loss)
+        and move that already-logged run into the failures list."""
+        dlg = RouteFailDialog(getattr(self, "_career_view", None) or self)
+        if dlg.exec() != QDialog.Accepted:
+            return False
+        self._career.set_failed(entry, dlg.kind, dlg.loss, dlg.reasons)
+        self._refresh_career()
+        return True
 
     def _career_favorite(self, data: dict) -> bool:
         fav = dict(data)

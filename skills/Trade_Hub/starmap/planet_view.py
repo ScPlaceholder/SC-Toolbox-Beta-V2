@@ -30,6 +30,7 @@ class PlanetView(QWidget):
     drillOut = Signal()         # zoom out -> back to system
     terminalClicked = Signal(str, str)   # double-click a surface terminal -> (name, system)
     bodyActivated = Signal(str, str)     # double-click any other surface location -> (name, system)
+    loreRequested = Signal(str, str)     # right-click a location / the planet -> (name, system) lore
 
     def __init__(self, system_code: str, planet_name: str,
                  bodies: Optional[List[Body]] = None, terminal_names=None,
@@ -60,6 +61,7 @@ class PlanetView(QWidget):
         self._hovered: Optional[Body] = None
         self._last: Optional[QPointF] = None
         self._dragging = False
+        self._moved = 0.0
 
         self.setMinimumSize(360, 280)
         self.setMouseTracking(True)
@@ -170,7 +172,8 @@ class PlanetView(QWidget):
     def _draw_hud(self, p: QPainter, w: int, h: int) -> None:
         f = QFont(); f.setPointSizeF(8); p.setFont(f); p.setPen(QColor(P.fg_dim))
         p.drawText(12, h - 13,
-                   f"drag to spin · wheel zoom (out: system) · {len(self._locs)} surface locations")
+                   f"drag to spin · wheel zoom (out: system) · right-click: lore · "
+                   f"{len(self._locs)} surface locations")
         ft = QFont(); ft.setPointSizeF(13); ft.setBold(True); p.setFont(ft)
         p.setPen(QColor(P.tool_trade)); p.drawText(14, 28, self._planet_name.upper())
 
@@ -192,11 +195,13 @@ class PlanetView(QWidget):
     def mousePressEvent(self, ev) -> None:
         self._last = ev.position()
         self._dragging = True
+        self._moved = 0.0
 
     def mouseMoveEvent(self, ev) -> None:
         pt = ev.position()
         if self._dragging and self._last is not None:
             dx = pt.x() - self._last.x(); dy = pt.y() - self._last.y(); self._last = pt
+            self._moved += abs(dx) + abs(dy)
             self._yaw += dx * 0.01
             self._pitch = max(-1.45, min(1.45, self._pitch + dy * 0.01))
             self.update()
@@ -209,7 +214,14 @@ class PlanetView(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, ev) -> None:
+        was_click = self._moved < 4.0
         self._dragging = False
+        if was_click and ev.button() == Qt.RightButton:   # right-click -> lore
+            w, h = self.width(), self.height()
+            b = self._hit(ev.position(), w / 2.0, h / 2.0, self._radius(w, h))
+            name = b.name if b is not None else self._planet_name
+            if name:
+                self.loreRequested.emit(name, self._system)
 
     def mouseDoubleClickEvent(self, ev) -> None:
         w, h = self.width(), self.height()

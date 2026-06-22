@@ -48,6 +48,7 @@ class GalaxyView(QWidget):
     setHomeRequested = Signal(str)    # user asked to make a system their home
     routePlotted = Signal(str, str, int, float)   # start, end, jumps, light-years
     viewChanged = Signal()            # any camera/selection/route change to persist
+    loreRequested = Signal(str, str)  # right-click a system -> (lore-title, code) lore lookup
 
     def __init__(self, galaxy: Galaxy, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -369,7 +370,8 @@ class GalaxyView(QWidget):
         f = QFont(); f.setPointSizeF(8.0); p.setFont(f)
         p.setPen(QColor(P.fg_dim))
         hint = ("click route points" if self._route_mode
-                else "drag rotate · wheel zoom · right-drag pan · dbl-click enter")
+                else "drag rotate · wheel zoom · right-drag pan · dbl-click enter · "
+                     "right-click: lore")
         p.drawText(12, h - 13, hint)
 
         # Selected-system info + out-of-bounds warning.
@@ -381,7 +383,8 @@ class GalaxyView(QWidget):
             fs = QFont(); fs.setPointSizeF(8.0); p.setFont(fs)
             p.setPen(QColor(P.fg_dim))
             tag = "in-game — double-click to enter" if s.in_game else "lore system — double-click to look around"
-            p.drawText(14, 43, f"{s.affiliation}   ·   {tag}   ·   jumps: {len(s.jump_points)}")
+            p.drawText(14, 43, f"{s.affiliation}   ·   {tag}   ·   right-click to see lore"
+                               f"   ·   jumps: {len(s.jump_points)}")
             if not s.in_game:
                 self._draw_warning(p, w, f"ⓘ  {s.name.upper()} — lore system · limited map detail")
 
@@ -447,6 +450,7 @@ class GalaxyView(QWidget):
 
     def mouseReleaseEvent(self, ev) -> None:
         was_click = self._mode == "rotate" and self._moved < 4.0
+        was_right_click = self._mode == "pan" and self._moved < 4.0
         self._mode = None
         self._last = None
         if was_click:
@@ -456,6 +460,11 @@ class GalaxyView(QWidget):
                     self._route_click(code)
                 else:
                     self.select(code)
+        elif was_right_click:                       # right-click a system -> lore
+            code = self._hit_test(ev.position())
+            s = self._galaxy.get(code) if code else None
+            if s is not None:
+                self.loreRequested.emit(f"{s.name} system", code)
         self.viewChanged.emit()
 
     def mouseDoubleClickEvent(self, ev) -> None:
