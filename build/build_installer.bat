@@ -160,6 +160,19 @@ echo  [OK] Dependencies installed.
 :: runtime — and shipping them leaks the build-machine username.
 if exist "%STAGE%\python\Scripts" rmdir /s /q "%STAGE%\python\Scripts"
 
+:: PySide6 ships C++ build intermediates (objects-Debug / objects-RelWithDebInfo
+:: dirs, *.obj, *.prl) and onnx bundles its full test-suite fixtures. None are used
+:: at runtime, and their deep paths blow past Windows' 260-char MAX_PATH, which
+:: aborts Inno Setup mid-compress ("filename ... syntax is incorrect"). Prune them
+:: so the installer both builds and stays lean. (Elah 2026-07-22, after 2.3.0 build)
+set "PYSIDE6=%STAGE%\python\Lib\site-packages\PySide6"
+if exist "%PYSIDE6%" (
+    for /d /r "%PYSIDE6%" %%D in (objects-*) do rmdir /s /q "%%D" 2>nul
+    del /s /q "%PYSIDE6%\*.obj" 2>nul
+    del /s /q "%PYSIDE6%\*.prl" 2>nul
+)
+if exist "%STAGE%\python\Lib\site-packages\onnx\backend\test" rmdir /s /q "%STAGE%\python\Lib\site-packages\onnx\backend\test"
+
 :: ── Step 6b: Bundle Tesseract OCR ──
 :: Prefer a system install (fastest), fall back to downloading the
 :: official installer if not present. Either way, validate the
@@ -449,6 +462,19 @@ echo  [*] Stripping torch metadata from ONNX models...
 if !errorlevel! neq 0 (
     echo  [!] ONNX metadata strip failed — installer may leak username in model files.
     set "VALIDATION_OK=0"
+)
+
+:: Belt-and-suspenders privacy scrub (Elah 2026-07-22). The strip above only covers models\*.onnx and
+:: misses dev scripts, json sidecars, csv/out training logs, and backup model dirs — all of which also
+:: embedded the build-machine path C:\Users\<user>\... (the 2.3.0 staging leaked the username in ~78
+:: files). This prunes backup model dirs and same-length-scrubs the username token out of EVERY file
+:: under the project tree, then FAILS the build if any trace remains (fail-closed on privacy). Username
+:: comes from %USERNAME% so no name is hardcoded in this committed script.
+echo  [*] Scrubbing build-machine username (%USERNAME%) from staged project files...
+"%STAGE%\python\python.exe" "%BUILD%sanitize_staging.py" "%STAGE%" --user "%USERNAME%" --apply
+if !errorlevel! neq 0 (
+    echo  [!] Privacy scrub FAILED — username may still be present in staging. Aborting to avoid a public leak.
+    exit /b 1
 )
 
 :: ── Step 7b: Deterministic Paddle sidecar setup ──
