@@ -111,6 +111,26 @@ try:
 except Exception:
     _HAS_RGB_V2 = False
 
+# 3b. RGB INVERSE CNN — decorrelated polarity peer of the v2 RGB CNN.
+# Trained on (255 - sample) per channel of the same corpus (including the
+# ``@`` icon class), so it fires on colour/polarity-INVERTED icons exactly
+# where v2 goes quiet — and vice-versa. Running BOTH on the raw crop and
+# taking ``max(@-prob)`` makes the RGB voter polarity-robust without
+# having to re-derive the crop's polarity: each model natively handles
+# its own polarity, and non-icons stay quiet on BOTH (so false positives
+# don't rise). Mirrors the digit ensemble's rgb / rgb_inv symmetry.
+# Prefer v3 (panel + signature fonts, 99.25% val acc); fall back to v1.
+_RGB_CNN_INV_PATH = _TOOL_DIR / "ocr" / "models" / "model_signal_rgb_inv_cnn_v3.onnx"
+try:
+    if not _RGB_CNN_INV_PATH.is_file():
+        _RGB_CNN_INV_PATH = (
+            _TOOL_DIR / "ocr" / "models" / "model_signal_rgb_inv_cnn.onnx"
+        )
+    _HAS_RGB_INV = bool(_RGB_CNN_INV_PATH.is_file())
+except Exception:
+    _HAS_RGB_INV = False
+_RGB_CNN_INV_JSON = _RGB_CNN_INV_PATH.with_suffix(".json")
+
 
 # ---------------------------------------------------------------------------
 # Module-level config
@@ -132,6 +152,10 @@ _GRAY_AT_ACCEPT_THR_LONE_PRIMARY = 0.5
 # pay the ONNX session-load cost.
 _rgb_cnn_v2_session = None
 _rgb_cnn_v2_classes = "0123456789@"
+
+# Inverse RGB CNN session (polarity peer) — lazily cached, same as v2.
+_rgb_cnn_inv_session = None
+_rgb_cnn_inv_classes = "0123456789@"
 
 # Optional gray CNN fallback (production helper) — used when the
 # caller doesn't pass one in.
@@ -276,6 +300,90 @@ def _ensure_rgb_cnn_v2_session():
     return sess, sess.get_inputs()[0].name, classes
 
 
+def _ensure_rgb_cnn_inv_session():
+    """Return (session, input_name, classes) for the inverse RGB CNN, or
+    (None, None, None) when it's missing / can't load.
+
+    Decorrelated polarity peer of v2 (see ``_RGB_CNN_INV_PATH``). Loaded
+    and cached the same way as v2; absence degrades gracefully (the RGB
+    voter just falls back to v2-only, i.e. pre-change behavior).
+    """
+    global _rgb_cnn_inv_session, _rgb_cnn_inv_classes
+    if not _HAS_RGB_INV:
+        return None, None, None
+    if _rgb_cnn_inv_session is not None:
+        try:
+            return (
+                _rgb_cnn_inv_session,
+                _rgb_cnn_inv_session.get_inputs()[0].name,
+                _rgb_cnn_inv_classes,
+            )
+        except Exception:  # pragma: no cover - defensive
+            return None, None, None
+    try:
+        import onnxruntime as ort  # type: ignore
+    except Exception as exc:
+        log.debug(
+            "icon_voter: onnxruntime import failed for inverse RGB CNN "
+            "(%s) — polarity-robust RGB voting unavailable", exc,
+        )
+        return None, None, None
+    try:
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.inter_op_num_threads = 1
+        sess = ort.InferenceSession(
+            str(_RGB_CNN_INV_PATH),
+            sess_options=opts,
+            providers=["CPUExecutionProvider"],
+        )
+    except Exception as exc:
+        log.warning(
+            "icon_voter: failed to load inverse RGB CNN from %s (%s: %s) "
+            "— polarity-robust RGB voting unavailable; falling back to "
+            "normal-polarity RGB CNN only",
+            _RGB_CNN_INV_PATH, type(exc).__name__, exc,
+        )
+        return None, None, None
+    classes = "0123456789@"
+    try:
+        if _RGB_CNN_INV_JSON.is_file():
+            import json
+            meta = json.loads(_RGB_CNN_INV_JSON.read_text(encoding="utf-8"))
+            classes = meta.get("charClasses", classes)
+    except Exception:
+        pass
+    _rgb_cnn_inv_session = sess
+    _rgb_cnn_inv_classes = classes
+    log.info(
+        "icon_voter: loaded inverse RGB CNN (%s) — RGB @ voting is now "
+        "polarity-robust", _RGB_CNN_INV_PATH.name,
+    )
+    return sess, sess.get_inputs()[0].name, classes
+
+
+def _at_prob_for_session(sess, inp_name, classes, batch) -> Optional[float]:
+    """Run a prepared NCHW batch through an RGB CNN session and return the
+    ``@``-class probability, or ``None`` if the session/class is
+    unusable or inference fails."""
+    if sess is None or inp_name is None:
+        return None
+    at_idx = _at_index(classes)
+    if at_idx < 0:
+        return None
+    try:
+        logits = sess.run(None, {inp_name: batch})[0]
+    except Exception as exc:
+        log.debug("icon_voter: RGB CNN inference failed: %s", exc)
+        return None
+    if logits is None or logits.size == 0:
+        return None
+    probs = _softmax_row(logits[0])
+    if at_idx >= probs.shape[0]:
+        return None
+    return float(probs[at_idx])
+
+
 def _at_index(classes: str) -> int:
     """Index of the ``@`` class in the model's char vocabulary, or -1."""
     return classes.find("@")
@@ -292,30 +400,23 @@ def _vote_rgb_cnn(
 ) -> tuple[str, Optional[float]]:
     """Return (verdict, prob_at) where verdict is yes/no/abstain/unavailable.
 
-    ``rgb_cnn`` may be a pre-loaded onnxruntime InferenceSession; when
-    None we lazy-load v2 from disk.
+    Polarity-robust ensemble: the crop is classified by BOTH the normal-
+    polarity RGB CNN (v2) and its inverse-polarity peer, and we take the
+    MAX of their ``@``-class probabilities. The two models are
+    complements — each fires on the polarity it was trained for and stays
+    quiet on the other — so:
+      * a real icon fires whichever model matches its polarity (normal
+        OR colour-inverted) → ``max`` is high → accept;
+      * a non-icon stays quiet on both → ``max`` is low → reject.
+    This (together with the polarity-robust geometry detector) is what
+    lets the icon anchor work over inverted / bright-bg captures, where
+    v2 alone collapses to ~0. If the inverse model is absent it degrades
+    to v2-only (the pre-change behavior).
+
+    ``rgb_cnn`` may be a pre-loaded onnxruntime InferenceSession to use
+    as the normal-polarity model; when None we lazy-load v2 from disk.
     """
-    sess = rgb_cnn
-    inp_name = None
-    classes = "0123456789@"
-    if sess is not None:
-        try:
-            inp_name = sess.get_inputs()[0].name
-            # Try to read classes from a sibling .json if the caller
-            # plumbed in a session whose class set we don't know.
-        except Exception:
-            sess = None
-    if sess is None:
-        sess, inp_name, classes = _ensure_rgb_cnn_v2_session()
-    if sess is None or inp_name is None:
-        return "unavailable", None
-
-    at_idx = _at_index(classes)
-    if at_idx < 0:
-        # Model has no @ class (this is what v1 looks like). Treat as
-        # "abstain on icon questions" — it cannot vote.
-        return "abstain", None
-
+    # Prepare the NCHW batch once (shared by both models).
     try:
         crop28 = crop_rgb.convert("RGB").resize((28, 28), Image.BILINEAR)
         arr = np.asarray(crop28, dtype=np.float32) / 255.0
@@ -325,19 +426,33 @@ def _vote_rgb_cnn(
         log.debug("icon_voter: RGB CNN crop prep failed: %s", exc)
         return "abstain", None
 
-    try:
-        logits = sess.run(None, {inp_name: batch})[0]
-    except Exception as exc:
-        log.debug("icon_voter: RGB CNN inference failed: %s", exc)
-        return "abstain", None
+    # ── Normal-polarity model: caller-supplied session, else lazy v2 ──
+    n_sess = rgb_cnn
+    n_inp = None
+    n_classes = "0123456789@"
+    if n_sess is not None:
+        try:
+            n_inp = n_sess.get_inputs()[0].name
+        except Exception:
+            n_sess = None
+    if n_sess is None:
+        n_sess, n_inp, n_classes = _ensure_rgb_cnn_v2_session()
+    p_norm = _at_prob_for_session(n_sess, n_inp, n_classes, batch)
 
-    if logits is None or logits.size == 0:
-        return "abstain", None
-    probs = _softmax_row(logits[0])
-    if at_idx >= probs.shape[0]:
-        return "abstain", None
-    p_at = float(probs[at_idx])
+    # ── Inverse-polarity peer (decorrelated) ──
+    i_sess, i_inp, i_classes = _ensure_rgb_cnn_inv_session()
+    p_inv = _at_prob_for_session(i_sess, i_inp, i_classes, batch)
 
+    cands = [p for p in (p_norm, p_inv) if p is not None]
+    if not cands:
+        # Neither model usable (no @ class / no session / inference
+        # failed). Mirror the legacy "can't vote" outcomes: unavailable
+        # if nothing loaded, abstain otherwise — both fall through to
+        # the gray CNN in the caller.
+        return ("unavailable" if (n_sess is None and i_sess is None)
+                else "abstain"), None
+
+    p_at = max(cands)
     if p_at >= _RGB_AT_ACCEPT_THR:
         return "yes", p_at
     if p_at <= _RGB_AT_REJECT_THR:

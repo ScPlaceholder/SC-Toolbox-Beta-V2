@@ -398,7 +398,10 @@ class RouteDetailDialog(QDialog):
             try:
                 th._career_complete(self._route_data)
             except Exception:
-                pass
+                import logging
+                logging.getLogger("TradeHub").exception(
+                    "career complete FAILED — totals not logged (route_data keys: %s)",
+                    list(self._route_data.keys()) if isinstance(self._route_data, dict) else type(self._route_data))
         QTimer.singleShot(0, self.close)   # the bubble exits on completion
 
     def _route_failed(self):
@@ -1891,16 +1894,21 @@ class TradeHubWindow(SCWindow):
 
     # ── career ledger (from the route popup buttons) ──────────────────────────
     def _career_entry(self, data: dict) -> dict:
-        scu = int(data.get("eff_scu") or 0)
+        # BUG FIX (2026-07-21): MULTI-LEG routes store totals as 'total_profit' + per-leg 'eff_scu',
+        # NOT the flat single-route keys — so multi-leg runs were logged with profit=0, scu=0
+        # ("totals not transferred to career"). Fall back to the multi-leg fields.
+        legs = data.get("legs") or []
+        scu = int(data.get("eff_scu") or (max((int(l.get("eff_scu") or 0) for l in legs), default=0)))
         pb = float(data.get("price_buy") or 0)
         ps = float(data.get("price_sell") or 0)
+        profit = float(data.get("profit") or data.get("total_profit") or 0)
         return {
             "commodity": data.get("commodity", ""),
             "ship": self._ship_name or "—",
             "scu": scu,
             "price_buy": pb,
             "price_sell": ps,
-            "profit": float(data.get("profit") or 0),
+            "profit": profit,
             "investment": pb * scu,
             "buy_system": data.get("buy_system", ""),
             "sell_system": data.get("sell_system", ""),

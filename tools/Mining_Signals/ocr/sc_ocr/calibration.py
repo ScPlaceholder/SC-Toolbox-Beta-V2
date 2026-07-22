@@ -840,10 +840,10 @@ def _auto_detect_value_column_left(
     except ImportError:
         return None
     try:
-        rgb = _np.asarray(img.convert("RGB"), dtype=_np.uint8)
-        # Max-of-channels so colored text registers as bright on
-        # both light- and dark-background HUDs.
-        detect = rgb.max(axis=2).astype(_np.uint8)
+        from . import frame_context as _fc
+        # Max-of-channels so colored text registers as bright on both
+        # light- and dark-background HUDs — the shared per-frame percept.
+        detect = _fc.max_channel(img)
     except Exception:
         return None
 

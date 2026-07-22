@@ -81,3 +81,6 @@ tools/Mining_Signals/ocr/models/model_signal_cnn.json
 # Claude Code (session-specific, not shared)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Mining Signals OCR training data — keep locally, never push (J 2026-07-22)
+tools/Mining_Signals/training_data_clean/

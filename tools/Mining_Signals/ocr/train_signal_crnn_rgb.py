@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import random
 import sys
 import time
@@ -65,7 +66,7 @@ ALPHABET = "0123456789,"        # 11 classes
 NUM_CLASSES = len(ALPHABET) + 1  # +1 blank
 BLANK_IDX = NUM_CLASSES - 1     # last index is blank
 H_TARGET = 48
-EPOCHS = 100
+EPOCHS = int(os.environ.get("SC_CRNN_EPOCHS", "100"))
 BATCH_SIZE = 16
 LR = 1e-3
 WEIGHT_DECAY = 1e-4
@@ -263,6 +264,46 @@ def augment(img: np.ndarray, rng: random.Random) -> np.ndarray:
             ImageFilter.GaussianBlur(radius=0.3),
         )
         out = np.asarray(pil, dtype=np.uint8)
+
+    # ── DEGRADATION AUGMENTATION (2026-05, low-res + chromatic aberration) ──
+    # The production failures are LOW-RESOLUTION captures: the signature
+    # panel renders ~16-24px tall on screen and gets Lanczos-upscaled to
+    # H_TARGET, so the digits arrive blurry, fringed (SC's chromatic-
+    # aberration HUD effect), and contrast-crushed. The mild sigma=0.3
+    # blur above never exposed the CRNN to that regime, so it underfits
+    # exactly those captures. This block reproduces it. Validated on a
+    # per-glyph POC: hard-degraded digit accuracy 86% -> 99.5% with no
+    # loss on clean. Each transform is independently gated so a mix of
+    # clean and degraded variants reaches the model.
+    #
+    # 1) Low-res: downscale height to ~14-28px then back up to H_TARGET.
+    if rng.random() < 0.55:
+        small_h = rng.randint(14, 28)
+        small_w = max(16, int(round(out.shape[1] * small_h / max(1, out.shape[0]))))
+        pil = Image.fromarray(out, mode="RGB").resize(
+            (small_w, small_h), Image.BILINEAR,
+        ).resize((out.shape[1], H_TARGET), Image.LANCZOS)
+        out = np.asarray(pil, dtype=np.uint8)
+    # 2) Stronger Gaussian blur (defocus / upscale softness).
+    if rng.random() < 0.45:
+        pil = Image.fromarray(out, mode="RGB").filter(
+            ImageFilter.GaussianBlur(radius=rng.uniform(0.6, 1.8)),
+        )
+        out = np.asarray(pil, dtype=np.uint8)
+    # 3) Chromatic aberration: shift R left, B right (lateral CA).
+    if rng.random() < 0.5:
+        a = out.astype(np.float32)
+        sr = rng.choice([-2, -1, 1]); sb = rng.choice([-1, 1, 2])
+        a[..., 0] = np.roll(a[..., 0], sr, axis=1)
+        a[..., 2] = np.roll(a[..., 2], sb, axis=1)
+        out = np.clip(a, 0, 255).astype(np.uint8)
+    # 4) Contrast crush + offset (dim HUD / variable exposure).
+    if rng.random() < 0.4:
+        a = out.astype(np.float32)
+        lo, hi = float(a.min()), float(a.max())
+        if hi - lo > 1:
+            a = (a - lo) / (hi - lo) * 255.0 * rng.uniform(0.6, 1.0) + rng.uniform(0, 45)
+        out = np.clip(a, 0, 255).astype(np.uint8)
 
     # Background noise overlay at low alpha (simulate variable bg).
     if rng.random() < 0.5:
@@ -551,7 +592,10 @@ def main() -> int:
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    device = torch.device("cpu")
+    device = torch.device(
+        "cuda" if (os.environ.get("SC_FORCE_CPU") != "1"
+                   and torch.cuda.is_available()) else "cpu"
+    )
     log.info("Device: %s", device)
     log.info("PyTorch: %s", torch.__version__)
     log.info("Alphabet: %r blank=%d num_classes=%d", ALPHABET, BLANK_IDX, NUM_CLASSES)
@@ -567,6 +611,22 @@ def main() -> int:
 
     train_items, val_items = split_train_val(items, VAL_FRAC, SEED)
     log.info("Split: train=%d val=%d", len(train_items), len(val_items))
+
+    # Fixed DEGRADED copy of the held-out val set. Model selection scores
+    # clean + degraded together, so the chosen checkpoint is the one that
+    # reads the low-res / chromatic-aberration regime (where production
+    # fails) — not just clean crops (where every checkpoint already aces
+    # it, hiding the improvement). Deterministic per index → stable across
+    # epochs so early-stopping behaves.
+    val_items_deg = [
+        (augment(_img, random.Random(9000 + _i)), _lab)
+        for _i, (_img, _lab) in enumerate(val_items)
+    ]
+    val_eval_items = val_items + val_items_deg
+    log.info(
+        "val selection set: %d clean + %d degraded = %d",
+        len(val_items), len(val_items_deg), len(val_eval_items),
+    )
 
     # 2. Expand train set with per-source repetitions; augmentation runs
     # at __getitem__ time so each pass is a fresh sample.
@@ -617,10 +677,12 @@ def main() -> int:
             saved = torch.load(str(ckpt_path), map_location=device)
             if isinstance(saved, dict) and "state_dict" in saved:
                 model.load_state_dict(saved["state_dict"])
-                # Restore best-tracking too so resumed training only
-                # writes a NEW checkpoint when it actually improves.
-                best_val_loss = float(saved.get("val_loss", math.inf))
-                best_val_acc = float(saved.get("val_acc", -1.0))
+                # Warm-start the WEIGHTS but DELIBERATELY do NOT restore
+                # the best-metric bar: the selection metric changed to
+                # clean+degraded val, so the old clean-only val_acc=0.833
+                # isn't comparable and would block every (degraded-better)
+                # checkpoint. Leave best_val_acc=-1 so epoch 1 re-baselines
+                # on the new metric.
                 best_state = {
                     k: v.detach().cpu().clone()
                     for k, v in saved["state_dict"].items()
@@ -692,22 +754,24 @@ def main() -> int:
                     n_val_batches += 1
         val_loss = val_loss / max(1, n_val_batches)
 
-        val_acc, _ = evaluate_string_acc(model, val_items, device)
+        val_acc, _ = evaluate_string_acc(model, val_eval_items, device)
+        val_acc_clean, _ = evaluate_string_acc(model, val_items, device)
 
         log.info(
-            "epoch %3d/%d  train_loss=%.4f  val_loss=%.4f  val_acc=%.3f  "
-            "lr=%.5f",
-            epoch, EPOCHS, train_loss, val_loss, val_acc,
+            "epoch %3d/%d  train_loss=%.4f  val_loss=%.4f  "
+            "val_acc(clean+deg)=%.3f  val_acc_clean=%.3f  lr=%.5f",
+            epoch, EPOCHS, train_loss, val_loss, val_acc, val_acc_clean,
             optim.param_groups[0]["lr"],
         )
 
-        improved = False
+        # Select the checkpoint by the clean+degraded val_acc (primary):
+        # that's the model that handles the failing regime. val_loss is
+        # logged only.
         if val_loss < best_val_loss - 1e-4:
             best_val_loss = val_loss
-            improved = True
-        if val_acc > best_val_acc:
+        improved = val_acc > best_val_acc
+        if improved:
             best_val_acc = val_acc
-            improved = True
         if improved:
             best_state = {
                 k: v.detach().cpu().clone() for k, v in model.state_dict().items()
@@ -757,6 +821,7 @@ def main() -> int:
     # 4. ONNX export.
     log.info("Exporting ONNX to %s", OUT_ONNX)
     model.eval()
+    model = model.to("cpu")   # export on CPU (avoid cuda/cpu dummy mismatch)
     dummy_w = 200  # arbitrary; dynamic axis below
     dummy = torch.randn(1, 3, H_TARGET, dummy_w, dtype=torch.float32)
     try:
@@ -769,6 +834,9 @@ def main() -> int:
                 "image": {0: "batch", 3: "width"},
                 "logits": {1: "batch", 0: "time"},
             },
+            dynamo=False,   # force legacy TorchScript exporter: torch 2.11's
+                            # default dynamo path fails on the BiLSTM
+                            # ("always_classified is unsupported")
         )
         export_ok = True
     except Exception as exc:

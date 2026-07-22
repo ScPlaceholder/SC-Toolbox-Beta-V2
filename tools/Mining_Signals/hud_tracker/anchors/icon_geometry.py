@@ -104,6 +104,35 @@ def _crop_to_hud(rgb: np.ndarray, hud_bbox: tuple[int, int, int, int] | None):
     return rgb[y0:y1, x0:x1], (x0, y0)
 
 
+def _canonicalize_color_polarity(rgb: np.ndarray) -> np.ndarray:
+    """Flip a colour/polarity-inverted crop back to true colour so the
+    warm-mask test is polarity-robust.
+
+    The location-pin icon is warm-coloured (yellow/orange) on the SC HUD,
+    so the warm mask only fires in NORMAL polarity. Over bright
+    backgrounds / inverse captures the whole crop reads colour-inverted
+    (warm → cool) and the mask comes back empty — the icon is there but
+    geometry says 'no'. Mirroring ``api._route_rgb_to_bod``: when the
+    crop reads as light-background (max-channel median >= 128) we
+    per-channel invert (255 - x), which restores the warm icon. A no-op
+    on a normal bright-on-dark icon crop (median is low), so normal
+    detection is unchanged; an empirical check shows this lifts inverted-
+    icon geometry recall 3/40 → 38/40 with 0 change to normal (38/40).
+    Inversion preserves geometry, so the teardrop/oval/notch shape checks
+    downstream are unaffected.
+    """
+    if rgb is None or rgb.size == 0 or rgb.ndim != 3 or rgb.shape[-1] != 3:
+        return rgb
+    try:
+        arr = rgb if rgb.dtype == np.uint8 else np.clip(
+            rgb, 0, 255).astype(np.uint8)
+        if float(np.median(arr.max(axis=2))) >= 128.0:
+            return (255 - arr.astype(np.int16)).clip(0, 255).astype(np.uint8)
+        return arr
+    except Exception:
+        return rgb
+
+
 def _warm_mask(rgb: np.ndarray) -> np.ndarray:
     """Return a boolean mask of warm pixels using PIL HSV scale."""
     img = Image.fromarray(rgb).convert("HSV")
@@ -298,6 +327,11 @@ def find_icon_by_geometry(
     crop, (ox, oy) = _crop_to_hud(rgb, hud_bbox)
     if crop.shape[0] < 4 or crop.shape[1] < 4:
         return None
+
+    # Polarity-robust: un-invert a colour-inverted crop so the warm-mask
+    # test fires on inverse/bright-background captures too. No-op for
+    # normal bright-on-dark icons.
+    crop = _canonicalize_color_polarity(crop)
 
     warm = _warm_mask(crop)
     if not warm.any():

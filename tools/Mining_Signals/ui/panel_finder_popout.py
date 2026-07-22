@@ -46,13 +46,14 @@ POLL_MS = 400
 # log widget gets squeezed below its 120 px minimum. Growing the
 # window makes the toggle an obvious, visible action and guarantees
 # the panel room. Removed again on OFF.
-_DEBUG_PANEL_EXTRA_H = 240
+_DEBUG_PANEL_EXTRA_H = 240   # log panel only; the flowchart is now its own window
 
 # Loggers captured by the panel-finder Debug Mode panel. Keep this list
 # in sync with the equivalent set in scripts/signature_finder_viewer.py
 # (both viewers ship their own list because the two GUIs cover different
 # pipelines).
 _DEBUG_LOGGERS = (
+    # Route 1 — HUD / composition panel
     "ocr.sc_ocr.api",
     "ocr.sc_ocr.scan_results_match",
     "ocr.sc_ocr.label_match",
@@ -62,11 +63,82 @@ _DEBUG_LOGGERS = (
     "hud_tracker.anchors.chrome_lines",
     "hud_tracker.anchors.hud_color_finder",
     "hud_tracker.anchors.mineral_name_color",
+    # Route 2 — signature value (added so the live flowchart can light up
+    # the signature pipeline's stages too, not just the HUD route)
+    "ocr.sc_ocr.signal_anchor",
+    "ocr.sc_ocr.signal_solve",
+    "ocr.sc_ocr.signal_record",
+    "hud_tracker.anchors.icon_voter",
+    "hud_tracker.anchors.icon_rgb_ncc",
+    "hud_tracker.anchors.icon_geometry",
+    "hud_tracker.anchors.comma_finder",
 )
 
 # Cap the captured-log buffer at this many lines. Older lines drop off
 # the top so we never let a leak-prone diagnostic pile up unbounded.
 _DEBUG_LOG_MAX_LINES = 500
+
+# ── Live pipeline flowchart ──────────────────────────────────────────
+# Ordered stages per route: (stage-key, plain-language label). Shown as a
+# column of boxes that light up live as the scan runs, so even a non-expert
+# can watch what the scanner is doing on both routes.
+_R1_STAGES = [
+    ("capture", "① capture screen"),
+    ("panel", "② find the panel"),
+    ("rows", "③ find mineral rows"),
+    ("values", "④ read MASS / RES / INST"),
+    ("mineral", "⑤ read mineral name"),
+    ("lock", "⑥ lock + confirm → composition"),
+]
+_R2_STAGES = [
+    ("capture", "① capture screen"),
+    ("pill", "② find pill / icon"),
+    ("crop", "③ locate the number"),
+    ("comma", "④ find comma + extend"),
+    ("digits", "⑤ read digits (CNN)"),
+    ("crnn", "⑥ CRNN cross-check"),
+    ("flap", "⑦ consistency → value"),
+]
+# First matching rule wins: (substring searched in the lowercased log line,
+# route, stage-key). Logger-name substrings are strong route signals; message
+# keywords catch the shared "ocr.sc_ocr.api" lines that serve both routes.
+_FLOW_RULES = [
+    ("hud_color_finder", "r1", "panel"),
+    ("scan_results_match", "r1", "panel"),
+    ("mineral_name_color", "r1", "rows"),
+    ("label_match", "r1", "values"),
+    ("onnx_hud_reader", "r1", "values"),
+    ("icon_voter", "r2", "pill"),
+    ("icon_rgb_ncc", "r2", "pill"),
+    ("icon_geometry", "r2", "pill"),
+    ("signal_solve", "r2", "pill"),
+    ("comma_finder", "r2", "comma"),
+    ("signal_anchor", "r2", "crop"),
+    ("signal_record", "r2", "flap"),
+    ("scanning timeout", "r2", "_timeout"),
+    ("all locked", "r1", "lock"),
+    ("world_model", "r2", "pill"),
+    ("localize_icon", "r2", "pill"),
+    ("crnn", "r2", "crnn"),
+    ("segment", "r2", "digits"),
+    ("glyph", "r2", "digits"),
+    ("comma", "r2", "comma"),
+    ("pill", "r2", "pill"),
+    ("flap", "r2", "flap"),
+    ("lock", "r1", "lock"),
+    ("mineral", "r1", "rows"),
+    ("resistance", "r1", "values"),
+    ("instability", "r1", "values"),
+]
+_STAGE_IDLE = ("QLabel{background:#222;color:#7a7a7a;border:1px solid #363636;"
+               "border-radius:5px;padding:2px 5px;font-family:Consolas;"
+               "font-size:8pt;}")
+_STAGE_ACTIVE = ("QLabel{background:#16385c;color:#e6f3ff;border:1px solid "
+                 "#5ab0ff;border-radius:5px;padding:2px 5px;font-family:Consolas;"
+                 "font-size:8pt;font-weight:bold;}")
+_STAGE_DONE = ("QLabel{background:#173318;color:#bfe9bf;border:1px solid "
+               "#3a7a3a;border-radius:5px;padding:2px 5px;font-family:Consolas;"
+               "font-size:8pt;}")
 
 
 class _QueueLogHandler(logging.Handler):
@@ -335,6 +407,10 @@ class PanelFinderPopout(QWidget):
         dp_btns.addWidget(self._debug_status_lbl, 1)
         dp_v.addLayout(dp_btns)
 
+        # Live two-route pipeline flowchart — its OWN floating window (not
+        # crammed into the debug log panel). Shown/hidden with Debug Mode.
+        self._flowchart = self._build_flowchart()
+
         self._debug_log_widget = QPlainTextEdit()
         self._debug_log_widget.setReadOnly(True)
         self._debug_log_widget.setMaximumBlockCount(_DEBUG_LOG_MAX_LINES)
@@ -594,6 +670,12 @@ class PanelFinderPopout(QWidget):
             )
             self._debug_log_lines.append(seed)
             self._debug_log_widget.appendPlainText(seed)
+            self._flow_reset()      # blank the flowchart for the new session
+            # Pop the flow tree out as its OWN window, just right of this one.
+            _g = self.frameGeometry()
+            self._flowchart.move(_g.right() + 8, _g.top())
+            self._flowchart.show()
+            self._flowchart.raise_()
             # Grow the window so switching Debug Mode on is an obvious,
             # visible change and the log widget gets its full room.
             self._grow_window_for_debug()
@@ -626,6 +708,7 @@ class PanelFinderPopout(QWidget):
             self._debug_log_queue = queue.Queue()
             self._debug_log_lines = []
             self._debug_log_widget.clear()
+            self._flowchart.hide()
             self._debug_panel.setVisible(False)
             self._restore_window_after_debug()
 
@@ -670,6 +753,7 @@ class PanelFinderPopout(QWidget):
                 break
             self._debug_log_lines.append(line)
             self._debug_log_widget.appendPlainText(line)
+            self._flow_mark(line)        # advance the live flowchart
             appended += 1
             # Defensive: if the queue is being flooded by a runaway
             # logger we don't want to block the GUI for too long. Cap
@@ -795,7 +879,145 @@ class PanelFinderPopout(QWidget):
             )
         self._debug_status_timer.start(2500)
 
+    # ──────────────────────────────────────────
+    # Live pipeline flowchart
+    # ──────────────────────────────────────────
+
+    def _build_flowchart(self) -> QWidget:
+        """Two-column live flowchart of both scan routes + a plain-text
+        log-copy button. Stage boxes are stored in ``self._flow_nodes`` so
+        ``_flow_mark`` can light them up as the captured logs stream in."""
+        self._flow_nodes = {"r1": {}, "r2": {}}
+        self._flow_active = {"r1": -1, "r2": -1}
+        self._flow_order = {"r1": [k for k, _ in _R1_STAGES],
+                            "r2": [k for k, _ in _R2_STAGES]}
+        fc = QWidget(self, Qt.Window | Qt.WindowStaysOnTopHint)
+        fc.setWindowTitle("SC — Scan Pipeline Flow (both routes)")
+        fc.setStyleSheet("background:#141414;")
+        fc.resize(440, 400)
+        outer = QVBoxLayout(fc)
+        outer.setContentsMargins(4, 3, 4, 3)
+        outer.setSpacing(3)
+        top = QHBoxLayout()
+        top.setSpacing(6)
+        self._flow_caption = QLabel(
+            "Pipeline idle — start a scan to watch both routes run.")
+        self._flow_caption.setWordWrap(True)
+        self._flow_caption.setStyleSheet(
+            "color:#9ccfff; background:transparent; font-family:Consolas; "
+            "font-size:8pt;")
+        top.addWidget(self._flow_caption, 1)
+        self._copy_log_btn = QPushButton("Copy debug log (text)")
+        self._copy_log_btn.setToolTip(
+            "Copy the captured pipeline log as plain text (no image), so it "
+            "can be saved as a text file or pasted into chat/notes.")
+        self._copy_log_btn.setStyleSheet(
+            "QPushButton{background:#3a5a3a;color:#d6f5d6;padding:3px 10px;"
+            "border:none;font-size:9pt;}"
+            "QPushButton:hover{background:#4c774c;}")
+        self._copy_log_btn.clicked.connect(self._on_copy_log_text_clicked)
+        top.addWidget(self._copy_log_btn)
+        outer.addLayout(top)
+        cols = QHBoxLayout()
+        cols.setSpacing(10)
+        cols.addWidget(
+            self._build_route_column("r1", "ROUTE 1 · HUD panel", _R1_STAGES), 1)
+        cols.addWidget(
+            self._build_route_column(
+                "r2", "ROUTE 2 · signature value", _R2_STAGES), 1)
+        outer.addLayout(cols)
+        return fc
+
+    def _build_route_column(self, route, title, stages) -> QWidget:
+        col = QWidget()
+        cv = QVBoxLayout(col)
+        cv.setContentsMargins(2, 2, 2, 2)
+        cv.setSpacing(1)
+        hdr = QLabel(title)
+        hdr.setAlignment(Qt.AlignCenter)
+        hdr.setStyleSheet(
+            "color:#dddddd; background:transparent; font-family:Consolas; "
+            "font-size:8pt; font-weight:bold;")
+        cv.addWidget(hdr)
+        for i, (key, label) in enumerate(stages):
+            box = QLabel(label)
+            box.setAlignment(Qt.AlignCenter)
+            box.setWordWrap(True)
+            box.setStyleSheet(_STAGE_IDLE)
+            cv.addWidget(box)
+            self._flow_nodes[route][key] = box
+            if i < len(stages) - 1:
+                ar = QLabel("↓")
+                ar.setAlignment(Qt.AlignCenter)
+                ar.setStyleSheet(
+                    "color:#555; background:transparent; font-size:8pt;")
+                cv.addWidget(ar)
+        cv.addStretch(1)
+        return col
+
+    def _flow_reset(self) -> None:
+        if not hasattr(self, "_flow_nodes"):
+            return
+        for route in ("r1", "r2"):
+            self._flow_active[route] = -1
+            for box in self._flow_nodes[route].values():
+                box.setStyleSheet(_STAGE_IDLE)
+        self._flow_caption.setText(
+            "Pipeline idle — start a scan to watch both routes run.")
+
+    def _flow_set(self, route, stage) -> None:
+        order = self._flow_order.get(route, [])
+        if stage not in order:
+            return
+        idx = order.index(stage)
+        self._flow_active[route] = idx
+        for i, key in enumerate(order):
+            box = self._flow_nodes[route][key]
+            if i < idx:
+                box.setStyleSheet(_STAGE_DONE)
+            elif i == idx:
+                box.setStyleSheet(_STAGE_ACTIVE)
+            else:
+                box.setStyleSheet(_STAGE_IDLE)
+        name = "HUD panel" if route == "r1" else "Signature"
+        label = dict(_R1_STAGES if route == "r1" else _R2_STAGES)[stage]
+        clean = label.split(" ", 1)[1] if " " in label else label
+        self._flow_caption.setText(f"{name} → {clean}")
+
+    def _flow_mark(self, line: str) -> None:
+        """Advance the flowchart from a single captured log line (first
+        matching rule wins; logger-name hits beat shared-api keywords)."""
+        if not hasattr(self, "_flow_nodes"):
+            return
+        low = line.lower()
+        for substr, route, stage in _FLOW_RULES:
+            if substr in low:
+                if stage == "_timeout":
+                    self._flow_reset()
+                    self._flow_caption.setText(
+                        "Signature → scanning… (panel not found yet)")
+                else:
+                    self._flow_set(route, stage)
+                return
+
+    def _on_copy_log_text_clicked(self) -> None:
+        """Copy the captured pipeline log to the clipboard as PLAIN TEXT."""
+        text = "\n".join(self._debug_log_lines)
+        n = len(self._debug_log_lines)
+        try:
+            QApplication.clipboard().setText(text)
+        except Exception as exc:
+            self._debug_status_lbl.setText(f"copy failed: {exc}")
+            self._debug_status_timer.start(2500)
+            return
+        self._debug_status_lbl.setText(f"Copied {n} log lines as text")
+        self._debug_status_timer.start(2500)
+
     def closeEvent(self, event):
+        try:
+            self._flowchart.close()      # close the pop-out flow window too
+        except Exception:
+            pass
         try:
             self._timer.stop()
         except Exception:

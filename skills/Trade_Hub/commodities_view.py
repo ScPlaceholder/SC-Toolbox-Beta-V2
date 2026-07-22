@@ -139,7 +139,11 @@ class CommoditiesView(QWidget):
             it = self._grid.takeAt(0)
             w = it.widget()
             if w is not None:
-                w.setParent(None)
+                # BUG FIX (2026-07-21): was w.setParent(None) — on a *visible* widget
+                # that promotes the card to a top-level window, so filtered-out cards
+                # popped out as frameless windows at random screen spots on scroll/resize.
+                # The cards persist in self._cards and just reflow, so hide-in-place is correct.
+                w.hide()
         for i in range(12):
             self._grid.setColumnStretch(i, 1 if i < self._cols else 0)
         t = (self._search.text() or "").strip().lower()

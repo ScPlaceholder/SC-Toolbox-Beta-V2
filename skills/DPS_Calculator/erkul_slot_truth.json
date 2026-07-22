@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-05-18T05:44:15+00:00",
+  "captured_at": "2026-07-11T01:12:02+00:00",
   "source": "https://www.erkul.games/live/calculator",
   "ships": {
     "Avenger Stalker": {
@@ -18428,6 +18428,257 @@
         }
       ]
     },
+    "Railen": {
+      "manufacturer": "GATAC",
+      "erkul_name": "Railen",
+      "slots": [
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "turrets",
+          "item": "Manned Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "turrets",
+          "item": "Manned Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "turrets",
+          "item": "Remote Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "tractor-beams",
+          "item": "SureGrip S2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "turrets",
+          "item": "Remote Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "tractor-beams",
+          "item": "SureGrip S2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "missiles",
+          "item": "Gatac-322",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "missile",
+          "item": "Tempest II x2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "missiles",
+          "item": "Gatac-322",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "missile",
+          "item": "Tempest II x2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "missiles",
+          "item": "Gatac-481",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S1",
+          "category": "missile",
+          "item": "TaskForce I x8",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "missiles",
+          "item": "Gatac-481",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S1",
+          "category": "missile",
+          "item": "TaskForce I x8",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "shields",
+          "item": "Stronghold",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "shields",
+          "item": "Stronghold",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "power-plants",
+          "item": "Ginzel",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "coolers",
+          "item": "ThermalCore",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "coolers",
+          "item": "ThermalCore",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S2",
+          "category": "quantum-drives",
+          "item": "Bolon",
+          "locked": false
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "jump-module",
+          "item": "Excelsior",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S2",
+          "category": "radars",
+          "item": "Surveyor",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "",
+          "item": "Empty",
+          "locked": false
+        }
+      ]
+    },
     "Syulen": {
       "manufacturer": "GATAC",
       "erkul_name": "Syulen",
@@ -18563,6 +18814,285 @@
           "size": "S1",
           "category": "radars",
           "item": "Ecouter",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "",
+          "item": "Empty",
+          "locked": false
+        }
+      ]
+    },
+    "Tyilui": {
+      "manufacturer": "GATAC",
+      "erkul_name": "Tyilui",
+      "slots": [
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "gimbal-turret",
+          "item": "Remote Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S3",
+          "category": "gimbal-turret",
+          "item": "VariPuck S3 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S3",
+          "category": "weapons",
+          "item": "CF-337 Panther",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "gimbal-turret",
+          "item": "Remote Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S3",
+          "category": "gimbal-turret",
+          "item": "VariPuck S3 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S3",
+          "category": "weapons",
+          "item": "CF-337 Panther",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "turrets",
+          "item": "Manned Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S1",
+          "category": "turrets",
+          "item": "Manned Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S4",
+          "category": "gimbal-turret",
+          "item": "VariPuck S4 x2",
+          "locked": false
+        },
+        {
+          "depth": 2,
+          "size": "S4",
+          "category": "weapons",
+          "item": "CF-447 Rhino",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "turrets",
+          "item": "Remote Turret",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "tractor-beams",
+          "item": "SureGrip S2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "missiles",
+          "item": "Gatac-322",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "missile",
+          "item": "Tempest II x2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "missiles",
+          "item": "Gatac-322",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "missile",
+          "item": "Tempest II x2",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "missiles",
+          "item": "Gatac-481",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S1",
+          "category": "missile",
+          "item": "TaskForce I x8",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S4",
+          "category": "missiles",
+          "item": "Gatac-481",
+          "locked": true
+        },
+        {
+          "depth": 1,
+          "size": "S1",
+          "category": "missile",
+          "item": "TaskForce I x8",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "shields",
+          "item": "Stronghold",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "shields",
+          "item": "Stronghold",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "power-plants",
+          "item": "Ginzel",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "coolers",
+          "item": "ThermalCore",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S3",
+          "category": "coolers",
+          "item": "ThermalCore",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S2",
+          "category": "quantum-drives",
+          "item": "Bolon",
+          "locked": false
+        },
+        {
+          "depth": 1,
+          "size": "S2",
+          "category": "jump-module",
+          "item": "Excelsior",
+          "locked": false
+        },
+        {
+          "depth": 0,
+          "size": "S2",
+          "category": "radars",
+          "item": "Surveyor",
           "locked": false
         },
         {
@@ -32428,6 +32958,6 @@
       ]
     }
   },
-  "ship_count": 217,
+  "ship_count": 219,
   "error_count": 1
 }

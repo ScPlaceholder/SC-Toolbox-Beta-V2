@@ -1,46 +1,5 @@
-# ── Vendored binaries / installable deps (re-downloadable, ~1.7GB) ─────
-py313_paddleocr/
-tesseract/
-
-# ── Python bytecode ────────────────────────────────────────────────────
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# ── Top-level debug output (transient, regenerated per scan) ───────────
-/debug_*.png
-/debug_*.txt
-/debug_overlay_*
-/debug_panel_overlay*
-/debug_fullrow_*
-/debug_row_*
-/debug_value_*
-# Leading-underscore debug PNGs at root (call/canon/crop/d*/diag/lastcall/
-# step/sub/test/work/inspect/result series). Don't catch _aspect_* and
-# _v3_* directories (those have real training data); only stray PNGs.
-/_*.png
-/_*.bin
-
-# ── Misc local state ────────────────────────────────────────────────────
-.claude/scheduled_tasks.lock
-.signals_cache.json
+.coverage
 *.log
-*.tmp
-*.swp
-.DS_Store
-Thumbs.db
-
-# ── Transient runtime state (regenerated per scan) ─────────────────────
-# debug_glyphs is rewritten every signature scan; tracking it floods
-# git status with no useful diff. training_data_crnn/pending is the
-# live-app dropbox for new training crops — also transient.
-debug_glyphs/
-training_data_crnn/pending/
-
-# ── Build/run artefacts under sc_templates that get regenerated ────────
-# labels.npz.bak_polluted is created by rebuild_label_templates_tight.py;
-# we don't need it in git (the original tracked labels.npz becomes the
-# new "polluted" backup on every rebuild).
-ocr/sc_templates/*.npz.bak_*
-ocr/sc_templates/labels_debug/*_tight_rebuilt.png
+.claude/

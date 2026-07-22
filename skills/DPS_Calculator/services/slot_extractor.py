@@ -87,6 +87,42 @@ _TURRET_HOUSING_SUBTYPES = {
     "RemoteTurret", "UpperTurret", "LowerTurret",
 }
 
+# Child ports that MATCH a gun-position prefix/exact-name but are NOT guns — they
+# leak into gun_count and inflate turret gun totals. Enumerated across all 217
+# cached ships (2026-07-11): turret shells (hardpoint_turret_exterior), weapon
+# shrouds (hardpoint_weapon_shroud), EMP/mining/salvage weapon arms, missile
+# launchers/racks, operator screens/labels/radar inside turret housings. Real gun
+# children (turret_left/right, hardpoint_class_N, hardpoint_weapon_left/right/01/
+# 02/s1..s3/a/b, duel_turret_*, hardpoint_gun/gimbal/gunmount_*, joint_turret_
+# weapon_*, weapon_left/right) contain NONE of these keywords, so the filter can
+# never drop a real gun. Fixes turret gun over-counts (Ironclad manned turrets
+# counted their exterior+shroud as guns → 13 not 10).
+_NONGUN_CHILD_KW = ("exterior", "shroud", "screen", "radar", "seat", "label",
+                    "launcher", "missile", "tractor", "mining", "salvage",
+                    "_emp", "_oc")
+
+
+def _is_nongun_child(name: str) -> bool:
+    n = (name or "").lower()
+    return any(k in n for k in _NONGUN_CHILD_KW)
+
+
+def _is_weapon_leaf(child: dict) -> bool:
+    """A gun child whose port name ends in '_weapon' (hardpoint_primary_weapon,
+    hardpoint_left/right_weapon) — used on Nova/Storm turrets. These hold a real
+    gun (localName like *_laserrepeater / *_ballisticcannon) but dodge the gun-
+    position prefixes, so local counted 0. Guarded: must have an installed item
+    (localName/localReference), no itemTypes (controllers carry WeaponController),
+    and not be a '_weapon_controller' or a non-gun child (shroud/screen/etc.)."""
+    n = (child.get("itemPortName") or "").lower()
+    if not n.endswith("_weapon") or "controller" in n:
+        return False
+    if child.get("itemTypes"):
+        return False
+    if _is_nongun_child(n):
+        return False
+    return bool(child.get("localName") or child.get("localReference"))
+
 
 def _port_label(name: str) -> str:
     s = re.sub(r"hardpoint_|_weapon$|weapon_", "", name, flags=re.I)
@@ -120,12 +156,20 @@ def _gun_position_count(port: dict) -> int:
     """
     _GUN_POS_PREFIXES = ("turret_", "hardpoint_class", "hardpoint_turret_",
                          "joint_turret_", "hardpoint_weapon_",
-                         "hardpoint_gimbal_", "hardpoint_gun_")
-    _GUN_POS_EXACT = {"hardpoint_left", "hardpoint_right", "hardpoint_upper", "hardpoint_lower"}
+                         "hardpoint_gimbal_", "hardpoint_gun_",
+                         "hardpoint_secondary_gun_",  # Perseus manned turret 2ndaries
+                         "hardpoint_gunmount_",        # Spartan / Ballista turret guns
+                         "duel_turret_")               # Command Module (CIG typo for dual)
+    _GUN_POS_EXACT = {"hardpoint_left", "hardpoint_right", "hardpoint_upper", "hardpoint_lower",
+                      "weapon_left", "weapon_right"}  # Starlite / Hull B turret guns
     count = 0
     for child in port.get("loadout", []):
         cpname = child.get("itemPortName", "")
-        if cpname in _GUN_POS_EXACT or any(cpname.startswith(p) for p in _GUN_POS_PREFIXES):
+        if _is_nongun_child(cpname):
+            continue  # turret shell / shroud / screen / missile — not a gun
+        if (cpname in _GUN_POS_EXACT
+                or any(cpname.startswith(p) for p in _GUN_POS_PREFIXES)
+                or _is_weapon_leaf(child)):
             count += 1
     return count
 
@@ -151,13 +195,101 @@ def _is_pdc_turret_port(pname: str) -> bool:
     return not any(x in p for x in ("controller", "aimodule", "_wc", "_mc", "_aim"))
 
 
+# SureGrip tractor-beam item UUIDs installed by bare reference on turrets with
+# GENERIC port names (hardpoint_turret / _rear / _base_lower) — they dodge both
+# the grin_ localName check and the tractor_beam port-name check, so erkul shows
+# them in its tractor section (0 guns) while we counted them as guns. Confirmed
+# tractors: 8c16ee3d = SureGrip S2 (Ironclad tractor mounts, C1 Spirit, Const
+# Taurus); 34f8a503 = Nomad's SureGrip. Preferred detection is the erkul item
+# resolver (is_nonweapon_utility); this set is the fallback for when erkul's
+# /live/utilities catalog isn't cached (it currently omits these refs).
+_KNOWN_TRACTOR_REFS = frozenset({
+    "8c16ee3d-78fb-4fef-a369-b3d42952ec33",
+    "34f8a503-41bc-4245-baea-e824c8a39411",
+})
+
+
+def _ref_is_tractor(ref: str) -> bool:
+    """True if a bare-UUID installed item is a tractor beam. Tries the erkul
+    resolver first (robust, catalog-driven), falls back to the known-UUID set."""
+    if not ref or "-" not in ref:
+        return False
+    if ref in _KNOWN_TRACTOR_REFS:
+        return True
+    try:
+        from erkul_item_resolver import is_nonweapon_utility
+    except Exception:
+        try:
+            import os as _os
+            import sys as _sys
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+            from erkul_item_resolver import is_nonweapon_utility
+        except Exception:
+            return False
+    try:
+        return bool(is_nonweapon_utility(ref))
+    except Exception:
+        return False
+
+
 def _holds_tractor_beam(port: dict) -> bool:
-    """True if the port or any descendant has a tractor-beam item installed.
-    erkul renders such a turret in its tractor-beam section, not as a weapon
-    (e.g. the MPUV Tractor's gun turret holds grin_tractorbeam_s1)."""
+    """True if the port or any descendant holds a tractor beam. erkul renders
+    such a turret in its tractor-beam section, not as a weapon (MPUV Tractor's
+    gun turret holds grin_tractorbeam_s1; Golem OX remote turret holds one at a
+    hardpoint_tractor_beam port by bare UUID). Detect by the grin_ localName, the
+    tractor-beam port NAME, OR the installed item ref resolving to a tractor —
+    since the item is often installed as a bare UUID the cache can't name."""
     if (port.get("localName") or "").lower().startswith("grin_tractorbeam"):
         return True
+    pn = (port.get("itemPortName") or "").lower()
+    if "tractor_beam" in pn or "tractorbeam" in pn:
+        return True
+    if _ref_is_tractor(port.get("localReference") or ""):
+        return True
     return any(_holds_tractor_beam(c) for c in port.get("loadout", []) or [])
+
+
+def _rack_capacity(ref: str) -> int:
+    """Missiles a UUID-referenced bespoke rack holds, via erkul_item_resolver
+    (erkul's /live/missile-racks catalog). Fails closed to 0 (no change) if the
+    resolver or its cache is unavailable, so it can never break existing counts."""
+    if not ref:
+        return 0
+    try:
+        from erkul_item_resolver import rack_capacity
+    except Exception:
+        try:
+            import os as _os
+            import sys as _sys
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+            from erkul_item_resolver import rack_capacity
+        except Exception:
+            return 0
+    try:
+        return int(rack_capacity(ref) or 0)
+    except Exception:
+        return 0
+
+
+def _turret_gun_ports(ref: str) -> int:
+    """Gun mounts a UUID-installed turret holds, via erkul_item_resolver
+    (erkul's /live/turrets catalog). Fails closed to 0 (no change)."""
+    if not ref:
+        return 0
+    try:
+        from erkul_item_resolver import turret_gun_ports
+    except Exception:
+        try:
+            import os as _os
+            import sys as _sys
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+            from erkul_item_resolver import turret_gun_ports
+        except Exception:
+            return 0
+    try:
+        return int(turret_gun_ports(ref) or 0)
+    except Exception:
+        return 0
 
 
 def extract_slots_by_type(loadout: list, accept_types: set) -> list:
@@ -193,6 +325,28 @@ def extract_slots_by_type(loadout: list, accept_types: set) -> list:
         ln = port.get("localName", "")
         lr = port.get("localReference", "")
         children = port.get("loadout", [])
+
+        # PDC turret housings (turret_pdc_*) sit in a hardpoint_pdc_* port, referenced
+        # by localName with NO nested children in the ship loadout — their gun lives in
+        # erkul's /live/turrets catalog, not the ship tree. The generic "turret_" skip
+        # below would blank them (that is the Polaris/Reclaimer "no PDCs" bug). Resolve
+        # the housing to the gun it ships with (turret_pdc_behr_a -> behr_laserrepeater_pdc_s1)
+        # so downstream find_weapon + DPS + dropdown all work; fall back to the housing ref.
+        if ln.startswith("turret_pdc") and _is_pdc_turret_port(port.get("itemPortName", "")):
+            gun = ""
+            try:
+                from erkul_item_resolver import turret_default_gun
+                gun = turret_default_gun(ln)
+            except Exception:
+                try:
+                    import os as _os
+                    import sys as _sys
+                    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+                    from erkul_item_resolver import turret_default_gun
+                    gun = turret_default_gun(ln)
+                except Exception:
+                    gun = ""
+            return gun or ln
 
         # Missile racks: localName starts with 'mrck_', missile is in children
         if ln and ln.startswith("mrck_") and children:
@@ -277,6 +431,12 @@ def extract_slots_by_type(loadout: list, accept_types: set) -> list:
                 if not _keep:
                     continue
 
+            # '*_label' ports (e.g. Golem OX 'turret_label') are UI grouping
+            # labels, not hardpoints — no itemTypes, no size, no children. erkul
+            # never renders them as slots; count them and you invent a phantom gun.
+            if "_label" in pname_lower and not port.get("itemTypes"):
+                continue
+
             types     = port.get("itemTypes", [])
             editable  = port.get("editable", False)
             max_sz    = port.get("maxSize") or inherited_size or 1
@@ -295,6 +455,21 @@ def extract_slots_by_type(loadout: list, accept_types: set) -> list:
             # tractor-beam section, not as a weapon slot (MPUV Tractor).
             if "WeaponGun" in accept_types and _holds_tractor_beam(port):
                 continue
+
+            # A weapon/turret-shaped port OCCUPIED by a non-weapon item (utility
+            # mount 'umnt_', camera or sensor package) is rendered by erkul under
+            # its utility section, NOT as a weapon slot — erkul classifies a slot
+            # by its INSTALLED item, not the port's capability. The Reliant
+            # Mako/Sen wingtips are the canonical case: weapon-shaped ports that
+            # hold a camera_mount + umnt_ utility, so erkul shows 2 guns while we
+            # counted 4. Guarded by _resolve_weapon_ref so a gimbal mount that
+            # actually holds a gun (mount_gimbal_ → real weapon) is NOT skipped.
+            if "WeaponGun" in accept_types:
+                _own = port.get("localName", "") or ""
+                if (_own.startswith("umnt_")
+                        or "_camera_mount" in _own or "_sensor_mount" in _own) \
+                        and not _resolve_weapon_ref(port):
+                    continue
 
             type_names = {_TYPE_ALIASES.get(t.get("type", ""), t.get("type", ""))
                           for t in types}
@@ -356,7 +531,7 @@ def extract_slots_by_type(loadout: list, accept_types: set) -> list:
                 or pname.startswith("hardpoint_weapon")
                 or pname.startswith("hardpoint_gimbal_")
                 or pname.startswith("hardpoint_gun_")
-            ) and not types and inherited_size is not None
+            ) and not _is_nongun_child(pname) and not types and inherited_size is not None
 
             # Skip bomb launchers from weapon extraction (they're not guns)
             if is_bomb and "WeaponGun" in accept_types and "BombLauncher" not in accept_types:
@@ -468,35 +643,108 @@ def extract_slots_by_type(loadout: list, accept_types: set) -> list:
                                     "local_ref":  child_ref,
                                     "is_missile": True,
                                 })
+                    elif "MissileRack" in sub_names and not children and not is_gun:
+                        # `not is_gun`: a HYBRID port typed both WeaponGun AND
+                        # MissileRack (the Idris nose railgun) is a weapon to erkul,
+                        # not a rack — let it fall through to the gun path. Only a
+                        # pure missile rack expands here.
+                        # UUID-referenced bespoke rack with NO tree children: the
+                        # missiles it holds are defined by the rack ITEM, not the
+                        # loadout tree (Gladiator ordnance bay = Gladiator-545 rack
+                        # holding 4 S5 missiles; Eclipse torpedo bay). Resolve the
+                        # rack UUID in erkul's /live/missile-racks catalog (which the
+                        # cache never fetched — see erkul_item_resolver) and emit its
+                        # capacity as loaded missile sub-slots. Degrades to 0 = no
+                        # change if the resolver/cache is unavailable, so it can never
+                        # break the existing counts.
+                        rack_ref = port.get("localReference", "") or port.get("localName", "")
+                        cap = _rack_capacity(rack_ref)
+                        for _i in range(cap):
+                            slots.append({
+                                "id":         f"{parent_label}:{pname}:missile_{_i}",
+                                "label":      label,
+                                "max_size":   max_sz,
+                                "editable":   True,
+                                "local_ref":  rack_ref,
+                                "is_missile": True,
+                            })
                     else:
                         weapon_ref = _resolve_weapon_ref(port)
                         # outer_ref: what's directly equipped in this hardpoint port.
                         # May be a gimbal UUID (≠ weapon_ref) or a weapon UUID (== weapon_ref).
                         outer_ref = port.get("localReference", "") or port.get("localName", "")
-                        slots.append({
+                        _slot = {
                             "id":        f"{parent_label}:{pname}",
                             "label":     label,
                             "max_size":  max_sz,
                             "editable":  editable,
                             "local_ref": weapon_ref,
                             "outer_ref": outer_ref,
-                        })
+                        }
+                        # A WeaponGun-typed mount can itself be a DUAL/MULTI mount
+                        # whose inner gun positions erkul renders grouped as one
+                        # "Gun xN" entry (Arrow nose ball turret = YellowJacket x2;
+                        # dual mounts on Lightning/Prowler/Asgard). The old code
+                        # counted these as 1 on the premise that a WeaponGun port is
+                        # "a single weapon to erkul" — but erkul's rendered truth
+                        # counts N. Carry the inner-gun count so it expands to N.
+                        if "WeaponGun" in accept_types:
+                            _n = _gun_position_count(port)
+                            if _n > 1:
+                                _slot["gun_count"] = _n
+                            elif (not children and "Turret" in type_names
+                                    and (sub_names & {"GunTurret"})):
+                                # A GunTurret installed by bare UUID with NO tree
+                                # children holds its guns per the turret ITEM, not
+                                # the loadout (Scorpius remote turret = 4 VariPuck
+                                # gimbals). Resolve the turret's gun-mount count in
+                                # erkul's /live/turrets catalog. Fails to 0 = no change.
+                                _tg = _turret_gun_ports(port.get("localReference", ""))
+                                if _tg > 1:
+                                    _slot["gun_count"] = _tg
+                        slots.append(_slot)
                 elif is_housing and not missile_only:
                     # Manned/ball/remote turret housing: collect all identical
                     # inner gun positions and emit ONE grouped slot with gun_count=N
                     # instead of N separate slots (Erkul shows VariPuck S4 ×4 style).
                     _HP_PFXS = ("turret_", "hardpoint_class", "hardpoint_turret_",
                                 "joint_turret_", "hardpoint_weapon_",
-                                "hardpoint_gimbal_", "hardpoint_gun_")
+                                "hardpoint_gimbal_", "hardpoint_gun_",
+                                "hardpoint_secondary_gun_",  # Perseus manned turret 2ndaries
+                                "hardpoint_gunmount_",        # Spartan / Ballista turret guns
+                         "duel_turret_")               # Command Module (CIG typo for dual)
                     _HP_EXACT = {"hardpoint_left", "hardpoint_right",
-                                 "hardpoint_upper", "hardpoint_lower"}
+                                 "hardpoint_upper", "hardpoint_lower",
+                                 "weapon_left", "weapon_right"}  # Starlite / Hull B turret guns
                     inner_guns = [
                         cp for cp in children
                         if not cp.get("itemTypes")
+                        and not _is_nongun_child(cp.get("itemPortName", ""))
                         and (cp.get("itemPortName", "") in _HP_EXACT
                              or any(cp.get("itemPortName", "").startswith(pfx)
-                                    for pfx in _HP_PFXS))
+                                    for pfx in _HP_PFXS)
+                             or _is_weapon_leaf(cp))
                     ]
+                    # Single-gimbal ball turret (F7C-M Heartseeker center
+                    # `hardpoint_gun_center`): its turret_left/right arms are EMPTY,
+                    # but a FILLED sized weapon hardpoint (hardpoint_size_N) holds the
+                    # one real gimbal+gun. erkul counts the installed gimbal, not the
+                    # empty arms → we over-counted by 1. When a filled sized hardpoint
+                    # exists, it replaces any EMPTY turret arms in the count. Guarded
+                    # on filled_sized so genuinely-empty gun mounts elsewhere (and the
+                    # Super Hornet Mk I, whose arms are FILLED with no sized hardpoint)
+                    # are untouched. Blast radius verified via dps_blast_radius.
+                    # (2026-07-13, with J)
+                    filled_sized = [cp for cp in children
+                                    if cp.get("itemPortName", "").startswith("hardpoint_size_")
+                                    and (cp.get("localName") or cp.get("localReference"))]
+                    if filled_sized:
+                        empty_arms = [g for g in inner_guns
+                                      if not g.get("localName")
+                                      and not g.get("localReference")]
+                        if empty_arms:
+                            inner_guns = [g for g in inner_guns
+                                          if g not in empty_arms] + filled_sized
                     n = len(inner_guns)
                     if n >= 1:
                         first      = inner_guns[0]

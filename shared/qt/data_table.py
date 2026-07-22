@@ -6,15 +6,24 @@ and custom canvas tables throughout the codebase.
 """
 
 from __future__ import annotations
+import json
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, Signal, QSortFilterProxyModel
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import (
+    Qt, QAbstractTableModel, QModelIndex, Signal, QSortFilterProxyModel,
+    QMimeData, QPoint,
+)
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QDrag, QPixmap, QPainter
 from PySide6.QtWidgets import (
     QTableView, QWidget, QHeaderView, QAbstractItemView, QStyledItemDelegate,
 )
 
 from shared.qt.theme import P
+
+# MIME type used when a row is dragged out of an SCTable.  The payload is the
+# row's data dict serialized as UTF-8 JSON, so a drop target in any window can
+# reconstruct the item without sharing the source model.
+SC_ITEM_MIME = "application/x-sc-item"
 
 
 class ColumnDef:
@@ -44,10 +53,11 @@ class ColumnDef:
 class SCTableModel(QAbstractTableModel):
     """Table model backed by a list of dicts."""
 
-    def __init__(self, columns: List[ColumnDef], parent=None):
+    def __init__(self, columns: List[ColumnDef], parent=None, draggable: bool = False):
         super().__init__(parent)
         self._columns = columns
         self._data: List[Dict[str, Any]] = []
+        self._draggable = draggable
 
     def set_data(self, data: List[Dict[str, Any]]) -> None:
         self.beginResetModel()
@@ -60,6 +70,17 @@ class SCTableModel(QAbstractTableModel):
         return None
 
     # ── QAbstractTableModel interface ──
+
+    def flags(self, index: QModelIndex):
+        """Item flags — add ItemIsDragEnabled so the view can start a drag.
+
+        Without this flag QTableView never enters its drag state even when
+        ``setDragEnabled(True)`` is called on the view.
+        """
+        f = super().flags(index)
+        if index.isValid() and self._draggable:
+            f |= Qt.ItemIsDragEnabled
+        return f
 
     def rowCount(self, parent=QModelIndex()):
         return len(self._data)
@@ -131,12 +152,14 @@ class SCTable(QTableView):
         columns: List[ColumnDef],
         parent: Optional[QWidget] = None,
         sortable: bool = True,
+        draggable: bool = False,
     ):
         super().__init__(parent)
         self._columns = columns
+        self._draggable = draggable
 
         # Model
-        self._source_model = SCTableModel(columns, self)
+        self._source_model = SCTableModel(columns, self, draggable=draggable)
         if sortable:
             self._proxy = QSortFilterProxyModel(self)
             self._proxy.setSourceModel(self._source_model)
@@ -161,6 +184,13 @@ class SCTable(QTableView):
         self.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+
+        # Drag-out support (opt-in).  When enabled, a row can be dragged
+        # onto any widget that accepts the SC_ITEM_MIME format.
+        if draggable:
+            self.setDragEnabled(True)
+            self.setDragDropMode(QAbstractItemView.DragOnly)
+            self.setDefaultDropAction(Qt.CopyAction)
 
         # Column widths
         for i, col in enumerate(columns):
@@ -196,3 +226,64 @@ class SCTable(QTableView):
         data = self._source_model.row_data(index.row())
         if data:
             self.row_double_clicked.emit(data)
+
+    # ── Drag-out ──
+
+    def startDrag(self, supported_actions):
+        """Start a copy-drag carrying the selected row as JSON.
+
+        Overrides the default view drag (which only encodes model indexes,
+        valid within this model) so the payload survives crossing into
+        another top-level window.
+        """
+        if not self._draggable:
+            return
+        row = self.get_selected_row()
+        if not row:
+            return
+        try:
+            payload = json.dumps(row, default=str).encode("utf-8")
+        except (TypeError, ValueError):
+            return
+
+        mime = QMimeData()
+        mime.setData(SC_ITEM_MIME, payload)
+        label = str(row.get("name") or row.get("name_full") or "")
+        if label:
+            mime.setText(label)
+
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        pixmap = self._drag_pixmap(label)
+        if pixmap is not None:
+            drag.setPixmap(pixmap)
+            drag.setHotSpot(QPoint(14, pixmap.height() // 2))
+        drag.exec(Qt.CopyAction)
+
+    @staticmethod
+    def _drag_pixmap(text: str) -> Optional[QPixmap]:
+        """Render a small labelled chip to follow the cursor during a drag."""
+        if not text:
+            return None
+        try:
+            font = QFont("Consolas", 9)
+            fm = QFontMetrics(font)
+            label = text if len(text) <= 32 else text[:31] + "…"
+            w = min(260, fm.horizontalAdvance(label) + 24)
+            h = 24
+            pm = QPixmap(w, h)
+            pm.fill(QColor(0, 0, 0, 0))
+            painter = QPainter(pm)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            bg = QColor(P.bg_card)
+            bg.setAlpha(235)
+            painter.setBrush(bg)
+            painter.setPen(QColor(P.accent))
+            painter.drawRoundedRect(0, 0, w - 1, h - 1, 5, 5)
+            painter.setFont(font)
+            painter.setPen(QColor(P.fg_bright))
+            painter.drawText(pm.rect().adjusted(10, 0, -6, 0), Qt.AlignVCenter | Qt.AlignLeft, label)
+            painter.end()
+            return pm
+        except Exception:
+            return None

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.coverage
+*.log
+.claude/
+*_cache.json
+.erkul*
+.fy_*
+.scunpacked*

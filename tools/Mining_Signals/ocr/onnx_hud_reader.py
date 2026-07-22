@@ -2380,11 +2380,8 @@ def _repair_label_match_xs(
             y1 = int(m["y"])
             y2 = y1 + int(m["h"])
             if detect is None:
-                detect = (
-                    np.array(img.convert("RGB"), dtype=np.uint8)
-                    .max(axis=2)
-                    .astype(np.uint8)
-                )
+                from .sc_ocr import frame_context as _fc
+                detect = _fc.max_channel(img)  # shared per-frame percept
             se = _scan_label_end_x(
                 detect, y1, y2, return_start=True,
             )
@@ -2557,9 +2554,9 @@ def _find_label_rows_by_ncc(
     # rightmost column with significant text density. That column is
     # the colon. Take the max across labels.
     try:
+        from .sc_ocr import frame_context as _fc
         gray_full = np.array(img.convert("L"), dtype=np.uint8)
-        rgb_full = np.array(img.convert("RGB"), dtype=np.uint8)
-        detect_full = rgb_full.max(axis=2).astype(np.uint8)
+        detect_full = _fc.max_channel(img)  # shared per-frame percept
     except Exception:
         gray_full = None
         detect_full = None
@@ -3629,12 +3626,17 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                 _panel_pose = None
                             # Independent per-label band is the starting
                             # point (the value reader is tuned to it).
+                            # ``_actual_cy`` keeps each row's OWN detected
+                            # center BEFORE the pose snaps strays, so the
+                            # spine overlay can show seated-vs-wandered.
+                            _actual_cy: dict[str, int] = {}
                             for _fld in _required:
                                 _m_abs = _abs_matches[_fld]
                                 _lc = (
                                     int(_m_abs["y"])
                                     + int(_m_abs["h"]) // 2
                                 )
+                                _actual_cy[_fld] = _lc
                                 _y1 = max(0, _lc - _half_h_direct)
                                 _y2 = min(img.height, _lc + _half_h_direct)
                                 if _y2 - _y1 >= 4:
@@ -3691,6 +3693,53 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                 try:
                                     _set_cached_title_box(
                                         _psolve.title_box(_panel_pose)
+                                    )
+                                except Exception:
+                                    pass
+                                # Spine overlay: feed the ONE solved pose
+                                # + each part's own detection so the
+                                # reviewer can SEE the body held together
+                                # (every node strung on one backbone) or a
+                                # part wandering off it.
+                                try:
+                                    from .sc_ocr import (
+                                        debug_overlay as _dbg_spine
+                                    )
+                                    _px = _panel_pose["x"]
+                                    _py = _panel_pose["y"]
+                                    _sc = _panel_pose["scale"]
+                                    _ttl_act = (
+                                        int(_pre_anchor["title_y"])
+                                        if _pre_anchor is not None
+                                        and "title_y" in _pre_anchor
+                                        else None
+                                    )
+                                    _spine_nodes = [(
+                                        "title", int(_px), int(_py),
+                                        _ttl_act,
+                                    ), (
+                                        "_mineral_row", int(_px),
+                                        int(round(
+                                            _py + _sc * _psolve
+                                            .ROW_CENTER_MULTS["_mineral_row"]
+                                        )), None,
+                                    )]
+                                    for _fld in (
+                                        "mass", "resistance", "instability",
+                                    ):
+                                        _spine_nodes.append((
+                                            _fld, int(_px),
+                                            int(round(
+                                                _py + _sc * _psolve
+                                                .ROW_CENTER_MULTS[_fld]
+                                            )),
+                                            _actual_cy.get(_fld),
+                                        ))
+                                    _dbg_spine.set_panel_pose(
+                                        (int(_px), int(_py)), float(_sc),
+                                        _spine_nodes,
+                                        _panel_pose.get("rejected"),
+                                        _panel_pose.get("stab"),
                                     )
                                 except Exception:
                                     pass
@@ -3840,6 +3889,55 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                             _ry2 - _ry1, _y2d - _y1d,
                                         )
                                         _ry1, _ry2 = _y1d, _y2d
+                                    # ── POSE LEASH ──────────────────────
+                                    # Instability is the worst-anchored row
+                                    # (its value renders well off its own
+                                    # label baseline) and the ink refiner
+                                    # searches a window that can snap onto a
+                                    # panel border / adjacent ink and run
+                                    # the crop clean off the row — the organ
+                                    # leaving the skeleton. The held pose
+                                    # places instability within ~0.3px on
+                                    # stills, so if the refined (or label)
+                                    # band's center has strayed more than
+                                    # ~0.6 row-heights from the pose-
+                                    # predicted instability center, it has
+                                    # escaped the body: snap it back onto the
+                                    # pose band. This is a one-way LEASH —
+                                    # it never moves a crop that already
+                                    # agrees with the pose, so clean reads
+                                    # (and the gate) are untouched; it only
+                                    # catches the runaway.
+                                    if _panel_pose is not None:
+                                        try:
+                                            _pbnd = _psolve.row_band(
+                                                _panel_pose, "instability",
+                                                img.height, _label_right,
+                                            )
+                                        except Exception:
+                                            _pbnd = None
+                                        if _pbnd is not None:
+                                            _pcy = (_pbnd[0] + _pbnd[1]) / 2.0
+                                            _rcy = (_ry1 + _ry2) / 2.0
+                                            _leash = max(
+                                                12.0,
+                                                0.6 * _panel_pose["scale"],
+                                            )
+                                            if abs(_rcy - _pcy) > _leash:
+                                                log.info(
+                                                    "_find_label_rows: "
+                                                    "instability crop ESCAPED "
+                                                    "pose leash (band cy=%.0f "
+                                                    "vs pose cy=%.0f, "
+                                                    "leash=%.0f) — clamped to "
+                                                    "pose band (%d,%d)",
+                                                    _rcy, _pcy, _leash,
+                                                    _pbnd[0], _pbnd[1],
+                                                )
+                                                _ry1, _ry2 = (
+                                                    int(_pbnd[0]),
+                                                    int(_pbnd[1]),
+                                                )
                                     if (_ry1, _ry2) != (_y1d, _y2d):
                                         log.info(
                                             "_find_label_rows: EARLY-DIRECT "

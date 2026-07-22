@@ -238,13 +238,58 @@ from PIL.ImageQt import ImageQt  # noqa: E402
 _DEBUG_LOGGERS = (
     "ocr.sc_ocr.api",
     "ocr.sc_ocr.signal_anchor",
+    "ocr.sc_ocr.signal_solve",
+    "ocr.sc_ocr.signal_record",
     "hud_tracker.anchors.icon_geometry",
     "hud_tracker.anchors.icon_contour",
     "hud_tracker.anchors.icon_rgb_ncc",
     "hud_tracker.anchors.icon_voter",
+    "hud_tracker.anchors.comma_finder",
 )
 
 _DEBUG_LOG_MAX_LINES = 500
+
+# ── Signature pipeline flow tree (Debug Mode) ──
+# A compact, signature-only version of the panel_finder_popout dual-route
+# flowchart. Stages light up idle → active → done as ``_sig_flow_mark``
+# advances them from the captured log stream (first matching rule wins), so a
+# non-expert can watch the Route-2 signature scan run end-to-end.
+_SIG_STAGES = [
+    ("capture", "① capture region"),
+    ("pill", "② find pill / icon"),
+    ("crop", "③ locate the number"),
+    ("comma", "④ comma + extend crop"),
+    ("digits", "⑤ read digits (CNN)"),
+    ("crnn", "⑥ CRNN cross-check"),
+    ("flap", "⑦ consistency → value"),
+]
+_SIG_FLOW_RULES = [
+    ("icon_voter", "pill"),
+    ("icon_rgb_ncc", "pill"),
+    ("icon_geometry", "pill"),
+    ("signal_solve", "pill"),
+    ("world_model", "pill"),
+    ("localize_icon", "pill"),
+    ("comma_finder", "comma"),
+    ("signal_anchor", "crop"),
+    ("signal_record", "flap"),
+    ("scanning timeout", "_timeout"),
+    ("crnn", "crnn"),
+    ("segment", "digits"),
+    ("glyph", "digits"),
+    ("comma", "comma"),
+    ("pill", "pill"),
+    ("flap", "flap"),
+]
+_SIG_IDLE = ("QLabel{background:#222;color:#7a7a7a;border:1px solid #363636;"
+             "border-radius:5px;padding:2px 6px;font-family:Consolas;"
+             "font-size:8pt;}")
+_SIG_ACTIVE = ("QLabel{background:#16385c;color:#e6f3ff;border:1px solid "
+               "#5ab0ff;border-radius:5px;padding:2px 6px;font-family:Consolas;"
+               "font-size:8pt;font-weight:bold;}")
+_SIG_DONE = ("QLabel{background:#173318;color:#bfe9bf;border:1px solid #3a7a3a;"
+             "border-radius:5px;padding:2px 6px;font-family:Consolas;"
+             "font-size:8pt;}")
 
 
 class _QueueLogHandler(logging.Handler):
@@ -813,6 +858,10 @@ class SignatureFinderViewer(QWidget):
         )
         dp_btns.addWidget(self._debug_status_lbl, 1)
         dp_v.addLayout(dp_btns)
+
+        # Live signature pipeline tree — its OWN floating window (not crammed
+        # into the debug log panel). Shown/hidden with Debug Mode.
+        self._sig_flow = self._build_sig_flowchart()
 
         self._debug_log_widget = QPlainTextEdit(self)
         self._debug_log_widget.setReadOnly(True)
@@ -1389,6 +1438,12 @@ class SignatureFinderViewer(QWidget):
                 lg.addHandler(self._debug_log_handler)
                 if lg.level == logging.NOTSET or lg.level > logging.DEBUG:
                     lg.setLevel(logging.DEBUG)
+            self._sig_flow_reset()       # blank the tree for the new session
+            # Pop the signature flow tree out as its OWN window.
+            _g = self.frameGeometry()
+            self._sig_flow.move(_g.right() + 8, _g.top())
+            self._sig_flow.show()
+            self._sig_flow.raise_()
             self._debug_panel.setVisible(True)
         else:
             self._debug_mode_on = False
@@ -1418,7 +1473,84 @@ class SignatureFinderViewer(QWidget):
             self._debug_log_queue = queue.Queue()
             self._debug_log_lines = []
             self._debug_log_widget.clear()
+            self._sig_flow.hide()
             self._debug_panel.setVisible(False)
+
+    def _build_sig_flowchart(self) -> QWidget:
+        """Compact, signature-only pipeline tree shown in the Debug panel.
+        Stages advance idle → active → done as ``_sig_flow_mark`` parses the
+        captured log stream, so the Route-2 scan is legible at a glance."""
+        self._sig_nodes: dict[str, QLabel] = {}
+        self._sig_order = [k for k, _ in _SIG_STAGES]
+        self._sig_active = -1
+        fc = QWidget(self, Qt.Window | Qt.WindowStaysOnTopHint)
+        fc.setWindowTitle("SC — Signature Pipeline Flow")
+        fc.resize(300, 360)
+        v = QVBoxLayout(fc)
+        v.setContentsMargins(2, 2, 2, 2)
+        v.setSpacing(1)
+        self._sig_flow_caption = QLabel(
+            "Signature pipeline — start a scan to watch it run.", self)
+        self._sig_flow_caption.setStyleSheet(
+            "color:#9ccfff;background:transparent;font-family:Consolas;"
+            "font-size:8pt;")
+        self._sig_flow_caption.setWordWrap(True)
+        v.addWidget(self._sig_flow_caption)
+        for i, (key, label) in enumerate(_SIG_STAGES):
+            box = QLabel(label, self)
+            box.setAlignment(Qt.AlignCenter)
+            box.setWordWrap(True)
+            box.setStyleSheet(_SIG_IDLE)
+            v.addWidget(box)
+            self._sig_nodes[key] = box
+            if i < len(_SIG_STAGES) - 1:
+                ar = QLabel("↓", self)
+                ar.setAlignment(Qt.AlignCenter)
+                ar.setStyleSheet(
+                    "color:#555;background:transparent;font-size:8pt;")
+                v.addWidget(ar)
+        return fc
+
+    def _sig_flow_reset(self) -> None:
+        if not hasattr(self, "_sig_nodes"):
+            return
+        self._sig_active = -1
+        for box in self._sig_nodes.values():
+            box.setStyleSheet(_SIG_IDLE)
+        self._sig_flow_caption.setText(
+            "Signature pipeline — start a scan to watch it run.")
+
+    def _sig_flow_set(self, stage: str) -> None:
+        if not hasattr(self, "_sig_nodes") or stage not in self._sig_order:
+            return
+        idx = self._sig_order.index(stage)
+        self._sig_active = idx
+        for i, key in enumerate(self._sig_order):
+            box = self._sig_nodes[key]
+            box.setStyleSheet(
+                _SIG_DONE if i < idx
+                else _SIG_ACTIVE if i == idx
+                else _SIG_IDLE
+            )
+        label = dict(_SIG_STAGES)[stage]
+        clean = label.split(" ", 1)[1] if " " in label else label
+        self._sig_flow_caption.setText("Signature → " + clean)
+
+    def _sig_flow_mark(self, line: str) -> None:
+        """Advance the signature tree from one captured log line — first
+        matching rule wins; ``_timeout`` re-blanks for a fresh search."""
+        if not hasattr(self, "_sig_nodes"):
+            return
+        low = line.lower()
+        for substr, stage in _SIG_FLOW_RULES:
+            if substr in low:
+                if stage == "_timeout":
+                    self._sig_flow_reset()
+                    self._sig_flow_caption.setText(
+                        "Signature → scanning… (panel not found yet)")
+                else:
+                    self._sig_flow_set(stage)
+                return
 
     def _drain_debug_log_queue(self) -> None:
         if self._debug_log_handler is None:
@@ -1431,6 +1563,7 @@ class SignatureFinderViewer(QWidget):
                 break
             self._debug_log_lines.append(line)
             self._debug_log_widget.appendPlainText(line)
+            self._sig_flow_mark(line)        # advance the signature tree
             appended += 1
             if appended > 1000:
                 break
@@ -1489,6 +1622,10 @@ class SignatureFinderViewer(QWidget):
         self._debug_status_timer.start(2500)
 
     def closeEvent(self, event):
+        try:
+            self._sig_flow.close()       # close the pop-out flow window too
+        except Exception:
+            pass
         # Tear down log handlers so closing the window doesn't leak
         # them onto the global logger registry. Also restore each
         # logger's pre-toggle level — same rationale as the toggle-

@@ -360,31 +360,14 @@ def _locate_icon_via_blacklist_match(gray: np.ndarray) -> int:
 
 def _is_blacklisted(glyph_28x28: np.ndarray) -> bool:
     """Check glyph against blacklist. Returns True if it looks like a
-    known-bad UI icon or artifact.
-
-    ALSO consults the Glyph Review quarantine (ocr.glyph_gate): 2,600+
-    user-rejected tiles whose decisions previously never reached
-    extraction — training_data_blacklist stayed a 1-file icon-template
-    store (it doubles as the icon locator's template set and must NOT
-    be flooded with quarantine tiles), so re-extraction kept re-minting
-    rejected junk into the datasets (user-caught 2026-06-10)."""
+    known-bad UI icon or artifact."""
     bl = _load_blacklist()
-    if bl:
-        h = _phash(glyph_28x28)
-        for ref in bl:
-            if _hash_similarity(h, ref) >= _BLACKLIST_THR:
-                return True
-    try:
-        from ocr.glyph_gate import is_quarantine_lookalike
-        # near=True: extraction output is DERIVED data by definition —
-        # an array carries no path, and the gate's path-based provenance
-        # inference would otherwise fall back to conservative exact-only
-        # matching (which let 527 near-dup tiles through a rebuild).
-        if is_quarantine_lookalike(glyph_28x28, near=True):
-            _debug("    QUARANTINE-lookalike glyph rejected")
+    if not bl:
+        return False
+    h = _phash(glyph_28x28)
+    for ref in bl:
+        if _hash_similarity(h, ref) >= _BLACKLIST_THR:
             return True
-    except Exception:
-        pass
     return False
 
 # Debug log — each extraction run appends one line per field/row

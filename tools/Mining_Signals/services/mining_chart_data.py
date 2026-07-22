@@ -102,12 +102,29 @@ class MiningChartFetcher:
             cached = self._cache.load(ttl=self._ttl)
             if cached.ok and cached.data:
                 raw = cached.data.get("mining_data")
-                version = cached.data.get("version", "")
+                version = self._cached_scmdb_version(cached.data)
                 if raw:
                     log.debug("mining_chart: serving from cache (%s)", version)
                     return Result.success(self._index(raw, version))
 
         return self._fetch_and_cache()
+
+    @staticmethod
+    def _cached_scmdb_version(cached: dict) -> str:
+        """Recover the scmdb data version from a cache payload.
+
+        ``DiskCache.save`` stamps its own integer ``cache_version`` into the
+        top-level ``version`` key, clobbering whatever we stored there.  So
+        the real scmdb version is read from our dedicated ``scmdb_version``
+        key, falling back to the version embedded in the raw mining_data
+        blob (which scmdb itself stamps) for caches written before this fix.
+        """
+        v = cached.get("scmdb_version")
+        if isinstance(v, str) and v:
+            return v
+        raw = cached.get("mining_data") or {}
+        embedded = raw.get("version")
+        return embedded if isinstance(embedded, str) and embedded else ""
 
     # ── internals ──
 
@@ -132,8 +149,11 @@ class MiningChartFetcher:
             if not raw:
                 return Result.failure(f"Failed to fetch {file_name}")
 
-            # Cache the raw payload so re-indexing is cheap.
-            self._cache.save({"version": version, "mining_data": raw})
+            # Cache the raw payload so re-indexing is cheap.  Store the
+            # scmdb version under ``scmdb_version`` because DiskCache.save
+            # overwrites the top-level ``version`` key with its own
+            # integer cache_version.
+            self._cache.save({"scmdb_version": version, "mining_data": raw})
             return Result.success(self._index(raw, version))
 
         except urllib.error.URLError as exc:
@@ -199,7 +219,9 @@ class MiningChartFetcher:
                 for dep in deposits:
                     comp_guid = dep.get("compositionGuid", "")
                     comp = compositions.get(comp_guid, {})
-                    dep_pct = (dep.get("relativeProbability", 0) / total_prob) * 100.0
+                    # Probability THIS rock type is what you scan here (a
+                    # location's deposit types are mutually exclusive).
+                    dep_prob = dep.get("relativeProbability", 0) / total_prob
 
                     for part in comp.get("parts", []):
                         elem_name = part.get("elementName", "")
@@ -212,10 +234,24 @@ class MiningChartFetcher:
 
                         target = row.ship_resources if grp_name in _SHIP_GROUPS else row.fps_resources
                         cols_set = ship_cols_set if grp_name in _SHIP_GROUPS else fps_cols_set
-                        # Keep the highest pct if the element appears twice.
-                        prev = target.get(clean, 0.0)
-                        if dep_pct > prev:
-                            target[clean] = dep_pct
+                        # Expected in-rock ABUNDANCE %, not mere occurrence:
+                        #   P(rock type) * P(element present) * mean(min,max)%,
+                        # summed across the location's deposit types. This is the
+                        # realistic average yield. The previous metric used the
+                        # deposit occurrence probability (relativeProbability /
+                        # total), which over-stated trace elements — e.g. Wala
+                        # Tungsten read 28% but actually mines ~2%. The per-part
+                        # min/maxPercent + probability fields are what make the
+                        # abundance computation possible.
+                        mid_pct = (
+                            part.get("minPercent", 0.0)
+                            + part.get("maxPercent", 0.0)
+                        ) / 2.0
+                        prob_present = part.get("probability", 1.0)
+                        target[clean] = (
+                            target.get(clean, 0.0)
+                            + dep_prob * prob_present * mid_pct
+                        )
                         cols_set.add(clean)
 
             # Only keep rows that actually contain something (avoids empty

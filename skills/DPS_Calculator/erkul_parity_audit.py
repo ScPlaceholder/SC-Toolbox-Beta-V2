@@ -605,22 +605,27 @@ def audit_all_missiles(raw):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Known-good reference values verified against erkul.games:
-#   CF-337 Panther (alpha=43.65, rps=12.5, maxAmmoLoad=75, maxRegenPerSec=15, cooldown=0.25)
+#   CF-337 Panther (alpha=43.65, rps=12.5, maxAmmoLoad=75, maxRegenPerSec=15, cooldown=0.74)
 #   Asgard buff: ammoLoadMult=5, regenMult=1, powerRatioMult=1
 #
-#   standalone (all mults=1, ratio=1):        ammos=75,  sus≈291.0
-#   with ammoLoadMult=5, ratio=1.0:           ammos=375, sus≈296.2
-#   with ammoLoadMult=5, ratio=0.513:         ammos=192, sus≈206.6  ← Erkul shows ~207
+#   standalone (all mults=1, ratio=1):        ammos=75,  sus≈278.9
+#   with ammoLoadMult=5, ratio=1.0:           ammos=375, sus≈293.7
+#   with ammoLoadMult=5, ratio=0.513:         ammos=192, sus≈204.2  ← Erkul shows ~204
+#
+# UPDATED 2026-07-13: the old fixtures (291.0/296.2/206.6) were stale — the Panther's
+# regenerationCooldown changed 0.25→0.74 in a patch, lowering sustained DPS. New values
+# match BOTH the toolbox calc and an independent clean-Erkul-data calc; the standalone
+# 278.9 was live-confirmed on erkul.games (shows 558 on a 2× mount = 279/gun).
 
 _PHASE5_TESTS = [
     # (description, weapon_name_substr, ammo_load_mult, regen_mult, power_ratio_mult,
     #  weapon_power_ratio, expected_sus, tolerance)
     ("Panther standalone (no buff)",
-     "CF-337 Panther", 1.0, 1.0, 1.0, 1.0, 291.0, 1.0),
+     "CF-337 Panther", 1.0, 1.0, 1.0, 1.0, 278.9, 1.0),
     ("Panther Asgard buff ammoLoad=5 full power",
-     "CF-337 Panther", 5.0, 1.0, 1.0, 1.0, 296.2, 1.0),
-    ("Panther Asgard buff ammoLoad=5 ratio=0.513 (Erkul ~207)",
-     "CF-337 Panther", 5.0, 1.0, 1.0, 0.513, 206.6, 1.0),
+     "CF-337 Panther", 5.0, 1.0, 1.0, 1.0, 293.7, 1.0),
+    ("Panther Asgard buff ammoLoad=5 ratio=0.513 (Erkul ~204)",
+     "CF-337 Panther", 5.0, 1.0, 1.0, 0.513, 204.2, 1.0),
 ]
 
 def run_phase5_tests(raw, out):

@@ -36,6 +36,7 @@ from ..config import (
 )
 from ..service import DataService
 from .detail_panel import DetailPanel
+from .grocery_list import GroceryListBubble
 from .rental_table import RentalTable
 from .ship_table import ShipTable
 from .virtual_table import VirtualTable
@@ -73,6 +74,7 @@ class MarketFinderApp(SCWindow):
         self._search_text: str = ""
         self._bubble: SearchBubble | None = None
         self._detail_bubbles: list[ItemDetailBubble] = []
+        self._grocery_bubble: GroceryListBubble | None = None
         self._cmd_file = cmd_file
         self._settings_visible: bool = False
         self._opacity: float = opacity
@@ -94,6 +96,9 @@ class MarketFinderApp(SCWindow):
     def closeEvent(self, event) -> None:
         if self._ipc_watcher:
             self._ipc_watcher.stop()
+        if self._grocery_bubble is not None:
+            self._grocery_bubble.close()
+            self._grocery_bubble = None
         super().closeEvent(event)
 
     # -- UI construction -----------------------------------------------------
@@ -132,6 +137,21 @@ class MarketFinderApp(SCWindow):
         gear_btn.setCursor(Qt.PointingHandCursor)
         gear_btn.mousePressEvent = lambda _: self._toggle_settings()
 
+        grocery_btn = QLabel("\U0001f6d2 Grocery List")
+        grocery_btn.setToolTip(_("Open your grocery list — drag items onto it to add them"))
+        grocery_btn.setStyleSheet(f"""
+            font-family: Consolas;
+            font-size: 8pt;
+            font-weight: bold;
+            color: {P.tool_market};
+            background: transparent;
+            border: 1px solid {P.tool_market};
+            border-radius: 3px;
+            padding: 2px 8px;
+        """)
+        grocery_btn.setCursor(Qt.PointingHandCursor)
+        grocery_btn.mousePressEvent = lambda _: self._toggle_grocery_list()
+
         tutorial_btn = QLabel("? Tutorial")
         tutorial_btn.setStyleSheet(f"""
             font-family: Consolas;
@@ -152,7 +172,8 @@ class MarketFinderApp(SCWindow):
             if item.spacerItem() is not None:
                 tb_layout.insertWidget(i + 1, self._status_lbl)
                 tb_layout.insertWidget(i + 2, gear_btn)
-                tb_layout.insertWidget(i + 3, tutorial_btn)
+                tb_layout.insertWidget(i + 3, grocery_btn)
+                tb_layout.insertWidget(i + 4, tutorial_btn)
                 break
 
         layout.addWidget(title_bar)
@@ -318,6 +339,19 @@ class MarketFinderApp(SCWindow):
     def _show_tutorial(self) -> None:
         from .tutorial import TutorialBubble
         TutorialBubble(self)
+
+    def _toggle_grocery_list(self) -> None:
+        """Open (or hide) the floating Grocery List bubble."""
+        if self._grocery_bubble is None:
+            self._grocery_bubble = GroceryListBubble(self.data, parent=self)
+        bubble = self._grocery_bubble
+        if bubble.isVisible():
+            bubble.hide()
+        else:
+            bubble.position_beside(self)
+            bubble.show()
+            bubble.raise_()
+            bubble.activateWindow()
 
     def _toggle_settings(self) -> None:
         if self._settings_visible:

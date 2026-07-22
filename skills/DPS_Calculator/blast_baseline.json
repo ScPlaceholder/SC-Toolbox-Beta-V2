@@ -1,0 +1,878 @@
+{
+  "ships": {
+    "Avenger Stalker": {
+      "g": 0,
+      "m": 0
+    },
+    "Avenger Titan": {
+      "g": 0,
+      "m": 0
+    },
+    "Avenger Titan Renegade": {
+      "g": 0,
+      "m": 0
+    },
+    "Avenger Warlock": {
+      "g": 0,
+      "m": 0
+    },
+    "Eclipse": {
+      "g": 0,
+      "m": 0
+    },
+    "Gladius": {
+      "g": 0,
+      "m": 0
+    },
+    "Gladius Pirate": {
+      "g": 0,
+      "m": 0
+    },
+    "Gladius Valiant": {
+      "g": 0,
+      "m": 0
+    },
+    "Hammerhead": {
+      "g": 0,
+      "m": 0
+    },
+    "Idris M": {
+      "g": 0,
+      "m": 0
+    },
+    "Idris P": {
+      "g": 1,
+      "m": 0
+    },
+    "Reclaimer": {
+      "g": 0,
+      "m": 0
+    },
+    "Redeemer": {
+      "g": 0,
+      "m": 0
+    },
+    "Retaliator": {
+      "g": 0,
+      "m": 0
+    },
+    "Sabre": {
+      "g": 0,
+      "m": 0
+    },
+    "Sabre Comet": {
+      "g": 0,
+      "m": 0
+    },
+    "Sabre Firebird": {
+      "g": 0,
+      "m": 0
+    },
+    "Sabre Peregrine": {
+      "g": 0,
+      "m": 0
+    },
+    "Sabre Raven": {
+      "g": 0,
+      "m": 0
+    },
+    "Tiburon": {
+      "g": 0,
+      "m": 0
+    },
+    "Vanguard Harbinger": {
+      "g": 0,
+      "m": 0
+    },
+    "Vanguard Hoplite": {
+      "g": 0,
+      "m": 0
+    },
+    "Vanguard Sentinel": {
+      "g": 0,
+      "m": 0
+    },
+    "Vanguard Warden": {
+      "g": 0,
+      "m": 0
+    },
+    "Arrow": {
+      "g": 0,
+      "m": 0
+    },
+    "Asgard": {
+      "g": 0,
+      "m": 0
+    },
+    "Ballista": {
+      "g": 0,
+      "m": 0
+    },
+    "Ballista Dunestalker": {
+      "g": 0,
+      "m": 0
+    },
+    "Ballista Snowblind": {
+      "g": 0,
+      "m": 0
+    },
+    "C8 Pisces": {
+      "g": 0,
+      "m": 0
+    },
+    "C8R Pisces Rescue": {
+      "g": 0,
+      "m": 0
+    },
+    "C8X Pisces Expedition": {
+      "g": 0,
+      "m": 0
+    },
+    "Carrack": {
+      "g": 0,
+      "m": 0
+    },
+    "Carrack Expedition": {
+      "g": 0,
+      "m": 0
+    },
+    "Centurion": {
+      "g": 0,
+      "m": 0
+    },
+    "F7A Hornet Mk I": {
+      "g": 0,
+      "m": 0
+    },
+    "F7A Hornet Mk II": {
+      "g": 0,
+      "m": 0
+    },
+    "F7C Hornet Mk I": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C Hornet Mk II": {
+      "g": 0,
+      "m": 0
+    },
+    "F7C Hornet Wildfire Mk I": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C-M Hornet Heartseeker Mk I": {
+      "g": 0,
+      "m": 0
+    },
+    "F7C-M Hornet Heartseeker Mk II": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C-M Super Hornet Mk I": {
+      "g": 0,
+      "m": 0
+    },
+    "F7C-M Super Hornet Mk II": {
+      "g": 0,
+      "m": 0
+    },
+    "F7C-R Hornet Tracker Mk I": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C-R Hornet Tracker Mk II": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C-S Hornet Ghost Mk I": {
+      "g": 2,
+      "m": 0
+    },
+    "F7C-S Hornet Ghost Mk II": {
+      "g": 0,
+      "m": 0
+    },
+    "F8A Lightning": {
+      "g": 0,
+      "m": 0
+    },
+    "F8C Lightning": {
+      "g": 0,
+      "m": 0
+    },
+    "Gladiator": {
+      "g": 0,
+      "m": 0
+    },
+    "Hawk": {
+      "g": 0,
+      "m": 0
+    },
+    "Hurricane": {
+      "g": 0,
+      "m": 0
+    },
+    "Paladin": {
+      "g": 0,
+      "m": 0
+    },
+    "Spartan": {
+      "g": 0,
+      "m": 0
+    },
+    "Terrapin": {
+      "g": 0,
+      "m": 0
+    },
+    "Terrapin Medic": {
+      "g": 0,
+      "m": 0
+    },
+    "Valkyrie": {
+      "g": 0,
+      "m": 0
+    },
+    "Khartu-al": {
+      "g": 0,
+      "m": 0
+    },
+    "Nox": {
+      "g": 0,
+      "m": 0
+    },
+    "Nox Kue": {
+      "g": 0,
+      "m": 0
+    },
+    "San'tok.yāi": {
+      "g": 0,
+      "m": 0
+    },
+    "CSV-SM": {
+      "g": 0,
+      "m": 0
+    },
+    "MOLE": {
+      "g": 0,
+      "m": 0
+    },
+    "MOTH": {
+      "g": 0,
+      "m": 0
+    },
+    "MPUV Cargo": {
+      "g": 0,
+      "m": 0
+    },
+    "MPUV Personnel": {
+      "g": 0,
+      "m": 0
+    },
+    "MPUV Tractor": {
+      "g": 0,
+      "m": 0
+    },
+    "RAFT": {
+      "g": 0,
+      "m": 0
+    },
+    "SRV": {
+      "g": 0,
+      "m": 0
+    },
+    "HoverQuad": {
+      "g": 0,
+      "m": 0
+    },
+    "Mustang Alpha": {
+      "g": 0,
+      "m": 0
+    },
+    "Mustang Beta": {
+      "g": 0,
+      "m": 0
+    },
+    "Mustang Delta": {
+      "g": 0,
+      "m": 0
+    },
+    "Mustang Gamma": {
+      "g": 0,
+      "m": 0
+    },
+    "Mustang Omega": {
+      "g": 0,
+      "m": 0
+    },
+    "Nomad": {
+      "g": 0,
+      "m": 0
+    },
+    "A1 Spirit": {
+      "g": 0,
+      "m": 0
+    },
+    "A2 Hercules Starlifter": {
+      "g": 0,
+      "m": 0
+    },
+    "Ares Star Fighter Inferno": {
+      "g": 0,
+      "m": 0
+    },
+    "Ares Star Fighter Ion": {
+      "g": 0,
+      "m": 0
+    },
+    "C1 Spirit": {
+      "g": 0,
+      "m": 0
+    },
+    "C2 Hercules Starlifter": {
+      "g": 0,
+      "m": 0
+    },
+    "Intrepid": {
+      "g": 0,
+      "m": 0
+    },
+    "M2 Hercules Starlifter": {
+      "g": 0,
+      "m": 0
+    },
+    "Mercury Star Runner": {
+      "g": 0,
+      "m": 0
+    },
+    "Buccaneer": {
+      "g": 0,
+      "m": 0
+    },
+    "Caterpillar": {
+      "g": 0,
+      "m": 0
+    },
+    "Caterpillar Pirate": {
+      "g": 0,
+      "m": 0
+    },
+    "Clipper": {
+      "g": 0,
+      "m": 0
+    },
+    "Command Module": {
+      "g": 0,
+      "m": 0
+    },
+    "Corsair": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutlass Black": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutlass Blue": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutlass Red": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutlass Steel": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutter": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutter Rambler": {
+      "g": 0,
+      "m": 0
+    },
+    "Cutter Scout": {
+      "g": 0,
+      "m": 0
+    },
+    "Dragonfly": {
+      "g": 0,
+      "m": 0
+    },
+    "Dragonfly Star Kitten": {
+      "g": 0,
+      "m": 0
+    },
+    "Dragonfly Yellowjacket": {
+      "g": 0,
+      "m": 0
+    },
+    "Golem": {
+      "g": 0,
+      "m": 0
+    },
+    "Golem OX": {
+      "g": 0,
+      "m": 0
+    },
+    "Herald": {
+      "g": 0,
+      "m": 0
+    },
+    "Ironclad": {
+      "g": 0,
+      "m": 0
+    },
+    "Ironclad Assault": {
+      "g": 0,
+      "m": 0
+    },
+    "Mule": {
+      "g": 0,
+      "m": 0
+    },
+    "Pitbull": {
+      "g": 0,
+      "m": 0
+    },
+    "Vulture": {
+      "g": 0,
+      "m": 0
+    },
+    "Blade": {
+      "g": 0,
+      "m": 0
+    },
+    "Glaive": {
+      "g": 0,
+      "m": 0
+    },
+    "Prowler": {
+      "g": 0,
+      "m": 0
+    },
+    "Prowler Utility": {
+      "g": 0,
+      "m": 0
+    },
+    "Stinger": {
+      "g": 0,
+      "m": 0
+    },
+    "Talon": {
+      "g": 0,
+      "m": 0
+    },
+    "Talon Shrike": {
+      "g": 0,
+      "m": 0
+    },
+    "Railen": {
+      "g": 0,
+      "m": 0
+    },
+    "Syulen": {
+      "g": 0,
+      "m": 0
+    },
+    "Tyilui": {
+      "g": 0,
+      "m": 0
+    },
+    "Shiv": {
+      "g": 0,
+      "m": 0
+    },
+    "MDC": {
+      "g": 1,
+      "m": 0
+    },
+    "MTC": {
+      "g": 0,
+      "m": 0
+    },
+    "PTV": {
+      "g": 0,
+      "m": 0
+    },
+    "ROC": {
+      "g": 0,
+      "m": 0
+    },
+    "ROC-DS": {
+      "g": 0,
+      "m": 0
+    },
+    "STV": {
+      "g": 0,
+      "m": 0
+    },
+    "UTV": {
+      "g": 0,
+      "m": 0
+    },
+    "L-21 Wolf": {
+      "g": 0,
+      "m": 0
+    },
+    "L-22 Alpha Wolf": {
+      "g": 0,
+      "m": 0
+    },
+    "P-52 Merlin": {
+      "g": 0,
+      "m": 0
+    },
+    "P-72 Archimedes": {
+      "g": 0,
+      "m": 0
+    },
+    "P-72 Archimedes Emerald": {
+      "g": 0,
+      "m": 0
+    },
+    "Fury": {
+      "g": 0,
+      "m": 0
+    },
+    "Fury LX": {
+      "g": 0,
+      "m": 0
+    },
+    "Fury MX": {
+      "g": 0,
+      "m": 0
+    },
+    "Guardian": {
+      "g": 0,
+      "m": 0
+    },
+    "Guardian MX": {
+      "g": 0,
+      "m": 0
+    },
+    "Guardian QI": {
+      "g": 0,
+      "m": 0
+    },
+    "Pulse": {
+      "g": 0,
+      "m": 0
+    },
+    "Pulse LX": {
+      "g": 0,
+      "m": 0
+    },
+    "Razor": {
+      "g": 0,
+      "m": 0
+    },
+    "Razor EX": {
+      "g": 0,
+      "m": 0
+    },
+    "Razor LX": {
+      "g": 0,
+      "m": 0
+    },
+    "Fortune": {
+      "g": 0,
+      "m": 0
+    },
+    "Freelancer": {
+      "g": 0,
+      "m": 0
+    },
+    "Freelancer DUR": {
+      "g": 0,
+      "m": 0
+    },
+    "Freelancer MAX": {
+      "g": 0,
+      "m": 0
+    },
+    "Freelancer MIS": {
+      "g": 0,
+      "m": 0
+    },
+    "Hull A": {
+      "g": 0,
+      "m": 0
+    },
+    "Hull B": {
+      "g": 0,
+      "m": 0
+    },
+    "Hull C": {
+      "g": 0,
+      "m": 0
+    },
+    "Prospector": {
+      "g": 0,
+      "m": 0
+    },
+    "Reliant Kore": {
+      "g": 0,
+      "m": 0
+    },
+    "Reliant Mako": {
+      "g": 0,
+      "m": 0
+    },
+    "Reliant Sen": {
+      "g": 0,
+      "m": 0
+    },
+    "Reliant Tana": {
+      "g": 0,
+      "m": 0
+    },
+    "Starfarer": {
+      "g": 0,
+      "m": 0
+    },
+    "Starfarer Gemini": {
+      "g": 0,
+      "m": 0
+    },
+    "Starlancer MAX": {
+      "g": 0,
+      "m": 0
+    },
+    "Starlancer TAC": {
+      "g": 0,
+      "m": 0
+    },
+    "Starlite": {
+      "g": 0,
+      "m": 0
+    },
+    "100i": {
+      "g": 0,
+      "m": 0
+    },
+    "125a": {
+      "g": 0,
+      "m": 0
+    },
+    "135c": {
+      "g": 0,
+      "m": 0
+    },
+    "300i": {
+      "g": 0,
+      "m": 0
+    },
+    "315p": {
+      "g": 0,
+      "m": 0
+    },
+    "325a": {
+      "g": 0,
+      "m": 0
+    },
+    "350r": {
+      "g": 0,
+      "m": 0
+    },
+    "400i": {
+      "g": 0,
+      "m": 0
+    },
+    "600i": {
+      "g": 0,
+      "m": 0
+    },
+    "600i Executive Edition": {
+      "g": 0,
+      "m": 0
+    },
+    "600i Touring": {
+      "g": 0,
+      "m": 0
+    },
+    "85X Limited": {
+      "g": 0,
+      "m": 0
+    },
+    "890 Jump": {
+      "g": 0,
+      "m": 0
+    },
+    "M50 Interceptor": {
+      "g": 0,
+      "m": 0
+    },
+    "M80": {
+      "g": 0,
+      "m": 0
+    },
+    "X1": {
+      "g": 0,
+      "m": 0
+    },
+    "X1 Force": {
+      "g": 0,
+      "m": 0
+    },
+    "X1 Velocity": {
+      "g": 0,
+      "m": 0
+    },
+    "Apollo Medivac": {
+      "g": 0,
+      "m": 0
+    },
+    "Apollo Triage": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I LX": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I CL": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I ES": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I LN": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I MR": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk I SE": {
+      "g": 0,
+      "m": 0
+    },
+    "Aurora Mk II": {
+      "g": 0,
+      "m": 0
+    },
+    "Constellation Andromeda": {
+      "g": 0,
+      "m": 0
+    },
+    "Constellation Aquila": {
+      "g": 0,
+      "m": 0
+    },
+    "Constellation Phoenix": {
+      "g": 0,
+      "m": 0
+    },
+    "Constellation Phoenix Emerald": {
+      "g": 0,
+      "m": 0
+    },
+    "Constellation Taurus": {
+      "g": 0,
+      "m": 0
+    },
+    "Hermes": {
+      "g": 0,
+      "m": 0
+    },
+    "Lynx": {
+      "g": 0,
+      "m": 0
+    },
+    "Mantis": {
+      "g": 0,
+      "m": 0
+    },
+    "Meteor": {
+      "g": 0,
+      "m": 0
+    },
+    "Perseus": {
+      "g": 0,
+      "m": 0
+    },
+    "Polaris": {
+      "g": 0,
+      "m": 0
+    },
+    "Salvation": {
+      "g": 0,
+      "m": 0
+    },
+    "Scorpius": {
+      "g": 0,
+      "m": 0
+    },
+    "Scorpius Antares": {
+      "g": 0,
+      "m": 0
+    },
+    "Ursa": {
+      "g": 0,
+      "m": 0
+    },
+    "Ursa Fortuna": {
+      "g": 0,
+      "m": 0
+    },
+    "Ursa Medivac": {
+      "g": 0,
+      "m": 0
+    },
+    "Zeus Mk II CL": {
+      "g": 0,
+      "m": 0
+    },
+    "Zeus Mk II ES": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone AA": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone MT": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone RC": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone RN": {
+      "g": 0,
+      "m": 0
+    },
+    "Cyclone TR": {
+      "g": 0,
+      "m": 0
+    },
+    "Nova": {
+      "g": 0,
+      "m": 0
+    },
+    "Storm": {
+      "g": 0,
+      "m": 0
+    },
+    "Storm AA": {
+      "g": 0,
+      "m": 0
+    },
+    "Scythe": {
+      "g": 0,
+      "m": 0
+    }
+  },
+  "unmatched": 1,
+  "errors": 0
+}

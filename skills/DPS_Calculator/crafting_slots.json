@@ -1,0 +1,975 @@
+{
+ "_source": "erkul cache 4.8.3-LIVE.12122953",
+ "_note": "Baked per-weapon damage-slot table for crafting. Impact Force only. q500=store-bought~1.0.",
+ "weapons": {
+  "apar_ballisticgatling_s4": {
+   "name": "Revenant Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "amrs_lasercannon_s3": {
+   "name": "Omnisky IX Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "kbar_ballisticcannon_s3": {
+   "name": "11-Series Broadsword Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "klwe_laserrepeater_s2": {
+   "name": "CF-227 Badger Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "gats_ballisticgatling_s3": {
+   "name": "Mantis GT-220 Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "klwe_laserrepeater_s3": {
+   "name": "CF-337 Panther Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "klwe_laserrepeater_s4": {
+   "name": "CF-447 Rhino Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "klwe_laserrepeater_s5": {
+   "name": "CF-557 Galdereen Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_lasercannon_s5": {
+   "name": "M7A Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticgatling_s4": {
+   "name": "AD4B Ballistic Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_lasercannon_s3": {
+   "name": "M5A Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticcannon_s4": {
+   "name": "C-788 Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "amrs_scattergun_s3": {
+   "name": "PyroBurst Scattergun",
+   "damage_slots": [
+    {
+     "slot": "Electronics",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Torque Junction",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "krig_lasercannon_s3": {
+   "name": "Quarreler Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "espr_ballisticcannon_s5": {
+   "name": "Deadbolt V Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticcannon_vng_s2": {
+   "name": "CVSA Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticrepeater_vng_s2": {
+   "name": "BRVS Repeater",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticrepeater_s2": {
+   "name": "SW16BR2 “Sawbuck” Repeater",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "hrst_laserrepeater_s5": {
+   "name": "Attrition-5 Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_distortionrepeater_vng_s2": {
+   "name": "ATVS Repeater",
+   "damage_slots": [
+    {
+     "slot": "Radiator",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Distorter Unit",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "jokr_distortioncannon_s2": {
+   "name": "Suckerpunch-L Cannon",
+   "damage_slots": [
+    {
+     "slot": "Electronics",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Distorter Unit",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_lasercannon_vng_s2": {
+   "name": "MVSA Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "gats_ballisticgatling_s1": {
+   "name": "YellowJacket GT-210 Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "klwe_laserrepeater_s1": {
+   "name": "CF-117 Bulldog Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "kron_lasercannon_s1": {
+   "name": "FL-11 Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "jokr_distortioncannon_s1": {
+   "name": "Suckerpunch Cannon",
+   "damage_slots": [
+    {
+     "slot": "Electronics",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Distorter Unit",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "gats_ballisticcannon_s3": {
+   "name": "Tarantula GT-870 Mark 3 Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_lasercannon_s4": {
+   "name": "M6A Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "gats_ballisticcannon_s2": {
+   "name": "Tarantula GT-870 Mark 2 Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "mining_laser_grin_arbor_s2": {
+   "name": "Arbor MH2 Mining Laser",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Bus Bars",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "banu_tachyoncannon_s3": {
+   "name": "Singe Cannon (S3)",
+   "damage_slots": [
+    {
+     "slot": "Wiring",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Acceleration Unit",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "amrs_lasercannon_s5": {
+   "name": "Omnisky XV Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "asad_distortionrepeater_s3": {
+   "name": "DR Model-XJ3 Repeater",
+   "damage_slots": [
+    {
+     "slot": "Radiator",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Distorter Unit",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "apar_ballisticscattergun_s1": {
+   "name": "Havoc Scattergun",
+   "damage_slots": [
+    {
+     "slot": "Anchor Pins",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "mining_laser_drak_golem_s1": {
+   "name": "Pitman Mining Laser",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Bus Bars",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticrepeater_s3": {
+   "name": "SW16BR3 “Shredder” Repeater",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "gats_ballisticgatling_s2": {
+   "name": "Scorpion GT-215 Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_ballisticgatling_s5": {
+   "name": "AD5B Ballistic Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "espr_lasercannon_s4": {
+   "name": "Lightstrike IV Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "espr_ballisticcannon_s3": {
+   "name": "Deadbolt III Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "espr_lasercannon_s3": {
+   "name": "Lightstrike III Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "espr_lasercannon_s2": {
+   "name": "Lightstrike II Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "krig_ballisticgatling_s2": {
+   "name": "Tigerstrike T-19P",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrels",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "hrst_laserrepeater_s3": {
+   "name": "Attrition-3 Repeater",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Thermal Sink",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "mining_laser_grin_arbor_s1": {
+   "name": "Arbor MH1 Mining Laser",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Bus Bars",
+     "mod_start": 0.8,
+     "mod_end": 1.2,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "apar_ballisticscattergun_s2": {
+   "name": "Hellion Scattergun",
+   "damage_slots": [
+    {
+     "slot": "Anchor Pins",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "toag_lasergatling_s2": {
+   "name": "Thlilye Laser Gatling",
+   "damage_slots": [
+    {
+     "slot": "Drive Motor",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "behr_lasercannon_s1": {
+   "name": "M3A Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "kbar_ballisticcannon_s1": {
+   "name": "9-Series Longsword Cannon",
+   "damage_slots": [
+    {
+     "slot": "Cycler",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Barrel",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "kron_lasercannon_s3": {
+   "name": "FL-33 Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  },
+  "amrs_lasercannon_s4": {
+   "name": "Omnisky XII Cannon",
+   "damage_slots": [
+    {
+     "slot": "Emitter",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    },
+    {
+     "slot": "Aperture Iris",
+     "mod_start": 0.95,
+     "mod_end": 1.05,
+     "q_start": 0,
+     "q_end": 1000
+    }
+   ]
+  }
+ }
+}

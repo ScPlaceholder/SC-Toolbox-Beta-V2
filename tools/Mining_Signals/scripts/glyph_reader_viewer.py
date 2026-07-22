@@ -1066,10 +1066,6 @@ class GlyphReaderViewer(QWidget):
                     "primary": 0, "secondary": 1,
                     "crnn": 2, "tesseract": 3,
                     "vote": 4, "winner": 5,
-                    "hud_rgb": 6,
-                    # tiles removed by the runtime filter chain; tile
-                    # label = reason (C=chroma P=pitch V=veto E=envelope)
-                    "dropped": 7,
                 }.get(fields[k].get("source", "primary"), 99),
             ),
         )

@@ -275,6 +275,9 @@ def _load_config() -> dict:
         "scan_interval_seconds": 3,
         "ocr_region": None,
         "hud_region": None,
+        # Manual game-resolution override for the region detectors'
+        # scale prior. None = auto-detect (Game.log → desktop).
+        "game_resolution": None,
         "ship_loadouts": {k: None for k, _ in SHIP_SLOTS},
         "active_ship": None,
         "gadget_quantities": {},
@@ -731,6 +734,20 @@ class MiningSignalsApp(SCWindow):
         self._btn_set_hud_region.clicked.connect(self._on_set_hud_region)
         self._btn_set_hud_region.setStyleSheet(_btn_style)
         ocr_layout.addWidget(self._btn_set_hud_region)
+
+        # Game resolution — feeds the region detectors' scale prior so
+        # the finders sweep the right template scale for the user's
+        # display. Auto-detected from Game.log; this button lets the
+        # user view it or pin a manual value.
+        self._btn_game_res = QPushButton("Game Resolution", self._ocr_row)
+        self._btn_game_res.setCursor(Qt.PointingHandCursor)
+        self._btn_game_res.setToolTip(
+            "View or override the Star Citizen game resolution used to "
+            "scale the region finders (auto-detected from Game.log)."
+        )
+        self._btn_game_res.clicked.connect(self._on_set_game_resolution)
+        self._btn_game_res.setStyleSheet(_btn_style)
+        ocr_layout.addWidget(self._btn_game_res)
 
         # ── Calibrate Mining Crops ──
         # Opens a non-modal dialog where the user can confirm each
@@ -3476,7 +3493,10 @@ class MiningSignalsApp(SCWindow):
         """Actually open the scanning-region selector. Called either
         directly (when the tip is dismissed) or as the on_proceed
         callback when the user clicks OK on the tip."""
-        self._region_selector = RegionSelector()
+        self._region_selector = RegionSelector(
+            detector="signal",
+            game_resolution=self._effective_game_resolution(),
+        )
         self._region_selector.region_selected.connect(self._on_region_selected)
         self._region_selector.show()
 
@@ -3516,7 +3536,10 @@ class MiningSignalsApp(SCWindow):
         """Actually open the HUD-region selector. Tip-gated entry
         point splits the show-tip and open-selector paths so the
         selector waits until the user dismisses the tip."""
-        self._hud_region_selector = RegionSelector()
+        self._hud_region_selector = RegionSelector(
+            detector="hud",
+            game_resolution=self._effective_game_resolution(),
+        )
         self._hud_region_selector.region_selected.connect(self._on_hud_region_selected)
         self._hud_region_selector.show()
 
@@ -3524,6 +3547,36 @@ class MiningSignalsApp(SCWindow):
         self._config["hud_region"] = region
         _save_config(self._config)
         log.info("Mining HUD region set: %s", region)
+
+    def _effective_game_resolution(self) -> Optional[dict]:
+        """Resolved game resolution ({"w","h","source"}) for the region
+        detectors' scale prior, or None if it can't be determined."""
+        try:
+            from ui.game_resolution import get_game_resolution
+            res = get_game_resolution(self._config)
+            return res if res.get("w") else None
+        except Exception as exc:
+            log.debug("effective game resolution unavailable: %s", exc)
+            return None
+
+    def _on_set_game_resolution(self) -> None:
+        """View / override the game resolution used by the region
+        detectors' scale prior."""
+        try:
+            from ui.game_resolution_dialog import GameResolutionDialog
+            from ui.game_resolution import get_game_resolution
+        except Exception as exc:
+            log.error("game resolution dialog unavailable: %s", exc)
+            return
+        dlg = GameResolutionDialog(self._config, parent=self)
+        if dlg.exec():
+            self._config["game_resolution"] = dlg.result_override()
+            _save_config(self._config)
+            eff = get_game_resolution(self._config)
+            log.info(
+                "Game resolution set: %sx%s (source=%s)",
+                eff["w"], eff["h"], eff["source"],
+            )
 
     def _on_set_display(self) -> None:
         self._display_placer = DisplayPlacer()
@@ -5545,8 +5598,25 @@ class MiningSignalsApp(SCWindow):
         )
         popup.show()
 
+    @Slot()
     def _dismiss_scanning(self) -> None:
-        """Hide the 'Scanning' placeholder if it's showing."""
+        """Hide the 'Scanning' placeholder if it's showing.
+
+        MUST be decorated with @Slot() because the signature-scanner
+        worker thread invokes this via ``QMetaObject.invokeMethod(
+        self, "_dismiss_scanning", Qt.QueuedConnection)`` (see
+        ``ui/app.py`` around line 4467).  Without the decorator
+        PyQt's meta-object introspection doesn't expose the method
+        as invokable from cross-thread queued connections and Qt
+        logs ``QMetaObject::invokeMethod: No such method
+        MiningSignalsApp::_dismiss_scanning()`` every time the
+        signature scanner tries to clear its "Scanning..." placeholder
+        bubble.  The visible symptom: the bubble stays on screen
+        and the user thinks the scanner is hung / produces no
+        results, even though the OCR pipeline ran fine downstream.
+        Observed hundreds of times in the v2.2.12 user log
+        (mining_signals (3).log).
+        """
         if self._scan_bubble.isVisible() and not self._scan_bubble._matches:
             self._scan_bubble.hide()
 
@@ -6037,6 +6107,45 @@ class MiningSignalsApp(SCWindow):
 # Entry-point helper
 # ---------------------------------------------------------------------------
 
+def _check_onnxruntime_at_startup(log) -> None:
+    """Surface a user-friendly dialog (instead of silent voter failure)
+    when onnxruntime can't load -- almost always means missing or
+    incompatible Visual C++ Redistributable. Without this, the scanner
+    silently degrades and the user sees only "scan returns nothing"
+    with no explanation. v2.2.11's icon_voter logging tells us WHY in
+    the log; this dialog tells the USER what to do about it."""
+    try:
+        import onnxruntime as ort  # type: ignore
+        # Bare import isn't always enough -- the native DLLs sometimes
+        # only get touched when a provider is enumerated. Force it.
+        _ = ort.get_available_providers()
+    except Exception as exc:
+        log.error(
+            "onnxruntime failed to load at startup (%s: %s) -- "
+            "Mining Signals scanner will be unavailable. Most likely "
+            "cause: missing or outdated Visual C++ Redistributable.",
+            type(exc).__name__, exc,
+        )
+        try:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                None,
+                "Mining Signals — missing dependency",
+                "The Mining Signals OCR engine can't start because the "
+                "Microsoft Visual C++ Runtime is missing or incompatible.\n\n"
+                f"Underlying error:\n  {type(exc).__name__}: {exc}\n\n"
+                "Fix: install the Microsoft Visual C++ Redistributable "
+                "(VS 2015-2022, x64) from:\n"
+                "https://aka.ms/vs/17/release/vc_redist.x64.exe\n\n"
+                "After installing it, restart SC Toolbox.\n\n"
+                "(SC Toolbox will keep running -- non-scanner features still "
+                "work -- but mining-signal OCR will be unavailable until "
+                "this is fixed.)",
+            )
+        except Exception:
+            pass  # Qt unavailable too -- error already logged above
+
+
 def main() -> None:
     """Launch Mining Signals from the command line."""
     from shared.crash_logger import init_crash_logging
@@ -6048,6 +6157,13 @@ def main() -> None:
 
         app = QApplication(sys.argv)
         apply_theme(app)
+
+        # Sanity-check onnxruntime BEFORE creating any scanner threads,
+        # so users with missing VC++ Runtime see a clear dialog instead
+        # of silent scanner failure. See _check_onnxruntime_at_startup
+        # for the failure mode this addresses (the v2.2.10 user crash
+        # where both CNN voters reported "unavailable").
+        _check_onnxruntime_at_startup(log)
 
         window = MiningSignalsApp(
             x=parsed["x"],

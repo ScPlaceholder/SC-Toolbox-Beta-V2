@@ -356,6 +356,45 @@ def set_expected_rows(
     }
 
 
+def set_panel_pose(
+    origin: Optional[tuple[int, int]],
+    scale: Optional[float],
+    nodes: Optional[list],
+    rejected: Optional[list] = None,
+    stab: Optional[str] = None,
+) -> None:
+    """Stash the single rigid-body pose so the overlay can draw the
+    SPINE — the proof that every anchor hangs off ONE solved body.
+
+    ``origin`` = panel origin (title top-left) in image px.
+    ``scale``  = solved title height (px).
+    ``nodes``  = ``[(name, pred_x, pred_y, actual_y_or_None), ...]`` for
+                 title / mineral / mass / resistance / instability:
+                 ``pred_*`` is where the POSE places that part,
+                 ``actual_y`` is where the part's own detector landed
+                 (None if it wasn't independently detected). A node ON
+                 the spine = seated; a node with an offset actual_y =
+                 a part that tried to wander.
+    ``rejected`` = anchor ids the solve threw out as outliers.
+    """
+    if origin is None or scale is None or not nodes:
+        _state.pop("panel_pose", None)
+        return
+    import time as _time
+    _state["panel_pose"] = {
+        "origin": (int(origin[0]), int(origin[1])),
+        "scale": float(scale),
+        "nodes": [
+            (str(n[0]), int(n[1]), int(n[2]),
+             None if n[3] is None else int(n[3]))
+            for n in nodes
+        ],
+        "rejected": list(rejected or []),
+        "stab": stab,
+        "ts": _time.time(),
+    }
+
+
 def set_value_crop(field: str, box: tuple[int, int, int, int]) -> None:
     _state.setdefault("value_crops", {})[field] = tuple(int(v) for v in box)
 
@@ -697,6 +736,67 @@ def write() -> None:
             if status_parts and row is not None:
                 ty = max(0, row["y1"] - 11)
                 draw.text((W // 2 - 80, ty), " ".join(status_parts), fill=(255, 200, 0))
+
+        # ── THE SPINE ──────────────────────────────────────────────
+        # Draw the single rigid-body pose as a backbone: one vertical
+        # line with a node at every anchor's POSE-PREDICTED center
+        # (title / mineral / mass / resistance / instability). Beside
+        # each node, the part's OWN detection: a node sitting ON the
+        # spine = seated; a red offset bar = a part that tried to
+        # wander (and was snapped back). If everything is truly one
+        # body, every node is strung on one straight line. This is the
+        # user's "can I SEE it tied together" — drawn last, on top.
+        try:
+            pp = _state.get("panel_pose")
+            if pp and (_now_render - float(pp.get("ts") or 0)) < 8.0:
+                nodes = pp.get("nodes") or []
+                if nodes:
+                    sx = max(6, int(pp["origin"][0]) - 10)
+                    ys = [n[2] for n in nodes]
+                    y_top, y_bot = min(ys) - 6, max(ys) + 6
+                    # backbone
+                    draw.line([(sx, y_top), (sx, y_bot)],
+                              fill=(0, 255, 255), width=2)
+                    _abbr = {"title": "T", "_mineral_row": "Mn",
+                             "mineral": "Mn", "mass": "Ma",
+                             "resistance": "R", "instability": "I"}
+                    seated = 0
+                    for name, _px, py, ay in nodes:
+                        # pose node on the spine
+                        draw.ellipse([sx - 4, py - 4, sx + 4, py + 4],
+                                     outline=(0, 255, 255), fill=(0, 60, 70))
+                        draw.line([(sx, py), (sx + 16, py)],
+                                  fill=(0, 255, 255), width=1)
+                        draw.text((sx - 22, py - 6),
+                                  _abbr.get(name, name[:2]),
+                                  fill=(0, 255, 255))
+                        if ay is not None:
+                            off = ay - py
+                            if abs(off) <= 8:
+                                seated += 1
+                                draw.ellipse(
+                                    [sx + 18, py - 3, sx + 24, py + 3],
+                                    fill=(0, 230, 100))  # seated = green
+                            else:
+                                # strayed: red bar at actual, connector
+                                draw.line([(sx, py), (sx + 30, ay)],
+                                          fill=(255, 60, 60), width=2)
+                                draw.line(
+                                    [(sx + 22, ay), (sx + 40, ay)],
+                                    fill=(255, 60, 60), width=2)
+                                draw.text((sx + 42, ay - 6),
+                                          "%+d" % off, fill=(255, 90, 90))
+                    rej = pp.get("rejected") or []
+                    _stab = pp.get("stab")
+                    draw.text(
+                        (sx - 4, y_top - 13),
+                        "SPINE scale=%.0f seated=%d/%d%s%s" % (
+                            pp.get("scale", 0), seated, len(nodes),
+                            (" %s" % _stab.upper()) if _stab else "",
+                            (" rej=%s" % rej) if rej else ""),
+                        fill=(0, 255, 255))
+        except Exception:
+            pass
 
         # Atomic write: tmp + rename so the viewer never reads a half-written file.
         # ``format="PNG"`` is required because PIL infers the format from the

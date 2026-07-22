@@ -111,6 +111,19 @@ def _find_pill_for_signal(rgb_arr) -> Optional[tuple[int, int, int, int]]:
     derivation in ``_signal_recognize_pil``. Tolerates missing imports
     (the hud_tracker module might not be on sys.path in some deployment
     paths) by returning None and letting the caller fall back.
+
+    Two-pass for background robustness: the pill is a semi-transparent
+    badge whose contrast against the world varies with the environment.
+    The base color pass occasionally (a) latches the WHOLE panel when a
+    saturated teal background falls inside the cyan band — a "pill"
+    covering ~90% of the panel that yields a garbage value crop — or
+    (b) finds nothing on a desaturated badge. When the base pass
+    degenerates or finds nothing we retry with a TIGHTENED pass (higher
+    sat/val floors) that excludes washed-out background; if that still
+    degenerates we return None rather than emit a panel-spanning box.
+    Measured on the labeled pill/icon failures: +4 real pills recovered,
+    5 panel-spanning "pills" suppressed, ZERO regression on the working
+    set (base runs first and still wins there).
     """
     try:
         from hud_tracker.anchors.hud_color_finder import find_hud_panel
@@ -140,20 +153,57 @@ def _find_pill_for_signal(rgb_arr) -> Optional[tuple[int, int, int, int]]:
         "morph_horiz_close_px": 30,
         "bbox_aspect_peak": 3.5,
     }
+    # Tightened fallback: raise the saturation/value floors so a
+    # washed-out teal/blue BACKGROUND no longer passes the chrome mask.
+    # Only used when the base pass degenerates or finds nothing.
+    _calib_tight = dict(_calib)
+    _calib_tight.update({
+        "source": "region2-tight-fallback", "sat_min": 95, "val_min": 110,
+    })
     try:
-        res = find_hud_panel(rgb_arr, calibration=_calib)
-    except Exception as _exc:
-        log.debug("sc_ocr.signal: find_hud_panel raised: %s", _exc)
-        return None
-    if res is None:
-        return None
-    bbox = res.get("bbox")
-    if not bbox or len(bbox) != 4:
-        return None
-    try:
-        return (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
-    except (TypeError, ValueError):
-        return None
+        _H, _W = int(rgb_arr.shape[0]), int(rgb_arr.shape[1])
+    except Exception:
+        _H = _W = 0
+    _panel_area = float(_W * _H) if (_W and _H) else 0.0
+
+    def _detect(_cal):
+        try:
+            res = find_hud_panel(rgb_arr, calibration=_cal)
+        except Exception as _exc:
+            log.debug("sc_ocr.signal: find_hud_panel raised: %s", _exc)
+            return None
+        if res is None:
+            return None
+        bbox = res.get("bbox")
+        if not bbox or len(bbox) != 4:
+            return None
+        try:
+            return (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))
+        except (TypeError, ValueError):
+            return None
+
+    def _degenerate(bb):
+        # A real pill is a small fraction of the panel; a box covering
+        # >55% of it is the background-latched failure, not a pill.
+        return (bb is not None and _panel_area > 0
+                and (bb[2] * bb[3]) > 0.55 * _panel_area)
+
+    bbox = _detect(_calib)
+    if bbox is None:
+        # Under-detection ONLY (desaturated badge / off-background):
+        # retry with a tightened pass that excludes washed-out
+        # background. This direction is read-safe — the base found no
+        # pill, so there was no read to lose. The OPPOSITE failure (a
+        # panel-SPANNING degenerate box) is deliberately left as-is:
+        # measured, suppressing or re-tightening a degenerate box
+        # REGRESSED reads, because some degenerate boxes still yield the
+        # correct world-model value crop by luck (e.g. one capture read
+        # 21350 from a 90%-panel box), so that direction is left as-is.
+        bbox_tight = _detect(_calib_tight)
+        if bbox_tight is not None and not _degenerate(bbox_tight):
+            log.debug("sc_ocr.signal: pill recovered by tightened pass")
+            return bbox_tight
+    return bbox
 
 # Consensus buffer: last 5 raw reads per field. Scans are ~1 Hz so
 # 5 entries cover ~5 seconds. The display layer uses 2-of-3 in the
@@ -723,6 +773,17 @@ def _signal_scanning_timeout_smoke_test() -> None:
 # in the live preview AND seed Lock with a real rectangle instead of
 # the placeholder.
 _LAST_SIGNAL_CROP_BOX: list[int] = []
+# Digit-grid anchor (the voted comma's absolute x in signal-region px),
+# stashed per scan for the region2 nervous system. Mutable holder so it
+# can be set from inside _signal_recognize_pil without a global decl —
+# same pattern as _LAST_SIGNAL_CROP_BOX. Empty = no comma this scan.
+_LAST_SIGNAL_COMMA_X: list[float] = []
+# Units-glyph terminal-digit hint (0 or 5) for the 0/5 structural snap,
+# stashed per scan by the per-glyph classifier when it ran. Same
+# mutable-holder pattern. Empty = no per-glyph hint this scan, so the
+# snap falls back to the lexicon / nearest-by-value. See
+# _snap_signal_units_05.
+_LAST_SIGNAL_UNITS_HINT: list[int] = []
 
 
 def get_last_signal_crop_box() -> Optional[dict]:
@@ -824,6 +885,22 @@ def set_known_signal_values(values) -> None:
     base = {int(v) for v in values if v}
     verified = _load_verified_signal_values()
     new_set = base | verified
+    # Canonical signatures end in 0/5 (the structural prior; verified
+    # 184/184 across the chart + signal caches). Drop any non-0/5 entry:
+    # those are transient mid-scan readouts that leaked into the verified
+    # cache (e.g. 8276 — a fluctuating far-scan value the Row Reviewer
+    # approved before we knew the live HUD fluctuates). Keeping them would
+    # bias the variant voter — which "strongly prefers a known value" —
+    # toward the very misreads _snap_signal_units_05 exists to correct.
+    _non05 = {v for v in new_set if v % 10 not in (0, 5)}
+    if _non05:
+        log.info(
+            "sc_ocr: lexicon dropped %d non-0/5 entr%s (transient "
+            "pollution): %s",
+            len(_non05), "y" if len(_non05) == 1 else "ies",
+            sorted(_non05)[:10],
+        )
+        new_set -= _non05
     extra = len(new_set) - len(base)
     if extra > 0:
         log.info(
@@ -832,6 +909,55 @@ def set_known_signal_values(values) -> None:
             extra, len(base), len(verified), len(new_set),
         )
     _KNOWN_SIGNAL_VALUES = new_set
+
+
+# ── Units-digit structural prior (region2 signatures) ────────────────
+# Every SETTLED rock signature in the mining chart ends in 0 or 5
+# (verified 184/184 across the chart + signal-value caches). A read
+# whose units digit is not 0/5 is therefore a misread of the last glyph
+# — or a transient mid-scan readout of a still-settling rock (the live
+# HUD genuinely fluctuates through non-0/5 values while the rock is far
+# / unsettled, e.g. 8276→8274→8271 at 12.9 km). Per the owner's call we
+# always snap such reads to their canonical 0/5 sibling so chart-matching
+# lands on the real value. We NEVER roll into the next ten — only the
+# last digit was wrong, the tens-and-up are trusted. The 0-vs-5 choice
+# is disambiguated strongest-evidence-first: (1) the known-value lexicon,
+# (2) the units glyph's own CNN preference, (3) nearest by digit value.
+def _snap_signal_units_05(value, units_hint=None):
+    """Snap a signature read's units digit to the canonical 0 or 5.
+
+    ``value``       the read integer (or None — returned unchanged)
+    ``units_hint``  the per-glyph CNN's preferred terminal digit (0 or
+                    5) for the last position, used only when the lexicon
+                    can't disambiguate. None = no hint this scan.
+
+    Returns ``value`` unchanged when it already ends in 0/5.
+    """
+    if value is None:
+        return value
+    u = value % 10
+    if u == 0 or u == 5:
+        return value
+    base = value - u
+    cand0, cand5 = base, base + 5
+    # 1) Lexicon — promote a KNOWN signature, never invent one. Only
+    #    decisive when exactly one sibling is a known value (the other
+    #    isn't), so we can't be fooled by a polluted non-0/5 entry.
+    known = _KNOWN_SIGNAL_VALUES
+    if known:
+        in0, in5 = cand0 in known, cand5 in known
+        if in0 and not in5:
+            return cand0
+        if in5 and not in0:
+            return cand5
+    # 2) The units glyph's own CNN 0-vs-5 preference (the units anchor).
+    if units_hint == 0:
+        return cand0
+    if units_hint == 5:
+        return cand5
+    # 3) Nearest 0/5 by digit value (1,2→0; 3,4,6,7,8,9→5). Never rolls
+    #    into the next ten.
+    return cand0 if u <= 2 else cand5
 
 
 def _reset_signal_consensus() -> None:
@@ -11797,6 +11923,234 @@ def scan_region(region: dict) -> Optional[int]:
     return _signal_recognize_pil(img, region=region)
 
 
+# ── Glyph-duplicator CRNN voter panel (ocr/models_glyph/) ───────────────
+# The 4 glyph-duplicator CRNNs trained from reconstructed real glyph pixels.
+# They are NOT the live production reader — they serve as an independent
+# voting panel that, together with the per-glyph CNN consensus, can override
+# the production CRNN when it is the lone dissenter (see
+# ``_signal_voter_panel_decision``). Weights are each variant's solo accuracy
+# on the 106-panel bench (RGB best; gray-INV weakest).
+_GLYPH_CRNN_SPECS = (
+    ("glyph_rgb",      "model_signal_crnn_rgb.onnx",     0.87),
+    ("glyph_rgb_inv",  "model_signal_crnn_rgb_inv.onnx", 0.82),
+    ("glyph_gray",     "model_signal_crnn.onnx",         0.77),
+    ("glyph_gray_inv", "model_signal_crnn_inv.onnx",     0.65),
+)
+# name -> (session, alphabet, blank_idx, H, channels, inverse) | None (no model)
+_GLYPH_CRNN_CACHE: dict = {}
+
+
+def _read_signal_glyph_crnns(strip_rgb):
+    """Run the 4 glyph-duplicator CRNNs over the signature work strip.
+
+    Preprocessing mirrors each model's own ``.json`` (and the production
+    CRNN): Lanczos resize to the model's H, per-channel polarity-canon,
+    255-invert for the ``inverse`` variants, max-channel collapse for the
+    1-channel (gray) variants. Sessions + metadata are cached per process.
+
+    Returns ``[(name, digit_string, mean_conf, weight), ...]`` for the
+    models that loaded and produced a 4-5 digit read. Returns ``[]`` on any
+    failure (missing dir, onnxruntime absent, bad strip) — the caller then
+    simply keeps the production read.
+    """
+    out: list[tuple[str, str, float, float]] = []
+    if strip_rgb is None or getattr(strip_rgb, "size", 0) == 0:
+        return out
+    if strip_rgb.ndim != 3 or strip_rgb.shape[2] != 3:
+        return out
+    try:
+        import onnxruntime as _ort
+        from pathlib import Path as _Path
+        import json as _json
+    except Exception:
+        return out
+    _dir = _Path(__file__).resolve().parent.parent / "models_glyph"
+    if not _dir.is_dir():
+        return out
+    for name, fname, weight in _GLYPH_CRNN_SPECS:
+        spec = _GLYPH_CRNN_CACHE.get(name, "unset")
+        if spec == "unset":
+            spec = None
+            _onnx = _dir / fname
+            _meta = _dir / fname.replace(".onnx", ".json")
+            if _onnx.is_file() and _meta.is_file():
+                try:
+                    m = _json.loads(_meta.read_text(encoding="utf-8"))
+                    _o = _ort.SessionOptions()
+                    _o.intra_op_num_threads = 1
+                    _o.inter_op_num_threads = 1
+                    _sess = _ort.InferenceSession(
+                        str(_onnx), sess_options=_o,
+                        providers=["CPUExecutionProvider"],
+                    )
+                    spec = (
+                        _sess,
+                        str(m.get("alphabet", "0123456789,")),
+                        int(m.get("blank_idx", 11)),
+                        int(m.get("input_height", 48)),
+                        int(m.get("input_channels", 3)),
+                        bool(m.get("inverse", False)),
+                    )
+                except Exception as _gl_load_exc:
+                    log.debug(
+                        "sc_ocr.signal: glyph CRNN %s load failed: %s",
+                        name, _gl_load_exc,
+                    )
+                    spec = None
+            _GLYPH_CRNN_CACHE[name] = spec
+        if not spec:
+            continue
+        sess, alphabet, blank, h_t, chan, inverse = spec
+        try:
+            h0 = int(strip_rgb.shape[0])
+            if h0 != h_t:
+                _sc = h_t / max(1, h0)
+                _nw = max(8, int(round(strip_rgb.shape[1] * _sc)))
+                rs = np.asarray(
+                    Image.fromarray(strip_rgb, "RGB").resize(
+                        (_nw, h_t), Image.LANCZOS),
+                    dtype=np.uint8,
+                )
+            else:
+                rs = strip_rgb
+            canon = np.empty_like(rs)
+            for c in range(3):
+                canon[..., c] = _canonicalize_polarity(rs[..., c])
+            base = (255 - canon) if inverse else canon
+            if chan == 1:
+                x = (base.max(axis=2).astype(np.float32) / 255.0)[None][None]
+            else:
+                x = (base.astype(np.float32).transpose(2, 0, 1) / 255.0)[None]
+            logits = sess.run(None, {sess.get_inputs()[0].name: x})[0]
+            lt = logits[:, 0, :] if logits.ndim == 3 else logits
+            sh = lt - lt.max(axis=-1, keepdims=True)
+            pr = np.exp(sh)
+            pr /= pr.sum(axis=-1, keepdims=True)
+            preds = pr.argmax(axis=-1)
+            confs = pr.max(axis=-1)
+            chars: list[str] = []
+            cfs: list[float] = []
+            prev = -1
+            for t in range(int(preds.shape[0])):
+                p = int(preds[t])
+                if p != prev and p != blank and p < len(alphabet):
+                    chars.append(alphabet[p])
+                    cfs.append(float(confs[t]))
+                prev = p
+            digits = "".join(c for c in chars if c.isdigit())
+            if 4 <= len(digits) <= 5:
+                out.append(
+                    (name, digits, float(sum(cfs) / max(1, len(cfs))), weight))
+        except Exception as _gl_run_exc:
+            log.debug(
+                "sc_ocr.signal: glyph CRNN %s read failed: %s",
+                name, _gl_run_exc,
+            )
+            continue
+    return out
+
+
+def _signal_voter_panel_decision(
+    prod_val, strip_rgb, pri, sec, rgb, rgb_inv, lexicon,
+):
+    """Unified CNN+CRNN voter panel adjudicating a production CRNN read.
+
+    Returns an override integer value ONLY when the production CRNN is the
+    lone dissenter: no panel member (per-glyph CNN consensus + the 4 glyph
+    CRNNs) backs production's value, AND ≥2 members agree on one different
+    in-range value. Otherwise returns ``None`` (keep production unchanged).
+
+    Cost-bounded: the per-glyph CNN consensus is already computed upstream,
+    so when it AGREES with production (the common case) this returns early
+    WITHOUT running the glyph CRNNs. The expensive 4-CRNN panel only runs on
+    a genuine CNN-vs-production disagreement.
+    """
+    if prod_val is None:
+        return None
+    # 1) Per-glyph CNN consensus (cheap — reuses already-computed results).
+    cnn_digits = ""
+    try:
+        _cnn = _vote_on_digit_string(
+            primary_results=pri or None, secondary_results=sec or None,
+            rgb_results=rgb or None, rgb_inv_results=rgb_inv or None,
+            lexicon=lexicon or None,
+        )
+        cnn_digits = (_cnn or {}).get("string", "") or ""
+    except Exception:
+        cnn_digits = ""
+    # Fast path: the CNN family agrees with production — no dispute, no
+    # override, and we avoid loading/running the glyph CRNNs entirely.
+    if cnn_digits and cnn_digits == str(prod_val):
+        return None
+    # 2) Dispute → consult the panel. CNN-only mode (SC_SIGNAL_VOTER_CNN_ONLY=1)
+    #    skips the glyph CRNNs so the safe per-glyph-CNN override can be
+    #    measured on its own (no glyph 1↔2 confusion in the vote).
+    _cnn_only = os.environ.get("SC_SIGNAL_VOTER_CNN_ONLY") == "1"
+    glyphs = [] if _cnn_only else _read_signal_glyph_crnns(strip_rgb)
+
+    # LEADING-DIGIT GUARD (SC_SIGNAL_VOTER_LEADGUARD=1, default on): never let
+    # the override overturn production's LEADING digit. The readers' one
+    # systematic failure is the leading 1↔2 confusion (it both creates AND
+    # mis-"fixes" 21565↔11565); refusing leading-digit changes blocks that
+    # regression while still letting the panel correct TRAILING digits (e.g.
+    # 17020→17200), where the readers are reliable.
+    _leadguard = os.environ.get("SC_SIGNAL_VOTER_LEADGUARD", "1") == "1"
+
+    def _ok(winner):
+        if winner is None or winner == prod_val:
+            return None
+        if not (1000 <= winner <= 99995):
+            return None
+        if _leadguard and str(winner)[:1] != str(prod_val)[:1]:
+            return None
+        return winner
+
+    # BLOC mode (SC_SIGNAL_VOTER_BLOC=1): the 4 glyph CRNNs are NOT
+    # independent (same method/data/1↔2 bias), so collapse them to ONE bloc
+    # vote and pit it against the CNN family's ONE bloc vote. Override only
+    # when the two INDEPENDENT families AGREE on the same value ≠ production —
+    # a lone CRNN-bloc vote against the CNNs does NOT override (production
+    # stands). Cross-family corroboration beats 4 correlated glyph votes.
+    if os.environ.get("SC_SIGNAL_VOTER_BLOC") == "1":
+        _gvals = [int(d) for _n, d, _c, _w in glyphs
+                  if d.isdigit() and 4 <= len(d) <= 5]
+        _gbloc = max(set(_gvals), key=_gvals.count) if _gvals else None
+        _cbloc = int(cnn_digits) if (cnn_digits and 4 <= len(cnn_digits) <= 5) else None
+        return _ok(_gbloc) if (_gbloc is not None and _gbloc == _cbloc) else None
+
+    # FLAT panel: CNN consensus + each glyph CRNN as weighted challengers.
+    challengers: list[tuple[int, float]] = []
+    if cnn_digits and 4 <= len(cnn_digits) <= 5:
+        try:
+            challengers.append((int(cnn_digits), 0.90))
+        except ValueError:
+            pass
+    for _name, _digits, _conf, _w in glyphs:
+        try:
+            challengers.append((int(_digits), _w))
+        except ValueError:
+            pass
+    if not challengers:
+        return None
+    # Production must be a LONE dissenter — no panel member backs its value.
+    if any(v == prod_val for v, _ in challengers):
+        return None
+    # Reliability-weighted winner + how many members back it.
+    from collections import defaultdict as _dd
+    _acc: dict = _dd(float)
+    _cnt: dict = _dd(int)
+    for v, w in challengers:
+        _acc[v] += w
+        _cnt[v] += 1
+    winner = max(_acc, key=_acc.get)
+    # CNN-only has a single (multi-CNN) challenger, so require just 1 backer;
+    # the full panel requires ≥2 members to agree before overruling production.
+    _min_agree = 1 if _cnn_only else 2
+    if _cnt[winner] < _min_agree:
+        return None
+    return _ok(winner)
+
+
 def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
     """Same pipeline as ``scan_region`` but takes an in-memory PIL
     image — used by ``screen_reader.scan_region`` to avoid a second
@@ -11838,8 +12192,12 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
         # so a digit rendered as "red on dark" stays bright in the
         # output regardless of how the CA smears it. Mirrors the
         # same recipe the HUD label-row OCR uses.
+        from . import frame_context as _fc
+        # rgb is still needed by the downstream COLOR finders (pill /
+        # localize_icon / comma) — only the gray percept moved to the
+        # shared frame_context cache.
         rgb = np.asarray(img.convert("RGB"), dtype=np.uint8)
-        gray = rgb.max(axis=2).astype(np.uint8)
+        gray = _fc.max_channel(img)   # shared per-frame percept (skin)
     except Exception as exc:
         log.debug("sc_ocr.signal: bad input: %s", exc)
         return None
@@ -12086,6 +12444,36 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                     # runs when it CAN, purely to sharpen the LHS crop.)
                     _icon_seen_this_tick = True
 
+    # ── PILL-POSE FALLBACK (JSON-free, region2 skeleton) ──
+    # If the world-model didn't produce a crop (its JSON is absent, or its
+    # pill find missed) try the pill-anchored signal_solve geometry BEFORE
+    # dropping to the flakier icon path below. signal_solve's fixed pill
+    # fractions are calibrated (90% IoU on the annotated region2 set) and
+    # need no JSON — a strictly better fallback than icon-only when the
+    # pill is present. Dormant whenever the world-model fired (crop_box
+    # set ⇒ skipped), so normal operation and the gates stay byte-
+    # identical; this only changes the DEGRADED (no-JSON) path.
+    if crop_box is None:
+        try:
+            from . import signal_solve as _ssolve
+            _pill_fb = _find_pill_for_signal(rgb)
+            _pose_fb = _ssolve.solve(_pill_fb) if _pill_fb else None
+            if _pose_fb is not None:
+                _vx, _vy, _vw, _vh = _pose_fb["value_box"]
+                _fx1 = max(0, _vx)
+                _fy1 = max(0, _vy)
+                _fx2 = min(_vx + _vw, gray.shape[1])
+                _fy2 = min(_vy + _vh, gray.shape[0])
+                if _fx2 - _fx1 >= 20 and _fy2 - _fy1 >= 8:
+                    crop_box = (_fx1, _fy1, _fx2, _fy2)
+                    _icon_seen_this_tick = True
+                    log.info(
+                        "sc_ocr.signal: signal_solve pill fallback "
+                        "(no world-model crop) crop_box=%s", crop_box,
+                    )
+        except Exception as _fb_exc:
+            log.debug("sc_ocr.signal: pill fallback skipped: %s", _fb_exc)
+
     # ── SECONDARY: localize_icon (RGB-aware structural detector) ──
     # Used when the world-model path didn't fire (pill detection
     # missed, or calibration file absent). Same heuristic the auto-
@@ -12242,9 +12630,11 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
             from hud_tracker.anchors.comma_finder import find_comma_voted
             _x1, _y1, _x2, _y2 = crop_box
             _trial = rgb[_y1:_y2, _x1:_x2]
+            _LAST_SIGNAL_COMMA_X[:] = []   # fresh per scan (nervous system)
             _comma = find_comma_voted(_trial)
             if _comma is not None:
                 _comma_x_in_crop = int(_comma["x_center"])
+                _LAST_SIGNAL_COMMA_X[:] = [float(_x1 + _comma_x_in_crop)]
                 _trial_w = int(_trial.shape[1])
                 _right_region_w = _trial_w - _comma_x_in_crop
                 # 3 digits to the right of the comma + small margin.
@@ -13505,6 +13895,22 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
         Returns ``_STABLE_SIGNAL`` so callers can ``return`` directly.
         """
         global _STABLE_SIGNAL
+        # ── Units 0/5 structural snap (canonical signature prior) ──
+        # Snap a non-0/5 read to its 0/5 sibling BEFORE it enters the
+        # stable buffer, so hysteresis consensus forms on the canonical
+        # value (chart-matchable) rather than a transient/misread units
+        # digit. No-op when the read already ends in 0/5. See
+        # _snap_signal_units_05.
+        _snapped = _snap_signal_units_05(
+            val,
+            _LAST_SIGNAL_UNITS_HINT[0] if _LAST_SIGNAL_UNITS_HINT else None,
+        )
+        if _snapped != val:
+            log.info(
+                "sc_ocr.signal: units 0/5 snap %d -> %d (%s)",
+                val, _snapped, source_label,
+            )
+            val = _snapped
         _RECENT_SIGNAL_READS.append(val)
         if _STABLE_SIGNAL is None:
             _STABLE_SIGNAL = val
@@ -13519,6 +13925,18 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                     _STABLE_SIGNAL, val, source_label,
                 )
                 _STABLE_SIGNAL = val
+        # ── NERVOUS SYSTEM (region2 afferent + consistency reflex) ──
+        # Record the RAW accepted read (not the hysteresis value) so the
+        # flap reflex sees oscillation, with its pill-anchored crop and
+        # comma provenance. Telemetry only — never affects the return.
+        try:
+            from . import signal_record as _sigrec
+            _sigrec.write(
+                val, source_label, get_last_signal_crop_box(),
+                _LAST_SIGNAL_COMMA_X[0] if _LAST_SIGNAL_COMMA_X else None,
+            )
+        except Exception:
+            pass
         return _STABLE_SIGNAL
 
     # ── (0-CRNN) RGB CRNN WHOLE-STRIP gate ──
@@ -13689,6 +14107,37 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
             and _crnn_rgb_in_range
             and _crnn_rgb_mean_conf >= _crnn_rgb_thresh
         ):
+            # ── (0-VOTE) Unified CNN+CRNN voter override ──
+            # Before accepting the production CRNN, consult the independent
+            # panel: the per-glyph CNN consensus + the 4 glyph-duplicator
+            # CRNNs. If NOTHING backs production's value and ≥2 members agree
+            # on a different in-range value, production is the lone dissenter
+            # — accept the panel consensus instead. When the CNN family backs
+            # production (common case + the 21565 leading-1↔2 case) it's a
+            # no-op, so passing reads stay byte-identical. Opt out via
+            # SC_SIGNAL_VOTER_OVERRIDE=0 (keeps the offline harness stable).
+            if os.environ.get("SC_SIGNAL_VOTER_OVERRIDE", "1") != "0":
+                try:
+                    _ovr = _signal_voter_panel_decision(
+                        _crnn_rgb_val,
+                        locals().get("_crnn_rgb_input"),
+                        locals().get("_hud_pri_results"),
+                        locals().get("_hud_sec_results"),
+                        locals().get("_hud_rgb_results"),
+                        locals().get("_hud_rgb_inv_results"),
+                        _KNOWN_SIGNAL_VALUES if _KNOWN_SIGNAL_VALUES else None,
+                    )
+                except Exception as _ovr_exc:
+                    log.debug(
+                        "sc_ocr.signal: voter override error (%s)", _ovr_exc)
+                    _ovr = None
+                if _ovr is not None and _ovr != _crnn_rgb_val:
+                    log.info(
+                        "sc_ocr.signal: VOTER OVERRIDE — production CRNN %r "
+                        "is the lone dissenter; CNN+glyph-CRNN panel → %d",
+                        _crnn_rgb_digits, _ovr,
+                    )
+                    return _accept_signal_value(_ovr, "crnn-cnn-voter")
             _crnn_rgb_gate = (
                 "rgb-crnn-lexicon" if _crnn_rgb_lexicon_hit
                 else "rgb-crnn-strict"
@@ -15226,9 +15675,8 @@ def _refine_mineral_band_above_mass(
         _mx_full: "Optional[np.ndarray]" = None
         if _refs is not None:
             try:
-                _mx_full = np.asarray(
-                    img.convert("RGB"), dtype=np.uint8
-                ).max(axis=2)
+                from . import frame_context as _fc
+                _mx_full = _fc.max_channel(img)  # shared per-frame percept
                 # ±3 row pad: the templates were cut from bands carrying
                 # the refine's own ±3 padding — tighter strips shrink the
                 # parens ~5% in canonical scale and shave ~0.08 off NCC.
@@ -15716,6 +16164,19 @@ def scan_hud_onnx(
         "panel_visible": False,
     }
     t0 = time.time()
+    # Live-frame heartbeat: lets panel_solve hold the rigid pose steady
+    # across this continuous stream (kills the per-frame NCC jitter).
+    # ONLY on true live capture (no _img_override) — the offline harness
+    # and snapshot re-OCR drive this with _img_override over UNRELATED
+    # stills, where holding pose across frames would alias one panel onto
+    # the next and corrupt the gate. Those paths get a fresh stateless
+    # solve every image.
+    if _img_override is None:
+        try:
+            from . import panel_solve as _psolve_hb
+            _psolve_hb.note_live_frame()
+        except Exception:
+            pass
     # ── Profile-aware dispatch (scaffolding) ──
     # Load the profile that scopes this scan (mining HUD = digit-only,
     # uses model_cnn.onnx). Subsequent steps will route classification
@@ -15768,6 +16229,35 @@ def scan_hud_onnx(
             img = capture.grab(region)
         if img is None:
             return empty
+    # Upscale to the reference size IMMEDIATELY (before any overlay write
+    # or the clean dump), so the entire scan — capture dump, both debug
+    # overlay writes, the OCR, and the solved pose — lives in ONE
+    # resolution. Previously the upscale happened mid-scan, so the early
+    # overlay write at the raw capture size and the end-of-scan write at
+    # the upscaled size produced TWO different-sized overlays per scan
+    # (e.g. 424x276 vs 831x541) — the recording caught both and it looked
+    # like the HUD was shrinking. The model wants ~24px text rows; a small
+    # user HUD region (e.g. 276px tall) upscales to REF_H so glyph size is
+    # consistent regardless of the user's region dimensions.
+    # REF_H = the title/glyph scale the anchor NCC templates were built for.
+    # Was 541 (the old 397x541 training-panel height) and ONE-DIRECTIONAL: it
+    # only upscaled regions SMALLER than ~514px, so a LARGE capture (high-DPI /
+    # high-res / big in-game HUD scale) sailed through un-normalized. There the
+    # title outgrows the multi-scale template coverage, the pose-solver loses its
+    # lock and returns a garbage scale, and every row reads off a bad pose — the
+    # "works on my machine, breaks for other users" collapse. Native panels are
+    # ~670px tall, ABOVE the old 514 threshold, so the dev machine never triggered
+    # it. Fix (Elah 2026-07-14): calibrate REF_H to the native height and normalize
+    # in BOTH directions, so the anchor NCC always sees the title at the scale its
+    # templates cover regardless of the user's render geometry. Validated on 22
+    # real labelled panels: 2.0x rescaled 0% -> 77%, native 100%, off-native band
+    # tightened from a ragged 0-86% to a steady 77-91%.
+    REF_H = 670
+    _W_img, _H_img = img.size
+    if abs(_H_img - REF_H) > REF_H * 0.02:   # normalize BOTH directions to REF_H
+        img = img.resize(
+            (max(1, int(round(_W_img * (REF_H / _H_img)))), REF_H), Image.LANCZOS,
+        )
     # One-shot CLEAN capture dump (no overlay annotations) so the exact
     # input the reader sees can be replayed offline to fix crop geometry
     # against real data instead of guessing. Gated on a viewer heartbeat
@@ -15791,21 +16281,7 @@ def scan_hud_onnx(
         except Exception as _wexc:
             log.warning("debug_overlay early write failed: %s", _wexc)
 
-    # Upscale to reference size if the capture is smaller.
-    # The ONNX model was trained on digit crops from a 397x541
-    # panel where text rows are ~24px tall. Smaller panels produce
-    # text too small for accurate classification (e.g. 400x403
-    # produces 22px rows with 10px-wide digits — ONNX can't read
-    # those). Upscaling to the reference height ensures consistent
-    # glyph size regardless of the user's HUD region dimensions.
-    REF_H = 541
-    W_img, H_img = img.size
-    if H_img < REF_H * 0.95:  # only upscale if meaningfully smaller
-        scale_up = REF_H / H_img
-        img = img.resize(
-            (int(W_img * scale_up), REF_H), Image.LANCZOS,
-        )
-
+    # (img was already upscaled to REF_H right after capture, above.)
     gray = np.asarray(img.convert("L"), dtype=np.uint8)
 
     median_gray = float(np.median(gray))

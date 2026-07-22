@@ -166,6 +166,9 @@ PRICE_DISPLAY_MAX: int = 20
 PURCHASE_DISPLAY_MAX: int = 15
 RENTAL_DISPLAY_MAX: int = 15
 
+# Max buy locations shown per item in the Grocery List when expanded.
+GROCERY_BUY_DISPLAY_MAX: int = 12
+
 # ---------------------------------------------------------------------------
 # Windows dark-mode attribute
 # ---------------------------------------------------------------------------

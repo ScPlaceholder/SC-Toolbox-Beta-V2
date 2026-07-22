@@ -11,7 +11,8 @@ def compute_footer_totals(selections: dict,
                           regen_per_sec_mult: float = 1.0,
                           power_ratio_mult: float = 1.0,
                           raw_weapon_lookup=None,
-                          slot_gun_counts: dict | None = None) -> dict:
+                          slot_gun_counts: dict | None = None,
+                          craft_quality=None) -> dict:
     """Compute all aggregate stats from current component selections.
 
     Parameters
@@ -41,6 +42,22 @@ def compute_footer_totals(selections: dict,
     # Weapons — multiply each slot's contribution by its gun_count multiplier
     # (gun_count > 1 for grouped manned/ball turrets, e.g. Hammerhead ×4 turrets)
     _gcounts = slot_gun_counts or {}
+
+    # Weapon-crafting damage multiplier. Safe by default: craft_quality None/empty,
+    # or a weapon/quality that resolves to store-bought, yields 1.0 (no-op) — so the
+    # untouched loadout is byte-identical to before and erkul parity is preserved.
+    def _craft_mult(local_name):
+        if not craft_quality:
+            return 1.0
+        try:
+            from services.crafting import weapon_damage_mult
+            q = craft_quality.get(local_name) if isinstance(craft_quality, dict) else craft_quality
+            if q is None:
+                return 1.0
+            return weapon_damage_mult(local_name, q)
+        except Exception:
+            return 1.0
+
     tot_raw = tot_sus = tot_alp = 0.0
     gun_count = 0
     for sid, nm in selections.get("weapons", {}).items():
@@ -49,10 +66,11 @@ def compute_footer_totals(selections: dict,
         s = find_weapon(nm)
         if s:
             n = _gcounts.get(sid, 1)
-            tot_raw += s["dps_raw"] * n
+            cm = _craft_mult(s.get("local_name", ""))
+            tot_raw += s["dps_raw"] * n * cm
             # Use precomputed dps_sus (ratio=1.0) to match Erkul's display value.
-            tot_sus += s["dps_sus"] * n
-            tot_alp += s["alpha"]  * n
+            tot_sus += s["dps_sus"] * n * cm
+            tot_alp += s["alpha"]  * n * cm
             gun_count += n
 
     # Missiles

@@ -1,107 +1,107 @@
 capture,gt,read,raw_read,match,failure_stage,all_failed_stages,notes
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085400_739.png,"17,020",,77020,0,8,8,composed='77020' != GT '17020' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085431_378.png,"11,520",,77809,0,8,8,composed='778?0' != GT '11520' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085433_364.png,"5,000",,,0,2,"2,5,6,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085435_190.png,"26,000",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085436_978.png,"21,200",,31304,0,8,8,composed='31304' != GT '21200' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085439_860.png,"17,200",,77440,0,8,8,composed='77?50' != GT '17200' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085442_451.png,"11,520",,1489,0,8,8,composed='155?0' != GT '11520' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085446_617.png,"17,080",8000,,0,5,"5,6,8",detector comma_cx=63.0 disagrees with both blob-midpt(None) and uniform(69.92592592592592); min_err=6.9 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085448_751.png,"15,420",8426,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085450_938.png,"10,620",16620,47587,0,8,8,composed='500?0' != GT '10620' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085454_645.png,"7,080",,6004,0,8,8,composed='7004' != GT '7080' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085400_739.png,"17,020",17020,17020,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085431_378.png,"11,520",11520,11520,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085433_364.png,"5,000",,,0,2,"2,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085435_190.png,"26,000",2000,,0,6,"6,8",segmenter n_digits=4 != GT 5
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085436_978.png,"21,200",21200,21200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085439_860.png,"17,200",17200,17200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085442_451.png,"11,520",11520,11520,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085446_617.png,"17,080",17080,17080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085448_751.png,"15,420",15420,15420,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085450_938.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085454_645.png,"7,080",7080,7080,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085542_764.png,"7,080",7080,7080,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085544_711.png,"10,620",10671,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085547_465.png,"7,080",,6004,0,8,8,composed='7004' != GT '7080' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085548_866.png,"15,420",1642,6779,0,8,8,composed='06489' != GT '15420' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085551_350.png,"17,080",,77081,0,8,8,composed='77081' != GT '17080' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085556_378.png,"11,520",4620,,0,5,"5,6,8",detector comma_cx=75.0 disagrees with both blob-midpt(None) and uniform(63.14814814814815); min_err=11.9 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085559_623.png,"17,200",17200,17200,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085602_078.png,"21,200",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085606_983.png,"26,000",9800,,0,5,"5,6,8,9",detector comma_cx=12.0 disagrees with both blob-midpt(None) and uniform(58.00000000000001); min_err=46.0 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085608_870.png,"26,000",26001,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085613_234.png,"17,020",,75041,0,8,8,composed='770?1' != GT '17020' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085544_711.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085547_465.png,"7,080",7080,7080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085548_866.png,"15,420",15420,15420,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085551_350.png,"17,080",17080,17080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085556_378.png,"11,520",11520,11520,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085559_623.png,"17,200",17080,,0,2,"2,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085602_078.png,"21,200",21200,21200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085606_983.png,"26,000",26000,26000,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085608_870.png,"26,000",26000,26000,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085613_234.png,"17,020",17020,17020,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085619_138.png,"8,276",28216,,0,5,"5,8",detector comma_cx=87.0 disagrees with both blob-midpt(77.0) and uniform(57.36363636363636); min_err=10.0 via blob > tol 6
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085622_040.png,"15,360",6000,,0,2,"2,5,6,8",no icon bbox returned
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085625_608.png,"7,710",7710,7710,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085628_228.png,"8,274",6275,,0,1,"1,2,5,6,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085631_294.png,"7,710",,7616,0,8,8,composed='7916' != GT '7710' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085628_228.png,"8,274",,,0,2,"2,10",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085631_294.png,"7,710",7710,7710,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085633_341.png,"11,520",11520,11520,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085636_541.png,"11,520",11520,11520,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085639_354.png,"10,620",,60070,0,8,8,composed='60070' != GT '10620' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085639_354.png,"10,620",10620,10620,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085641_536.png,"7,080",7080,7080,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085643_453.png,"17,200",7200,,0,1,"1,2,5,6,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085646_305.png,"21,350",7200,,0,2,"2,5,6,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085649_075.png,"17,080",7080,,0,5,"5,6,8,9",detector comma_cx=94.0 disagrees with both blob-midpt(None) and uniform(73.96296296296296); min_err=20.0 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085651_179.png,"21,350",21530,,0,2,"2,5,6,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085654_018.png,"11,565",11565,11565,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085658_149.png,"25,800",,,0,6,"6,8,9",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085700_935.png,"19,200",12901,80944,0,8,8,composed='80244' != GT '19200' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085702_730.png,"19,200",,4300,0,9,"8,9",backtracked to '04300' but still != GT '19200'
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085704_315.png,"11,565",,,0,5,"5,8",detector comma_cx=50.0 disagrees with both blob-midpt(67.5) and uniform(136.22222222222223); min_err=17.5 via blob > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085706_354.png,"19,200",,70000,0,8,8,composed='70?00' != GT '19200' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085710_829.png,"7,080",6000,,0,5,"5,7,8,9",detector comma_cx=1.0 disagrees with both blob-midpt(52.5) and uniform(52.18181818181818); min_err=51.2 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085714_827.png,"8,271",8721,,0,5,"5,6,8",detector comma_cx=113.0 disagrees with both blob-midpt(None) and uniform(88.36363636363635); min_err=24.6 via uniform > tol 6
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085643_453.png,"17,200",17080,,0,2,"2,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085646_305.png,"21,350",3170,,0,2,"2,5,6,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085649_075.png,"17,080",17080,17080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085651_179.png,"21,350",3370,,0,2,"2,5,6,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085654_018.png,"11,565",21565,11584,0,8,8,composed='11584' != GT '11565' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085658_149.png,"25,800",25800,25800,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085700_935.png,"19,200",19200,19200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085702_730.png,"19,200",19200,19200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085704_315.png,"11,565",11520,,0,5,"5,8",detector comma_cx=50.0 disagrees with both blob-midpt(67.5) and uniform(136.22222222222223); min_err=17.5 via blob > tol 6
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085706_354.png,"19,200",19200,19200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085710_829.png,"7,080",7080,7080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085714_827.png,"8,271",21275,,0,5,"5,6,8",detector comma_cx=113.0 disagrees with both blob-midpt(None) and uniform(88.36363636363635); min_err=24.6 via uniform > tol 6
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085716_872.png,"8,271",8720,,0,5,"5,8",detector comma_cx=89.0 disagrees with both blob-midpt(79.0) and uniform(59.0); min_err=10.0 via blob > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085721_235.png,"15,360",19650,,0,1,"1,5,6,7,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085725_381.png,"17,020",4200,,0,2,"2,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085721_235.png,"15,360",15360,15360,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085725_381.png,"17,020",17020,17020,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085729_196.png,"7,080",7080,7080,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085730_355.png,"17,080",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085731_933.png,"10,620",10671,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085735_485.png,"7,080",,6004,0,8,8,composed='7004' != GT '7080' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085737_445.png,"25,710",,76614,0,8,8,composed='76714' != GT '25710' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085730_355.png,"17,080",17080,17080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085731_933.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085735_485.png,"7,080",7080,7080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085737_445.png,"25,710",,,0,5,"5,6,8",detector comma_cx=68.0 disagrees with both blob-midpt(None) and uniform(60.44444444444445); min_err=7.6 via uniform > tol 6
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085739_982.png,"7,080",7080,7080,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085742_484.png,"11,520",11520,11520,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085745_646.png,"21,350",21360,,0,5,"5,6,8",detector comma_cx=116.0 disagrees with both blob-midpt(None) and uniform(96.14814814814815); min_err=19.9 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085747_000.png,"17,080",8000,,0,5,"5,6,8",detector comma_cx=50.0 disagrees with both blob-midpt(None) and uniform(57.333333333333336); min_err=7.3 via uniform > tol 6
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085745_646.png,"21,350",21350,21350,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085747_000.png,"17,080",17080,17080,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085750_103.png,"25,800",25800,25800,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_085814_870.png,"17,200",17200,17200,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091311_438.png,"25,800",,,0,2,"2,5,6,8",no icon bbox returned
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091315_639.png,"25,800",,,0,2,"2,5,6,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091316_513.png,"25,800",,,0,2,"2,5,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091318_867.png,"25,800",,26000,0,9,"8,9",backtracked to '26000' but still != GT '25800'
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091320_937.png,"11,520",,,0,2,"2,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091326_915.png,"2,000",,2806,0,8,8,composed='2806' != GT '2000' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155446_555.png,"10,000",4000,,0,6,"6,8",segmenter n_digits=4 != GT 5
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091316_513.png,"25,800",,,0,2,"2,5,6,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091318_867.png,"25,800",25800,25800,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091320_937.png,"11,520",11520,11520,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_081525\region2\cap_20260418_091326_915.png,"2,000",2000,2000,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155446_555.png,"10,000",10000,10000,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155450_009.png,"21,350",21350,21350,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155454_815.png,"10,620",10020,67779,0,8,8,composed='677?7' != GT '10620' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155457_886.png,"17,140",,77690,0,8,8,composed='77690' != GT '17140' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155454_815.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155457_886.png,"17,140",17140,17140,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155500_306.png,"11,520",11520,11520,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155503_607.png,"3,540",,,0,6,"6,8",segmenter n_digits=5 != GT 4
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155506_006.png,"7,080",16000,,0,2,"2,5,6,7,8",no icon bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155503_607.png,"3,540",3540,3540,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155506_006.png,"7,080",7080,7080,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155508_981.png,"6,340",6340,6340,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155513_882.png,"17,080",,77004,0,8,8,composed='77004' != GT '17080' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155517_980.png,"10,620",10626,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155519_866.png,"17,140",,77560,0,8,8,composed='77?56' != GT '17140' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155522_432.png,"10,620",16670,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155526_425.png,"17,140",,,0,2,"2,8",no icon bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155530_445.png,"14,000",16600,67008,0,8,8,composed='65008' != GT '14000' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155533_911.png,"17,140",,77660,0,8,8,composed='77660' != GT '17140' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155536_445.png,"15,420",15470,75670,0,8,8,composed='75670' != GT '15420' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155538_447.png,"16,960",,6800,0,9,"8,9",backtracked to '06800' but still != GT '16960'
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155513_882.png,"17,080",17080,17080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155517_980.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155519_866.png,"17,140",17140,17140,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155522_432.png,"10,620",10620,10620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155526_425.png,"17,140",17140,17140,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155530_445.png,"14,000",14000,14000,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155533_911.png,"17,140",17140,17140,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155536_445.png,"15,420",15420,15420,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155538_447.png,"16,960",16960,16960,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155541_145.png,"21,500",21500,21500,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155808_129.png,"17,200",17700,,0,1,"1,5,6,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155809_550.png,"21,200",,,0,1,"1,2,5,6,7,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155812_517.png,"7,080",,,0,1,"1,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155813_956.png,"17,080",17880,,0,1,"1,5,7,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160417_320.png,"14,160",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160419_582.png,"25,530",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160422_185.png,21565,11565,11565,0,8,8,composed='73505' != GT '21565' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160424_496.png,"14,160",16160,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160427_701.png,"17,200",1720,77204,0,8,8,composed='77204' != GT '17200' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160430_375.png,"17,020",7626,77044,0,8,8,composed='770?4' != GT '17020' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160432_487.png,"7,080",7800,,0,1,"1,2,5,8",no pill bbox returned
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160434_722.png,"14,160",16160,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160442_639.png,"25,620",,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160445_195.png,"10,000",,,0,5,"5,6,7,8",detector comma_cx=23.0 disagrees with both blob-midpt(None) and uniform(73.33333333333334); min_err=50.3 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160446_956.png,"17,020",,70646,0,8,8,composed='770??' != GT '17020' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160449_806.png,"17,020",,77066,0,8,8,composed='770?6' != GT '17020' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155808_129.png,"17,200",,,0,1,"1,2,3,5,8",no pill bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155809_550.png,"21,200",,,0,1,"1,2,3,6,8",no pill bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155812_517.png,"7,080",,,0,1,"1,2,3,8",no pill bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_155813_956.png,"17,080",,,0,1,"1,2,3,8",no pill bbox returned
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160417_320.png,"14,160",14160,14160,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160419_582.png,"25,530",25530,25530,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160422_185.png,21565,21565,21565,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160424_496.png,"14,160",14160,14160,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160427_701.png,"17,200",17200,17200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160430_375.png,"17,020",17020,17020,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160432_487.png,"7,080",7080,7080,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160434_722.png,"14,160",14160,14160,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160442_639.png,"25,620",25620,25620,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160445_195.png,"10,000",10000,10000,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160446_956.png,"17,020",17020,17020,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160449_806.png,"17,020",17020,17020,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160452_795.png,"16,960",16960,16960,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160459_070.png,"7,080",1800,,0,5,"5,7,8",detector comma_cx=5.0 disagrees with both blob-midpt(38.0) and uniform(38.454545454545446); min_err=33.0 via blob > tol 6
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160459_070.png,"7,080",7080,7080,1,0,,ok
 C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160521_795.png,"11,565",11565,11565,1,0,,ok
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160524_332.png,"14,160",,65080,0,8,8,composed='65080' != GT '14160' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160526_751.png,"11,565",,,0,5,"5,6,8",detector comma_cx=56.0 disagrees with both blob-midpt(None) and uniform(66.25925925925927); min_err=10.3 via uniform > tol 6
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160529_753.png,"17,020",7020,77078,0,8,8,composed='77078' != GT '17020' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160532_371.png,"17,200",7206,,0,6,"6,8",segmenter n_digits=4 != GT 5
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160535_248.png,"21,350",,31364,0,8,8,composed='31364' != GT '21350' (not in lexicon)
-C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160539_008.png,"3,170",,3964,0,8,8,composed='3934' != GT '3170' (not in lexicon)
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160524_332.png,"14,160",14160,14160,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160526_751.png,"11,565",11565,11565,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160529_753.png,"17,020",17020,17020,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160532_371.png,"17,200",17200,17200,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160535_248.png,"21,350",21350,21350,1,0,,ok
+C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels\user_20260418_154408\region2\cap_20260418_160539_008.png,"3,170",3170,3170,1,0,,ok

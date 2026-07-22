@@ -1,0 +1,11 @@
+{
+    "id": "mouse_blocker",
+    "name": "Mouse Blocker",
+    "icon": "🚫",
+    "color": "#ff3355",
+    "folder": "Mouse_Blocker",
+    "script": "mouse_blocker_app.py",
+    "hotkey": "<shift>+0",
+    "settings_key": "hotkey_mouse_blocker",
+    "preload": true
+}

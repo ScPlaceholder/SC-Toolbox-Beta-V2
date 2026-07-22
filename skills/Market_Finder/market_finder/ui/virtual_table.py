@@ -40,7 +40,10 @@ class VirtualTable(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._table = SCTable(self.COLUMNS, self, sortable=True)
+        self._table = SCTable(self.COLUMNS, self, sortable=True, draggable=True)
+        self._table.setToolTip(
+            "Drag an item onto the Grocery List to add it"
+        )
         self._table.row_selected.connect(self._on_row_selected)
         self._table.row_double_clicked.connect(self._on_row_double_clicked)
         layout.addWidget(self._table)

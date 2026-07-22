@@ -17,6 +17,7 @@ from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSplitter, QScrollArea, QFrame, QSizePolicy, QTabWidget, QFileDialog,
+    QSlider,
 )
 
 # Path setup — bootstrap from the parent DPS_Calculator dir (not dps_ui/)
@@ -138,6 +139,8 @@ class DpsCalcApp(SCWindow):
             "fuel_tanks": {}, "erkul_modules": {},
         }
         self._slot_tables: dict = {}
+        # Weapon crafting quality (master scalar 0-1000). None == store-bought (no-op).
+        self._craft_quality = None
         self._rows: dict = {
             k: [] for k in ("weapons", "missiles", "missile_racks", "defenses", "components",
                             "propulsion", "mounts", "emps", "qeds", "bombs", "mining_lasers",
@@ -252,6 +255,57 @@ class DpsCalcApp(SCWindow):
         btn_load.setStyleSheet(_loadout_btn_style)
         btn_load.clicked.connect(self._load_loadout)
         hdr_lay.addWidget(btn_load)
+
+        # Crafting toggle \u2014 opens the weapon-crafting panel (master + per-weapon sliders).
+        self._craft_btn = QPushButton(_("\U0001f527 Crafting"), hdr)  # wrench
+        self._craft_btn.setCheckable(True)
+        self._craft_btn.setCursor(Qt.PointingHandCursor)
+        self._craft_btn.setToolTip(_("Weapon crafting quality (master + per-weapon)"))
+        self._craft_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BG3}; color: {ACCENT};
+                font-family: Consolas; font-size: 8pt; font-weight: bold;
+                border: 1px solid {ACCENT}; padding: 3px 9px;
+            }}
+            QPushButton:hover {{ background-color: {BORDER}; color: {FG}; }}
+            QPushButton:checked {{ background-color: {ACCENT}; color: #000; }}
+        """)
+        self._craft_btn.toggled.connect(self._toggle_crafting)
+        hdr_lay.addWidget(self._craft_btn)
+
+        # TTK toggle — opens the time-to-kill panel (your loadout vs a target ship).
+        self._ttk_btn = QPushButton(_("⚔ TTK"), hdr)  # crossed swords
+        self._ttk_btn.setCheckable(True)
+        self._ttk_btn.setCursor(Qt.PointingHandCursor)
+        self._ttk_btn.setToolTip(_("Time to kill a target ship with your current loadout"))
+        self._ttk_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BG3}; color: {GREEN};
+                font-family: Consolas; font-size: 8pt; font-weight: bold;
+                border: 1px solid {GREEN}; padding: 3px 9px;
+            }}
+            QPushButton:hover {{ background-color: {BORDER}; color: {FG}; }}
+            QPushButton:checked {{ background-color: {GREEN}; color: #000; }}
+        """)
+        self._ttk_btn.toggled.connect(self._toggle_ttk)
+        hdr_lay.addWidget(self._ttk_btn)
+
+        # Optimizer toggle — best-weapon-per-hardpoint recommendation.
+        self._opt_btn = QPushButton(_("\U0001f3af Optimize"), hdr)  # dart
+        self._opt_btn.setCheckable(True)
+        self._opt_btn.setCursor(Qt.PointingHandCursor)
+        self._opt_btn.setToolTip(_("Recommend the best weapon per hardpoint"))
+        self._opt_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BG3}; color: {YELLOW};
+                font-family: Consolas; font-size: 8pt; font-weight: bold;
+                border: 1px solid {YELLOW}; padding: 3px 9px;
+            }}
+            QPushButton:hover {{ background-color: {BORDER}; color: {FG}; }}
+            QPushButton:checked {{ background-color: {YELLOW}; color: #000; }}
+        """)
+        self._opt_btn.toggled.connect(self._toggle_optimizer)
+        hdr_lay.addWidget(self._opt_btn)
 
         hdr_lay.addStretch(1)
 
@@ -405,6 +459,148 @@ class DpsCalcApp(SCWindow):
 
         foot_lay.addStretch(1)
         parent_layout.addWidget(footer)
+
+    def _toggle_crafting(self, on: bool) -> None:
+        """Header 'Crafting' toggle: open the panel when checked, close it when not."""
+        if on:
+            self._open_crafting_dialog()
+        else:
+            dlg = getattr(self, "_craft_dialog", None)
+            if dlg is not None:
+                dlg.close()
+
+    def _toggle_ttk(self, on: bool) -> None:
+        """Header 'TTK' toggle: open the time-to-kill panel when checked."""
+        if on:
+            self._open_ttk_dialog()
+        else:
+            dlg = getattr(self, "_ttk_dialog", None)
+            if dlg is not None:
+                dlg.close()
+
+    def _toggle_optimizer(self, on: bool) -> None:
+        """Header 'Optimize' toggle: open the loadout optimizer when checked."""
+        if on:
+            self._open_optimizer_dialog()
+        else:
+            dlg = getattr(self, "_opt_dialog", None)
+            if dlg is not None:
+                dlg.close()
+
+    def _weapon_candidates(self, max_size):
+        """Weapons that fit a hardpoint of the given size, deduped, with computed stats."""
+        out = []
+        seen = set()
+        try:
+            for st in (self._data.weapons_by_name or {}).values():
+                sz = st.get("size", 0) or 0
+                ref = st.get("ref") or st.get("local_name") or st.get("name")
+                if sz <= max_size and ref and ref not in seen:
+                    seen.add(ref)
+                    out.append(st)
+        except Exception:
+            pass
+        return out
+
+    def _open_optimizer_dialog(self) -> None:
+        """Open the read-only loadout optimizer for the current ship's weapon hardpoints."""
+        try:
+            from dps_ui.optimizer_dialog import OptimizerDialog
+        except Exception:
+            return
+        slots = getattr(self, "_current_weapon_slots", []) or []
+        current = getattr(self, "_last_dps", {}) or {}
+        old = getattr(self, "_opt_dialog", None)
+        if old is not None:
+            old.close()
+        dlg = OptimizerDialog(self, slots, self._weapon_candidates, current)
+        self._opt_dialog = dlg
+
+        def _on_finish(*_a):
+            self._opt_dialog = None
+            btn = getattr(self, "_opt_btn", None)
+            if btn is not None:
+                btn.blockSignals(True)
+                btn.setChecked(False)
+                btn.blockSignals(False)
+
+        dlg.finished.connect(_on_finish)
+        dlg.show()
+
+    def _open_ttk_dialog(self) -> None:
+        """Open the Time-To-Kill panel for the current loadout vs a target ship."""
+        try:
+            from dps_ui.ttk_dialog import TTKDialog
+        except Exception:
+            return
+        try:
+            names = self._data.get_ship_names()
+        except Exception:
+            names = []
+        old = getattr(self, "_ttk_dialog", None)
+        if old is not None:
+            old.close()
+        dlg = TTKDialog(
+            self, names, self._data.get_ship_data, self._data.find_shield,
+            getattr(self, "_last_dps_sus", 0.0),
+        )
+        self._ttk_dialog = dlg
+
+        def _on_finish(*_a):
+            self._ttk_dialog = None
+            btn = getattr(self, "_ttk_btn", None)
+            if btn is not None:
+                btn.blockSignals(True)
+                btn.setChecked(False)
+                btn.blockSignals(False)
+
+        dlg.finished.connect(_on_finish)
+        dlg.show()
+
+    def _open_crafting_dialog(self) -> None:
+        """Open the crafting panel (master + per-weapon sliders) for the equipped craftable guns."""
+        try:
+            from dps_ui.crafting_dialog import CraftingDialog
+            from services import crafting as _craft
+        except Exception:
+            return
+        table = _craft.load_table()
+        weapons = []
+        seen = set()
+        for _sid, nm in self._sel.get("weapons", {}).items():
+            if not nm:
+                continue
+            s = self._data.find_weapon(nm)
+            if not s:
+                continue
+            cn = s.get("local_name", "")
+            if cn in table and cn not in seen:
+                seen.add(cn)
+                weapons.append((cn, s.get("name") or table[cn].get("name") or cn,
+                                table[cn].get("damage_slots", [])))
+
+        def _on_change(cfg):
+            self._craft_quality = cfg or None
+            self._update_footer()
+
+        # Replace any existing panel, then show non-modally so it toggles alongside the app.
+        old = getattr(self, "_craft_dialog", None)
+        if old is not None:
+            old.close()
+        current = self._craft_quality if isinstance(self._craft_quality, dict) else {}
+        dlg = CraftingDialog(self, weapons, current, _on_change)
+        self._craft_dialog = dlg
+
+        def _on_finish(*_a):
+            self._craft_dialog = None
+            btn = getattr(self, "_craft_btn", None)
+            if btn is not None:
+                btn.blockSignals(True)
+                btn.setChecked(False)
+                btn.blockSignals(False)
+
+        dlg.finished.connect(_on_finish)
+        dlg.show()
 
     # -- Right panel placeholder -----------------------------------------------
 
@@ -925,6 +1121,7 @@ class DpsCalcApp(SCWindow):
         # ── Weapons + Gimbals/Mounts (unified per Erkul style) ─────────────────
         # Each weapon hardpoint shows: [optional gimbal row] + [weapon row]
         all_weapon_slots = extract_slots_by_type(loadout, {"WeaponGun", "Turret"})
+        self._current_weapon_slots = all_weapon_slots  # for the Optimizer panel
         for s in all_weapon_slots:
             lr     = s.get("local_ref", "")    # resolved inner weapon ref
             or_ref = s.get("outer_ref", "")    # what's directly in the port
@@ -1623,6 +1820,7 @@ class DpsCalcApp(SCWindow):
             power_ratio_mult=self._power_ratio_mult,
             raw_weapon_lookup=self._data.raw_lookup,
             slot_gun_counts=getattr(self, "_slot_gun_counts", {}),
+            craft_quality=getattr(self, "_craft_quality", None),
         )
 
         # Update per-row DPS in the weapon tables (sustained)
@@ -1631,7 +1829,10 @@ class DpsCalcApp(SCWindow):
 
         tot_raw = totals["dps_raw"]
         tot_sus = totals["dps_sus"]
+        self._last_dps_sus = tot_sus  # attacker DPS for the TTK panel
         tot_alp = totals["alpha"]
+        # current fit's numbers by goal, for the Optimizer comparison
+        self._last_dps = {"dps_sus": tot_sus, "dps_raw": tot_raw, "alpha": tot_alp}
         miss_dmg = totals["missile_dmg"]
         tot_hp = totals["shield_hp"]
         # Power sim: use erkul-exact per-shield formula from power_engine

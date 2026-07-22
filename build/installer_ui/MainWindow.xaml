@@ -71,7 +71,7 @@
                            Foreground="{StaticResource TextDimBrush}"
                            Margin="14,0,0,0"
                            x:Name="VersionText"
-                           Text="v2.2.15" />
+                           Text="v2.2.16" />
             </StackPanel>
 
             <!-- Middle filler — could host a tip carousel later -->
@@ -115,7 +115,7 @@
                                    FontSize="20"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource TextBrush}"
-                                   Text="Welcome to SC Toolbox v2.2.15 setup" />
+                                   Text="Welcome to SC Toolbox v2.2.16 setup" />
 
                         <!-- Description: what gets installed + where + size.
                              Wrapped, dim color so it reads as supporting text. -->
@@ -210,7 +210,7 @@
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource TextBrush}"
                                        VerticalAlignment="Center"
-                                       Text="Installing SC Toolbox 2.2.15" />
+                                       Text="Installing SC Toolbox 2.2.16" />
                         </StackPanel>
 
                         <!-- Progress bar + percentage -->

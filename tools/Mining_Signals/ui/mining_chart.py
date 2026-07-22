@@ -1038,6 +1038,17 @@ class MiningChartTab(QWidget):
             f"font-size: 11pt; font-weight: bold; "
             f"color: {P.fg_bright}; background: transparent;"
         )
+        # Percentages are the EXPECTED IN-ROCK ABUNDANCE of each ore at a
+        # location: P(rock type) * P(element present) * mean(min,max)%,
+        # summed across the location's deposit types — i.e. the realistic
+        # average yield you mine there, derived from scmdb's composition
+        # min/maxPercent fields.  (The old metric showed deposit occurrence
+        # likelihood, which over-stated trace ores.)
+        self._title.setToolTip(
+            "Percentages show the expected in-rock abundance (average "
+            "yield)\nof each resource at a location, derived from scmdb.net "
+            "composition\ndata — not how often a deposit merely contains it."
+        )
         header.addWidget(self._title)
 
         self._status = QLabel("Loading...")
@@ -1236,6 +1247,7 @@ class MiningChartTab(QWidget):
             parts.append(f"sort: col {focused_col} {direction}")
         elif focused_row:
             parts.append(f"sort: row {focused_row} {direction}")
+        parts.append("% = avg in-rock abundance")
         self._status.setText("  \u00b7  ".join(parts))
 
     def _sync_sort_button(self) -> None:

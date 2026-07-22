@@ -504,11 +504,23 @@ class StarMapPanel(QWidget):
             else:
                 pts.append((code, loc, None, None, None, role))
         uniq = list(dict.fromkeys(c for (c, _n, x, _y, _z, _r) in pts if c and x is not None))
+        # DIAGNOSTIC (2026-07-21): a route silently vanishes when its waypoint LOCATION NAMES
+        # can't be matched to a map body (_find_body). Log the unresolved names so the missing
+        # LOC_ALIASES entries can be added — this is the "some routes don't show" bug.
+        import logging as _lg
+        _unres = [loc for (c, loc, x, _y, _z, _r) in pts if x is None]
+        if _unres:
+            _lg.getLogger("TradeHub.starmap").warning(
+                "route select: %d/%d waypoints UNRESOLVED on map: %s", len(_unres), len(pts), " | ".join(_unres))
         if len(uniq) >= 2:
             pts = self._inject_gateways(pts)
         self._trade_route_pts = pts
         self._go_galaxy()
         if self._galaxy is None or not uniq:
+            if not uniq:
+                _lg.getLogger("TradeHub.starmap").warning(
+                    "route NOT shown — NONE of its waypoints resolved to map bodies: %s",
+                    " | ".join(loc for (_c, loc, *_rest) in pts))
             return
         if len(uniq) >= 2:
             self._galaxy.plot_route(uniq[0], uniq[-1])      # cross-system jump path
