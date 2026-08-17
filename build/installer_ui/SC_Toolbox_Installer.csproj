@@ -22,6 +22,20 @@
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <PublishReadyToRun>false</PublishReadyToRun>
 
+    <!-- ★★★ 2026-08-17 - STOP EMBEDDING THE BUILD MACHINE'S PATH IN THE SHIPPED .EXE.
+         Every installer we have shipped carries exactly one copy of
+         C:\Users\<name>\AppData\Roaming\ShipBit\... and it is NOT a staged file and NOT a
+         source string, so sanitize_staging.py could never have caught it - that scrub only
+         walks tools/Mining_Signals.
+         It is the PE CodeView debug directory: the compiler records the absolute path of the
+         .pdb next to an "RSDS" marker so a debugger can find symbols later. Verified by
+         grepping the built .exe - the single hit sits immediately after RSDS.
+         DebugType=none omits the debug directory entirely. We neither ship nor serve symbols
+         for the installer, so nothing is lost. If usable stack traces are ever wanted instead,
+         the alternative is Deterministic + PathMap rather than reinstating this. -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+
     <!-- Branding -->
     <ApplicationIcon>..\..\assets\sc_toolbox.ico</ApplicationIcon>
     <Version>2.2.16</Version>
