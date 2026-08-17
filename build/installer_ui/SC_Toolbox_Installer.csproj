@@ -38,8 +38,18 @@
 
     <!-- Branding -->
     <ApplicationIcon>..\..\assets\sc_toolbox.ico</ApplicationIcon>
-    <Version>2.2.16</Version>
-    <FileVersion>2.2.16</FileVersion>
+    <!-- ★★★ 2026-08-17 — VERSION IS DERIVED, NOT TYPED. See the SyncVersionFromPyproject target
+         at the bottom of this file. These two lines are only a fallback for the case where
+         pyproject.toml cannot be read; if the target runs (it does), it overwrites them.
+         WHY: this csproj said 2.2.16 while pyproject.toml said 2.3.0, so for two releases the
+         installer WINDOW announced v2.2.16 while installing 2.3.x — the thing installing itself
+         was lying about what it was, in the one place a user actually reads.
+         J, on being told: "it's remarkable how many tiny things have silently drifted."
+         Bumping both by hand would have fixed today and guaranteed a repeat, because a value
+         written down twice drifts the moment someone edits one copy in a hurry.
+         [[dont-write-a-second-copy-of-a-value-that-already-exists]] -->
+    <Version>0.0.0-fallback</Version>
+    <FileVersion>0.0.0</FileVersion>
     <Product>SC Toolbox Installer</Product>
     <Company>SC Toolbox</Company>
     <Copyright>Copyright (c) 2026</Copyright>
@@ -84,5 +94,33 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- ★★★ SINGLE SOURCE OF TRUTH FOR THE VERSION (Elah, 2026-08-17).
+       pyproject.toml is what velopack reads (via build/read_version.py) to stamp the package.
+       This target makes the installer UI read the SAME file instead of keeping its own copy,
+       so the window, the package and the git tag cannot disagree again.
+
+       It ran before Build so the value is in place for the compiler, and it FAILS LOUDLY rather
+       than silently shipping the fallback — a version sync that quietly does nothing is exactly
+       the drift it exists to prevent, and would be indistinguishable from working.  -->
+  <Target Name="SyncVersionFromPyproject" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_PyprojectPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\pyproject.toml'))</_PyprojectPath>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_PyprojectPath)')"
+           Text="Version sync FAILED: pyproject.toml not found at $(_PyprojectPath). Refusing to build with a stale hardcoded version." />
+    <PropertyGroup>
+      <_PyprojectText>$([System.IO.File]::ReadAllText('$(_PyprojectPath)'))</_PyprojectText>
+      <_PyVersion>$([System.Text.RegularExpressions.Regex]::Match($(_PyprojectText), 'version\s*=\s*"([^"]+)"').Groups[1].Value)</_PyVersion>
+    </PropertyGroup>
+    <Error Condition="'$(_PyVersion)' == ''"
+           Text="Version sync FAILED: no version = &quot;x.y.z&quot; line in $(_PyprojectPath). Refusing to build with a stale hardcoded version." />
+    <PropertyGroup>
+      <Version>$(_PyVersion)</Version>
+      <FileVersion>$(_PyVersion)</FileVersion>
+      <AssemblyVersion>$(_PyVersion)</AssemblyVersion>
+    </PropertyGroup>
+    <Message Importance="high" Text="  [version] installer UI synced to $(_PyVersion) from pyproject.toml" />
+  </Target>
 
 </Project>
