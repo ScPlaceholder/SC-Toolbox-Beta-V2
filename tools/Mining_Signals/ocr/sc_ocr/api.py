@@ -1214,6 +1214,312 @@ def _annotate_frozen_snapshot(
     return annotated
 
 
+def _signal_otsu(gray: np.ndarray) -> int:
+    """Return an Otsu threshold for a tight signal crop."""
+    if gray.size == 0:
+        return 0
+    hist = np.bincount(gray.astype(np.uint8, copy=False).ravel(), minlength=256).astype(np.float64)
+    total = float(gray.size)
+    sum_total = float(np.dot(np.arange(256), hist))
+    sum_b = 0.0
+    w_b = 0.0
+    best_var = -1.0
+    best = int(np.median(gray))
+    for i in range(256):
+        w_b += float(hist[i])
+        if w_b <= 0:
+            continue
+        w_f = total - w_b
+        if w_f <= 0:
+            break
+        sum_b += float(i * hist[i])
+        mean_b = sum_b / w_b
+        mean_f = (sum_total - sum_b) / w_f
+        between = w_b * w_f * (mean_b - mean_f) ** 2
+        if between > best_var:
+            best_var = between
+            best = i
+    return int(best)
+
+
+def _signal_main_row_mask(gray: np.ndarray) -> Optional[np.ndarray]:
+    """Isolate the dominant signal-number row as a boolean mask."""
+    if gray.ndim != 2 or gray.size == 0:
+        return None
+    thr = _signal_otsu(gray)
+    mask = gray > thr
+    # If polarity is inverted, keep the sparser foreground.
+    if int(mask.sum()) > (mask.size // 2):
+        mask = ~mask
+    row_counts = mask.sum(axis=1)
+    min_count = max(2, int(mask.shape[1] * 0.05))
+    rows: list[tuple[int, int, int]] = []
+    in_row = False
+    start = 0
+    peak = 0
+    for y in range(mask.shape[0] + 1):
+        val = int(row_counts[y]) if y < mask.shape[0] else 0
+        if val >= min_count and not in_row:
+            in_row = True
+            start = y
+            peak = val
+        elif val >= min_count and in_row:
+            peak = max(peak, val)
+        elif val < min_count and in_row:
+            in_row = False
+            if y - start >= 4:
+                rows.append((start, y, peak))
+    if not rows:
+        return None
+    y1, y2, _peak = max(rows, key=lambda r: (r[2], r[1] - r[0]))
+    return mask[y1:y2, :]
+
+
+def _signal_component_spans(row_mask: np.ndarray) -> list[tuple[int, int]]:
+    """Segment foreground column runs in a normalized signal row."""
+    if row_mask.ndim != 2 or row_mask.size == 0:
+        return []
+    col_counts = row_mask.sum(axis=0)
+    spans: list[tuple[int, int]] = []
+    in_span = False
+    start = 0
+    min_hot = 1
+    for x in range(row_mask.shape[1] + 1):
+        val = int(col_counts[x]) if x < row_mask.shape[1] else 0
+        if val >= min_hot and not in_span:
+            in_span = True
+            start = x
+        elif val < min_hot and in_span:
+            in_span = False
+            if x - start >= 1:
+                spans.append((start, x))
+    return spans
+
+
+def _signal_trim_component(component: np.ndarray) -> Optional[np.ndarray]:
+    ys, xs = np.where(component)
+    if ys.size == 0 or xs.size == 0:
+        return None
+    return component[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+
+
+def _signal_component_is_comma(component: np.ndarray, row_h: int) -> bool:
+    trimmed = _signal_trim_component(component)
+    if trimmed is None:
+        return True
+    h, w = trimmed.shape
+    ys, _xs = np.where(component)
+    center_y = float(ys.mean()) if ys.size else 0.0
+    return h < row_h * 0.45 and w <= max(3, int(row_h * 0.25)) and center_y > row_h * 0.45
+
+
+def _signal_component_is_icon(component: np.ndarray, row_h: int, remaining: int) -> bool:
+    trimmed = _signal_trim_component(component)
+    if trimmed is None:
+        return False
+    h, w = trimmed.shape
+    return remaining >= 4 and w >= row_h * 0.70 and h >= row_h * 0.70
+
+
+def _signal_component_holes(component: np.ndarray) -> int:
+    """Count enclosed background holes in a trimmed boolean glyph."""
+    h, w = component.shape
+    if h <= 2 or w <= 2:
+        return 0
+    seen = np.zeros(component.shape, dtype=bool)
+    holes = 0
+    for y in range(h):
+        for x in range(w):
+            if component[y, x] or seen[y, x]:
+                continue
+            stack = [(y, x)]
+            seen[y, x] = True
+            touches_border = False
+            while stack:
+                cy, cx = stack.pop()
+                if cy == 0 or cx == 0 or cy == h - 1 or cx == w - 1:
+                    touches_border = True
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    ny, nx = cy + dy, cx + dx
+                    if (
+                        0 <= ny < h
+                        and 0 <= nx < w
+                        and not component[ny, nx]
+                        and not seen[ny, nx]
+                    ):
+                        seen[ny, nx] = True
+                        stack.append((ny, nx))
+            if not touches_border:
+                holes += 1
+    return holes
+
+
+def _signal_digit_from_geometry(component: np.ndarray) -> Optional[str]:
+    """Classify clean SC signal glyphs when OCR engines are unavailable.
+
+    This is intentionally conservative: it handles high-confidence
+    morphology visible in tight signature crops and returns None for
+    ambiguous glyphs so other readers can decide.
+    """
+    trimmed = _signal_trim_component(component)
+    if trimmed is None:
+        return None
+    h, w = trimmed.shape
+    if h <= 0 or w <= 0:
+        return None
+    density = float(trimmed.mean())
+    aspect = w / float(h)
+    if aspect <= 0.42 and density >= 0.45:
+        return "1"
+
+    thirds = max(1, h // 3)
+    top = float(trimmed[:thirds, :].mean())
+    mid = float(trimmed[thirds: max(2 * thirds, thirds + 1), :].mean())
+    bottom = float(trimmed[-thirds:, :].mean())
+    center_w = max(1, w // 3)
+    cx1 = max(0, (w - center_w) // 2)
+    cx2 = min(w, cx1 + center_w)
+    center_density = float(trimmed[thirds: max(h - thirds, thirds + 1), cx1:cx2].mean())
+    left_density = float(trimmed[:, :max(1, w // 3)].mean())
+    right_density = float(trimmed[:, max(0, w - max(1, w // 3)):].mean())
+    holes_hint = _signal_component_holes(trimmed)
+    if holes_hint >= 2:
+        return "8"
+
+    # Zero: strong side walls and a dense lower/middle body.
+    if holes_hint == 1 and 0.43 <= aspect <= 0.75 and left_density >= 0.75 and right_density >= 0.75 and mid >= 0.65:
+        return "0"
+
+    # Seven: heavy top bar, lighter lower body, and much less side-wall density.
+    if 0.43 <= aspect <= 0.75 and top >= 0.85 and mid <= 0.60 and density <= 0.70:
+        return "7"
+
+    def _region(y1: int, y2: int, x1: int, x2: int) -> float:
+        yy1 = max(0, min(h, y1))
+        yy2 = max(0, min(h, y2))
+        xx1 = max(0, min(w, x1))
+        xx2 = max(0, min(w, x2))
+        if yy2 <= yy1 or xx2 <= xx1:
+            return 0.0
+        return float(trimmed[yy1:yy2, xx1:xx2].mean())
+
+    # Seven-segment-style occupancy, used as a broader fallback for
+    # clean segmented glyphs. SC signal numerals are not literally
+    # seven-segment, but these coarse regions distinguish the common
+    # digit topology without needing Tesseract, CRNN, or onnxruntime.
+    top_seg = _region(0, max(2, h // 5), w // 4, 3 * w // 4) > 0.50
+    mid_seg = _region(2 * h // 5, 3 * h // 5, w // 4, 3 * w // 4) > 0.50
+    bot_seg = _region(max(0, h - h // 5), h, w // 4, 3 * w // 4) > 0.50
+    upper_left = _region(h // 6, h // 2, 0, max(1, w // 3)) > 0.35
+    upper_right = _region(h // 6, h // 2, max(0, 2 * w // 3), w) > 0.35
+    lower_left_score = _region(h // 2, 5 * h // 6, 0, max(1, w // 3))
+    lower_right_score = _region(h // 2, 5 * h // 6, max(0, 2 * w // 3), w)
+    upper_left_score = _region(h // 6, h // 2, 0, max(1, w // 3))
+    upper_right_score = _region(h // 6, h // 2, max(0, 2 * w // 3), w)
+    top_score = _region(0, max(2, h // 5), w // 4, 3 * w // 4)
+    mid_score = _region(2 * h // 5, 3 * h // 5, w // 4, 3 * w // 4)
+    bot_score = _region(max(0, h - h // 5), h, w // 4, 3 * w // 4)
+    lower_left = lower_left_score > 0.35
+    lower_right = lower_right_score > 0.35
+
+    holes = _signal_component_holes(trimmed)
+    if holes >= 2:
+        return "8"
+    if holes == 1:
+        # Open-topped/left-light loop in SC's rendered 4.
+        if upper_left_score < 0.30 and lower_right_score >= 0.60 and mid_score >= 0.75:
+            return "4"
+        if lower_left_score < 0.30 and upper_left_score >= 0.55 and bot_score >= 0.50:
+            return "9"
+        if lower_left_score >= 0.50 and upper_left_score >= 0.55 and upper_right_score < 0.35:
+            return "6"
+        return "0"
+
+    # Common no-hole glyphs from real tight crops.
+    if top_score >= 0.85 and mid_score >= 0.50 and bot_score >= 0.80:
+        if upper_left_score >= 0.70 and upper_right_score < 0.55 and lower_right_score >= 0.55:
+            return "5"
+        if upper_right_score >= 0.55 and lower_left_score >= 0.50 and lower_right_score < 0.45:
+            return "2"
+    if top_score < 0.70 and mid_score >= 0.75 and lower_right_score >= 0.60:
+        return "4"
+
+    pattern = (
+        top_seg,
+        upper_left,
+        upper_right,
+        bot_seg,
+        lower_left,
+        lower_right,
+        mid_seg,
+    )
+    segment_digits = {
+        (True, True, True, True, True, True, False): "0",
+        (False, False, True, False, False, True, False): "1",
+        (True, False, True, True, True, False, True): "2",
+        (True, False, True, True, False, True, True): "3",
+        (False, True, True, False, False, True, True): "4",
+        (True, True, False, True, False, True, True): "5",
+        (True, True, False, True, True, True, True): "6",
+        (True, False, True, False, False, True, False): "7",
+        (True, True, True, True, True, True, True): "8",
+        (True, True, True, True, False, True, True): "9",
+    }
+    return segment_digits.get(pattern)
+
+
+def _signal_read_tight_local(gray: np.ndarray) -> Optional[int]:
+    """Dependency-free signal OCR for tight icon+number crops.
+
+    It implements the experimental no-training strategy: isolate the
+    number row, segment relative to row height, ignore comma/noise, and
+    classify obvious local glyph geometry before applying range checks.
+    """
+    row = _signal_main_row_mask(gray)
+    if row is None:
+        return None
+    spans = _signal_component_spans(row)
+    if not spans:
+        return None
+
+    row_h = row.shape[0]
+    digits: list[str] = []
+    total = len(spans)
+    for idx, (x1, x2) in enumerate(spans):
+        component = row[:, x1:x2]
+        if _signal_component_is_icon(component, row_h, total - idx - 1):
+            continue
+        if _signal_component_is_comma(component, row_h):
+            continue
+        digit = _signal_digit_from_geometry(component)
+        if digit is None:
+            log.debug("sc_ocr.signal: local fallback ambiguous component span=%s", (x1, x2))
+            return None
+        digits.append(digit)
+
+    if not (4 <= len(digits) <= 5):
+        return None
+    value = int("".join(digits))
+    if 1000 <= value <= 35000:
+        log.info("sc_ocr.signal: local tight-crop fallback read %d", value)
+        return value
+    return None
+
+
+def _signal_accept_candidate(value: int, source: str) -> int:
+    """Apply the existing signal consensus policy to a raw candidate."""
+    global _STABLE_SIGNAL
+    _RECENT_SIGNAL_READS.append(value)
+    if _STABLE_SIGNAL is None:
+        _STABLE_SIGNAL = value
+    elif value != _STABLE_SIGNAL:
+        recent = list(_RECENT_SIGNAL_READS)[-_SIGNAL_AGREEMENT_REQ:]
+        if len(recent) >= _SIGNAL_AGREEMENT_REQ and all(r == value for r in recent):
+            log.info("sc_ocr.signal: stable swap %d → %d (%s consensus)", _STABLE_SIGNAL, value, source)
+            _STABLE_SIGNAL = value
+    return int(_STABLE_SIGNAL)
+
+
 def _crop_fingerprint(value_crop: "Image.Image") -> Optional[np.ndarray]:
     """Downsample a value crop to a fixed (_CROP_FP_H × _CROP_FP_W)
     grayscale fingerprint for pairwise similarity comparison.
@@ -12212,7 +12518,14 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
             sys.path.insert(0, str(_scripts))
         import extract_labeled_glyphs as _xlg  # type: ignore
     except Exception as exc:
-        log.debug("sc_ocr.signal: extract_labeled_glyphs unavailable: %s", exc)
+        log.debug(
+            "sc_ocr.signal: extract_labeled_glyphs unavailable; "
+            "trying local tight-crop fallback: %s",
+            exc,
+        )
+        local_value = _signal_read_tight_local(gray)
+        if local_value is not None:
+            return _signal_accept_candidate(local_value, "local")
         return None
 
     # ── Manual calibration (region-keyed) takes precedence ──
@@ -14865,6 +15178,9 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
 
     if not candidates:
         log.debug("sc_ocr.signal: no Tesseract variant produced 4-5 digits in range")
+        local_value = _signal_read_tight_local(gray)
+        if local_value is not None:
+            return _signal_accept_candidate(local_value, "local")
         return None
 
     # Vote. Two-tier scoring:
