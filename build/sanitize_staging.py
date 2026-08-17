@@ -29,9 +29,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("staging")
     ap.add_argument("--user", required=True, help="username token to scrub (e.g. youruser)")
+    # ★★★ 2026-08-17 — the DOUBLED %% IS REQUIRED. argparse runs help strings through
+    #   %-formatting, so a literal "%USERNAME%" raises ValueError: badly formed help string at
+    #   add_argument() time. This script therefore died before parsing a single argument, EVERY
+    #   time it was invoked. The build called it, got the crash, and correctly refused to continue:
+    #   "Privacy scrub FAILED — username may still be present in staging. Aborting to avoid a
+    #   public leak."
+    #   So the guard worked perfectly and the thing it guards has never once run. The scrub was
+    #   written 2026-07-22 to fix ~78 files leaking the username, and it has been dead since.
+    #   Nothing noticed because the abort looks exactly like the guard doing its job.
+    #   [[test-what-the-instrument-CANNOT-distinguish]] — "tool refused" and "tool is broken"
+    #   produce the same abort message.
     ap.add_argument("--repl", default=None,
                     help="same-length replacement token; if omitted, auto = same-length redaction so the "
-                         "build script can pass just --user %USERNAME% without hardcoding a name")
+                         "build script can pass just --user %%USERNAME%% without hardcoding a name")
     ap.add_argument("--apply", action="store_true", help="actually modify (default: dry run)")
     a = ap.parse_args()
     staging = os.path.abspath(a.staging)
