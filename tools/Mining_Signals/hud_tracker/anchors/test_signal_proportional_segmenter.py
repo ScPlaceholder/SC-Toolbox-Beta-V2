@@ -38,7 +38,7 @@ from hud_tracker.anchors.signal_proportional_segmenter import (  # noqa: E402
 
 # Default region2 capture folder.
 _REGION2_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels\user_20260418_154408\region2"
 )

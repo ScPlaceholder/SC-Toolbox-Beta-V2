@@ -227,7 +227,7 @@
   "augmentationPerSample": 8,
   "trainedAt": "2026-06-10T21:20:02",
   "trainingSeconds": 161.83059310913086,
-  "modelPath": "C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\ocr\\models\\model_hud_rgb_cnn.onnx",
-  "stagingDir": "C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_panel_rgb",
+  "modelPath": "C:\\Users\\_user\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\ocr\\models\\model_hud_rgb_cnn.onnx",
+  "stagingDir": "C:\\Users\\_user\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_panel_rgb",
   "notes": "HUD-specific RGB per-glyph CNN. 12 classes (0-9, '.', '%') covering mass / resistance / instability fields. RGB twin of model_hud_cnn.onnx; preserves cyan-vs-bg colour and chromatic-aberration patterns that the grayscale CNN collapses to luma. Trained ONLY on HUD-registered sources (training_data_user_panel_rgb/ extracted from training_data_hud_crops/). Never shares training data with the signature RGB CNN \u2014 HUD font and Signature font are structurally different."
 }

@@ -22,12 +22,12 @@ from typing import Any, Dict, Iterable, List
 import numpy as np
 
 SOURCE_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_154408\region1"
 )
 OUT_PATH = Path(
-    r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
+    r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
     r"\hud_tracker\world_model.json"
 )
 COORDS = ("x_frac", "y_frac", "w_frac", "h_frac")

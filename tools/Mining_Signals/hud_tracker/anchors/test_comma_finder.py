@@ -2,7 +2,7 @@
 
 Run under production Python 3.14::
 
-    "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
+    "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
         hud_tracker\\anchors\\test_comma_finder.py
 
 What this script does
@@ -52,7 +52,7 @@ from hud_tracker.anchors.comma_finder import (  # noqa: E402
 #---──────────────────────────────────────────────────────────
 
 _REGION2_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels\user_20260418_154408\region2"
 )

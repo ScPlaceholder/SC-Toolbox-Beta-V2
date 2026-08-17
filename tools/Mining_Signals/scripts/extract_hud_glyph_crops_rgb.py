@@ -82,7 +82,7 @@ LABEL_TO_FOLDER = {
 _HUD_CROP_DIRS_TRY = [
     TOOL / "training_data_hud_crops",
     Path(
-        r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
         r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
         r"\training_data_hud_crops"
     ),

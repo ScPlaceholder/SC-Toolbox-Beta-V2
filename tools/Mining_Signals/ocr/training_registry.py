@@ -60,7 +60,7 @@ _PANELS_ROOT = _TOOL_DIR / "training_data_panels"
 # look up paths via ``resolve_staging_dir`` below which prefers WingmanAI
 # when present, falls back to dev tree, so a fresh checkout still trains.
 _WINGMAN_TOOL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
 )
 

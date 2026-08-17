@@ -76,7 +76,7 @@ from hud_tracker.anchors import (  # type: ignore
 
 
 CAPTURES_ROOT = Path(
-    r"C:\Users\prjgn\Documents\sc_ocr_engine\training_data_panels"
+    r"C:\Users\_user\Documents\sc_ocr_engine\training_data_panels"
 )
 CSV_OUT = _THIS_DIR / "failure_profile.csv"
 

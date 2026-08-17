@@ -115,9 +115,9 @@
   },
   "trainedAt": "2026-06-10T21:21:56",
   "trainingSeconds": 36.3574435710907,
-  "modelPath": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_aspect_28x20.onnx",
-  "digitStagingDir": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_28x20_digit_staging_rgb",
-  "iconStagingDir": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_28x20_icon_staging_rgb",
+  "modelPath": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_aspect_28x20.onnx",
+  "digitStagingDir": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_28x20_digit_staging_rgb",
+  "iconStagingDir": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_28x20_icon_staging_rgb",
   "iconSampleSources": {
     "realDerivedAugs": 150,
     "colorizedSynthetic": 300,

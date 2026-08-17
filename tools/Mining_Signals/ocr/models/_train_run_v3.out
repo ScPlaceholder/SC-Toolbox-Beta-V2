@@ -4,8 +4,8 @@ INFO Device: cpu
 INFO PyTorch: 2.11.0+cu130
 2026-05-10 18:04:20,776 INFO Alphabet: '0123456789,' blank=11 num_classes=12
 INFO Alphabet: '0123456789,' blank=11 num_classes=12
-2026-05-10 18:04:20,776 INFO Walking C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels ...
-INFO Walking C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels ...
+2026-05-10 18:04:20,776 INFO Walking C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels ...
+INFO Walking C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels ...
 2026-05-10 18:04:45,451 INFO Source dataset: walked=232 kept=201 skipped(pipeline)=31 skipped(no_gt)=0 skipped(empty_label)=0
 INFO Source dataset: walked=232 kept=201 skipped(pipeline)=31 skipped(no_gt)=0 skipped(empty_label)=0
 2026-05-10 18:04:45,457 INFO Built source items in 24.7s (n=201)
@@ -188,23 +188,23 @@ INFO Early stop at epoch 83 (val plateaued for 15 epochs)
 INFO Training done in 4082.2s. best_val_loss=0.4006 best_val_acc=0.833
 2026-05-10 19:12:49,305 INFO Final held-out val accuracy: 0.833 (25/30)
 INFO Final held-out val accuracy: 0.833 (25/30)
-2026-05-10 19:12:49,305 INFO Exporting ONNX to C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.onnx
-INFO Exporting ONNX to C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.onnx
-C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\train_signal_crnn_rgb.py:755: UserWarning: # 'dynamic_axes' is not recommended when dynamo=True, and may lead to 'torch._dynamo.exc.UserError: Constraints violated.' Supply the 'dynamic_shapes' argument instead if export is unsuccessful.
+2026-05-10 19:12:49,305 INFO Exporting ONNX to C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.onnx
+INFO Exporting ONNX to C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.onnx
+C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\train_signal_crnn_rgb.py:755: UserWarning: # 'dynamic_axes' is not recommended when dynamo=True, and may lead to 'torch._dynamo.exc.UserError: Constraints violated.' Supply the 'dynamic_shapes' argument instead if export is unsuccessful.
   torch.onnx.export(
 W0510 19:12:51.824000 5088 site-packages\torch\onnx\_internal\exporter\_compat.py:133] Setting ONNX exporter to use operator set version 18 because the requested opset_version 14 is a lower version than we have implementations for. Automatic version conversion will be performed, which may not be successful at converting to the requested version. If version conversion is unsuccessful, the opset version of the exported model will be kept at 18. Please consider setting opset_version >=18 to leverage latest ONNX features
 W0510 19:12:53.244000 5088 site-packages\torch\onnx\_internal\exporter\_registration.py:110] torchvision is not installed. Skipping torchvision::nms
 W0510 19:12:53.246000 5088 site-packages\torch\onnx\_internal\exporter\_registration.py:110] torchvision is not installed. Skipping torchvision::roi_align
 W0510 19:12:53.246000 5088 site-packages\torch\onnx\_internal\exporter\_registration.py:110] torchvision is not installed. Skipping torchvision::roi_pool
 W0510 19:12:53.587000 5088 site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
-C:\Users\prjgn\AppData\Local\Python\pythoncore-3.14-64\Lib\contextlib.py:148: UserWarning: The tensor attributes self.rnn._flat_weights[0], self.rnn._flat_weights[1], self.rnn._flat_weights[2], self.rnn._flat_weights[3], self.rnn._flat_weights[4], self.rnn._flat_weights[5], self.rnn._flat_weights[6], self.rnn._flat_weights[7], self.rnn._flat_weights[8], self.rnn._flat_weights[9], self.rnn._flat_weights[10], self.rnn._flat_weights[11], self.rnn._flat_weights[12], self.rnn._flat_weights[13], self.rnn._flat_weights[14], self.rnn._flat_weights[15] were assigned during export. Such attributes must be registered as buffers using the `register_buffer` API (https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_buffer).
+C:\Users\_user\AppData\Local\Python\pythoncore-3.14-64\Lib\contextlib.py:148: UserWarning: The tensor attributes self.rnn._flat_weights[0], self.rnn._flat_weights[1], self.rnn._flat_weights[2], self.rnn._flat_weights[3], self.rnn._flat_weights[4], self.rnn._flat_weights[5], self.rnn._flat_weights[6], self.rnn._flat_weights[7], self.rnn._flat_weights[8], self.rnn._flat_weights[9], self.rnn._flat_weights[10], self.rnn._flat_weights[11], self.rnn._flat_weights[12], self.rnn._flat_weights[13], self.rnn._flat_weights[14], self.rnn._flat_weights[15] were assigned during export. Such attributes must be registered as buffers using the `register_buffer` API (https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.register_buffer).
   next(self.gen)
 [torch.onnx] Obtain model graph for `RGBCRNN([...]` with `torch.export.export(..., strict=False)`...
 [torch.onnx] 2026-05-10 19:13:02,571 ERROR ONNX export failed: 'charmap' codec can't encode character '\u2705' in position 88: character maps to <undefined>
 ERROR ONNX export failed: 'charmap' codec can't encode character '\u2705' in position 88: character maps to <undefined>
 2026-05-10 19:13:02,572 INFO ONNX size: 0 bytes (0.00 MB)
 INFO ONNX size: 0 bytes (0.00 MB)
-2026-05-10 19:13:02,574 INFO Wrote metadata: C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.json
-INFO Wrote metadata: C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.json
+2026-05-10 19:13:02,574 INFO Wrote metadata: C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.json
+INFO Wrote metadata: C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals\ocr\models\model_signal_crnn_rgb.json
 2026-05-10 19:13:02,574 INFO DONE.
 INFO DONE.

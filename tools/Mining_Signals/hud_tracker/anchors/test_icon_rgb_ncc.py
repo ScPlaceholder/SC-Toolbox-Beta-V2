@@ -2,7 +2,7 @@
 
 Run via:
 
-    "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe"
+    "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe"
         hud_tracker\\anchors\\test_icon_rgb_ncc.py
 
 The script:
@@ -50,12 +50,12 @@ log = logging.getLogger("test_icon_rgb_ncc")
 # --- Constants ------------------------------------------------------------
 
 LABEL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_pending_review_signal\icon"
 )
 REGION2_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels\user_20260418_154408\region2"
 )

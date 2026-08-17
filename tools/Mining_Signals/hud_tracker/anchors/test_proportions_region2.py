@@ -11,7 +11,7 @@ Covers:
     the world-model path on a sample capture (proven via log capture).
 
 Run:
-  "C:/Users/prjgn/AppData/Local/SC_Toolbox/current/python/python.exe" \
+  "C:/Users/_user/AppData/Local/SC_Toolbox/current/python/python.exe" \
       hud_tracker/anchors/test_proportions_region2.py
 """
 
@@ -38,10 +38,10 @@ ROOT = HERE.parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PYTHON = r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\python\python.exe"
+PYTHON = r"C:\Users\_user\AppData\Local\SC_Toolbox\current\python\python.exe"
 
 REGION2_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_154408\region2"
 )
@@ -129,7 +129,7 @@ def test_detect_value_canonical() -> Dict[str, Any]:
     # The auto-annotator only ships in WingmanAI/custom_skills, not the
     # production tree — add it to sys.path and import.
     dev_scripts = (
-        Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
              r"\custom_skills\SC_Toolbox_Beta_V1.2"
              r"\tools\Mining_Signals\scripts")
     )
@@ -164,7 +164,7 @@ def test_detect_value_canonical() -> Dict[str, Any]:
 def test_width_extends_past_ncc() -> None:
     print("\n[3] world_model bbox covers more digits than find_digit_cluster")
     dev_scripts = (
-        Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
              r"\custom_skills\SC_Toolbox_Beta_V1.2"
              r"\tools\Mining_Signals\scripts")
     )
@@ -225,7 +225,7 @@ def test_width_extends_past_ncc() -> None:
 def test_iou_sweep_against_ground_truth() -> None:
     print("\n[4] Mean IoU vs ground truth — world_model_region2 vs find_digit_cluster")
     dev_scripts = (
-        Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
              r"\custom_skills\SC_Toolbox_Beta_V1.2"
              r"\tools\Mining_Signals\scripts")
     )

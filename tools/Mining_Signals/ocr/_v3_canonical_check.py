@@ -21,9 +21,9 @@ import shutil
 import sys
 from pathlib import Path
 
-PROD = Path(r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals")
+PROD = Path(r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals")
 WINGMAN = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
 )
 

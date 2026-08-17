@@ -2,7 +2,7 @@
 
 Run under production Python 3.14::
 
-    "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
+    "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
         hud_tracker\\anchors\\test_chrome_lines.py
 
 What this script does
@@ -53,7 +53,7 @@ from hud_tracker.anchors.chrome_lines import find_chrome_lines  # noqa: E402
 # Paths
 # ─────────────────────────────────────────────────────────────
 TRAINING_ROOT = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels"
 )

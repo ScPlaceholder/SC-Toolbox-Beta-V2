@@ -37,7 +37,7 @@ from ocr.sc_ocr.scan_results_match import find_scan_results_anchor  # noqa: E402
 
 
 LABELED_DIR = (
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_154408\region1"
 )

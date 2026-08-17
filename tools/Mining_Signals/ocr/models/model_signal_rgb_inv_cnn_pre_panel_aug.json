@@ -24,6 +24,6 @@
     "9": 200
   },
   "trainedAt": "2026-05-06T18:42:36",
-  "modelPath": "C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_inv_cnn.onnx",
-  "stagingDir": "C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_sig_rgb"
+  "modelPath": "C:\\Users\\_user\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_inv_cnn.onnx",
+  "stagingDir": "C:\\Users\\_user\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_sig_rgb"
 }

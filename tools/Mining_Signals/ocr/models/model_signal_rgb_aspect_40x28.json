@@ -92,7 +92,7 @@
   },
   "trainedAt": "2026-06-10T21:25:00",
   "trainingSeconds": 19.39092755317688,
-  "modelPath": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_aspect_40x28.onnx",
-  "digitStagingDir": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_40x28_digit_staging",
+  "modelPath": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_signal_rgb_aspect_40x28.onnx",
+  "digitStagingDir": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\_aspect_40x28_digit_staging",
   "notes": "Aspect-matched 40x28 (HxW) experiment. SC HUD digits have a natural ~0.6 wide-to-tall aspect; v3's 28x28 square canvas distorts the glyph during the resize step. This model uses a 40-tall x 28-wide canvas so glyphs need less shape distortion. Architecture is a 3-conv + FC RGB CNN matching v3 in spirit (only the FC bottleneck dimension changes from 64*7*7 to 64*10*7 to accommodate the taller feature map). Training corpus is signature-region2 only (no @ class, no panel-font samples) \u2014 apples-to-apples with the digits-only subset of v3."
 }

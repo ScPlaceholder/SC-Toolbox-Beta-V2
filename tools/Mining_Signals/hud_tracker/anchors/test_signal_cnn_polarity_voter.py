@@ -28,7 +28,7 @@ if str(_TOOL) not in sys.path:
 
 # Region2 capture fixture directory.
 _REGION2_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels\user_20260418_154408\region2"
 )

@@ -30,7 +30,7 @@ captures that may not be checked in.
 
 Run with the production Python::
 
-    "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
+    "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\python\\python.exe" \\
         tests\\test_local_search.py
 
 Exit code 0 = all PASS, 1 = any FAIL.

@@ -45,7 +45,7 @@ from pathlib import Path
 # them when the user runs the dev runtime directly.
 TREE_ROOTS = [
     Path(
-        r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+        r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
         r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     ),
     Path(__file__).resolve().parent.parent,

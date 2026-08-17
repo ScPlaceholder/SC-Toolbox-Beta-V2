@@ -4,7 +4,7 @@ Reports detection rate per source, mean IoU on ground-truth-labeled
 region2 captures, mean ms/frame, and a check-failure breakdown.
 
 Run under production python:
-  "C:/Users/prjgn/AppData/Local/SC_Toolbox/current/python/python.exe" \
+  "C:/Users/_user/AppData/Local/SC_Toolbox/current/python/python.exe" \
       hud_tracker/anchors/test_icon_geometry.py
 """
 
@@ -36,17 +36,17 @@ from hud_tracker.anchors.icon_geometry import find_icon_by_geometry  # noqa: E40
 # ---------------------------------------------------------------------------
 
 ICON_DIR = (
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_pending_review_signal\icon"
 )
 BAD_CROP_PATH = (
-    r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
+    r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
     r"\training_data_blacklist\bad crop.png"
 )
 # `user_20260418_154408/region2/` lives in roaming on this machine.
 REGION2_DIR = (
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_154408\region2"
 )

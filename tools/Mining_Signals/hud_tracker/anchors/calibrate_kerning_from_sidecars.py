@@ -57,7 +57,7 @@ for name in (
 # whether sidecars live in the WingmanAI tree or the production tree.
 PANEL_ROOT_CANDIDATES = [
     Path(
-        r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
         r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
         r"\training_data_panels"
     ),

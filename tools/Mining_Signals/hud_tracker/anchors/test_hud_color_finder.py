@@ -44,13 +44,13 @@ log = logging.getLogger("test_hud_color_finder")
 
 
 LABELED_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_154408\region1"
 )
 
 UNLABELED_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals\training_data_panels"
     r"\user_20260418_081525\region1"
 )
@@ -201,7 +201,7 @@ def _run_unlabeled() -> list[dict]:
 def _check_auto_annotator_imports() -> None:
     print("=== auto_template_annotator import check ===")
     auto = (
-        Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
              r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
              r"\scripts\auto_template_annotator.py")
     )

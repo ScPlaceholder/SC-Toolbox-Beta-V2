@@ -62,7 +62,7 @@ if str(TOOL) not in sys.path:
 
 # Where to find labeled source captures.
 PANEL_ROOT_WMA = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
     r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_panels"
 )

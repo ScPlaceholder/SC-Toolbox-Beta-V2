@@ -13,7 +13,7 @@ Inputs:
         (HSV hue ~30° + jitter, saturation/value mid-high).
 
 Output: PRODUCTION TREE
-  C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\
+  C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\
     Mining_Signals\\ocr\\models\\model_signal_rgb_cnn_v2.onnx
 
 Architecture: matches v1 — 3 conv blocks + FC, takes (N, 3, 28, 28),
@@ -51,7 +51,7 @@ except Exception:  # gate unavailable -> train unfiltered (legacy behaviour)
 THIS_FILE = Path(__file__).resolve()
 SOURCE_TOOL_DIR = THIS_FILE.parent.parent   # ...\Mining_Signals\
 PROD_TOOL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
+    r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
 )
 
 # Digit data (real RGB digit captures, 200 each, 0-9).

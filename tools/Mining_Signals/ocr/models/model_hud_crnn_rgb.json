@@ -13,7 +13,7 @@
   "checkpoint_val_loss": 0.7395902015268803,
   "checkpoint_epoch": 23,
   "source_checkpoint": "model_hud_crnn_rgb_best.pth",
-  "training_corpus": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\training_data_hud_crops",
+  "training_corpus": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\training_data_hud_crops",
   "training_items": 378,
   "fields": [
     "mass",

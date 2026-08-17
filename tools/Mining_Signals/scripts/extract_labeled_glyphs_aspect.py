@@ -50,7 +50,7 @@ from scripts.extract_labeled_glyphs import (  # type: ignore
 # that's where the labeler writes them. We honor both, but the WingmanAI
 # tree is the canonical source.
 WINGMAN_TOOL = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
 )
 PANELS_ROOT = WINGMAN_TOOL / "training_data_panels"

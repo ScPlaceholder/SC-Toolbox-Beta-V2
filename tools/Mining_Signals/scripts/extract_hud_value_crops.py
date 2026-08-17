@@ -54,7 +54,7 @@ OUT_ROOT = TOOL / "training_data_hud_crops"
 INDEX_CSV = OUT_ROOT / "index.csv"
 
 PANEL_ROOTS = [
-    Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
          r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
          r"\training_data_panels"),
     TOOL / "training_data_panels",

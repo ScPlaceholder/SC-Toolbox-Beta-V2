@@ -227,7 +227,7 @@
   "augmentationPerSample": 6,
   "trainedAt": "2026-05-11T22:16:37",
   "trainingSeconds": 20.150455713272095,
-  "modelPath": "C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_hud_cnn.onnx",
-  "stagingDir": "C:\\Users\\prjgn\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_panel",
+  "modelPath": "C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\Mining_Signals\\ocr\\models\\model_hud_cnn.onnx",
+  "stagingDir": "C:\\Users\\_user\\AppData\\Roaming\\ShipBit\\WingmanAI\\custom_skills\\SC_Toolbox_Beta_V1.2\\tools\\Mining_Signals\\training_data_user_panel",
   "notes": "HUD-specific grayscale per-glyph CNN. 12 classes (0-9, '.', '%') covering mass / resistance / instability fields. Trained ONLY on HUD-registered sources (training_data_user_panel/) \u2014 never on signature staging dirs. The HUD font differs from the signature font (smaller glyph height, different stroke weight), so the signature CNN is a poor substitute for HUD glyphs. Replaces the shipped model_cnn.onnx which has no provenance info but was trained on a similar alphabet; this one's val accuracy + confusion matrix are documented in this JSON sidecar."
 }

@@ -1134,7 +1134,7 @@ class GlyphReaderViewer(QWidget):
 _DEFAULT_ICON_DIRS = (
     TOOL / "training_data_user_sig" / "icon",
     Path(
-        r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
         r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
         r"\training_data_user_sig\icon"
     ),

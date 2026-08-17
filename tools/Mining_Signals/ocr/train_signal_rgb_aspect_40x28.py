@@ -47,7 +47,7 @@ except Exception:  # gate unavailable -> train unfiltered (legacy behaviour)
 
 THIS_FILE = Path(__file__).resolve()
 PROD_TOOL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
+    r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
 )
 
 # 40x28 extraction lives in the production tree (the new extractor

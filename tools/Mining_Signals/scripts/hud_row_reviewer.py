@@ -92,7 +92,7 @@ FIELDS = ("mass", "resistance", "instability")
 # the user typically labels) and the dev tree are scanned so this
 # tool works from either install.
 PANEL_ROOT_CANDIDATES = [
-    Path(r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+    Path(r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
          r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
          r"\training_data_panels"),
     TOOL / "training_data_panels",

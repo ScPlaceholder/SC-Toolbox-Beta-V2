@@ -54,7 +54,7 @@ _TEMPLATES_NPZ = _THIS_DIR / "icon_rgb_templates.npz"
 
 # Source for real labeled icons (region2 pending icons).
 _REAL_ICON_GLOB_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
     r"\training_data_pending_review_signal\icon"
 )

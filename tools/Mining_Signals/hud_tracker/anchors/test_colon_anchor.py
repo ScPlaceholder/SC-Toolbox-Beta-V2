@@ -7,7 +7,7 @@ align (within tolerance) with the labelled ``mass_row`` /
 
 Run under production Python 3.14::
 
-    "C:\\Users\\prjgn\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe" \\
+    "C:\\Users\\_user\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe" \\
         hud_tracker\\anchors\\test_colon_anchor.py
 
 Exits 0 if at least 80% of captures produce 3 matching colons.
@@ -37,7 +37,7 @@ _Y_TOLERANCE_PX = 12
 
 def main() -> int:
     panel_root = Path(
-        r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI"
+        r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI"
         r"\custom_skills\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
         r"\training_data_panels\user_20260418_154408\region1"
     )

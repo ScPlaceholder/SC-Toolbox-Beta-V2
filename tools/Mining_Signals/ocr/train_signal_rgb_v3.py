@@ -14,7 +14,7 @@ Inputs:
     icons as v2 (no panel @ data exists).
 
 Output: PRODUCTION TREE
-  C:\\Users\\prjgn\\AppData\\Local\\SC_Toolbox\\current\\tools\\
+  C:\\Users\\_user\\AppData\\Local\\SC_Toolbox\\current\\tools\\
     Mining_Signals\\ocr\\models\\model_signal_rgb_cnn_v3.onnx
 
 Architecture: SAME as v2 — 3 conv blocks + FC, takes (N, 3, 28, 28),
@@ -54,13 +54,13 @@ except Exception:  # gate unavailable -> train unfiltered (legacy behaviour)
 
 THIS_FILE = Path(__file__).resolve()
 PROD_TOOL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
+    r"C:\Users\_user\AppData\Local\SC_Toolbox\current\tools\Mining_Signals"
 )
 
 # Training data lives in the WingmanAI tree (where the auto-annotator
 # writes user-labeled samples). The v2 trainer used the same source.
 WINGMAN_TOOL_DIR = Path(
-    r"C:\Users\prjgn\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
+    r"C:\Users\_user\AppData\Roaming\ShipBit\WingmanAI\custom_skills"
     r"\SC_Toolbox_Beta_V1.2\tools\Mining_Signals"
 )
 
