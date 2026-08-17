@@ -16,7 +16,7 @@
 
 <p align="center">
   A lightweight desktop overlay suite for <strong>Star Citizen</strong>.<br>
-  Nine gameplay tools — always on top, one hotkey away, no alt-tab required.
+  Eleven gameplay tools — always on top, one hotkey away, no alt-tab required.
 </p>
 
 <p align="center">
@@ -75,6 +75,8 @@
 | Shift+6 | **Trade Hub** | Trade route calculator for single-hop & multi-leg routes | uexcorp.space |
 | Shift+7 | **Craft Database** | Crafting recipe browser with material requirements | scmdb.net |
 | Shift+8 | **Battle Buddy** | Real-time HUD overlay — tracks kills, deaths, and inventory from game logs | Star Citizen game log |
+| Shift+0 | **Mouse Blocker** | Blocks mouse input to the game window so you can use overlays without clicking through | — |
+| Shift+T | **PlayTime Calculator** | Tracks time played per session and in total, read from the game logs | Star Citizen game log |
 | — | **Mining Signals** | Live screen overlay reading signal scan %, mass, resistance, and instability from the SCAN RESULTS panel — powered by the new **SC_OCR** engine | Screen capture (SC_OCR + Tesseract) |
 
 Press **Shift + `** to toggle the launcher window.
