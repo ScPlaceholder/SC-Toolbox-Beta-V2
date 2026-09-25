@@ -167,7 +167,7 @@ class LocationDetailModal(ModalBase):
         _sep()
 
         n_groups = len(groups)
-        n_res = len(resources)
+        n_res = len(self._resources or [])
         _lbl(f"{n_res} resources  \u00b7  {n_groups} deposit groups", P.fg_dim, "9pt")
 
         lay.addStretch(1)

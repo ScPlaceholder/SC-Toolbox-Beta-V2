@@ -14,7 +14,7 @@ custom_properties:
     property_type: string
     value: "C:/StarCitizen/LIVE/Game.log"
 
-- id: orientation
+  - id: orientation
     name: HUD Orientation
     hint: "horizontal or vertical"
     property_type: string

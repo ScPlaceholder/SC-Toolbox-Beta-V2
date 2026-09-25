@@ -53,6 +53,9 @@ class TestDiskCache:
         path = os.path.join(tmp_path, "cache.json")
         cache = DiskCache(path, ttl=3600, version=1)
         cache.save({"ships": []}, game_version="4.0.2")
+        # load_game_version() reports what the last load() read (no file I/O), by design
+        assert cache.load_game_version() == ""
+        assert cache.load() is not None
         assert cache.load_game_version() == "4.0.2"
 
     def test_load_game_version_nonexistent(self, tmp_path):

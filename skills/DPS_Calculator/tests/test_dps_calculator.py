@@ -20,12 +20,13 @@ def test_fire_rate_looping():
 
 
 def test_fire_rate_sequential():
-    """Sequential delays: 1 / sum(delays/60)."""
+    """Sequential delays use erkul's formula: N / sum(60/d), each delay an RPM-like rate.
+    Two actions at 30 each -> 2 / (2 + 2) = 0.5 shots per second."""
     data = {"weapon": {"mode": "Sequential", "fireActions": [
         {"delay": 30}, {"delay": 30},
     ]}}
     rps = fire_rate_rps(data)
-    assert abs(rps - 1.0) < 0.001
+    assert abs(rps - 0.5) < 0.001
 
 
 def test_fire_rate_single():
