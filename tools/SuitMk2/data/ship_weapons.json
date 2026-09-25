@@ -1,0 +1,3426 @@
+{
+ "source": "Erkul catalog 4.10.1-LIVE.12660092",
+ "source_detail": "stats: catalog.erkul.games/LIVE via erkul_catalog.py + erkul_dps.weapon_metrics (burst DPS); manufacturers: UEX market cache by name, Erkul as fallback",
+ "data_version": "4.10.1-LIVE.12660092",
+ "built": "2026-09-23",
+ "rounding": "dps and damage to whole numbers; alpha to whole numbers, one decimal under 10",
+ "counts": {
+  "weapons": 178,
+  "uex_names_not_in_erkul": 88
+ },
+ "notes": {
+  "duplicates": [
+   "WRATH Cannon (vncl_plasmacannon_s5): stats differ, kept vncl_gen2_plasmacannon_s5"
+  ],
+  "manufacturer_from_uex_over_erkul": [
+   "DR Model-XJ1 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
+   "DR Model-XJ2 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
+   "DR Model-XJ3 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
+   "NN-13 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "NN-14 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "NN-15 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "NDB-26 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "NDB-28 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "NDB-30 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
+   "Salvation Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
+   "Absolution Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
+   "Condemnation Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
+   "Spark I Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Tempest II Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Ignite II Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Arrester III Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Thunderbolt III Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Thunderball Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Stormburst Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
+   "Colossus Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'"
+  ],
+  "renamed": [
+   "Hellion Scattergun -> Hellion Scattergun",
+   "Singe Cannon (S1) -> Singe Cannon S1",
+   "Singe Cannon (S2) -> Singe Cannon S2",
+   "Singe Cannon (S3) -> Singe Cannon S3",
+   "MRX \"Torrent\" -> MRX Torrent",
+   "SW16BR1 “Buzzsaw” Repeater -> SW16BR1 Buzzsaw Repeater",
+   "SW16BR2 “Sawbuck” Repeater -> SW16BR2 Sawbuck Repeater",
+   "SW16BR3 “Shredder” Repeater -> SW16BR3 Shredder Repeater",
+   "M2C \"Swarm\" -> M2C Swarm",
+   "CF-117 Bulldog \"Hazard-Zone\" Repeater -> CF-117 Bulldog Hazard-Zone Repeater",
+   "CF-227 Badger \"Hazard-Zone\" Repeater -> CF-227 Badger Hazard-Zone Repeater",
+   "CF-337 Panther \"Hazard-Zone\" Repeater -> CF-337 Panther Hazard-Zone Repeater",
+   "Yeng’tu Repeater -> Yeng'tu Repeater",
+   "'WRATH' Cannon -> WRATH Cannon",
+   "'WEAK' Repeater -> WEAK Repeater",
+   "'WASP' Repeater -> WASP Repeater",
+   "'WAR' Cannon -> WAR Cannon",
+   "'WHIP' Cannon -> WHIP Cannon",
+   "'WARLORD' Cannon -> WARLORD Cannon",
+   "'WRATH' Cannon -> WRATH Cannon",
+   "'Arrow' I Missile -> Arrow I Missile",
+   "'Bullet' II Missile -> Bullet II Missile",
+   "'Chaos' III Missile -> Chaos III Missile",
+   "'Dragon' IV Missile -> Dragon IV Missile",
+   "EX-T10-CS \"Executor\" Torpedo -> EX-T10-CS Executor Torpedo",
+   "EX-T10-EM \"Executor\" Torpedo -> EX-T10-EM Executor Torpedo",
+   "EX-T10-IR \"Executor\" Torpedo -> EX-T10-IR Executor Torpedo",
+   "VT-T10 \"Veritas\" Torpedo -> VT-T10 Veritas Torpedo",
+   "EX-T12-CS \"Executor\" Torpedo -> EX-T12-CS Executor Torpedo",
+   "EX-T12-EM \"Executor\" Torpedo -> EX-T12-EM Executor Torpedo",
+   "EX-T12-IR \"Executor\" Torpedo -> EX-T12-IR Executor Torpedo"
+  ],
+  "sustain_rejected": [
+   "Deathroll S2 Gatling: heat sustain 7.62 outside 0.2x..1x of burst 373.33"
+  ]
+ },
+ "weapons": [
+  {
+   "name": "Omnisky III Cannon",
+   "class_name": "amrs_lasercannon_s1",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 243,
+   "dps_sustain": 129,
+   "sustain_model": "pool",
+   "alpha": 97,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "Omnisky VI Cannon",
+   "class_name": "amrs_lasercannon_s2",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 364,
+   "dps_sustain": 194,
+   "sustain_model": "pool",
+   "alpha": 146,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "Omnisky IX Cannon",
+   "class_name": "amrs_lasercannon_s3",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 547,
+   "dps_sustain": 290,
+   "sustain_model": "pool",
+   "alpha": 219,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "Omnisky XII Cannon",
+   "class_name": "amrs_lasercannon_s4",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 820,
+   "dps_sustain": 435,
+   "sustain_model": "pool",
+   "alpha": 328,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1152
+  },
+  {
+   "name": "Omnisky XV Cannon",
+   "class_name": "amrs_lasercannon_s5",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 1230,
+   "dps_sustain": 653,
+   "sustain_model": "pool",
+   "alpha": 492,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "Omnisky XVIII Cannon",
+   "class_name": "amrs_lasercannon_s6",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 1846,
+   "dps_sustain": 980,
+   "sustain_model": "pool",
+   "alpha": 738,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1080
+  },
+  {
+   "name": "PyroBurst Scattergun",
+   "class_name": "amrs_scattergun_s3",
+   "manufacturer": "Amon and Reese Co.",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "plasma scattergun",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.17,
+   "pellet_count": 8,
+   "dps": 462,
+   "dps_sustain": 426,
+   "sustain_model": "pool",
+   "alpha": 396,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 844
+  },
+  {
+   "name": "Thlilye Laser Gatling",
+   "class_name": "toag_lasergatling_s2",
+   "manufacturer": "Aopoa",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser gatling",
+   "size": 2,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 18.33,
+   "pellet_count": 1,
+   "dps": 314,
+   "dps_sustain": 128,
+   "sustain_model": "pool",
+   "alpha": 17,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "Yeng'tu Repeater",
+   "class_name": "toag_laserrepeater_s3",
+   "manufacturer": "Aopoa",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 512,
+   "dps_sustain": 264,
+   "sustain_model": "pool",
+   "alpha": 41,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "Revenant Gatling",
+   "class_name": "apar_ballisticgatling_s4",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 4,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 20.0,
+   "pellet_count": 1,
+   "dps": 1266,
+   "dps_sustain": 875,
+   "sustain_model": "heat",
+   "alpha": 63,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1296
+  },
+  {
+   "name": "Draugar Gatling",
+   "class_name": "apar_ballisticgatling_s6",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 6,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 20.0,
+   "pellet_count": 1,
+   "dps": 2848,
+   "dps_sustain": 1702,
+   "sustain_model": "heat",
+   "alpha": 142,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1215
+  },
+  {
+   "name": "Havoc Scattergun",
+   "class_name": "apar_ballisticscattergun_s1",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 374,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 374,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 900
+  },
+  {
+   "name": "Hellion Scattergun",
+   "class_name": "apar_ballisticscattergun_s2",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 560,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 560,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 897
+  },
+  {
+   "name": "Predator Scattergun",
+   "class_name": "apar_ballisticscattergun_s3",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 840,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 840,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 888
+  },
+  {
+   "name": "Strife Mass Driver Cannon",
+   "class_name": "apar_massdriver_s2",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "mass driver cannon",
+   "size": 2,
+   "fire_kind": "charged",
+   "fire_rate_hz": 0.5,
+   "pellet_count": 1,
+   "dps": 262,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 525,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1151
+  },
+  {
+   "name": "DR Model-XJ1 Repeater",
+   "class_name": "asad_distortionrepeater_s1",
+   "manufacturer": "Associated Sciences and Development",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 6.67,
+   "pellet_count": 1,
+   "dps": 171,
+   "dps_sustain": 113,
+   "sustain_model": "pool",
+   "alpha": 26,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1350
+  },
+  {
+   "name": "DR Model-XJ2 Repeater",
+   "class_name": "asad_distortionrepeater_s2",
+   "manufacturer": "Associated Sciences and Development",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 6.67,
+   "pellet_count": 1,
+   "dps": 257,
+   "dps_sustain": 170,
+   "sustain_model": "pool",
+   "alpha": 38,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "DR Model-XJ3 Repeater",
+   "class_name": "asad_distortionrepeater_s3",
+   "manufacturer": "Associated Sciences and Development",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 6.67,
+   "pellet_count": 1,
+   "dps": 386,
+   "dps_sustain": 255,
+   "sustain_model": "pool",
+   "alpha": 58,
+   "damage_types": [
+    "energy",
+    "distortion"
+   ],
+   "speed": 1332
+  },
+  {
+   "name": "Singe Cannon S1",
+   "class_name": "banu_tachyoncannon_s1",
+   "manufacturer": "Banu Souli",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "tachyon cannon",
+   "size": 1,
+   "fire_kind": "charged",
+   "fire_rate_hz": 1.5,
+   "pellet_count": 1,
+   "dps": 304,
+   "dps_sustain": 190,
+   "sustain_model": "pool",
+   "alpha": 202,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1050
+  },
+  {
+   "name": "Singe Cannon S2",
+   "class_name": "banu_tachyoncannon_s2",
+   "manufacturer": "Banu Souli",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "tachyon cannon",
+   "size": 2,
+   "fire_kind": "charged",
+   "fire_rate_hz": 1.5,
+   "pellet_count": 1,
+   "dps": 709,
+   "dps_sustain": 442,
+   "sustain_model": "pool",
+   "alpha": 472,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1046
+  },
+  {
+   "name": "Singe Cannon S3",
+   "class_name": "banu_tachyoncannon_s3",
+   "manufacturer": "Banu Souli",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "tachyon cannon",
+   "size": 3,
+   "fire_kind": "charged",
+   "fire_rate_hz": 1.5,
+   "pellet_count": 1,
+   "dps": 1519,
+   "dps_sustain": 944,
+   "sustain_model": "pool",
+   "alpha": 1012,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1036
+  },
+  {
+   "name": "CVSA Cannon",
+   "class_name": "behr_ballisticcannon_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 405,
+   "dps_sustain": 270,
+   "sustain_model": "heat",
+   "alpha": 162,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "C-788 Cannon",
+   "class_name": "behr_ballisticcannon_s4",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 812,
+   "dps_sustain": 737,
+   "sustain_model": "heat",
+   "alpha": 975,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1152
+  },
+  {
+   "name": "C-07T Cannon",
+   "class_name": "behr_ballisticcannon_s7_tiburon",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 7,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.58,
+   "pellet_count": 1,
+   "dps": 2683,
+   "dps_sustain": 2683,
+   "sustain_model": "heat(no-overheat)",
+   "alpha": 4600,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1048
+  },
+  {
+   "name": "Conqueror-7",
+   "class_name": "behr_ballisticcannon_s7_idris",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 7,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 3333,
+   "dps_sustain": 2857,
+   "sustain_model": "heat",
+   "alpha": 4000,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1048
+  },
+  {
+   "name": "MRX Torrent",
+   "class_name": "behr_ballisticgatling_pdc_s1",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 1,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 20.0,
+   "pellet_count": 1,
+   "dps": 360,
+   "dps_sustain": 285,
+   "sustain_model": "heat",
+   "alpha": 18,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1350
+  },
+  {
+   "name": "AD4B Ballistic Gatling",
+   "class_name": "behr_ballisticgatling_s4",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 4,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 15.0,
+   "pellet_count": 1,
+   "dps": 1266,
+   "dps_sustain": 1082,
+   "sustain_model": "heat",
+   "alpha": 84,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1296
+  },
+  {
+   "name": "TMSB-5 Gatling",
+   "class_name": "behr_ballisticgatling_hornet_bespoke",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 4,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 17.5,
+   "pellet_count": 1,
+   "dps": 922,
+   "dps_sustain": 566,
+   "sustain_model": "heat",
+   "alpha": 53,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "AD5B Ballistic Gatling",
+   "class_name": "behr_ballisticgatling_s5",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 5,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 15.0,
+   "pellet_count": 1,
+   "dps": 1538,
+   "dps_sustain": 1274,
+   "sustain_model": "heat",
+   "alpha": 102,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1251
+  },
+  {
+   "name": "NV57 Ballistic Gatling",
+   "class_name": "behr_nova_ballisticgatling_s5",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 5,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 20.0,
+   "pellet_count": 1,
+   "dps": 3250,
+   "dps_sustain": 2407,
+   "sustain_model": "heat",
+   "alpha": 162,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1251
+  },
+  {
+   "name": "AD6B Ballistic Gatling",
+   "class_name": "behr_ballisticgatling_s6",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 6,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 15.0,
+   "pellet_count": 1,
+   "dps": 2848,
+   "dps_sustain": 2268,
+   "sustain_model": "heat",
+   "alpha": 190,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1215
+  },
+  {
+   "name": "SF7B Gatling",
+   "class_name": "behr_ballisticgatling_s7",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 7,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 8.0,
+   "pellet_count": 1,
+   "dps": 4320,
+   "dps_sustain": 3685,
+   "sustain_model": "heat",
+   "alpha": 540,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1179
+  },
+  {
+   "name": "SW16BR1 Buzzsaw Repeater",
+   "class_name": "behr_ballisticrepeater_s1",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 150,
+   "dps_sustain": 139,
+   "sustain_model": "heat",
+   "alpha": 18,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "BRVS Repeater",
+   "class_name": "behr_ballisticrepeater_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 450,
+   "dps_sustain": 410,
+   "sustain_model": "heat",
+   "alpha": 54,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "SW16BR2 Sawbuck Repeater",
+   "class_name": "behr_ballisticrepeater_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 200,
+   "dps_sustain": 182,
+   "sustain_model": "heat",
+   "alpha": 24,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "SW16BR3 Shredder Repeater",
+   "class_name": "behr_ballisticrepeater_s3",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 375,
+   "dps_sustain": 336,
+   "sustain_model": "heat",
+   "alpha": 45,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "EVSD Cannon",
+   "class_name": "behr_distortioncannon_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 202,
+   "dps_sustain": 103,
+   "sustain_model": "pool",
+   "alpha": 81,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1076
+  },
+  {
+   "name": "ATVS Repeater",
+   "class_name": "behr_distortionrepeater_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 225,
+   "dps_sustain": 140,
+   "sustain_model": "pool",
+   "alpha": 27,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "M3A Cannon",
+   "class_name": "behr_lasercannon_s1",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 304,
+   "dps_sustain": 189,
+   "sustain_model": "pool",
+   "alpha": 182,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "M4A Cannon",
+   "class_name": "behr_lasercannon_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 456,
+   "dps_sustain": 284,
+   "sustain_model": "pool",
+   "alpha": 273,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "MVSA Cannon",
+   "class_name": "behr_lasercannon_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 455,
+   "dps_sustain": 275,
+   "sustain_model": "pool",
+   "alpha": 273,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "M5A Cannon",
+   "class_name": "behr_lasercannon_s3",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 684,
+   "dps_sustain": 416,
+   "sustain_model": "pool",
+   "alpha": 410,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "M6A Cannon",
+   "class_name": "behr_lasercannon_s4",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 1025,
+   "dps_sustain": 622,
+   "sustain_model": "pool",
+   "alpha": 615,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1152
+  },
+  {
+   "name": "M7A Cannon",
+   "class_name": "behr_lasercannon_s5",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 1536,
+   "dps_sustain": 929,
+   "sustain_model": "pool",
+   "alpha": 922,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "M8A Cannon",
+   "class_name": "behr_lasercannon_s6",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 2306,
+   "dps_sustain": 1391,
+   "sustain_model": "pool",
+   "alpha": 1383,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1080
+  },
+  {
+   "name": "M9A Cannon",
+   "class_name": "behr_lasercannon_s7",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 7,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 3460,
+   "dps_sustain": 2080,
+   "sustain_model": "pool",
+   "alpha": 2076,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1048
+  },
+  {
+   "name": "SF7E Cannon",
+   "class_name": "behr_lasercannon_sf7e_s7",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 7,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.92,
+   "pellet_count": 1,
+   "dps": 4721,
+   "dps_sustain": 3429,
+   "sustain_model": "pool",
+   "alpha": 5150,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1048
+  },
+  {
+   "name": "M10A Cannon",
+   "class_name": "behr_lasercannon_s8",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 8,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 5189,
+   "dps_sustain": 3109,
+   "sustain_model": "pool",
+   "alpha": 3114,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1016
+  },
+  {
+   "name": "M11A Cannon",
+   "class_name": "behr_lasercannon_s9",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 9,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 7784,
+   "dps_sustain": 4648,
+   "sustain_model": "pool",
+   "alpha": 4670,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 992
+  },
+  {
+   "name": "M2C Swarm",
+   "class_name": "behr_laserrepeater_pdc_s1",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 16.67,
+   "pellet_count": 1,
+   "dps": 167,
+   "dps_sustain": 74,
+   "sustain_model": "pool",
+   "alpha": 10,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "GVSR Repeater",
+   "class_name": "behr_laserrepeater_vng_s2",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 582,
+   "dps_sustain": 402,
+   "sustain_model": "pool",
+   "alpha": 100,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "Marksman I Missile",
+   "class_name": "misl_s01_ir_behr_marksman",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 1,
+   "damage": 650,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 1372
+  },
+  {
+   "name": "Pioneer I Missile",
+   "class_name": "misl_s01_em_behr_pioneer",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 1,
+   "damage": 750,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 1372
+  },
+  {
+   "name": "Dragon IV Missile",
+   "class_name": "misl_s04_ir_vncl_dragon",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 4,
+   "damage": 5000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 686
+  },
+  {
+   "name": "Pathfinder IV Missile",
+   "class_name": "misl_s04_ir_behr_pathfinder",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 4,
+   "damage": 5300,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 686
+  },
+  {
+   "name": "EX-T10-CS Executor Torpedo",
+   "class_name": "misl_s10_cs_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 805000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 375
+  },
+  {
+   "name": "EX-T10-EM Executor Torpedo",
+   "class_name": "misl_s10_em_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 730000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 375
+  },
+  {
+   "name": "EX-T10-IR Executor Torpedo",
+   "class_name": "misl_s10_ir_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 670000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 375
+  },
+  {
+   "name": "VT-T10 Veritas Torpedo",
+   "class_name": "misl_s10_ir_behr_torpedo",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 650000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 270
+  },
+  {
+   "name": "EX-T12-CS Executor Torpedo",
+   "class_name": "misl_s12_cs_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 1230000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 350
+  },
+  {
+   "name": "EX-T12-EM Executor Torpedo",
+   "class_name": "misl_s12_em_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 1075000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 350
+  },
+  {
+   "name": "EX-T12-IR Executor Torpedo",
+   "class_name": "misl_s12_ir_behr_executor",
+   "manufacturer": "Behring Applied Technology",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 950000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 350
+  },
+  {
+   "name": "Deadbolt I Cannon",
+   "class_name": "espr_ballisticcannon_s1",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 200,
+   "dps_sustain": 158,
+   "sustain_model": "heat",
+   "alpha": 120,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "Deadbolt II Cannon",
+   "class_name": "espr_ballisticcannon_s2",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 233,
+   "dps_sustain": 182,
+   "sustain_model": "heat",
+   "alpha": 140,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "Deadbolt III Cannon",
+   "class_name": "espr_ballisticcannon_s3",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 376,
+   "dps_sustain": 287,
+   "sustain_model": "heat",
+   "alpha": 225,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "Deadbolt IV Cannon",
+   "class_name": "espr_ballisticcannon_s4",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 1017,
+   "dps_sustain": 763,
+   "sustain_model": "heat",
+   "alpha": 610,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1152
+  },
+  {
+   "name": "Deadbolt V Cannon",
+   "class_name": "espr_ballisticcannon_s5",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 1583,
+   "dps_sustain": 1165,
+   "sustain_model": "heat",
+   "alpha": 950,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "Deadbolt VI Cannon",
+   "class_name": "espr_ballisticcannon_s6",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 2562,
+   "dps_sustain": 1846,
+   "sustain_model": "heat",
+   "alpha": 1537,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1080
+  },
+  {
+   "name": "Lightstrike I Cannon",
+   "class_name": "espr_lasercannon_s1",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 205,
+   "dps_sustain": 79,
+   "sustain_model": "pool",
+   "alpha": 49,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "Lightstrike II Cannon",
+   "class_name": "espr_lasercannon_s2",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 308,
+   "dps_sustain": 119,
+   "sustain_model": "pool",
+   "alpha": 74,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "Lightstrike III Cannon",
+   "class_name": "espr_lasercannon_s3",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 462,
+   "dps_sustain": 177,
+   "sustain_model": "pool",
+   "alpha": 111,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "Lightstrike IV Cannon",
+   "class_name": "espr_lasercannon_s4",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 693,
+   "dps_sustain": 264,
+   "sustain_model": "pool",
+   "alpha": 166,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1152
+  },
+  {
+   "name": "Lightstrike V Cannon",
+   "class_name": "espr_lasercannon_s5",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 1036,
+   "dps_sustain": 393,
+   "sustain_model": "pool",
+   "alpha": 249,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "Lightstrike VI Cannon",
+   "class_name": "espr_lasercannon_s6",
+   "manufacturer": "Esperia Incorporation",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 1559,
+   "dps_sustain": 589,
+   "sustain_model": "pool",
+   "alpha": 374,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1080
+  },
+  {
+   "name": "Thunderball Bomb",
+   "class_name": "bomb_s03_fski_thunderball",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "bomb",
+   "category": "bomb",
+   "size": 3,
+   "damage": 27000,
+   "damage_types": [
+    "physical",
+    "energy"
+   ],
+   "tracking": null,
+   "speed": null
+  },
+  {
+   "name": "Stormburst Bomb",
+   "class_name": "bomb_s05_fski",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "bomb",
+   "category": "bomb",
+   "size": 5,
+   "damage": 46702,
+   "damage_types": [
+    "physical",
+    "energy"
+   ],
+   "tracking": null,
+   "speed": null
+  },
+  {
+   "name": "Colossus Bomb",
+   "class_name": "bomb_s10_fski_colossus",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "bomb",
+   "category": "bomb",
+   "size": 10,
+   "damage": 568297,
+   "damage_types": [
+    "physical",
+    "energy"
+   ],
+   "tracking": null,
+   "speed": null
+  },
+  {
+   "name": "Spark I Missile",
+   "class_name": "misl_s01_cs_fski_spark",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 1,
+   "damage": 800,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 1372
+  },
+  {
+   "name": "Ignite II Missile",
+   "class_name": "misl_s02_ir_fski_ignite",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1440,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 1029
+  },
+  {
+   "name": "Tempest II Missile",
+   "class_name": "misl_s02_cs_fski_tempest",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1700,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 1029
+  },
+  {
+   "name": "Arrester III Missile",
+   "class_name": "misl_s03_cs_fski_arrester",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 3,
+   "damage": 3200,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 858
+  },
+  {
+   "name": "Thunderbolt III Missile",
+   "class_name": "misl_s03_em_fski_thunderbolt",
+   "manufacturer": "FireStorm Kinetics",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 3,
+   "damage": 2900,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 858
+  },
+  {
+   "name": "Tarantula GT-870 Mark 1 Cannon",
+   "class_name": "gats_ballisticcannon_s1",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 3.33,
+   "pellet_count": 1,
+   "dps": 202,
+   "dps_sustain": 156,
+   "sustain_model": "heat",
+   "alpha": 61,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "Tarantula GT-870 Mark 2 Cannon",
+   "class_name": "gats_ballisticcannon_s2",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 3.33,
+   "pellet_count": 1,
+   "dps": 304,
+   "dps_sustain": 230,
+   "sustain_model": "heat",
+   "alpha": 91,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "Tarantula GT-870 Mark 3 Cannon",
+   "class_name": "gats_ballisticcannon_s3",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 3.33,
+   "pellet_count": 1,
+   "dps": 455,
+   "dps_sustain": 338,
+   "sustain_model": "heat",
+   "alpha": 137,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "YellowJacket GT-210 Gatling",
+   "class_name": "gats_ballisticgatling_s1",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 1,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 26.67,
+   "pellet_count": 1,
+   "dps": 202,
+   "dps_sustain": 169,
+   "sustain_model": "heat",
+   "alpha": 7.6,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1350
+  },
+  {
+   "name": "Scorpion GT-215 Gatling",
+   "class_name": "gats_ballisticgatling_s2",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 2,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 26.67,
+   "pellet_count": 1,
+   "dps": 339,
+   "dps_sustain": 277,
+   "sustain_model": "heat",
+   "alpha": 13,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "Mantis GT-220 Gatling",
+   "class_name": "gats_ballisticgatling_s3",
+   "manufacturer": "Gallenson Tactical Systems",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 3,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 26.67,
+   "pellet_count": 1,
+   "dps": 853,
+   "dps_sustain": 629,
+   "sustain_model": "heat",
+   "alpha": 32,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1332
+  },
+  {
+   "name": "Deathroll S2 Gatling",
+   "class_name": "glsn_ballisticgatling_s2",
+   "manufacturer": "Grey's Market",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 2,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 26.67,
+   "pellet_count": 1,
+   "dps": 373,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 14,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "Breakneck S4 Gatling",
+   "class_name": "glsn_ballisticgatling_s4",
+   "manufacturer": "Grey's Market",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 4,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 18.33,
+   "pellet_count": 1,
+   "dps": 953,
+   "dps_sustain": 615,
+   "sustain_model": "heat",
+   "alpha": 52,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1296
+  },
+  {
+   "name": "Snapper S2 Repeater",
+   "class_name": "glsn_laserrepeater_s2",
+   "manufacturer": "Grey's Market",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 350,
+   "dps_sustain": 209,
+   "sustain_model": "pool",
+   "alpha": 28,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "Tormenter S3 Repeater",
+   "class_name": "glsn_laserrepeater_s3",
+   "manufacturer": "Grey's Market",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 494,
+   "dps_sustain": 263,
+   "sustain_model": "pool",
+   "alpha": 40,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "Slayer Cannon",
+   "class_name": "hrst_nova_ballisticcannon_s5",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.08,
+   "pellet_count": 1,
+   "dps": 2667,
+   "dps_sustain": 2667,
+   "sustain_model": "heat(per-shot overheat)",
+   "alpha": 32000,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 973
+  },
+  {
+   "name": "Exodus-10 Laser Beam",
+   "class_name": "hrst_laserbeam_bespoke",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser beam",
+   "size": 10,
+   "fire_kind": "beam",
+   "fire_rate_hz": null,
+   "pellet_count": 1,
+   "dps": 15000,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": null,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1220
+  },
+  {
+   "name": "Supremacy-10T Laser Beam",
+   "class_name": "hrst_laserbeam_tiburon",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser beam",
+   "size": 10,
+   "fire_kind": "beam",
+   "fire_rate_hz": null,
+   "pellet_count": 1,
+   "dps": 18000,
+   "dps_sustain": 8090,
+   "sustain_model": "beam-heat",
+   "alpha": null,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1220
+  },
+  {
+   "name": "Ardor-1 Salvaged Repeater",
+   "class_name": "none_laserrepeater_s1",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 210,
+   "dps_sustain": 146,
+   "sustain_model": "pool",
+   "alpha": 36,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "Attrition-1 Repeater",
+   "class_name": "hrst_laserrepeater_s1",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 198,
+   "dps_sustain": 138,
+   "sustain_model": "pool",
+   "alpha": 34,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "Ardor-2 Salvaged Repeater",
+   "class_name": "none_laserrepeater_s2",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 344,
+   "dps_sustain": 239,
+   "sustain_model": "pool",
+   "alpha": 59,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "Attrition-2 Repeater",
+   "class_name": "hrst_laserrepeater_s2",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 321,
+   "dps_sustain": 222,
+   "sustain_model": "pool",
+   "alpha": 55,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "Ardor-3 Salvaged Repeater",
+   "class_name": "none_laserrepeater_s3",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 537,
+   "dps_sustain": 371,
+   "sustain_model": "pool",
+   "alpha": 92,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "Attrition-3 Repeater",
+   "class_name": "hrst_laserrepeater_s3",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 502,
+   "dps_sustain": 347,
+   "sustain_model": "pool",
+   "alpha": 86,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "Reign-3 Repeater",
+   "class_name": "hrst_storm_laserrepeater_s3",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 2042,
+   "dps_sustain": 1407,
+   "sustain_model": "pool",
+   "alpha": 350,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "Attrition-4 Repeater",
+   "class_name": "hrst_laserrepeater_s4",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 583,
+   "dps_sustain": 403,
+   "sustain_model": "pool",
+   "alpha": 100,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1440
+  },
+  {
+   "name": "Attrition-5 Repeater",
+   "class_name": "hrst_laserrepeater_s5",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 875,
+   "dps_sustain": 603,
+   "sustain_model": "pool",
+   "alpha": 150,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1390
+  },
+  {
+   "name": "Attrition-6 Repeater",
+   "class_name": "hrst_laserrepeater_s6",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 2948,
+   "dps_sustain": 2027,
+   "sustain_model": "pool",
+   "alpha": 505,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1350
+  },
+  {
+   "name": "Dominance-1 Scattergun",
+   "class_name": "hrst_laserscattergun_s1",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser scattergun",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 8,
+   "dps": 420,
+   "dps_sustain": 397,
+   "sustain_model": "pool",
+   "alpha": 504,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 900
+  },
+  {
+   "name": "Dominance-2 Scattergun",
+   "class_name": "hrst_laserscattergun_s2",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser scattergun",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 8,
+   "dps": 660,
+   "dps_sustain": 623,
+   "sustain_model": "pool",
+   "alpha": 792,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 897
+  },
+  {
+   "name": "Dominance-3 Scattergun",
+   "class_name": "hrst_laserscattergun_s3",
+   "manufacturer": "Hurston Dynamics",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser scattergun",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 8,
+   "dps": 930,
+   "dps_sustain": 878,
+   "sustain_model": "pool",
+   "alpha": 1116,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 888
+  },
+  {
+   "name": "Suckerpunch Cannon",
+   "class_name": "jokr_distortioncannon_s1",
+   "manufacturer": "Joker Engineering",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 135,
+   "dps_sustain": 81,
+   "sustain_model": "pool",
+   "alpha": 81,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1080
+  },
+  {
+   "name": "Suckerpunch-L Cannon",
+   "class_name": "jokr_distortioncannon_s2",
+   "manufacturer": "Joker Engineering",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 202,
+   "dps_sustain": 121,
+   "sustain_model": "pool",
+   "alpha": 122,
+   "damage_types": [
+    "energy",
+    "distortion"
+   ],
+   "speed": 1076
+  },
+  {
+   "name": "Suckerpunch-XL Cannon",
+   "class_name": "jokr_distortioncannon_s3",
+   "manufacturer": "Joker Engineering",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 304,
+   "dps_sustain": 182,
+   "sustain_model": "pool",
+   "alpha": 183,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 1066
+  },
+  {
+   "name": "CF-117 Bulldog Hazard-Zone Repeater",
+   "class_name": "klwe_laserrepeater_s1_mr01",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 219,
+   "dps_sustain": 112,
+   "sustain_model": "pool",
+   "alpha": 17,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "CF-117 Bulldog Repeater",
+   "class_name": "klwe_laserrepeater_s1",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 219,
+   "dps_sustain": 112,
+   "sustain_model": "pool",
+   "alpha": 17,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1500
+  },
+  {
+   "name": "CF-227 Badger Hazard-Zone Repeater",
+   "class_name": "klwe_laserrepeater_s2_mr01",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 328,
+   "dps_sustain": 167,
+   "sustain_model": "pool",
+   "alpha": 26,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "CF-227 Badger Repeater",
+   "class_name": "klwe_laserrepeater_s2",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 328,
+   "dps_sustain": 167,
+   "sustain_model": "pool",
+   "alpha": 26,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1495
+  },
+  {
+   "name": "CF-337 Panther Hazard-Zone Repeater",
+   "class_name": "klwe_laserrepeater_s3_mr01",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 546,
+   "dps_sustain": 279,
+   "sustain_model": "pool",
+   "alpha": 44,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "CF-337 Panther Repeater",
+   "class_name": "klwe_laserrepeater_s3",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 546,
+   "dps_sustain": 279,
+   "sustain_model": "pool",
+   "alpha": 44,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1480
+  },
+  {
+   "name": "CF-447 Rhino Repeater",
+   "class_name": "klwe_laserrepeater_s4",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 818,
+   "dps_sustain": 414,
+   "sustain_model": "pool",
+   "alpha": 65,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1440
+  },
+  {
+   "name": "CF-557 Galdereen Repeater",
+   "class_name": "klwe_laserrepeater_s5",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 1227,
+   "dps_sustain": 620,
+   "sustain_model": "pool",
+   "alpha": 98,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1390
+  },
+  {
+   "name": "CF-667 Mammoth Repeater",
+   "class_name": "klwe_laserrepeater_s6",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 1842,
+   "dps_sustain": 927,
+   "sustain_model": "pool",
+   "alpha": 147,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1350
+  },
+  {
+   "name": "Sledge I Mass Driver Cannon",
+   "class_name": "klwe_massdriver_s1",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "mass driver cannon",
+   "size": 1,
+   "fire_kind": "charged",
+   "fire_rate_hz": 0.5,
+   "pellet_count": 1,
+   "dps": 112,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 225,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1155
+  },
+  {
+   "name": "Sledge II Mass Driver Cannon",
+   "class_name": "klwe_massdriver_s2",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "mass driver cannon",
+   "size": 2,
+   "fire_kind": "charged",
+   "fire_rate_hz": 0.5,
+   "pellet_count": 1,
+   "dps": 262,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 525,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1151
+  },
+  {
+   "name": "Sledge III Mass Driver Cannon",
+   "class_name": "klwe_massdriver_s3",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "mass driver cannon",
+   "size": 3,
+   "fire_kind": "charged",
+   "fire_rate_hz": 0.5,
+   "pellet_count": 1,
+   "dps": 562,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 1125,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1140
+  },
+  {
+   "name": "Destroyer Mass Driver Cannon",
+   "class_name": "klwe_massdriver_s10",
+   "manufacturer": "Klaus and Werner",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "mass driver cannon",
+   "size": 10,
+   "fire_kind": "charged",
+   "fire_rate_hz": 0.1,
+   "pellet_count": 1,
+   "dps": 28832,
+   "dps_sustain": 28832,
+   "sustain_model": "heat(per-shot overheat)",
+   "alpha": 288320,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 939
+  },
+  {
+   "name": "9-Series Longsword Cannon",
+   "class_name": "kbar_ballisticcannon_s1",
+   "manufacturer": "KnightBridge Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 202,
+   "dps_sustain": 145,
+   "sustain_model": "heat",
+   "alpha": 49,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "10-Series Greatsword Cannon",
+   "class_name": "kbar_ballisticcannon_s2",
+   "manufacturer": "KnightBridge Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 304,
+   "dps_sustain": 213,
+   "sustain_model": "heat",
+   "alpha": 73,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "11-Series Broadsword Cannon",
+   "class_name": "kbar_ballisticcannon_s3",
+   "manufacturer": "KnightBridge Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 455,
+   "dps_sustain": 312,
+   "sustain_model": "heat",
+   "alpha": 109,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "FL-11 Cannon",
+   "class_name": "kron_lasercannon_s1",
+   "manufacturer": "Kroneg",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 205,
+   "dps_sustain": 77,
+   "sustain_model": "pool",
+   "alpha": 49,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "FL-22 Cannon",
+   "class_name": "kron_lasercannon_s2",
+   "manufacturer": "Kroneg",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 308,
+   "dps_sustain": 116,
+   "sustain_model": "pool",
+   "alpha": 74,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "FL-33 Cannon",
+   "class_name": "kron_lasercannon_s3",
+   "manufacturer": "Kroneg",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 4.17,
+   "pellet_count": 1,
+   "dps": 462,
+   "dps_sustain": 172,
+   "sustain_model": "pool",
+   "alpha": 111,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "Tigerstrike T-19P",
+   "class_name": "krig_ballisticgatling_s2",
+   "manufacturer": "Kruger Intergalactic",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 2,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 20.0,
+   "pellet_count": 1,
+   "dps": 450,
+   "dps_sustain": 379,
+   "sustain_model": "heat",
+   "alpha": 22,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1346
+  },
+  {
+   "name": "Relentless L-21 Gatling",
+   "class_name": "krig_ballisticgatling_bespoke_s4",
+   "manufacturer": "Kruger Intergalactic",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic gatling",
+   "size": 4,
+   "fire_kind": "rapid",
+   "fire_rate_hz": 15.83,
+   "pellet_count": 1,
+   "dps": 998,
+   "dps_sustain": 538,
+   "sustain_model": "heat",
+   "alpha": 63,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1296
+  },
+  {
+   "name": "Quarreler Cannon",
+   "class_name": "krig_lasercannon_s3",
+   "manufacturer": "Kruger Intergalactic",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 547,
+   "dps_sustain": 272,
+   "sustain_model": "pool",
+   "alpha": 219,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1184
+  },
+  {
+   "name": "Whiptail STR-E2 Repeater",
+   "class_name": "krig_laserrepeater_bespoke_s2",
+   "manufacturer": "Kruger Intergalactic",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 3.0,
+   "pellet_count": 1,
+   "dps": 90,
+   "dps_sustain": 74,
+   "sustain_model": "pool",
+   "alpha": 30,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1440
+  },
+  {
+   "name": "Axiom L-22 Repeater",
+   "class_name": "krig_laserrepeater_bespoke_s4",
+   "manufacturer": "Kruger Intergalactic",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 12.5,
+   "pellet_count": 1,
+   "dps": 1062,
+   "dps_sustain": 567,
+   "sustain_model": "pool",
+   "alpha": 85,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1440
+  },
+  {
+   "name": "NN-13 Cannon",
+   "class_name": "mxox_neutroncannon_s1",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron cannon",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 253,
+   "dps_sustain": 134,
+   "sustain_model": "pool",
+   "alpha": 101,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 765
+  },
+  {
+   "name": "NN-14 Cannon",
+   "class_name": "mxox_neutroncannon_s2",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 382,
+   "dps_sustain": 204,
+   "sustain_model": "pool",
+   "alpha": 153,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 762
+  },
+  {
+   "name": "NN-15 Cannon",
+   "class_name": "mxox_neutroncannon_s3",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 2.5,
+   "pellet_count": 1,
+   "dps": 552,
+   "dps_sustain": 295,
+   "sustain_model": "pool",
+   "alpha": 221,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 755
+  },
+  {
+   "name": "NDB-26 Repeater",
+   "class_name": "mxox_neutronrepeater_s1",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 316,
+   "dps_sustain": 193,
+   "sustain_model": "pool",
+   "alpha": 38,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1275
+  },
+  {
+   "name": "NDB-28 Repeater",
+   "class_name": "mxox_neutronrepeater_s2",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 475,
+   "dps_sustain": 289,
+   "sustain_model": "pool",
+   "alpha": 57,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1271
+  },
+  {
+   "name": "NDB-30 Repeater",
+   "class_name": "mxox_neutronrepeater_s3",
+   "manufacturer": "MaxOx",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron repeater",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 8.33,
+   "pellet_count": 1,
+   "dps": 712,
+   "dps_sustain": 433,
+   "sustain_model": "pool",
+   "alpha": 86,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1258
+  },
+  {
+   "name": "Rattler II Missile",
+   "class_name": "misl_s02_ir_novp_rattler",
+   "manufacturer": "Nova Pyrotechnica",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1370,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 1029
+  },
+  {
+   "name": "Viper III Missile",
+   "class_name": "misl_s03_ir_novp_viper",
+   "manufacturer": "Nova Pyrotechnica",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 3,
+   "damage": 2650,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 858
+  },
+  {
+   "name": "Salvation Distortion Scattergun",
+   "class_name": "prar_distortionscattergun_s4",
+   "manufacturer": "Preacher Armament",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion scattergun",
+   "size": 4,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 480,
+   "dps_sustain": 448,
+   "sustain_model": "pool",
+   "alpha": 480,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 778
+  },
+  {
+   "name": "Absolution Distortion Scattergun",
+   "class_name": "prar_distortionscattergun_s5",
+   "manufacturer": "Preacher Armament",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion scattergun",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 720,
+   "dps_sustain": 672,
+   "sustain_model": "pool",
+   "alpha": 720,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 751
+  },
+  {
+   "name": "Condemnation Distortion Scattergun",
+   "class_name": "prar_distortionscattergun_s6",
+   "manufacturer": "Preacher Armament",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "distortion scattergun",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 1040,
+   "dps_sustain": 970,
+   "sustain_model": "pool",
+   "alpha": 1040,
+   "damage_types": [
+    "distortion"
+   ],
+   "speed": 729
+  },
+  {
+   "name": "Leonids Cannon",
+   "class_name": "rsi_ballisticcannon_s5_meteor_bespoke",
+   "manufacturer": "Roberts Space Industries",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 1333,
+   "dps_sustain": 1006,
+   "sustain_model": "heat",
+   "alpha": 1600,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "Maris Cannon",
+   "class_name": "rsi_bespoke_ballisticcannon_a",
+   "manufacturer": "Roberts Space Industries",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 6,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 2833,
+   "dps_sustain": 2452,
+   "sustain_model": "heat",
+   "alpha": 3400,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1112
+  },
+  {
+   "name": "RSI Medusa Cannon",
+   "class_name": "rsi_perseus_ballisticcannon_b_s8",
+   "manufacturer": "Roberts Space Industries",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic cannon",
+   "size": 8,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 4500,
+   "dps_sustain": 3291,
+   "sustain_model": "heat",
+   "alpha": 5400,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 1016
+  },
+  {
+   "name": "Echion Repeater",
+   "class_name": "rsi_meteor_laserrepeater_s5",
+   "manufacturer": "Roberts Space Industries",
+   "manufacturer_source": "erkul",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 13.33,
+   "pellet_count": 1,
+   "dps": 1267,
+   "dps_sustain": 1242,
+   "sustain_model": "pool",
+   "alpha": 95,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1390
+  },
+  {
+   "name": "Dominator II Missile",
+   "class_name": "misl_s02_em_taln_dominator",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1500,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 1029
+  },
+  {
+   "name": "Assailant IV Missile",
+   "class_name": "misl_s04_cs_taln_assailant",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 4,
+   "damage": 6500,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 686
+  },
+  {
+   "name": "Raptor IV Missile",
+   "class_name": "misl_s04_em_taln_raptor",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 4,
+   "damage": 5750,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 686
+  },
+  {
+   "name": "Reaper V Missile",
+   "class_name": "misl_s05_em_taln_reaper",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 5,
+   "damage": 15500,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 560
+  },
+  {
+   "name": "Scimitar V Missile",
+   "class_name": "misl_s05_em_taln_scimitar",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "erkul",
+   "family": "missile",
+   "category": "missile",
+   "size": 5,
+   "damage": 14500,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 560
+  },
+  {
+   "name": "Stalker V Missile",
+   "class_name": "misl_s05_cs_taln_stalker",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 5,
+   "damage": 18000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 560
+  },
+  {
+   "name": "Valkyrie V Missile",
+   "class_name": "misl_s05_ir_taln_valkyrie",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 5,
+   "damage": 12000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 560
+  },
+  {
+   "name": "Hellion VII Missile",
+   "class_name": "misl_s07_ir_taln_hellion",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "erkul",
+   "family": "missile",
+   "category": "missile",
+   "size": 7,
+   "damage": 90000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 514
+  },
+  {
+   "name": "Argos IX Torpedo",
+   "class_name": "misl_s09_cs_taln_argos",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 9,
+   "damage": 400000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 514
+  },
+  {
+   "name": "Seeker IX Torpedo",
+   "class_name": "misl_s09_em_taln_seeker",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 9,
+   "damage": 350000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 514
+  },
+  {
+   "name": "Typhoon IX Torpedo",
+   "class_name": "misl_s09_ir_taln_typhoon",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 9,
+   "damage": 300000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 514
+  },
+  {
+   "name": "Vanquisher X-CS Torpedo",
+   "class_name": "misl_s10_cs_taln_vanquisher",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 805000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 255
+  },
+  {
+   "name": "Vanquisher X-EM Torpedo",
+   "class_name": "misl_s10_em_taln_vanquisher",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 720000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 255
+  },
+  {
+   "name": "Vanquisher X-IR Torpedo",
+   "class_name": "misl_s10_ir_taln_vanquisher",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 10,
+   "damage": 630000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 255
+  },
+  {
+   "name": "Calamity XII-CS Torpedo",
+   "class_name": "misl_s12_cs_taln_calamity",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 1150000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 230
+  },
+  {
+   "name": "Calamity XII-EM Torpedo",
+   "class_name": "misl_s12_em_taln_calamity",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 1050000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 230
+  },
+  {
+   "name": "Calamity XII-IR Torpedo",
+   "class_name": "misl_s12_ir_taln_calamity",
+   "manufacturer": "Talon Weapons Systems",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "torpedo",
+   "size": 12,
+   "damage": 910000,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 230
+  },
+  {
+   "name": "TaskForce I Missile",
+   "class_name": "misl_s01_em_thcn_taskforce",
+   "manufacturer": "Thermyte Concern",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 1,
+   "damage": 700,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "electromagnetic",
+   "speed": 1372
+  },
+  {
+   "name": "StrikeForce II Missile",
+   "class_name": "misl_s02_cs_thcn_strikeforce",
+   "manufacturer": "Thermyte Concern",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1600,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "cross-section",
+   "speed": 1029
+  },
+  {
+   "name": "WEAK Repeater",
+   "class_name": "vncl_lasercannon_s1",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 292,
+   "dps_sustain": 87,
+   "sustain_model": "pool",
+   "alpha": 50,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1200
+  },
+  {
+   "name": "WASP Repeater",
+   "class_name": "vncl_lasercannon_s2",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "laser repeater",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 5.83,
+   "pellet_count": 1,
+   "dps": 520,
+   "dps_sustain": 153,
+   "sustain_model": "pool",
+   "alpha": 89,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1196
+  },
+  {
+   "name": "WAR Cannon",
+   "class_name": "vncl_neutroncannon_s5",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "neutron cannon",
+   "size": 5,
+   "fire_kind": "burst",
+   "fire_rate_hz": 3.33,
+   "pellet_count": 1,
+   "dps": 1890,
+   "dps_sustain": 869,
+   "sustain_model": "pool",
+   "alpha": 567,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 709
+  },
+  {
+   "name": "WHIP Cannon",
+   "class_name": "vncl_plasmacannon_s2",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "plasma cannon",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 455,
+   "dps_sustain": 284,
+   "sustain_model": "pool",
+   "alpha": 273,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1136
+  },
+  {
+   "name": "WARLORD Cannon",
+   "class_name": "vncl_plasmacannon_s3",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "plasma cannon",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.67,
+   "pellet_count": 1,
+   "dps": 878,
+   "dps_sustain": 500,
+   "sustain_model": "pool",
+   "alpha": 526,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1125
+  },
+  {
+   "name": "WRATH Cannon",
+   "class_name": "vncl_gen2_plasmacannon_s5",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "plasma cannon",
+   "size": 5,
+   "fire_kind": "single",
+   "fire_rate_hz": 0.83,
+   "pellet_count": 1,
+   "dps": 810,
+   "dps_sustain": 588,
+   "sustain_model": "pool",
+   "alpha": 972,
+   "damage_types": [
+    "energy"
+   ],
+   "speed": 1056
+  },
+  {
+   "name": "Arrow I Missile",
+   "class_name": "misl_s01_ir_vncl_arrow",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 1,
+   "damage": 600,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 1372
+  },
+  {
+   "name": "Bullet II Missile",
+   "class_name": "misl_s02_ir_vncl_bullet",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 2,
+   "damage": 1300,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 1029
+  },
+  {
+   "name": "Chaos III Missile",
+   "class_name": "misl_s03_ir_vncl_chaos",
+   "manufacturer": "Vanduul Clans",
+   "manufacturer_source": "uex",
+   "family": "missile",
+   "category": "missile",
+   "size": 3,
+   "damage": 2500,
+   "damage_types": [
+    "physical"
+   ],
+   "tracking": "infrared",
+   "speed": 858
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "suitmk2",
+  "name": "SuitMk2",
+  "icon": "🛰",
+  "color": "#7fd1b9",
+  "folder": "SuitMk2",
+  "script": "suitmk2_companion_app.py",
+  "hotkey": "<shift>+s",
+  "settings_key": "hotkey_suitmk2",
+  "preload": true
+}

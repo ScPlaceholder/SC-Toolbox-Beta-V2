@@ -1,0 +1,17 @@
+{
+ "model": "YAMNet (AudioSet, 521 classes), MobileNetV1, 3.73M params, float32",
+ "publisher": "Qualcomm AI Hub (qualcomm/YamNet on Hugging Face), release v0.63.0",
+ "model_card": "https://huggingface.co/qualcomm/YamNet",
+ "download_url": "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/yamnet/releases/v0.63.0/yamnet-onnx-float.zip",
+ "zip_sha256": "a48856df4a7354895273b655307c169a5c3cd233283663fb776e39a5bacaac18",
+ "files": {
+  "yamnet.onnx": "d4459cb7fb460e44252ac0408b3718c02ec1286c467a14abaf2ef412fbc0194c",
+  "yamnet.data": "0b4de0b14bf2b528d51e3cd84e2d3e2ae826b942fbec6001c654605f1f2ceb60",
+  "labels.txt": "8e1267a120c1932b7273c0d0e0c5529edbb9a35512b437b1c8982baa59047051"
+ },
+ "license": "MIT (repo LICENSE: 'The license of the original trained model can be found at https://github.com/w-hc/torch_audioset/blob/master/LICENSE'); weights are Google's YAMNet (Apache-2.0) ported to PyTorch by w-hc/torch_audioset",
+ "input": "audio [1,1,96,64] = log-mel patch (0.96 s). The frontend is NOT in the graph; sound_classifier.py computes it in numpy with YAMNet's parameters (16 kHz, 25 ms Hann / 10 ms hop, 512 FFT, 64 HTK-mel 125-7500 Hz, log(mel+0.001))",
+ "output": "class_scores [1,521] = LOGITS; sigmoid gives YAMNet's scores",
+ "frontend_check": "2026-09-23: sigmoid(this model on our numpy log-mel) matched Google's own graph (zeropointnine/yamnet-onnx, tf2onnx of the official Kaggle model, sha256 1510041d...8e19) to within ~0.02 on every test window, e.g. Cap gun 0.894 vs 0.89, Gunshot 0.78 vs 0.78",
+ "size_bytes": 15087802
+}

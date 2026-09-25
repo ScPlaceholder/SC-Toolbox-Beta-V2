@@ -1,0 +1,713 @@
+"""suit_window.py - the SuitMk2 toolbox window: status, mute, presence, voice test, recent lines.
+
+The companion itself runs whether or not this window is visible (preload: the toolbox starts it hidden). Closing the
+window hides it; `quit` from the launcher stops the core, closes the session record and stops the model service
+if this process started it.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import sys
+import threading
+from pathlib import Path
+from typing import Optional
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton, QSlider,
+                               QVBoxLayout, QWidget)
+
+from shared.qt.base_window import SCWindow
+from shared.qt.theme import P
+from shared.qt.title_bar import SCTitleBar
+
+CORE = Path(__file__).resolve().parent.parent / "core"
+if str(CORE) not in sys.path:
+    sys.path.insert(0, str(CORE))
+
+import settings as st                          # noqa: E402
+from companion_core import CompanionCore, find_game_log   # noqa: E402
+from activity_mode import os_idle_seconds, DEFAULT_AFK_MINUTES   # noqa: E402
+from speech import Speech, PRIORITY_EVENT      # noqa: E402
+from sidecar import Sidecar, health            # noqa: E402
+from conversation import ConversationLane, lane_state_from_core   # noqa: E402
+from voice_in.ears import EarsController      # noqa: E402
+from voice_in.input_devices import InputBinding, BindingCaptureDialog, HotkeyMonitor   # noqa: E402
+from pacing import LEVEL_NAMES                  # noqa: E402
+from dev_facts import DevFacts                  # noqa: E402
+
+log = logging.getLogger("suitmk2.ui")
+
+try:                                            # first-run "Set up Elah and Montaigne"; optional, never fatal
+    from ui.setup_panel import SetupPanel       # noqa: E402
+    from pair_realizer import MODEL_PREFIXES    # noqa: E402  same "complete set" rule the realizer uses
+except Exception:                               # pragma: no cover - a broken panel must not take the window down
+    log.exception("setup panel unavailable; the window runs without first-run setup")
+    SetupPanel, MODEL_PREFIXES = None, ("suitmk2-", "realizer-")
+
+
+class _Slider(QSlider):
+    """A slider the mouse wheel cannot move unless it was clicked first. Dry run 2026-09-23: the Chattiness slider
+    flickered 1/0 six times in 7 s (a wheel passing over the dashboard) and came to rest on SILENT, so J played with
+    the companions muted while believing he had set them to the chattiest level."""
+
+    def __init__(self, *a):
+        super().__init__(*a)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def wheelEvent(self, e):
+        if self.hasFocus():
+            super().wheelEvent(e)
+        else:
+            e.ignore()
+
+
+ACCENT = "#7fd1b9"
+
+
+def _btn_ss(checked_color: str = ACCENT) -> str:
+    return (f"QPushButton {{ background: {P.bg_input}; color: {P.fg}; border: 1px solid {P.border};"
+            f" border-radius: 4px; padding: 4px 10px; }}"
+            f"QPushButton:checked {{ background: {checked_color}; color: {P.bg_deepest}; }}"
+            f"QPushButton:hover {{ border-color: {ACCENT}; }}")
+
+
+# Offered in the window. Sonnet first: the production tier for high-volume short lines. Haiku is the cheapest.
+API_MODELS = [("Claude Sonnet 5 (recommended)", "claude-sonnet-5"),
+              ("Claude Haiku 4.5 (cheapest)", "claude-haiku-4-5"),
+              ("Claude Opus 5 (best, costs most)", "claude-opus-5")]
+
+
+class SuitWindow(SCWindow):
+    def __init__(self, geometry, hotkey_text: str = "", cmd_file: Optional[str] = None) -> None:
+        super().__init__(title="SuitMk2", width=geometry.w, height=geometry.h, min_w=420, min_h=360,
+                         opacity=geometry.opacity, accent=ACCENT)
+        self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
+        self._standalone = not cmd_file or cmd_file == os.devnull
+        self.s = st.load()
+        self.core: Optional[CompanionCore] = None
+        self.sidecar: Optional[Sidecar] = None
+        ducker = None
+        if self.s.get("ducking", True):          # wait/duck under Star Citizen's own dialogue (voice_fx)
+            try:
+                import voice_fx
+                ducker = voice_fx.DuckingMonitor(duck_scale=float(self.s.get("duck_scale", 0.8))).start()
+            except Exception:
+                log.exception("ducking unavailable; voices never wait for the game")
+        self.speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker)
+        for who in ("elah", "montaigne"):
+            self.speech.set_level(who, float(self.s.get(f"volume_{who}", 1.5)))
+        if self.s.get("muted"):
+            self.speech.mute(True)
+        threading.Thread(target=self.speech.preload, name="suitmk2_voice_preload", daemon=True).start()
+
+        tb = SCTitleBar(window=self, title="SUIT MK2", accent_color=ACCENT, hotkey_text=hotkey_text,
+                        show_minimize=True)
+        tb.minimize_clicked.connect(self.showMinimized)
+        tb.close_clicked.connect(self._on_close)
+        self.content_layout.addWidget(tb)
+
+        body = QWidget(self)
+        lay = QVBoxLayout(body)
+        lay.setContentsMargins(12, 8, 12, 10)
+        lay.setSpacing(8)
+
+        # First-run setup. Hidden until _boot has woken the model service (and, through it, the local runtime), then
+        # checked ONCE from _refresh: shown only when no COMPLETE character set exists (suitmk2-* or the dev
+        # realizer-*). One click (or none, with settings "auto_setup") installs/wakes the runtime and provisions both.
+        self.setup = None
+        self._sidecar_ready = False             # set by _boot once sidecar.ensure() has returned
+        self._setup_checked = False
+        if SetupPanel is not None:
+            try:
+                self.setup = SetupPanel(self, auto_check=False, ready_prefixes=MODEL_PREFIXES,
+                                        auto_start=bool(self.s.get("auto_setup", False)))
+                self.setup.setVisible(False)
+                self.setup.vision_chk.setChecked(bool(self.s.get("vision_glance")))
+                self.setup.ready.connect(self._on_models_ready)
+                lay.addWidget(self.setup)
+            except Exception:
+                log.exception("setup panel failed to build; continuing without it")
+                self.setup = None
+
+        grid = QGridLayout()
+        self._rows = {}
+        for i, key in enumerate(("Game.log", "Model service", "Elah voice", "Montaigne voice", "Heard / spoken",
+                                 "Pacing", "Combat", "Game ears", "Eyes")):
+            k = QLabel(key)
+            k.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+            v = QLabel("...")
+            v.setStyleSheet(f"color: {P.fg}; font-family: Consolas; font-size: 9pt;")
+            v.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            grid.addWidget(k, i, 0)
+            grid.addWidget(v, i, 1)
+            self._rows[key] = v
+        grid.setColumnStretch(1, 1)
+        lay.addLayout(grid)
+
+        ctl = QHBoxLayout()
+        self._mute = QPushButton("Mute")
+        self._mute.setCheckable(True)
+        self._mute.setChecked(self.speech.muted)
+        self._mute.setStyleSheet(_btn_ss(P.red))
+        self._mute.toggled.connect(self._toggle_mute)
+        ctl.addWidget(self._mute)
+        pl = QLabel("Presence")
+        pl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        ctl.addWidget(pl)
+        self._presence = QComboBox()
+        self._presence.addItems(["off", "occasional", "present", "curious"])
+        self._presence.setCurrentText(self.s["presence"])
+        self._presence.setToolTip("How often the local eyes look at the game (only while Star Citizen is focused). "
+                                  "Takes effect when the model service restarts.")
+        self._presence.currentTextChanged.connect(self._set_presence)
+        ctl.addWidget(self._presence)
+        self._talk = QPushButton("Talk key: " + (InputBinding.from_dict(self.s['talk_key']).describe()
+                                                 if self.s.get('talk_key') else 'set...'))
+        self._talk.setStyleSheet(_btn_ss())
+        self._talk.setToolTip("Push-to-talk: hold it and ask Elah or Montaigne something (local speech-to-text)")
+        self._talk.clicked.connect(self._set_talk_key)
+        ctl.addWidget(self._talk)
+        test = QPushButton("Test voices")
+        test.setStyleSheet(_btn_ss())
+        test.clicked.connect(self._test_voices)
+        ctl.addWidget(test)
+        ctl.addStretch(1)
+        lay.addLayout(ctl)
+
+        pace = QHBoxLayout()
+        cl = QLabel("Chattiness")
+        cl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        pace.addWidget(cl)
+        self._chat = _Slider(Qt.Horizontal)
+        self._chat.setRange(0, 4)
+        self._chat.setPageStep(1)
+        self._chat.setTickPosition(QSlider.TicksBelow)
+        self._chat.setTickInterval(1)
+        self._chat.setValue(int(self.s.get("chattiness", 2)))
+        self._chat.setToolTip("0 silent (only urgent + answers to your questions) ... 4 very chatty")
+        self._chat_lbl = QLabel(LEVEL_NAMES[self._chat.value()])
+        self._chat.valueChanged.connect(self._set_chattiness)
+        pace.addWidget(self._chat, 1)
+        pace.addWidget(self._chat_lbl)
+        self._fb_btn, self._fb_mon = {}, {}
+        for name, key, label in (("good_one", "good_key", "Good one"), ("shut_up", "shutup_key", "Shut up")):
+            b = QPushButton(f"{label}: " + (InputBinding.from_dict(self.s[key]).describe() if self.s.get(key)
+                                            else "set..."))
+            b.setStyleSheet(_btn_ss())
+            b.clicked.connect(lambda _=False, n=name, k=key, l=label: self._set_fb_key(n, k, l))
+            pace.addWidget(b)
+            self._fb_btn[name] = b
+            mon = HotkeyMonitor(self)
+            mon.triggered.connect(lambda down, n=name: down and self.core and self.core.feedback.press(n))
+            self._fb_mon[name] = mon
+            if self.s.get(key):
+                mon.start(InputBinding.from_dict(self.s[key]))
+        resume = QPushButton("Resume")
+        resume.setStyleSheet(_btn_ss())
+        resume.setToolTip("Cancel a 'Shut up' early")
+        resume.clicked.connect(lambda: self.core and self.core.not_now.cancel())
+        pace.addWidget(resume)
+        lay.addLayout(pace)
+
+        # Per-character volume, 0-200%. Applied from the next line; above 100% the limiter keeps it from clipping.
+        vol = QHBoxLayout()
+        self._vol_lbl = {}
+        for who, name in (("elah", "Elah"), ("montaigne", "Montaigne")):
+            lbl = QLabel(f"{name} volume")
+            lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+            vol.addWidget(lbl)
+            sl = _Slider(Qt.Horizontal)
+            sl.setRange(0, 200)
+            sl.setPageStep(10)
+            sl.setValue(int(round(float(self.s.get(f"volume_{who}", 1.5)) * 100)))
+            sl.setToolTip("100% = as rendered; above 100% is a limiter-protected boost")
+            pct = QLabel(f"{sl.value()}%")
+            pct.setMinimumWidth(40)
+            sl.valueChanged.connect(lambda v, w=who: self._set_volume(w, v))
+            vol.addWidget(sl, 1)
+            vol.addWidget(pct)
+            self._vol_lbl[who] = pct
+        lay.addLayout(vol)
+
+        # Portable memory: everything Elah and Montaigne remember about this pilot, as one tamper-checked zip.
+        mem = QHBoxLayout()
+        exp = QPushButton("Export memory")
+        exp.setStyleSheet(_btn_ss())
+        exp.setToolTip("Save what Elah and Montaigne remember about you to a zip (move PCs, back up)")
+        exp.clicked.connect(self._export_memory)
+        imp = QPushButton("Import memory")
+        imp.setStyleSheet(_btn_ss())
+        imp.setToolTip("Restore a memory zip exported from SuitMk2 (checksums verified before anything is written)")
+        imp.clicked.connect(self._import_memory)
+        mem.addWidget(exp)
+        mem.addWidget(imp)
+        # Training screenshots (J 2026-09-24): the frames the eyes looked at, kept only if the pilot opts in.
+        self._keep_shots = QCheckBox("Keep training screenshots")
+        self._keep_shots.setChecked(bool(self.s.get("keep_training_shots", False)))
+        self._keep_shots.setToolTip("Keep the small screenshots the eyes looked at, on this PC only, to help the "
+                                    "companion notice more and make fewer mistakes. Never used to train a bot to play.")
+        self._keep_shots.toggled.connect(self._set_keep_shots)
+        # Dev-history fun facts (J 2026-09-25): OFF by default. Also toggled by voice ("fun facts on" / "fun facts off").
+        self._dev_facts = QCheckBox("Dev history fun facts")
+        self._dev_facts.setChecked(bool(self.s.get("dev_facts", False)))
+        self._dev_facts.setToolTip("Now and then, in a quiet moment, Montaigne shares a real fact about how Star "
+                                   "Citizen was made, from the dev history, as an aside. Breaks the fourth wall, so "
+                                   "it is off by default. Say \"fun facts on\" or \"fun facts off\" any time.")
+        self._dev_facts.toggled.connect(self._set_dev_facts)
+        shots = QPushButton("Export training screenshots")
+        shots.setStyleSheet(_btn_ss())
+        shots.setToolTip("Zip the kept screenshots + what the eyes thought they showed, to share if you choose")
+        shots.clicked.connect(self._export_shots)
+        mem.addWidget(self._keep_shots)
+        mem.addWidget(self._dev_facts)
+        mem.addWidget(shots)
+        mem.addStretch(1)
+        lay.addLayout(mem)
+
+        # Smarter lines (J 2026-09-24): the pilot's own Claude API key words each line; the local models stay the
+        # fallback, and grounding still checks every fact either way. Test uses models.retrieve: it costs nothing.
+        api = QGridLayout()
+        api.addWidget(QLabel("Smarter lines (Claude API)"), 0, 0, 1, 4)
+        self._api_on = QCheckBox("Use Claude for lines")
+        self._api_on.setChecked(self.s.get("backend") == "api")
+        self._api_on.setToolTip("Better wording and more variety, billed to YOUR Anthropic account. If the API "
+                                "fails, the local models take over. Facts are checked the same way either way.")
+        self._api_model = QComboBox()
+        for label, mid in API_MODELS:
+            self._api_model.addItem(label, mid)
+        i = self._api_model.findData(self.s.get("api_model") or API_MODELS[0][1])
+        self._api_model.setCurrentIndex(max(0, i))
+        self._api_key = QLineEdit(self.s.get("anthropic_api_key") or "")
+        self._api_key.setEchoMode(QLineEdit.Password)
+        self._api_key.setPlaceholderText("Anthropic API key (sk-ant-...)")
+        self._api_key.setToolTip("Stored only in your SuitMk2 settings on this PC. Leave blank to use the "
+                                 "ANTHROPIC_API_KEY environment variable.")
+        test = QPushButton("Test")
+        test.setStyleSheet(_btn_ss())
+        test.setToolTip("Checks the key and model with the API. Costs nothing: no line is generated.")
+        test.clicked.connect(self._api_test)
+        save = QPushButton("Save")
+        save.setStyleSheet(_btn_ss())
+        save.clicked.connect(self._api_save)
+        self._api_status = QLabel("")
+        self._api_status.setWordWrap(True)
+        api.addWidget(self._api_on, 1, 0)
+        api.addWidget(self._api_model, 1, 1, 1, 3)
+        api.addWidget(self._api_key, 2, 0, 1, 2)
+        api.addWidget(test, 2, 2)
+        api.addWidget(save, 2, 3)
+        api.addWidget(self._api_status, 3, 0, 1, 4)
+        lay.addLayout(api)
+
+        self._recent = QListWidget()
+        self._recent.setStyleSheet(f"QListWidget {{ background: {P.bg_primary}; color: {P.fg}; border: 1px solid "
+                                   f"{P.border}; font-family: Consolas; font-size: 9pt; }}")
+        self._recent.setWordWrap(True)
+        lay.addWidget(self._recent, 1)
+        self.content_layout.addWidget(body, 1)
+
+        # Direct conversation: push-to-talk -> local Whisper -> ConversationLane -> core.answer()
+        self.lane = ConversationLane()
+        self.store = None
+        self.ears = EarsController(self)
+        self.ears.set_mode("push")
+        self.ears.set_model("small.en")
+        self.ears.transcript.connect(self._on_transcript)
+        self.ears.listeningChanged.connect(self._on_listening)
+        self.ears.statusChanged.connect(lambda m: self.core and self.core._note(f"ears: {m}"))
+        if self.s.get("talk_key"):
+            self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
+            QTimer.singleShot(1500, self.ears.arm)
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh)
+        self._timer.start(1000)
+        QTimer.singleShot(600, self._maybe_show_notice)
+        threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
+
+    # -- boot off the UI thread: finding the log and waking the model service can take seconds ------------------
+    def _boot(self) -> None:
+        core_dir = CORE
+        self.sidecar = Sidecar(self.s["model_python"], core_dir / "companion_service.py", Path(self.s["adapters_dir"]),
+                               presence=self.s["presence"], glance=bool(self.s["vision_glance"]),
+                               log_path=st.DIR / "companion_service.log")
+        st.DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            up = self.sidecar.ensure()          # also wakes a sleeping local runtime (auto/ollama backends)
+        finally:
+            self._sidecar_ready = True          # the Setup panel may now check (from _refresh, on the GUI thread)
+        from companion_service import RemoteRealizer, RemoteEyes
+        realizer = RemoteRealizer() if up else None
+        eyes = RemoteEyes() if up and self.s["presence"] != "off" else None
+        recorder = dreams = None
+        try:
+            import memory_store as ms
+            from dream_queue import SessionRecorder, DreamQueue
+            store = ms.open_store(st.DIR / "memory", self.s["pilot_id"])
+            ddir = st.DIR / "memory" / self.s["pilot_id"] / "dreams"
+            recorder, dreams = SessionRecorder(ddir), DreamQueue(store, ddir)
+            self.store = store
+        except Exception:
+            log.exception("memory/dreams unavailable; continuing without them")
+
+        def headroom():
+            h = health()
+            return (h or {}).get("headroom") or "TIGHT"
+        lifecycle = None
+        try:
+            from move_lifecycle import MoveLifecycle
+            if self.store is not None:
+                lifecycle = MoveLifecycle(self.store)
+                lifecycle.tick()                 # deterministic, no model
+        except Exception:
+            log.exception("move lifecycle unavailable")
+        sound = None
+        if self.s.get("sound_classifier", True):   # game ears: hear ONLY StarCitizen.exe, classify it on the CPU
+            try:
+                from sound_classifier import SoundClassifier
+                sound = SoundClassifier()
+            except Exception:
+                log.exception("sound classifier unavailable; combat confirm falls back to the eyes / meter")
+        self.core = CompanionCore(self.speech, realizer=realizer, eyes=eyes, recorder=recorder, dreams=dreams,
+                                  headroom=headroom, ambient_every_s=float(self.s["ambient_every_s"]),
+                                  chattiness=int(self.s.get("chattiness", 2)), feedback_dir=st.DIR / "feedback",
+                                  lifecycle=lifecycle, store=self.store, sound=sound,
+                                  idle_source=os_idle_seconds,
+                                  afk_after_s=float(self.s.get("afk_minutes", DEFAULT_AFK_MINUTES)) * 60.0,
+                                  dev_facts=DevFacts.from_settings(self.s))
+        self.core.dev_facts_persist = self._persist_dev_facts
+        # Game ears for combat: the ducking meter already reads StarCitizen.exe's own output ~20x a second.
+        if self.speech.ducker is not None:
+            self.speech.ducker.listeners.append(self.core.combat.feed)
+        # Mood as stance text: always for the Claude API; for the local model only since the 09-24 retrain taught it
+        # to show a stance instead of narrating it ("the scare remains hidden..." was the untrained failure).
+        from emotion import LOCAL_STANCE_TRAINED
+        self.core.affect.stance_text = self.s.get("backend") == "api" or LOCAL_STANCE_TRAINED
+        self.core.start(find_game_log(self.s.get("game_log") or None))
+
+    def _maybe_check_setup(self) -> None:
+        """GUI thread, once: after the sidecar had its chance to wake the runtime, ask the panel whether a complete
+        character set exists. Skipped for backend hf/none (a dev torch setup, or the player chose silence)."""
+        if self.setup is None or self._setup_checked or not self._sidecar_ready:
+            return
+        self._setup_checked = True
+        if self.sidecar is not None and self.sidecar.backend not in ("auto", "ollama"):
+            return
+        try:
+            self.setup.check()
+        except Exception:
+            log.exception("setup check failed; continuing without it")
+
+    def _on_models_ready(self) -> None:
+        """The panel says a complete set exists. If it got there by running setup THIS session, make the running
+        service re-resolve its backend (none -> ollama) without a restart. Off the GUI thread: /reload waits for an
+        in-flight line. At startup with everything already in place there is nothing to reload."""
+        if self.setup is None or self.setup.job is None:
+            return
+
+        def work():
+            try:
+                if self.sidecar is not None:
+                    self.sidecar.reload()
+            except Exception:
+                log.exception("reload after setup failed; the next service restart picks the models up")
+        threading.Thread(target=work, name="suitmk2_reload", daemon=True).start()
+
+    # -- UI ---------------------------------------------------------------------------------------------------------
+    def _refresh(self) -> None:
+        self._maybe_check_setup()
+        c, h = self.core, None
+        self._rows["Game.log"].setText(("reading" if c and c._monitor else "not found") if c else "starting...")
+        if self.sidecar:
+            h = health(timeout=0.3)
+            extra = f" | headroom {h.get('headroom')} | model {'loaded' if h.get('loaded') else 'idle'}" if h else ""
+            self._rows["Model service"].setText(self.sidecar.status + extra)
+        for spk, key in (("elah", "Elah voice"), ("montaigne", "Montaigne voice")):
+            trained = (Path(self.s["voices_dir"]) / f"{spk}.onnx").exists()
+            self._rows[key].setText(f"{'trained' if trained else 'stock'} | loaded: {self.speech.voice_source(spk)}")
+        if c:
+            s = c.stats
+            self._rows["Heard / spoken"].setText(f"{s['events']} events, {s['spoken']} spoken, "
+                                                 f"{s['gated'] + s['silent'] + s['ungrounded']} held back")
+            if self._recent.count() != len(c.last):
+                self._recent.clear()
+                self._recent.addItems(list(reversed(c.last)))
+            left = c.not_now.remaining_s()
+            self._rows["Pacing"].setText(f"{LEVEL_NAMES[c.pacer.params.level]}"
+                                         + (f" | not now {int(left) // 60}:{int(left) % 60:02d} left" if left else "")
+                                         + f" | +{c.feedback.counts['good_one']} / -{c.feedback.counts['shut_up']}")
+            # The new senses, visible so a test session can be tuned from facts (J 2026-09-23). No I/O here: every value
+            # below is already in memory (the eyes' last answer is kept by the core's own ambient tick).
+            cs = c.combat.stats
+            self._rows["Combat"].setText(f"{c.combat.state} | onsets heard {cs['spikes']}, on {cs['on']}, "
+                                         f"unconfirmed {cs['unconfirmed']}"
+                                         + (f" | last {getattr(c, 'combat_reason', '')}" if getattr(c, 'combat_reason', '') else ""))
+            if c.sound is not None:
+                try:
+                    r = c.sound.recent(5.0) or {}
+                    top = sorted(r.items(), key=lambda kv: -kv[1])[:3]
+                    self._rows["Game ears"].setText(", ".join(f"{k} {v:.2f}" for k, v in top) or "listening")
+                except Exception:
+                    self._rows["Game ears"].setText("unavailable")
+            else:
+                self._rows["Game ears"].setText("off (meter only)")
+            e = getattr(c, "last_eyes", None) or {}
+            self._rows["Eyes"].setText((e.get("scene") or "not looking") + (" | sees combat" if e.get("in_combat") else "")
+                                       if c.eyes is not None else "off")
+
+    def _set_talk_key(self) -> None:
+        dlg = BindingCaptureDialog(self)
+        if dlg.exec() and dlg.result is not None:
+            self.s["talk_key"] = dlg.result.to_dict()
+            st.save(self.s)
+            self._talk.setText("Talk key: " + dlg.result.describe())
+            self.ears.disarm()
+            self.ears.set_binding(dlg.result)
+            self.ears.arm()
+
+    def _on_listening(self, on: bool) -> None:
+        if self.core is not None:
+            self.core.gate_state.pilot_speaking = bool(on)   # hold every non-urgent line while the pilot talks
+
+    def _on_transcript(self, text: str) -> None:
+        if self.core is None or not text.strip():
+            return
+        from dream_queue import history_facts
+        state = lane_state_from_core(self.core.state, self.core.volatile)
+        hist = {}
+        if self.store is not None:
+            try:
+                hist = history_facts(self.store, location=state.get("location"), ship=state.get("ship"))
+            except Exception:
+                hist = {}
+        self.core._note(f"heard: {text}")
+        # "Fun facts on" / "fun facts off" (J 2026-09-25): a control, not a question. Saved; Montaigne acknowledges.
+        if self.core.voice_command(text):
+            return
+        # "Good one" / "Shut up" said out loud work like the keys (J 2026-09-24), and are not questions to answer.
+        from feedback import verbal_reaction
+        reaction = verbal_reaction(text)
+        if reaction:
+            self.core.feedback.press(reaction)
+            self.core._note(f"feedback (spoken): {reaction}")
+            return
+        spec = self.lane.handle(text, state, hist)
+        if spec is not None:
+            self.core.answer(spec, text)
+
+    def _export_memory(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        import time as _t
+        import memory_store as ms
+        default = str(Path.home() / "Documents" / f"SuitMk2_memory_{self.s['pilot_id']}_{_t.strftime('%Y%m%d')}.zip")
+        path, _ = QFileDialog.getSaveFileName(self, "Export SuitMk2 memory", default, "Zip (*.zip)")
+        if not path:
+            return
+        try:
+            out = ms.export_pilot(st.DIR / "memory", self.s["pilot_id"], path)
+            self.core and self.core._note(f"memory exported -> {out}")
+        except Exception as e:
+            self.core and self.core._note(f"memory export FAILED: {type(e).__name__}: {e}")
+
+    def _maybe_show_notice(self) -> None:
+        """Once per notice wording: what the companion is (a narrator, nothing more) + the screenshot opt-in."""
+        from PySide6.QtWidgets import QMessageBox
+        import training_shots as ts
+        if int(self.s.get("notice_ack", 0) or 0) >= ts.NOTICE_VERSION:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle(ts.NOTICE_TITLE)
+        box.setIcon(QMessageBox.Information)
+        box.setText(ts.NOTICE)
+        cb = QCheckBox("Keep training screenshots on this PC (optional)")
+        cb.setChecked(bool(self.s.get("keep_training_shots", False)))
+        box.setCheckBox(cb)
+        box.addButton("I understand", QMessageBox.AcceptRole)
+        box.exec()
+        self.s["notice_ack"] = ts.NOTICE_VERSION
+        self._keep_shots.setChecked(cb.isChecked())        # -> _set_keep_shots saves both
+        st.save(self.s)
+
+    def _persist_dev_facts(self, on: bool) -> None:
+        """Called by the core on every dev-facts toggle (voice or checkbox): save it, and keep the checkbox honest."""
+        self.s["dev_facts"] = bool(on)
+        st.save(self.s)
+        cb = getattr(self, "_dev_facts", None)
+        if cb is not None and cb.isChecked() != bool(on):
+            QTimer.singleShot(0, lambda: (cb.blockSignals(True), cb.setChecked(bool(on)), cb.blockSignals(False)))
+
+    def _set_dev_facts(self, on: bool) -> None:
+        if self.core is not None:
+            self.core.set_dev_facts(bool(on), "window", ack=False)
+        else:
+            self._persist_dev_facts(bool(on))
+
+    def _set_keep_shots(self, on: bool) -> None:
+        self.s["keep_training_shots"] = bool(on)
+        st.save(self.s)                     # the service re-reads it on every shot: takes effect with no restart
+        self.core and self.core._note(f"training screenshots {'ON' if on else 'OFF'}")
+
+    def _export_shots(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        import time as _t
+        import training_shots as ts
+        store = ts.default_store()
+        if store.count() == 0:
+            self.core and self.core._note("no training screenshots kept yet"
+                                          + ("" if self.s.get("keep_training_shots") else " (keeping is OFF)"))
+            return
+        default = str(Path.home() / "Documents" / f"SuitMk2_training_shots_{_t.strftime('%Y%m%d')}.zip")
+        path, _ = QFileDialog.getSaveFileName(self, "Export training screenshots", default, "Zip (*.zip)")
+        if not path:
+            return
+        try:
+            n = store.export(Path(path))
+            self.core and self.core._note(f"{n} training screenshots exported -> {path}")
+        except Exception as e:
+            self.core and self.core._note(f"training screenshot export FAILED: {type(e).__name__}: {e}")
+
+    def _api_key_now(self) -> str:
+        import os
+        return self._api_key.text().strip() or os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+    def _api_test(self) -> None:
+        from pair_realizer import api_check
+        key, model = self._api_key_now(), self._api_model.currentData()
+        self._api_status.setText("checking...")
+
+        def work():
+            ok, msg = api_check(key, model)
+            self._api_result = ("OK: " if ok else "Not working: ") + msg
+        self._api_result = None
+        threading.Thread(target=work, name="suitmk2_api_test", daemon=True).start()
+        self._poll_api_result()
+
+    def _poll_api_result(self) -> None:
+        # The check runs off the GUI thread; the label is only ever touched from here (the GUI thread).
+        if getattr(self, "_api_result", None) is None:
+            QTimer.singleShot(200, self._poll_api_result)
+            return
+        self._api_status.setText(self._api_result)
+
+    def _api_save(self) -> None:
+        on = self._api_on.isChecked()
+        if on and not self._api_key_now():
+            self._api_status.setText("Enter a key first (or set ANTHROPIC_API_KEY). Still using the local models.")
+            self._api_on.setChecked(False)
+            return                          # nothing saved, nothing reloaded: the refusal must stay on screen
+        self.s["anthropic_api_key"] = self._api_key.text().strip()
+        self.s["api_model"] = self._api_model.currentData()
+        backend = "api" if on else ("auto" if self.s.get("backend") == "api" else self.s.get("backend", "auto"))
+        self.s["backend"] = backend
+        if getattr(self, "core", None) is not None:
+            from emotion import LOCAL_STANCE_TRAINED
+            self.core.affect.stance_text = backend == "api" or LOCAL_STANCE_TRAINED
+        st.save(self.s)
+        self._api_status.setText(f"saved - switching to {'Claude' if on else 'the local models'}...")
+
+        def work():
+            sc = getattr(self, "sidecar", None)            # set in _boot; Save may come first
+            ok = sc is not None and sc.reload(backend)
+            self._api_result = (f"Using {'Claude (' + self.s['api_model'] + ')' if on else 'the local models'}."
+                                if ok else "Saved. The line service did not answer; it will use this on next start.")
+        self._api_result = None
+        threading.Thread(target=work, name="suitmk2_api_save", daemon=True).start()
+        self._poll_api_result()
+
+    def _import_memory(self) -> None:
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        import memory_store as ms
+        path, _ = QFileDialog.getOpenFileName(self, "Import SuitMk2 memory", str(Path.home() / "Documents"),
+                                              "Zip (*.zip)")
+        if not path:
+            return
+        overwrite = QMessageBox.question(
+            self, "Import memory", "Replace the current memory with this file?\n"
+            "(A snapshot of the current memory is taken first.)") == QMessageBox.Yes
+        if not overwrite:
+            return
+        try:
+            ms.snapshot(st.DIR / "memory", self.s["pilot_id"])          # never lose the current one
+            out = ms.import_pilot(path, st.DIR / "memory", overwrite=True)
+            self.core and self.core._note(f"memory imported from {Path(path).name} -> {out}")
+        except Exception as e:
+            self.core and self.core._note(f"memory import REFUSED: {type(e).__name__}: {e}")
+
+    def _set_volume(self, who: str, v: int) -> None:
+        self.s[f"volume_{who}"] = v / 100.0
+        st.save(self.s)
+        self._vol_lbl[who].setText(f"{v}%")
+        self.speech.set_level(who, v / 100.0)
+
+    def _set_chattiness(self, v: int) -> None:
+        self.s["chattiness"] = int(v)
+        st.save(self.s)
+        self._chat_lbl.setText(LEVEL_NAMES[v])
+        if self.core is not None:
+            self.core.set_chattiness(v)
+
+    def _set_fb_key(self, name: str, key: str, label: str) -> None:
+        dlg = BindingCaptureDialog(self)
+        if dlg.exec() and dlg.result is not None:
+            if self.s.get("talk_key") == dlg.result.to_dict():
+                self.core and self.core._note(f"{label}: that binding is already the talk key; not set")
+                return
+            self.s[key] = dlg.result.to_dict()
+            st.save(self.s)
+            self._fb_btn[name].setText(f"{label}: " + dlg.result.describe())
+            self._fb_mon[name].start(dlg.result)          # start() stops the previous binding first
+
+    def _toggle_mute(self, on: bool) -> None:
+        self.speech.mute(on)
+        self.s["muted"] = on
+        st.save(self.s)
+
+    def _set_presence(self, value: str) -> None:
+        self.s["presence"] = value
+        st.save(self.s)
+
+    def _test_voices(self) -> None:
+        self.speech.say("Suit online. Vitals steady.", "elah", PRIORITY_EVENT)
+        self.speech.say("And the ship, such as it is, remains at your service.", "montaigne", PRIORITY_EVENT)
+
+    # -- lifecycle ----------------------------------------------------------------------------------------------------
+    def handle_ipc_command(self, cmd: dict) -> None:
+        t = cmd.get("type", "")
+        if t == "show":
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+        elif t == "hide":
+            self.hide()
+        elif t == "quit":
+            self._quit()
+
+    def _on_close(self) -> None:
+        if self._standalone:
+            self._quit()
+        else:
+            self.hide()               # the companion keeps running; the window is only a dashboard
+
+    def _quit(self) -> None:
+        try:
+            try:
+                self.ears.shutdown()
+                for m in self._fb_mon.values():
+                    m.stop()
+            except Exception:
+                pass
+            if self.core:
+                self.core.stop()
+            self.speech.close()
+            if self.sidecar:
+                self.sidecar.stop()   # only if we started it (and the local runtime, only if IT woke it)
+            if self.setup is not None:
+                try:
+                    if self.setup.job is not None:
+                        self.setup.job.cancel.set()      # a setup in flight stops at its next chunk; it resumes
+                    self.setup.mgr.stop_if_ours()        # an `ollama serve` the setup job started
+                except Exception:
+                    pass
+        finally:
+            from PySide6.QtWidgets import QApplication
+            QApplication.quit()

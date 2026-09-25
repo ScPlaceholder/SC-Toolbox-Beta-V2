@@ -1,0 +1,2849 @@
+{
+"source": "SC Toolbox starmap bodies.json (Market_Finder)",
+"places": [
+{
+"name": "ArcCorp",
+"type": "Planet",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Crusader",
+"type": "Planet",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Hurston",
+"type": "Planet",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "microTech",
+"type": "Planet",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Aberdeen",
+"type": "Moon",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Arial",
+"type": "Moon",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Calliope",
+"type": "Moon",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Cellin",
+"type": "Moon",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Clio",
+"type": "Moon",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Daymar",
+"type": "Moon",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Euterpe",
+"type": "Moon",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Ita",
+"type": "Moon",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Lyria",
+"type": "Moon",
+"parent": "ArcCorp",
+"system": "Stanton"
+},
+{
+"name": "Magda",
+"type": "Moon",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Wala",
+"type": "Moon",
+"parent": "ArcCorp",
+"system": "Stanton"
+},
+{
+"name": "Yela",
+"type": "Moon",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "\"The Pit\"",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "\"Wheeler's\"",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Adair's Retreat",
+"type": "Outpost",
+"parent": "Euterpe",
+"system": "Stanton"
+},
+{
+"name": "Afterlife",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Ako's Return",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ARC-L1 Wide Forest Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "ARC-L2 Lively Pathway Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "ARC-L3 Modern Express Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "ARC-L4 Faint Glen Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "ARC-L5 Yellow Core Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 045",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 048",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 056",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 061",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 141",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Mining Area 157",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Processing Center 115",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Processing Center 123",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 011",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 024",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 029",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 033",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 038",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 042",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 045",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 052",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 059",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 060",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 066",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 074",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 078",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 087",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 089",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 092",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 094",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 101",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 108",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "ArcCorp Security Post 111",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Area18",
+"type": "LandingZone",
+"parent": "ArcCorp",
+"system": "Stanton"
+},
+{
+"name": "Ashburn Channel Aid Shelter",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Aston Ridge Aid Shelter",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Astor's Clearing",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Attritus OLP",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Attritus PAF-I",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Attritus PAF-II",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Attritus PAF-III",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Baijini Point",
+"type": "Manmade",
+"parent": "ArcCorp",
+"system": "Stanton"
+},
+{
+"name": "Balto's Blind",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Barton Flats Aid Shelter",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Benson Mining Outpost",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Blighter's Run",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Boondoggle",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Bountiful Harvest Hydroponics",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Brio's Breaker Yard",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Broken Patch",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Buckets",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Bud's Growery",
+"type": "Outpost",
+"parent": "Euterpe",
+"system": "Stanton"
+},
+{
+"name": "Burnout",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Calhoun Pass Emergency Shelter",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Clear View Emergency Shelter",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Cloudrest Retreat",
+"type": "Outpost",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST1-02",
+"type": "Manmade",
+"parent": "Ita",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST1-13",
+"type": "Manmade",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST1-48",
+"type": "Manmade",
+"parent": "Magda",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST1-61",
+"type": "Manmade",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST1-92",
+"type": "Manmade",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST2-28",
+"type": "Manmade",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST2-47",
+"type": "Manmade",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST2-55",
+"type": "Manmade",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST2-76",
+"type": "Manmade",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST3-18",
+"type": "Manmade",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST3-35",
+"type": "Manmade",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST3-90",
+"type": "Manmade",
+"parent": "ArcCorp",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST4-22",
+"type": "Manmade",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST4-31",
+"type": "Manmade",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST4-59",
+"type": "Manmade",
+"parent": "Clio",
+"system": "Stanton"
+},
+{
+"name": "Comm Array ST4-64",
+"type": "Manmade",
+"parent": "Euterpe",
+"system": "Stanton"
+},
+{
+"name": "Consumption",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Covalex Distribution Centre S1DC06",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Covalex Distribution Centre S4DC05",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Covalex Shipping Hub Gundo",
+"type": "Manmade",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Coven",
+"type": "Outpost",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "CRU-L1 Ambitious Dream Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "CRU-L4 Shallow Fields Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "CRU-L5 Beautiful Glen Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Cry-Astro Processing Plant 19-02",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Cry-Astro Processing Plant 34-12",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Cutter's Rig",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Deakins Research Outpost",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Devlin Scrap & Salvage",
+"type": "Outpost",
+"parent": "Euterpe",
+"system": "Stanton"
+},
+{
+"name": "Downlow",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Drifters",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Dunboro",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Dunlow Ridge Aid Shelter",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Dupree Industrial Manufacturing Facility",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Eager Flats Aid Shelter",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Elsewhere",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Empyrean Park",
+"type": "Outpost",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Everus Harbor",
+"type": "Manmade",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Fetch",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Finn's Folly",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Flanagan's Ravine Aid Shelter",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Frostbite",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Gallete Family Farms",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Ghost Hollow",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Gonzo",
+"type": "Outpost",
+"parent": "Magda",
+"system": "Stanton"
+},
+{
+"name": "Good Times Temple",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Greycat Stanton I Production Complex-B",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Greycat Stanton IV Production Complex-A",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Grim HEX",
+"type": "Manmade",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Half Stack",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Hard Knocks",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Harper's Point",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Hasbin Hall",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Anderson",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Bezdek",
+"type": "Outpost",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Edmond",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Hadley",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Hahn",
+"type": "Outpost",
+"parent": "Magda",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Lathan",
+"type": "Outpost",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Norgaard",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Oparei",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Perlman",
+"type": "Outpost",
+"parent": "Magda",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Pinewood",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Ryder",
+"type": "Outpost",
+"parent": "Ita",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Stanhope",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Thedus",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDMS-Woodruff",
+"type": "Outpost",
+"parent": "Ita",
+"system": "Stanton"
+},
+{
+"name": "HDPC-Cassillo",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDPC-Farnesway",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Baier",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Bardie",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Bersch",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Bowes",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Brel",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Cronshaw",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Foster",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Franz",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Giblin",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Hosley",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Malloy",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Marling",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-McKuen",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Newman",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Olliff",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Pearce",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Sheppard",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Sims",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Stott",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Tillman",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Walker",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDRSO-Wyatt",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Adlai",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Barnabas",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Breckinridge",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Colfax",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Damaris",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Elbridge",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Hendricks",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Hiram",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Hobart",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Ishmael",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Millerand",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Rufus",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Sherman",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Tamar",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Tompkins",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "HDSF-Zacharias",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Hela's Regret",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Hickes Research Outpost",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Hospice",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Humboldt Mines",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "HUR-L1 Green Glade Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "HUR-L2 Faithful Dream Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "HUR-L3 Thundering Express Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "HUR-L4 Melodic Fields Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "HUR-L5 High Course Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Julep Ravine Aid Shelter",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Jumptown",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Kant's Peak",
+"type": "Outpost",
+"parent": "Clio",
+"system": "Stanton"
+},
+{
+"name": "Kelo Bottom",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Klescher Rehabilitation Facility",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Kosso Basin Aid Shelter",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Kudre Ore",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Lamina OLP",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Lamina PAF-I",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Lamina PAF-II",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Lamina PAF-III",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Last Day",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Launch Pad",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Lorville",
+"type": "LandingZone",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Lost and Found",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Loveridge Mineral Reserve",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Lowdown",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Ludlow",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Mainline",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Maker's Point",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "MIC-L1 Shallow Frontier Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "MIC-L2 Long Forest Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "MIC-L3 Endless Odyssey Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "MIC-L4 Red Crossroads Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "MIC-L5 Modern Icarus Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "microTech Logistics Depot S4LD01",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "microTech Logistics Depot S4LD13",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Minlo Spire",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Mogote Aid Shelter",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter 2UB-RB9-5",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter 4HJ-LVE-A",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter 5WQ-R2V-C",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter 8FK-Q2X-K",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter D79-ECG-R",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter E2Q-NSG-Y",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter KH3-AAE-L",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter L8P-JUC-8 (Offline)",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter QVX-J88-J",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT DataCenter TMG-XEV-2",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT OpCenter TLI-4",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter 4HJ-LVE-A",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter 6EE-GVH-9",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter 9PL-Q42-K",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter 9WB-HV7-P",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter BH5-KEH-6",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter CTB-B3U-1",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter D66-CRW-F",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter DRC-F2S-6",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter DXC-25G-L",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter E6C-BRT-M",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter FQ5-URX-8",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter GSW-NM3-E",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter H36-YBG-R",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter JWB-D9L-4",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter KWS-GPZ-5",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter OEE-5RG-5",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter PLM-9YW-Q",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter SLP-VC3-W",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter UDB-Z4W-2",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter VD9-87R-P",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "MT SecurityCenter XGT-33W-7",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Nakamura Valley Aid Shelter",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Nevermind",
+"type": "Outpost",
+"parent": "Magda",
+"system": "Stanton"
+},
+{
+"name": "New Babbage",
+"type": "LandingZone",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "NT-999-XX",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "NT-999-XXII",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Nuen Waste Management",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Nuiqsut Emergency Shelter",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Nyx Gateway",
+"type": "Manmade",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Orison",
+"type": "LandingZone",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Outpost 54",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Paradise Cove",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Picker's Field",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Point Wain Emergency Shelter",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Port Tressler",
+"type": "Manmade",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "PRIVATE PROPERTY",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Prospect Point",
+"type": "Outpost",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Pyro Gateway",
+"type": "Manmade",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Rappel",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Raven's Roost",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Rayari Anvik Research Outpost",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Rayari Cantwell Research Outpost",
+"type": "Outpost",
+"parent": "Clio",
+"system": "Stanton"
+},
+{
+"name": "Rayari Deltana Research Outpost",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Rayari Kaltag Research Outpost",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Rayari McGrath Research Outpost",
+"type": "Outpost",
+"parent": "Clio",
+"system": "Stanton"
+},
+{
+"name": "Reclamation & Disposal Orinth",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Regiment Downs",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Rico's Remains",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Rock Bottom",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Rolo's Crater",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Ruptura OLP",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Ruptura PAF-I",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Ruptura PAF-II",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Ruptura PAF-III",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Sakura Sun Goldenrod Workcenter",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Sakura Sun Magnolia Workcenter",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Samson & Son's Salvage Center",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Scuttle",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Security Post Awala",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Birbari",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Chilad",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Dawu",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Erden",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Gandan",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Hasik",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Iteke",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Kareah",
+"type": "Manmade",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Klipra",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Kota",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Menian",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Moka",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Opal",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Pakote",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Peska",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Reawick",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Saktigar",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Sharga",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Security Post Tavan",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Triolet",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Ulaga",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Security Post Walvis",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Wan",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Security Post Yafa",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Seraphim Station",
+"type": "Manmade",
+"parent": "Crusader",
+"system": "Stanton"
+},
+{
+"name": "Shady Glen Farms",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Shanks",
+"type": "Outpost",
+"parent": "Euterpe",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SAL-2",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SAL-5",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SCD-1",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SM0-10",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SM0-13",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SM0-18",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SM0-22",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SMCa-6",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Mining Facility SMCa-8",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-12",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-16",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-21",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-3",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-7",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPAL-9",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPMC-10",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPMC-11",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPMC-14",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPMC-3",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Shubin Processing Facility SPMC-5",
+"type": "Outpost",
+"parent": "Calliope",
+"system": "Stanton"
+},
+{
+"name": "Smokestack",
+"type": "Outpost",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "Stone's Throw",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Talarine Divide Aid Shelter",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Tamdon Plains Aid Shelter",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Teddy's Playhouse",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Terra Gateway",
+"type": "Manmade",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Terra Mills HydroFarm",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "The Barrens",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "The Dregs",
+"type": "Outpost",
+"parent": "Arial",
+"system": "Stanton"
+},
+{
+"name": "The Grove",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "The Hollows",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "The Necropolis",
+"type": "Outpost",
+"parent": "microTech",
+"system": "Stanton"
+},
+{
+"name": "The Orphanage",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "The Shades",
+"type": "Outpost",
+"parent": "Ita",
+"system": "Stanton"
+},
+{
+"name": "Thimblerig",
+"type": "Outpost",
+"parent": "Ita",
+"system": "Stanton"
+},
+{
+"name": "Tram & Myers Mining",
+"type": "Outpost",
+"parent": "Cellin",
+"system": "Stanton"
+},
+{
+"name": "Tremonte",
+"type": "Outpost",
+"parent": "Clio",
+"system": "Stanton"
+},
+{
+"name": "Trilo",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Utopia",
+"type": "Outpost",
+"parent": "Yela",
+"system": "Stanton"
+},
+{
+"name": "Vivere OLP",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Vivere PAF-I",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Vivere PAF-II",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Vivere PAF-III",
+"type": "Outpost",
+"parent": "Aberdeen",
+"system": "Stanton"
+},
+{
+"name": "Wailing Rock",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "Washout",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Weeping Cove",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Wikelo Emporium Dasi Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Wikelo Emporium Kinga Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Wikelo Emporium Selo Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Wiley Flats",
+"type": "Outpost",
+"parent": "Wala",
+"system": "Stanton"
+},
+{
+"name": "Wolf Point Aid Shelter",
+"type": "Outpost",
+"parent": "Daymar",
+"system": "Stanton"
+},
+{
+"name": "World's End",
+"type": "Outpost",
+"parent": "Lyria",
+"system": "Stanton"
+},
+{
+"name": "Zephyr",
+"type": "Outpost",
+"parent": "Hurston",
+"system": "Stanton"
+},
+{
+"name": "Magnus",
+"type": "Jumppoint",
+"parent": "Stanton",
+"system": "Stanton"
+},
+{
+"name": "Bloom",
+"type": "Planet",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Monox",
+"type": "Planet",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Pyro I",
+"type": "Planet",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Pyro IV",
+"type": "Planet",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Pyro V",
+"type": "Planet",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Terminus",
+"type": "Planet",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Adir",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Fairo",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Fuego",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Ignis",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Vatra",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Vuur",
+"type": "Moon",
+"parent": "Pyro V",
+"system": "Pyro"
+},
+{
+"name": "Arid Reach",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Ashland",
+"type": "Outpost",
+"parent": "Ignis",
+"system": "Pyro"
+},
+{
+"name": "Blackrock Exchange",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Bueno Ravine",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Bullock's Reach",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Canard View",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Carver's Ridge",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Chawla's Beach",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Checkmate",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Dinger's Depot",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Dudley & Daughters",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Endgame",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Fallow Field",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center I",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center II",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center III",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center IV",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center IX",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center V",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center VI",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center VII",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center VIII",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Farro Data Center X",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Feo Canyon Depot",
+"type": "Outpost",
+"parent": "Fairo",
+"system": "Pyro"
+},
+{
+"name": "Frigid Knot",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Gaslight",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Goner's Deal",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Gray Gardens Depot",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Jackson's Swap",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Kabir's Post",
+"type": "Outpost",
+"parent": "Ignis",
+"system": "Pyro"
+},
+{
+"name": "Kinder Plots",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Last Ditch",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Last Landings",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Phoenix-I",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Phoenix-II",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Phoenix-III",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Tithonus-I",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Tithonus-II",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Lazarus Transport Hub Tithonus-III",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Megumi Refueling",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Narena's Rest",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Nyx Gateway",
+"type": "Manmade",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Orbituary",
+"type": "Manmade",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Ostler's Claim",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Patch City",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Prophet's Peak",
+"type": "Outpost",
+"parent": "Adir",
+"system": "Pyro"
+},
+{
+"name": "Prospect Depot",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Rat's Nest",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Rod's Fuel 'N Supplies",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Rough Landing",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Ruin Station",
+"type": "Manmade",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Rustville",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Sacren's Plot",
+"type": "Outpost",
+"parent": "Pyro IV",
+"system": "Pyro"
+},
+{
+"name": "Scarper's Turn",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Seer's Canyon",
+"type": "Outpost",
+"parent": "Vatra",
+"system": "Pyro"
+},
+{
+"name": "Shadowfall",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Shepherd's Rest",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Slowburn Depot",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Stag's Rut",
+"type": "Outpost",
+"parent": "Pyro I",
+"system": "Pyro"
+},
+{
+"name": "Stanton Gateway",
+"type": "Manmade",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Starlight Service Station",
+"type": "Manmade_VisibleOnInteraction",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Stonetree",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Sunset Mesa",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "The Golden Riviera",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "The Yard",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Watcher's Depot",
+"type": "Outpost",
+"parent": "Terminus",
+"system": "Pyro"
+},
+{
+"name": "Windfall",
+"type": "Outpost",
+"parent": "Bloom",
+"system": "Pyro"
+},
+{
+"name": "Yang's Place",
+"type": "Outpost",
+"parent": "Monox",
+"system": "Pyro"
+},
+{
+"name": "Cano",
+"type": "Jumppoint",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Castra",
+"type": "Jumppoint",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Hadrian",
+"type": "Jumppoint",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Oso",
+"type": "Jumppoint",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Terra",
+"type": "Jumppoint",
+"parent": "Pyro",
+"system": "Pyro"
+},
+{
+"name": "Nyx I",
+"type": "Planet",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Nyx II",
+"type": "Planet",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Nyx III",
+"type": "Planet",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Levski",
+"type": "Manmade",
+"parent": "Delamar",
+"system": "Nyx"
+},
+{
+"name": "People's Service Station Alpha",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "People's Service Station Delta",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "People's Service Station Lambda",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "People's Service Station Theta",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Pyro Gateway",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Stanton Gateway",
+"type": "Manmade",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Bremen",
+"type": "Jumppoint",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Castra",
+"type": "Jumppoint",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Odin",
+"type": "Jumppoint",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Tohil",
+"type": "Jumppoint",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Virgil",
+"type": "Jumppoint",
+"parent": "Nyx",
+"system": "Nyx"
+},
+{
+"name": "Delamar",
+"type": "Planet",
+"parent": "Nyx",
+"system": "Nyx"
+}
+]
+}

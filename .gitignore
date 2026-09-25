@@ -91,3 +91,11 @@ skills/Starmap/**/*.bak*
 # set_route_ai: no backup copies in git
 tools/set_route_ai/**/*.bak*
 tools/set_route_ai/**/*backup*.py
+
+# SuitMk2: no voices, models, backups or files over 5 MB in git (the installer fetches them)
+tools/SuitMk2/voices/*
+!tools/SuitMk2/voices/README.md
+tools/SuitMk2/**/*.onnx
+tools/SuitMk2/**/*.gguf
+tools/SuitMk2/models/yamnet/yamnet.data
+tools/SuitMk2/**/*.bak*

@@ -1,0 +1,1614 @@
+{
+ "version": 1,
+ "compiled": "2026-09-23",
+ "nodes": [
+  {
+   "id": "stanton",
+   "title": "Stanton",
+   "aliases": [
+    "the Stanton system"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "crusader_industries",
+    "hathor",
+    "wikelo",
+    "hurston",
+    "microtech",
+    "arccorp",
+    "hurston_dynamics",
+    "microtech_corp",
+    "arccorp_corp",
+    "pyro_gateway",
+    "pyro",
+    "nyx"
+   ],
+   "facts": [
+    {
+     "text": "Stanton's star is a G-type main-sequence star, also named Stanton.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Stanton"
+     ]
+    },
+    {
+     "text": "Each of Stanton's four planets is owned by a megacorporation.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Stanton"
+     ]
+    },
+    {
+     "text": "Crusader is the second planet of Stanton, owned by Crusader Industries.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Crusader",
+      "Stanton",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "The navjumper Toshi Aaron discovered Stanton, and the UEE later sold its planets to corporations.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Toshi Aaron",
+      "Stanton",
+      "UEE"
+     ]
+    },
+    {
+     "text": "Stanton has jump points to Magnus, Nyx, Terra and Pyro.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Stanton",
+      "Magnus",
+      "Nyx",
+      "Terra",
+      "Pyro"
+     ]
+    },
+    {
+     "text": "A jump point links Stanton to the Pyro system.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Stanton_system",
+     "names": [
+      "Stanton",
+      "Pyro"
+     ],
+     "note": "rewritten in-universe 2026-09-23 (was out-of-universe: patch number / 'the game' / developers)"
+    }
+   ]
+  },
+  {
+   "id": "crusader",
+   "title": "Crusader",
+   "aliases": [
+    "Stanton II",
+    "the gas giant"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Crusader"
+    ],
+    "jurisdiction_contains": [
+     "Crusader"
+    ]
+   },
+   "edges": [
+    "stanton",
+    "orison",
+    "crusader_industries",
+    "stormwal",
+    "cellin",
+    "daymar",
+    "yela",
+    "seraphim_station",
+    "crusader_security",
+    "crusader_comm_arrays"
+   ],
+   "facts": [
+    {
+     "text": "Crusader is a low-mass gas giant with a breathable atmosphere at high altitude.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Crusader is owned by Crusader Industries, which builds ships on platforms in its skies.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Crusader has three moons: Cellin, Daymar and Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader",
+      "Cellin",
+      "Daymar",
+      "Yela"
+     ]
+    },
+    {
+     "text": "Crusader's landing zone is Orison, a city in the clouds.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader",
+      "Orison"
+     ]
+    },
+    {
+     "text": "Crusader's floating platforms were first built by the military, then expanded by Crusader Industries.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Crusader's low gravity lets workers build ships in open air without suits.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader",
+     "names": [
+      "Crusader"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "orison",
+   "title": "Orison",
+   "aliases": [
+    "Crusader's floating city",
+    "the city in the clouds"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Orison",
+     "Cloudview",
+     "Providence",
+     "August Dunlow"
+    ],
+    "jurisdiction_contains": [
+     "Crusader"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "crusader_industries",
+    "stormwal",
+    "crusader_security"
+   ],
+   "facts": [
+    {
+     "text": "Orison is a network of large interconnected platforms floating in Crusader's atmosphere.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Orison",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Orison's spaceport is August Dunlow Spaceport, named after the founder of Crusader Industries.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Orison",
+      "August Dunlow Spaceport",
+      "August Dunlow",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Cloudview Center is Orison's commercial hub.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Cloudview Center",
+      "Orison"
+     ]
+    },
+    {
+     "text": "Providence is Orison's industrial platform, home to Crusader's shipyards.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Providence",
+      "Orison",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Inspiration Park holds the corporate headquarters of Crusader Industries.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Inspiration Park",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Orison holds its altitude with Seraph-class thrusters.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Orison",
+      "Seraph"
+     ]
+    },
+    {
+     "text": "Crusader gardeners bred the Hosanna tree to survive high winds, with scented pink flowers.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Crusader",
+      "Hosanna"
+     ]
+    },
+    {
+     "text": "Orison is one of the major landing zones in Stanton.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Orison",
+     "names": [
+      "Orison",
+      "Stanton"
+     ],
+     "note": "rewritten in-universe 2026-09-23 (was out-of-universe: patch number / 'the game' / developers)"
+    }
+   ]
+  },
+  {
+   "id": "stormwal",
+   "title": "Stormwal",
+   "aliases": [
+    "space whale",
+    "space whales",
+    "stormwals"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Orison",
+     "Crusader"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "orison",
+    "crusader_industries",
+    "security_post_kareah"
+   ],
+   "facts": [
+    {
+     "text": "The Stormwal is a flying creature, often called the space whale.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Stormwal"
+     ],
+     "note": "rewritten in-universe 2026-09-23 (was out-of-universe: patch number / 'the game' / developers)"
+    },
+    {
+     "text": "Stormwals live in the atmosphere of Crusader, adapted to the gas giant's conditions.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Stormwal",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Adult Stormwals reach about a hundred meters long, usually with pale pink striping.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Stormwal"
+     ]
+    },
+    {
+     "text": "Stormwals feed on aeroplankton and small creatures called kiami.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Stormwal",
+      "kiami"
+     ]
+    },
+    {
+     "text": "Crusader Industries adopted the Stormwal as its mascot.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Crusader Industries",
+      "Stormwal"
+     ]
+    },
+    {
+     "text": "A Stormwal sculpture called Until Again, by Bipasha Zhu, stands at Cloudview Center in Orison.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Stormwal",
+      "Until Again",
+      "Bipasha Zhu",
+      "Cloudview Center",
+      "Orison"
+     ]
+    },
+    {
+     "text": "The Valakkar is a giant sandworm, not a space whale, native to Leir III.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Valakkar",
+     "names": [
+      "Valakkar",
+      "Leir III"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "crusader_industries",
+   "title": "Crusader Industries",
+   "aliases": [],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Orison"
+    ],
+    "jurisdiction_contains": [
+     "Crusader"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "orison",
+    "crusader_security",
+    "seraphim_station",
+    "stormwal",
+    "hurston_dynamics",
+    "microtech_corp",
+    "arccorp_corp"
+   ],
+   "facts": [
+    {
+     "text": "August Dunlow founded Crusader Industries by buying the shuttle maker Seraphim Systems and renaming it.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "August Dunlow",
+      "Crusader Industries",
+      "Seraphim Systems"
+     ]
+    },
+    {
+     "text": "August Dunlow was an anti-Messer activist who wanted the company's profits to fund charitable causes.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "August Dunlow",
+      "Messer"
+     ]
+    },
+    {
+     "text": "CEO Kelly Caplan bought the gas giant Crusader as the company's consolidated headquarters.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "Kelly Caplan",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Crusader Industries is one of four UEE corporations that own a planet.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "Crusader Industries",
+      "UEE"
+     ]
+    },
+    {
+     "text": "Crusader Industries is headquartered in Orison on Crusader.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "Crusader Industries",
+      "Orison",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Crusader Industries builds the Hercules military transport and the Mercury Star Runner.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader_Industries",
+     "names": [
+      "Crusader Industries",
+      "Hercules",
+      "Mercury Star Runner"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "crusader_security",
+   "title": "Crusader Security",
+   "aliases": [
+    "CrusSec"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "jurisdiction_contains": [
+     "Crusader"
+    ]
+   },
+   "edges": [
+    "crusader_industries",
+    "crusader",
+    "security_post_kareah",
+    "nine_tails"
+   ],
+   "facts": [
+    {
+     "text": "Crusader Security is Crusader Industries' private security force.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader_Security",
+     "names": [
+      "Crusader Security",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Crusader Security polices Crusader's gravitational sphere, including Cellin, Daymar and Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Crusader_Security",
+     "names": [
+      "Crusader Security",
+      "Crusader",
+      "Cellin",
+      "Daymar",
+      "Yela"
+     ]
+    },
+    {
+     "text": "Crusader Security keeps a lean force and leans heavily on hired security contractors.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Security",
+     "names": [
+      "Crusader Security"
+     ]
+    },
+    {
+     "text": "Crusader Security counts the Nine Tails pirates among its rivals.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Crusader_Security",
+     "names": [
+      "Crusader Security",
+      "Nine Tails"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cellin",
+   "title": "Cellin",
+   "aliases": [
+    "Stanton 2a"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Cellin"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "daymar",
+    "yela",
+    "security_post_kareah",
+    "crusader_comm_arrays"
+   ],
+   "facts": [
+    {
+     "text": "Cellin is a moon of the gas giant Crusader.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Cellin",
+     "names": [
+      "Cellin",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Cellin is named after the youngest of three siblings in the children's tale A Gift for Baba.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Cellin",
+     "names": [
+      "Cellin",
+      "A Gift for Baba"
+     ]
+    },
+    {
+     "text": "Cellin has over a hundred volcanoes, long dormant, and thermal geysers that erupt without warning.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Cellin",
+     "names": [
+      "Cellin"
+     ]
+    },
+    {
+     "text": "Cellin's thin, toxic atmosphere is mostly sulfur dioxide.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Cellin",
+     "names": [
+      "Cellin"
+     ]
+    },
+    {
+     "text": "Terra Mills HydroFarm and Hickes Research Outpost are on Cellin.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Cellin",
+     "names": [
+      "Terra Mills HydroFarm",
+      "Hickes Research Outpost",
+      "Cellin"
+     ]
+    },
+    {
+     "text": "Security Post Kareah orbits Cellin.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Security_Post_Kareah",
+     "names": [
+      "Security Post Kareah",
+      "Cellin"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "daymar",
+   "title": "Daymar",
+   "aliases": [
+    "Stanton 2b"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Daymar"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "cellin",
+    "yela",
+    "hathor",
+    "crusader_comm_arrays",
+    "nine_tails"
+   ],
+   "facts": [
+    {
+     "text": "Daymar is a moon of Crusader, named after one of the siblings in A Gift for Baba.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Daymar",
+     "names": [
+      "Daymar",
+      "Crusader",
+      "A Gift for Baba"
+     ]
+    },
+    {
+     "text": "Daymar's toxic atmosphere is mainly nitrogen and methane, so explorers need full environmental protection.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Daymar",
+     "names": [
+      "Daymar"
+     ]
+    },
+    {
+     "text": "The Daymar Rally is a yearly race through three outposts across Daymar's surface.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Daymar",
+     "names": [
+      "Daymar Rally",
+      "Daymar"
+     ]
+    },
+    {
+     "text": "Shubin Mining Facility SCD-1 and Kudre Ore both operate on Daymar.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Daymar",
+     "names": [
+      "Shubin Mining Facility SCD-1",
+      "Kudre Ore",
+      "Daymar"
+     ]
+    },
+    {
+     "text": "Comm Array ST2-47 orbits Daymar.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Comm_Array",
+     "names": [
+      "ST2-47",
+      "Daymar"
+     ]
+    },
+    {
+     "text": "Two abandoned Hathor mining sites, Attritus and Lamina, orbit Daymar.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Hathor_Group",
+     "names": [
+      "Hathor",
+      "Attritus",
+      "Lamina",
+      "Daymar"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "yela",
+   "title": "Yela",
+   "aliases": [
+    "Stanton 2c"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Yela"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "cellin",
+    "daymar",
+    "grim_hex",
+    "nine_tails",
+    "wikelo",
+    "crusader_comm_arrays"
+   ],
+   "facts": [
+    {
+     "text": "Yela is the furthest moon orbiting the gas giant Crusader.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Yela",
+     "names": [
+      "Yela",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Yela's water-ice crust is said to reflect the cool, calculating character it is named after.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Yela",
+     "names": [
+      "Yela"
+     ]
+    },
+    {
+     "text": "Yela has its own asteroid belt, home to many small locations of interest.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Yela",
+     "names": [
+      "Yela"
+     ]
+    },
+    {
+     "text": "The outlaw station Grim HEX sits in Yela's asteroid belt.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX",
+      "Yela"
+     ]
+    },
+    {
+     "text": "ArcCorp Mining Area 157 and Deakins Research Outpost are on Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Yela",
+     "names": [
+      "ArcCorp Mining Area 157",
+      "Deakins Research Outpost",
+      "Yela"
+     ]
+    },
+    {
+     "text": "Wikelo's Selo Station is an asteroid base near Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Wikelo_Emporium_Selo_Station",
+     "names": [
+      "Wikelo",
+      "Selo Station",
+      "Yela"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "grim_hex",
+   "title": "Grim HEX",
+   "aliases": [
+    "GrimHEX",
+    "the Housing Exchange"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Grim HEX",
+     "GrimHEX",
+     "GrimHex"
+    ]
+   },
+   "edges": [
+    "yela",
+    "nine_tails",
+    "crusader_security"
+   ],
+   "facts": [
+    {
+     "text": "Grim HEX is a sealed station built into an asteroid orbiting Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX",
+      "Yela"
+     ]
+    },
+    {
+     "text": "Grim HEX began as a housing exchange for mining workers, built by Everline Structures.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX",
+      "Everline Structures"
+     ]
+    },
+    {
+     "text": "After the housing exchange officially closed, outlaws, pirates and criminals took Grim HEX over.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX"
+     ]
+    },
+    {
+     "text": "Grim HEX serves as the headquarters of the Nine Tails.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX",
+      "Nine Tails"
+     ]
+    },
+    {
+     "text": "Grim HEX offers ship repair, rearm and refuel, a clinic, and shops for weapons and clothing.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/GrimHEX",
+     "names": [
+      "Grim HEX"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "nine_tails",
+   "title": "Nine Tails",
+   "aliases": [
+    "the Nine Tails",
+    "pirates near Crusader"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Grim HEX",
+     "GrimHEX",
+     "Yela"
+    ]
+   },
+   "edges": [
+    "grim_hex",
+    "yela",
+    "crusader_security",
+    "crusader_comm_arrays",
+    "daymar",
+    "microtech"
+   ],
+   "facts": [
+    {
+     "text": "The Nine Tails are an outlaw faction that specialises in piracy.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Nine_Tails",
+     "names": [
+      "Nine Tails"
+     ]
+    },
+    {
+     "text": "The Nine Tails often disable comm arrays around Crusader, blinding local security.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Nine_Tails",
+     "names": [
+      "Nine Tails",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "The Nine Tails run forward bases on Yela, Daymar, Cellin and microTech.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Nine_Tails",
+     "names": [
+      "Nine Tails",
+      "Yela",
+      "Daymar",
+      "Cellin",
+      "microTech"
+     ]
+    },
+    {
+     "text": "Nine Tails ships wear red and black liveries.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Nine_Tails",
+     "names": [
+      "Nine Tails"
+     ]
+    },
+    {
+     "text": "Mendo Ren is one of the Nine Tails' leadership figures.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Nine_Tails",
+     "names": [
+      "Mendo Ren",
+      "Nine Tails"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "crusader_comm_arrays",
+   "title": "Crusader comm arrays",
+   "aliases": [
+    "comm array",
+    "Daymar relay",
+    "ST2-47"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Comm Array",
+     "ST2-"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "daymar",
+    "cellin",
+    "yela",
+    "nine_tails"
+   ],
+   "facts": [
+    {
+     "text": "Comm arrays provide comm coverage and ECN services to a sector of space.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Comm_Array",
+     "names": [
+      "ECN"
+     ]
+    },
+    {
+     "text": "While a comm array is disabled, no CrimeStat is registered in its area.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Comm_Array",
+     "names": [
+      "CrimeStat"
+     ]
+    },
+    {
+     "text": "Four comm arrays serve Crusader: ST2-28 at Cellin, ST2-47 at Daymar, ST2-55 at Crusader, ST2-76 at Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Comm_Array",
+     "names": [
+      "Crusader",
+      "ST2-28",
+      "Cellin",
+      "ST2-47",
+      "Daymar",
+      "ST2-55",
+      "ST2-76",
+      "Yela"
+     ]
+    },
+    {
+     "text": "Stanton's comm arrays are owned and operated by Aciedo.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Comm_Array",
+     "names": [
+      "Stanton",
+      "Aciedo"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hathor",
+   "title": "Hathor Group",
+   "aliases": [
+    "Hathor",
+    "Hathor platforms",
+    "Hathor mining sites"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Attritus",
+     "Lamina",
+     "Ruptura",
+     "Vivere",
+     "Hathor"
+    ]
+   },
+   "edges": [
+    "daymar",
+    "stanton",
+    "aberdeen"
+   ],
+   "facts": [
+    {
+     "text": "The Hathor Group was an interplanetary mining concern notorious for environmentally catastrophic strip mining.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Hathor_Group",
+     "names": [
+      "Hathor Group"
+     ]
+    },
+    {
+     "text": "Hathor sank its last funds into mining Stanton, hit unforeseen trouble, and was formally dissolved.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Hathor_Group",
+     "names": [
+      "Hathor",
+      "Stanton"
+     ]
+    },
+    {
+     "text": "Each Hathor site pairs an orbital laser platform with a cluster of planetary alignment facilities.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Hathor_Group",
+     "names": [
+      "Hathor"
+     ]
+    },
+    {
+     "text": "The Hathor sites Attritus and Lamina orbit Daymar; Ruptura and Vivere orbit Aberdeen.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Hathor_Group",
+     "names": [
+      "Hathor",
+      "Attritus",
+      "Lamina",
+      "Daymar",
+      "Ruptura",
+      "Vivere",
+      "Aberdeen"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "wikelo",
+   "title": "Wikelo",
+   "aliases": [
+    "Wikelo Emporium",
+    "the Banu trader"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Wikelo",
+     "Selo",
+     "Dasi",
+     "Kinga"
+    ]
+   },
+   "edges": [
+    "yela",
+    "stanton"
+   ],
+   "facts": [
+    {
+     "text": "Wikelo is a Banu who retired from a fabrication Souli and moved to human space.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Wikelo",
+     "names": [
+      "Wikelo",
+      "Banu",
+      "Souli"
+     ]
+    },
+    {
+     "text": "Wikelo offers collection contracts that pay out in armor, weapons, ships and ship components.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Wikelo",
+     "names": [
+      "Wikelo"
+     ]
+    },
+    {
+     "text": "Wikelo runs three emporiums in Stanton: Dasi Station, Selo Station and Kinga Station.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Wikelo",
+     "names": [
+      "Wikelo",
+      "Stanton",
+      "Dasi Station",
+      "Selo Station",
+      "Kinga Station"
+     ]
+    },
+    {
+     "text": "Selo Station, Wikelo's Crusader emporium, is an asteroid base near Yela.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Wikelo_Emporium_Selo_Station",
+     "names": [
+      "Selo Station",
+      "Wikelo",
+      "Crusader",
+      "Yela"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "seraphim_station",
+   "title": "Seraphim Station",
+   "aliases": [
+    "Seraphim"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Seraphim"
+    ]
+   },
+   "edges": [
+    "crusader",
+    "port_olisar",
+    "crusader_industries"
+   ],
+   "facts": [
+    {
+     "text": "Seraphim Station is a Rest and Relax station in the trade lanes above Crusader.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Seraphim_Station",
+     "names": [
+      "Seraphim Station",
+      "Rest and Relax",
+      "Crusader"
+     ]
+    },
+    {
+     "text": "Seraphim Station replaced Port Olisar above Crusader.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Seraphim_Station",
+     "names": [
+      "Seraphim",
+      "Station",
+      "Port",
+      "Olisar",
+      "Crusader"
+     ],
+     "note": "rewritten in-universe 2026-09-23 (was out-of-universe: patch number / 'the game' / developers)"
+    },
+    {
+     "text": "Seraphim Station is named after Seraphim Systems, the shuttle maker that became Crusader Industries.",
+     "status": "lore",
+     "source": "https://starcitizen.tools/Seraphim_Station",
+     "names": [
+      "Seraphim Station",
+      "Seraphim Systems",
+      "Crusader Industries"
+     ]
+    },
+    {
+     "text": "Seraphim Station offers ship rentals, repair and refuel, cargo, and a medical clinic.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Seraphim_Station",
+     "names": [
+      "Seraphim Station"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "port_olisar",
+   "title": "Port Olisar",
+   "aliases": [
+    "Olisar"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Olisar"
+    ]
+   },
+   "edges": [
+    "seraphim_station",
+    "crusader"
+   ],
+   "facts": [
+    {
+     "text": "Port Olisar was taken down and replaced by Seraphim Station.",
+     "status": "changed",
+     "source": "https://starcitizen.tools/Port_Olisar",
+     "names": [
+      "Port",
+      "Olisar",
+      "Seraphim",
+      "Station"
+     ],
+     "note": "rewritten in-universe 2026-09-23 (was out-of-universe: patch number / 'the game' / developers)"
+    }
+   ]
+  },
+  {
+   "id": "security_post_kareah",
+   "title": "Security Post Kareah",
+   "aliases": [
+    "Kareah"
+   ],
+   "anchors": {
+    "system": [
+     "Stanton"
+    ],
+    "location_contains": [
+     "Kareah"
+    ]
+   },
+   "edges": [
+    "cellin",
+    "crusader_security",
+    "stormwal"
+   ],
+   "facts": [
+    {
+     "text": "Security Post Kareah is a security station orbiting Cellin.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Security_Post_Kareah",
+     "names": [
+      "Security Post Kareah",
+      "Cellin"
+     ]
+    },
+    {
+     "text": "Conservation posters at Kareah say Crusader is dedicated to protecting the Stormwals.",
+     "status": "in_game",
+     "source": "https://starcitizen.tools/Stormwal",
+     "names": [
+      "Kareah",
+      "Crusader",
+      "Stormwal"
+     ]
+    }
+   ]
+  },
+  {"id": "hurston", "title": "Hurston", "aliases": ["Stanton I"],
+   "anchors": {"system": ["Stanton"], "jurisdiction_contains": ["Hurston"]},
+   "edges": ["stanton", "lorville", "hurston_dynamics", "aberdeen", "arial", "ita", "magda", "klescher"],
+   "facts": [
+    {"text": "Hurston is a Super-Earth planet in Stanton, owned by Hurston Dynamics.", "status": "in_game", "source": "https://starcitizen.tools/Hurston", "names": ["Hurston", "Super-Earth", "Stanton", "Hurston Dynamics"]},
+    {"text": "Hurston's atmosphere is practically identical to Earth's.", "status": "lore", "source": "https://starcitizen.tools/Hurston", "names": ["Hurston", "Earth"]},
+    {"text": "Mining and manufacturing on Hurston have killed almost all of its indigenous life.", "status": "lore", "source": "https://starcitizen.tools/Hurston", "names": ["Hurston"]},
+    {"text": "Lorville is Hurston's planetary capital and primary spaceport.", "status": "in_game", "source": "https://starcitizen.tools/Hurston", "names": ["Lorville", "Hurston"]},
+    {"text": "Hurston's four moons are Aberdeen, Arial, Ita and Magda.", "status": "in_game", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Hurston", "Aberdeen", "Arial", "Ita", "Magda"]},
+    {"text": "Hurston Dynamics bought Hurston from the UEE in a deal worth an estimated fifty trillion credits.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Hurston Dynamics", "Hurston", "UEE"]},
+    {"text": "Hurston Security is responsible for law enforcement in Hurston's jurisdiction.", "status": "in_game", "source": "https://starcitizen.tools/Hurston_Security", "names": ["Hurston Security", "Hurston"]}
+   ]},
+  {"id": "lorville", "title": "Lorville", "aliases": ["LOR-ville"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Lorville", "Teasa"], "jurisdiction_contains": ["Hurston"]},
+   "edges": ["hurston", "hurston_dynamics"],
+   "facts": [
+    {"text": "Lorville is a company town Hurston Dynamics established for its employees on Hurston.", "status": "lore", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville", "Hurston Dynamics", "Hurston"]},
+    {"text": "Lorville's spaceport is Teasa Spaceport.", "status": "in_game", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville", "Teasa Spaceport"]},
+    {"text": "Lorville is surrounded by a wall that dwarfs even decently sized ships.", "status": "in_game", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville"]},
+    {"text": "Lorville exists in the shadow of Central Tower, the corporate headquarters of Hurston Dynamics.", "status": "in_game", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville", "Central Tower", "Hurston Dynamics"]},
+    {"text": "Lorville's name comes from LOR, short for Local Occupational Residency.", "status": "lore", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville", "LOR", "Local Occupational Residency"]},
+    {"text": "Lorville has a Central Business District, a Workers District, and six city gates on its perimeter.", "status": "in_game", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville", "Central Business District", "Workers District"]},
+    {"text": "Lorville was founded in 2912.", "status": "lore", "source": "https://starcitizen.tools/Lorville", "names": ["Lorville"]}
+   ]},
+  {"id": "hurston_dynamics", "title": "Hurston Dynamics", "aliases": ["Hurston Dynamics corporation"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Lorville"], "jurisdiction_contains": ["Hurston"]},
+   "edges": ["hurston", "lorville", "aberdeen", "pyro_gateway", "crusader_industries"],
+   "facts": [
+    {"text": "Solomon Hurston founded Hurston Dynamics in 2438.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Solomon Hurston", "Hurston Dynamics"]},
+    {"text": "Hurston Dynamics is one of the longest continuously operating family businesses in the Empire.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Hurston Dynamics", "Empire"]},
+    {"text": "Hurston Dynamics manufactures ship weapons and munitions, and refines antimatter.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Hurston Dynamics"]},
+    {"text": "Gavin E. Hurston is the current CEO of Hurston Dynamics.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Gavin E. Hurston", "Hurston Dynamics"]},
+    {"text": "Hurston Dynamics owns the planet Hurston and is headquartered in Lorville.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Dynamics", "names": ["Hurston Dynamics", "Hurston", "Lorville"]},
+    {"text": "Hurston Security is the internal security force of Hurston Dynamics.", "status": "in_game", "source": "https://starcitizen.tools/Hurston_Security", "names": ["Hurston Security", "Hurston Dynamics"]},
+    {"text": "Hurston Security has a rivalry with the United Workers of Hurston.", "status": "lore", "source": "https://starcitizen.tools/Hurston_Security", "names": ["Hurston Security", "United Workers of Hurston"]}
+   ]},
+  {"id": "aberdeen", "title": "Aberdeen", "aliases": ["Stanton 1b"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Aberdeen"]},
+   "edges": ["hurston", "klescher", "hathor", "hurston_dynamics"],
+   "facts": [
+    {"text": "Aberdeen is a moon of Hurston.", "status": "in_game", "source": "https://starcitizen.tools/Aberdeen", "names": ["Aberdeen", "Hurston"]},
+    {"text": "Aberdeen's sulfur-rich atmosphere gives the moon a yellow tint.", "status": "in_game", "source": "https://starcitizen.tools/Aberdeen", "names": ["Aberdeen"]},
+    {"text": "Daytime temperatures on Aberdeen commonly reach 230 degrees Celsius.", "status": "in_game", "source": "https://starcitizen.tools/Aberdeen", "names": ["Aberdeen", "Celsius"]},
+    {"text": "Aberdeen is named after Aberdeen Hurston, designer of the first Hurston Dynamics antimatter warhead.", "status": "lore", "source": "https://starcitizen.tools/Aberdeen", "names": ["Aberdeen", "Aberdeen Hurston", "Hurston Dynamics"]},
+    {"text": "Aberdeen is known primarily as the home of the Klescher Rehabilitation Facility.", "status": "in_game", "source": "https://starcitizen.tools/Aberdeen", "names": ["Aberdeen", "Klescher Rehabilitation Facility"]},
+    {"text": "HDMS-Norgaard and HDMS-Anderson are mining outposts on Aberdeen.", "status": "in_game", "source": "https://starcitizen.tools/Aberdeen", "names": ["HDMS-Norgaard", "HDMS-Anderson", "Aberdeen"]}
+   ]},
+  {"id": "arial", "title": "Arial", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Arial"]},
+   "edges": ["hurston", "hurston_dynamics"],
+   "facts": [
+    {"text": "Arial is a moon of Hurston.", "status": "in_game", "source": "https://starcitizen.tools/Arial", "names": ["Arial", "Hurston"]},
+    {"text": "Arial is named after Arial Hurston, Hurston Dynamics' third CEO, known for a controversial employee contract.", "status": "lore", "source": "https://starcitizen.tools/Arial", "names": ["Arial", "Arial Hurston", "Hurston Dynamics"]},
+    {"text": "Arial's atmosphere is mostly nitrogen and is toxic to humans.", "status": "in_game", "source": "https://starcitizen.tools/Arial", "names": ["Arial"]},
+    {"text": "Arial's surface temperatures sit considerably above the boiling point.", "status": "in_game", "source": "https://starcitizen.tools/Arial", "names": ["Arial"]},
+    {"text": "HDMS-Bezdek and HDMS-Lathan are mining outposts on Arial.", "status": "in_game", "source": "https://starcitizen.tools/Arial", "names": ["HDMS-Bezdek", "HDMS-Lathan", "Arial"]}
+   ]},
+  {"id": "ita", "title": "Ita", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["HDMS-Ryder", "HDMS-Woodruff", "Thimblerig"]},
+   "edges": ["hurston", "hurston_dynamics"],
+   "facts": [
+    {"text": "Ita is a moon of Hurston.", "status": "in_game", "source": "https://starcitizen.tools/Ita", "names": ["Ita", "Hurston"]},
+    {"text": "Ita is named after Ita Hurston, who died during the First Tevarin War.", "status": "lore", "source": "https://starcitizen.tools/Ita", "names": ["Ita", "Ita Hurston", "First Tevarin War"]},
+    {"text": "Ita's atmosphere is almost entirely nitrogen, with traces of methane and carbon monoxide.", "status": "in_game", "source": "https://starcitizen.tools/Ita", "names": ["Ita"]},
+    {"text": "Breathing equipment is required for all surface activities on Ita.", "status": "in_game", "source": "https://starcitizen.tools/Ita", "names": ["Ita"]},
+    {"text": "HDMS-Ryder and HDMS-Woodruff are mining outposts on Ita.", "status": "in_game", "source": "https://starcitizen.tools/Ita", "names": ["HDMS-Ryder", "HDMS-Woodruff", "Ita"]},
+    {"text": "Comm Array ST1-02 covers Ita's airspace.", "status": "in_game", "source": "https://starcitizen.tools/Ita", "names": ["ST1-02", "Ita"]}
+   ]},
+  {"id": "magda", "title": "Magda", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Magda"]},
+   "edges": ["hurston", "hurston_dynamics"],
+   "facts": [
+    {"text": "Magda is a moon of Hurston.", "status": "in_game", "source": "https://starcitizen.tools/Magda", "names": ["Magda", "Hurston"]},
+    {"text": "Magda is named after Magda Hurston, the CEO who decided to buy Stanton I from the UEE.", "status": "lore", "source": "https://starcitizen.tools/Magda", "names": ["Magda", "Magda Hurston", "Stanton I", "UEE"]},
+    {"text": "Magda's atmosphere is mostly nitrogen and toxic, so breathing equipment is required.", "status": "in_game", "source": "https://starcitizen.tools/Magda", "names": ["Magda"]},
+    {"text": "HDMS-Hahn and HDMS-Perlman are mining outposts on Magda.", "status": "in_game", "source": "https://starcitizen.tools/Magda", "names": ["HDMS-Hahn", "HDMS-Perlman", "Magda"]}
+   ]},
+  {"id": "klescher", "title": "Klescher Rehabilitation Facility", "aliases": ["Klescher", "the prison"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Klescher"]},
+   "edges": ["aberdeen", "hurston"],
+   "facts": [
+    {"text": "The Klescher Rehabilitation Facility is an automated prison on Aberdeen.", "status": "in_game", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Klescher Rehabilitation Facility", "Aberdeen"]},
+    {"text": "Inmates at Klescher work off their sentences by serving time and performing mining labor.", "status": "in_game", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Klescher"]},
+    {"text": "Klescher inmates earn merits, mostly by mining in its caves, to shorten their sentences.", "status": "in_game", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Klescher"]},
+    {"text": "The prison on Aberdeen is run by the corporation of the same name, Klescher Rehabilitation Facilities.", "status": "lore", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Aberdeen", "Klescher Rehabilitation Facilities"]},
+    {"text": "Klescher inmates can spend merits on medical supplies and nutrition bars at the commissary.", "status": "in_game", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Klescher"]},
+    {"text": "The Klescher facility on Aberdeen has one escape route.", "status": "in_game", "source": "https://starcitizen.tools/Klescher_Rehabilitation_Facility_(Aberdeen)", "names": ["Klescher", "Aberdeen"]}
+   ]},
+  {"id": "microtech", "title": "microTech", "aliases": ["Stanton IV", "microTech planet"],
+   "anchors": {"system": ["Stanton"], "jurisdiction_contains": ["microTech"]},
+   "edges": ["stanton", "new_babbage", "microtech_corp", "calliope", "clio", "euterpe", "nine_tails"],
+   "facts": [
+    {"text": "microTech is a large and generally cold Super-Earth in Stanton.", "status": "in_game", "source": "https://starcitizen.tools/MicroTech_(planet)", "names": ["microTech", "Super-Earth", "Stanton"]},
+    {"text": "An early terraforming error left microTech far colder and harsher than first projected.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(planet)", "names": ["microTech"]},
+    {"text": "Temperatures on microTech generally sit well below zero, especially during severe snowstorms.", "status": "in_game", "source": "https://starcitizen.tools/MicroTech_(planet)", "names": ["microTech"]},
+    {"text": "The planet microTech is home to the microTech corporation.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(planet)", "names": ["microTech"]},
+    {"text": "New Babbage is the largest city on microTech and a major trading hub.", "status": "in_game", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage", "microTech"]},
+    {"text": "microTech has three moons: Calliope, Clio and Euterpe.", "status": "in_game", "source": "https://starcitizen.tools/Euterpe", "names": ["microTech", "Calliope", "Clio", "Euterpe"]},
+    {"text": "MT Protection Services enforces the law in microTech's jurisdiction.", "status": "in_game", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["MT Protection Services", "microTech"]}
+   ]},
+  {"id": "new_babbage", "title": "New Babbage", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["New Babbage"], "jurisdiction_contains": ["microTech"]},
+   "edges": ["microtech", "microtech_corp"],
+   "facts": [
+    {"text": "New Babbage is the largest city on microTech and a major trading hub.", "status": "in_game", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage", "microTech"]},
+    {"text": "New Babbage is the headquarters of the software and electronics maker microTech.", "status": "lore", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage", "microTech"]},
+    {"text": "New Babbage Interstellar Spaceport sits outside the city, on the opposite side of a frozen lake.", "status": "in_game", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage Interstellar Spaceport"]},
+    {"text": "Large public spaces in New Babbage are enclosed under domes against the freezing elements.", "status": "in_game", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage"]},
+    {"text": "The cold climate draws small tech companies housing heat-sensitive computing to New Babbage.", "status": "lore", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage"]},
+    {"text": "Magnus Tobin founded New Babbage.", "status": "lore", "source": "https://starcitizen.tools/New_Babbage", "names": ["Magnus Tobin", "New Babbage"]},
+    {"text": "New Babbage includes The Commons, New Babbage Plaza, the Promenade and Aspire Grand.", "status": "in_game", "source": "https://starcitizen.tools/New_Babbage", "names": ["New Babbage", "The Commons", "New Babbage Plaza", "Promenade", "Aspire Grand"]}
+   ]},
+  {"id": "microtech_corp", "title": "microTech", "aliases": ["the microTech corporation", "microTech company"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["New Babbage"], "jurisdiction_contains": ["microTech"]},
+   "edges": ["microtech", "new_babbage", "crusader_industries"],
+   "facts": [
+    {"text": "microTech makes personal computing devices like the mobiGlas, plus spacecraft computers and datapads.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["microTech", "mobiGlas"]},
+    {"text": "Magnus Tobin founded microTech.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["Magnus Tobin", "microTech"]},
+    {"text": "microTech was incorporated in 2782 but struggled to turn a profit in its early years.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["microTech"]},
+    {"text": "Released in 2818, the mobiGlas became an instant success, worn across the empire.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["mobiGlas"]},
+    {"text": "microTech is headquartered in New Babbage on the planet microTech.", "status": "lore", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["microTech", "New Babbage"]},
+    {"text": "MT Protection Services enforces the law in microTech's jurisdiction.", "status": "in_game", "source": "https://starcitizen.tools/MicroTech_(company)", "names": ["MT Protection Services", "microTech"]}
+   ]},
+  {"id": "calliope", "title": "Calliope", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Calliope"]},
+   "edges": ["microtech", "clio", "euterpe"],
+   "facts": [
+    {"text": "Calliope is a moon orbiting microTech.", "status": "in_game", "source": "https://starcitizen.tools/Calliope", "names": ["Calliope", "microTech"]},
+    {"text": "Calliope is named after the ancient Greek muse who inspires eloquence.", "status": "lore", "source": "https://starcitizen.tools/Calliope", "names": ["Calliope", "Greek"]},
+    {"text": "Calliope gets so cold at night that even exceptionally insulated weather suits can fail.", "status": "in_game", "source": "https://starcitizen.tools/Calliope", "names": ["Calliope"]},
+    {"text": "Calliope is beset by high winds and low temperatures.", "status": "in_game", "source": "https://starcitizen.tools/Calliope", "names": ["Calliope"]},
+    {"text": "Rayari runs the Anvik and Kaltag research outposts on Calliope.", "status": "in_game", "source": "https://starcitizen.tools/Calliope", "names": ["Rayari", "Anvik", "Kaltag", "Calliope"]},
+    {"text": "Raven's Roost is an unmarked location on Calliope.", "status": "in_game", "source": "https://starcitizen.tools/Calliope", "names": ["Raven's Roost", "Calliope"]}
+   ]},
+  {"id": "clio", "title": "Clio", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Clio"]},
+   "edges": ["microtech", "calliope", "euterpe"],
+   "facts": [
+    {"text": "Clio is a moon orbiting microTech.", "status": "in_game", "source": "https://starcitizen.tools/Clio", "names": ["Clio", "microTech"]},
+    {"text": "Clio is named after the ancient Greek muse of history.", "status": "lore", "source": "https://starcitizen.tools/Clio", "names": ["Clio", "Greek"]},
+    {"text": "Clio is too cold for surface activity without environmental survival gear.", "status": "in_game", "source": "https://starcitizen.tools/Clio", "names": ["Clio"]},
+    {"text": "Rayari Cantwell and Rayari McGrath research outposts are on Clio.", "status": "in_game", "source": "https://starcitizen.tools/Clio", "names": ["Rayari Cantwell", "Rayari McGrath", "Clio"]},
+    {"text": "Comm Array ST4-59 covers Clio's airspace.", "status": "in_game", "source": "https://starcitizen.tools/Clio", "names": ["ST4-59", "Clio"]}
+   ]},
+  {"id": "euterpe", "title": "Euterpe", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Euterpe"]},
+   "edges": ["microtech", "calliope", "clio"],
+   "facts": [
+    {"text": "Euterpe is the smallest of microTech's three moons.", "status": "in_game", "source": "https://starcitizen.tools/Euterpe", "names": ["Euterpe", "microTech"]},
+    {"text": "Euterpe has vast frozen oceans and exposed ice sheets.", "status": "in_game", "source": "https://starcitizen.tools/Euterpe", "names": ["Euterpe"]},
+    {"text": "Euterpe was one of the Muses in Greek mythology, presiding over music.", "status": "lore", "source": "https://starcitizen.tools/Euterpe", "names": ["Euterpe", "Muses", "Greek"]},
+    {"text": "The only oxygen in Euterpe's atmosphere is fixed in trace water vapor.", "status": "in_game", "source": "https://starcitizen.tools/Euterpe", "names": ["Euterpe"]},
+    {"text": "Bud's Growery, Devlin Scrap and Salvage, and The Icebreaker racetrack are on Euterpe.", "status": "in_game", "source": "https://starcitizen.tools/Euterpe", "names": ["Bud's Growery", "Devlin Scrap and Salvage", "The Icebreaker", "Euterpe"]}
+   ]},
+  {"id": "arccorp", "title": "ArcCorp", "aliases": ["Stanton III", "ArcCorp planet"],
+   "anchors": {"system": ["Stanton"], "jurisdiction_contains": ["ArcCorp"]},
+   "edges": ["stanton", "area18", "arccorp_corp", "lyria", "wala"],
+   "facts": [
+    {"text": "ArcCorp is a Super-Earth in Stanton, owned and terraformed by the ArcCorp corporation.", "status": "in_game", "source": "https://starcitizen.tools/ArcCorp_(planet)", "names": ["ArcCorp", "Super-Earth", "Stanton"]},
+    {"text": "ArcCorp is covered in layer after layer of factory, so building more is now impossible.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(planet)", "names": ["ArcCorp"]},
+    {"text": "The UEE claimed ArcCorp, and in 2865 sold it to the company.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(planet)", "names": ["UEE", "ArcCorp"]},
+    {"text": "Area18 is one of ArcCorp's main commercial ports for interplanetary traffic.", "status": "in_game", "source": "https://starcitizen.tools/ArcCorp_(planet)", "names": ["Area18", "ArcCorp"]},
+    {"text": "ArcCorp has two moons, Lyria and Wala.", "status": "in_game", "source": "https://starcitizen.tools/ArcCorp_(planet)", "names": ["ArcCorp", "Lyria", "Wala"]}
+   ]},
+  {"id": "area18", "title": "Area18", "aliases": ["Area 18"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Area18", "Area 18", "Riker Memorial"], "jurisdiction_contains": ["ArcCorp"]},
+   "edges": ["arccorp", "arccorp_corp"],
+   "facts": [
+    {"text": "Area18 is one of the main commercial ports for interplanetary traffic around ArcCorp.", "status": "in_game", "source": "https://starcitizen.tools/Area18", "names": ["Area18", "ArcCorp"]},
+    {"text": "Riker Memorial Spaceport is the main hub for leaving and entering Area18.", "status": "in_game", "source": "https://starcitizen.tools/Area18", "names": ["Riker Memorial Spaceport", "Area18"]},
+    {"text": "ArcCorp Plaza is the main plaza of Area18, with Memphis Avery's iconic floating sculpture.", "status": "in_game", "source": "https://starcitizen.tools/Area18", "names": ["ArcCorp Plaza", "Area18", "Memphis Avery"]},
+    {"text": "The IO-North tower is ArcCorp's premier center for business development, with 172 levels.", "status": "in_game", "source": "https://starcitizen.tools/Area18", "names": ["IO-North", "ArcCorp"]},
+    {"text": "ArcCorp hired the notorious private security firm BlacJac Security to keep the peace in Area18.", "status": "lore", "source": "https://starcitizen.tools/Area18", "names": ["ArcCorp", "BlacJac Security", "Area18"]},
+    {"text": "The Bevic Convention Center is in Area18.", "status": "in_game", "source": "https://starcitizen.tools/Area18", "names": ["Bevic Convention Center", "Area18"]}
+   ]},
+  {"id": "arccorp_corp", "title": "ArcCorp", "aliases": ["the ArcCorp corporation", "ArcCorp company"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Area18"], "jurisdiction_contains": ["ArcCorp"]},
+   "edges": ["arccorp", "area18", "wala", "crusader_industries"],
+   "facts": [
+    {"text": "ArcCorp makes jump modules, quantum drives, spacecraft engines and industrial mining equipment.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp"]},
+    {"text": "ArcCorp also builds terraforming platforms.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp"]},
+    {"text": "ArcCorp was founded in 2687 as a deep-space exploration consortium.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp"]},
+    {"text": "ArcCorp started in a Stor-All hangar, begun by a group of friends.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp", "Stor-All"]},
+    {"text": "ArcCorp later shifted from exploration to mining.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp"]},
+    {"text": "ArcCorp is headquartered on its own planet, ArcCorp, in Stanton.", "status": "lore", "source": "https://starcitizen.tools/ArcCorp_(company)", "names": ["ArcCorp", "Stanton"]}
+   ]},
+  {"id": "lyria", "title": "Lyria", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Lyria"]},
+   "edges": ["arccorp", "wala"],
+   "facts": [
+    {"text": "Lyria is a moon orbiting ArcCorp.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Lyria", "ArcCorp"]},
+    {"text": "Lyria's icy surface has dirty ice, active cryogeysers and cryovolcanoes.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Lyria"]},
+    {"text": "Lyria has a very thin atmosphere made mostly of oxygen.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Lyria"]},
+    {"text": "Humboldt Mines and the Loveridge Mineral Reserve are on Lyria.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Humboldt Mines", "Loveridge Mineral Reserve", "Lyria"]},
+    {"text": "Shubin runs several mining and processing facilities on Lyria.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Shubin", "Lyria"]},
+    {"text": "Security Depot Lyria-1 stands on Lyria.", "status": "in_game", "source": "https://starcitizen.tools/Lyria", "names": ["Security Depot Lyria-1", "Lyria"]}
+   ]},
+  {"id": "wala", "title": "Wala", "aliases": [],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Wala"]},
+   "edges": ["arccorp", "lyria", "arccorp_corp"],
+   "facts": [
+    {"text": "Wala is a moon orbiting ArcCorp.", "status": "in_game", "source": "https://starcitizen.tools/Wala", "names": ["Wala", "ArcCorp"]},
+    {"text": "Wala has a barren surface with outcrops of geode-like minerals.", "status": "in_game", "source": "https://starcitizen.tools/Wala", "names": ["Wala"]},
+    {"text": "Wala's air is too thin to breathe, but pressure suits can extract oxygen from it.", "status": "in_game", "source": "https://starcitizen.tools/Wala", "names": ["Wala"]},
+    {"text": "ArcCorp runs several mining areas and processing centers on Wala.", "status": "in_game", "source": "https://starcitizen.tools/Wala", "names": ["ArcCorp", "Wala"]},
+    {"text": "Shady Glen Farms and Samson and Sons Salvage Center are on Wala.", "status": "in_game", "source": "https://starcitizen.tools/Wala", "names": ["Shady Glen Farms", "Samson and Sons Salvage Center", "Wala"]}
+   ]},
+  {"id": "pyro_gateway", "title": "Pyro Gateway", "aliases": ["the Pyro jump point", "Stanton-Pyro jump point"],
+   "anchors": {"system": ["Stanton"], "location_contains": ["Pyro Gateway"]},
+   "edges": ["stanton", "pyro", "hurston_dynamics"],
+   "facts": [
+    {"text": "Pyro Gateway is a station by the jump point from Stanton to Pyro, the port of entry between them.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_Gateway_(Stanton)", "names": ["Pyro Gateway", "Stanton", "Pyro"]},
+    {"text": "The jump point from Stanton to Pyro is a medium jump point.", "status": "in_game", "source": "https://starcitizen.tools/Stanton_-_Pyro_jump_point", "names": ["Stanton", "Pyro"]},
+    {"text": "Hurston Dynamics owns Pyro Gateway and added its logos and a statue of Archibald Hurston.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_Gateway_(Stanton)", "names": ["Hurston Dynamics", "Pyro Gateway", "Archibald Hurston"]},
+    {"text": "Pyro Gateway has a cargo deck, a refinery deck, a clinic, and ship repair and refueling.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_Gateway_(Stanton)", "names": ["Pyro Gateway"]},
+    {"text": "On the Pyro side, Stanton Gateway sits in a dense nebula and debris field, making navigation treacherous.", "status": "in_game", "source": "https://starcitizen.tools/Stanton_Gateway_(Pyro)", "names": ["Pyro", "Stanton Gateway"]}
+   ]},
+  {"id": "pyro", "title": "Pyro", "aliases": ["the Pyro system"],
+   "anchors": {"system": ["Pyro"]},
+   "edges": ["pyro_lawless", "pyro_gateway", "stanton", "nyx", "ruin_station", "checkmate", "orbituary", "pyro_i", "monox", "bloom", "pyro_iv", "pyro_v", "terminus"],
+   "facts": [
+    {"text": "Pyro's star is a K-type flare star, also known as a variable star.", "status": "lore", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyro"]},
+    {"text": "Pyro has six planets: Pyro I, Monox, Bloom, Pyro IV, Pyro V and Terminus.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyro", "Pyro I", "Monox", "Bloom", "Pyro IV", "Pyro V", "Terminus"]},
+    {"text": "Pyrotechnic Amalgamated claimed Pyro in 2493 for its lucrative mining sites.", "status": "lore", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyrotechnic Amalgamated", "Pyro"]},
+    {"text": "Intense solar flares drove Pyrotechnic Amalgamated to abandon Pyro in 2563.", "status": "lore", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyrotechnic Amalgamated", "Pyro"]},
+    {"text": "Pyro has jump points to Cano, Castra, Hadrian, Nyx, Oso, Stanton and Terra.", "status": "lore", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyro", "Cano", "Castra", "Hadrian", "Nyx", "Oso", "Stanton", "Terra"]}
+   ]},
+  {"id": "pyro_lawless", "title": "Lawless Pyro", "aliases": ["Pyro gangs", "outlaws in Pyro", "Pyro's outlaws"],
+   "anchors": {"system": ["Pyro"]},
+   "edges": ["pyro", "ruin_station", "checkmate", "orbituary", "bloom", "terminus", "nine_tails"],
+   "facts": [
+    {"text": "No central authority governs Pyro; competing gangs rule ever-changing sectors of control.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyro"]},
+    {"text": "Outlaw groups in Pyro include the Headhunters, Fire Rats, Rough and Ready, and XenoThreat.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_system", "names": ["Pyro", "Headhunters", "Fire Rats", "Rough and Ready", "XenoThreat"]},
+    {"text": "XenoThreat is listed as the pack controlling Ruin Station, but that may change at a moment's notice.", "status": "lore", "source": "https://starcitizen.tools/Ruin_Station", "names": ["XenoThreat", "Ruin Station"]},
+    {"text": "Rough and Ready uses Orbituary to offer outlaws crossing the system fuel, supplies and a bit of entertainment.", "status": "in_game", "source": "https://starcitizen.tools/Orbituary", "names": ["Rough and Ready", "Orbituary"]},
+    {"text": "Abandoned Pyrotechnic Amalgamated facilities were claimed by squatters, outlaws and former miners.", "status": "lore", "source": "https://starcitizen.tools/Bloom", "names": ["Pyrotechnic Amalgamated"]},
+    {"text": "Citizens for Prosperity is one of the factions holding outposts on Bloom.", "status": "in_game", "source": "https://starcitizen.tools/Bloom", "names": ["Citizens for Prosperity", "Bloom"]}
+   ]},
+  {"id": "ruin_station", "title": "Ruin Station", "aliases": ["MacEwan Station", "Ruin"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Ruin Station"]},
+   "edges": ["terminus", "pyro", "pyro_lawless"],
+   "facts": [
+    {"text": "Ruin Station is an outlaw station orbiting Terminus in the Pyro system.", "status": "in_game", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Ruin Station", "Terminus", "Pyro"]},
+    {"text": "Ruin Station was originally called MacEwan Station.", "status": "lore", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Ruin Station", "MacEwan Station"]},
+    {"text": "Pyrotechnic Amalgamated founded Ruin Station in 2506 as its headquarters in the system.", "status": "lore", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Pyrotechnic Amalgamated", "Ruin Station"]},
+    {"text": "Ruin Station is not suitable for tourism, regular trade or even experienced bounty hunters.", "status": "lore", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Ruin Station"]},
+    {"text": "Ruin Station has a cargo deck, a refinery deck and a ship dealer.", "status": "in_game", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Ruin Station"]},
+    {"text": "Corner Four and a dive bar called Neutrality are aboard Ruin Station.", "status": "in_game", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Corner Four", "Neutrality", "Ruin Station"]}
+   ]},
+  {"id": "checkmate", "title": "Checkmate Station", "aliases": ["Checkmate"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Checkmate"]},
+   "edges": ["monox", "pyro", "pyro_lawless"],
+   "facts": [
+    {"text": "Checkmate Station sits at the L4 Lagrange point of Monox in Pyro.", "status": "in_game", "source": "https://starcitizen.tools/Checkmate_Station", "names": ["Checkmate Station", "Lagrange", "Monox", "Pyro"]},
+    {"text": "Checkmate is the headquarters of Rough and Ready, a group of outlaws.", "status": "in_game", "source": "https://starcitizen.tools/Checkmate_Station", "names": ["Checkmate", "Rough and Ready"]},
+    {"text": "Pyrotechnic Amalgamated once ran Checkmate to supply its workers on Monox with fuel and resources.", "status": "lore", "source": "https://starcitizen.tools/Checkmate_Station", "names": ["Pyrotechnic Amalgamated", "Checkmate", "Monox"]},
+    {"text": "The racetrack Fool's Run weaves through Checkmate's exterior.", "status": "in_game", "source": "https://starcitizen.tools/Checkmate_Station", "names": ["Fool's Run", "Checkmate"]}
+   ]},
+  {"id": "orbituary", "title": "Orbituary", "aliases": [],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Orbituary"]},
+   "edges": ["bloom", "pyro", "pyro_lawless"],
+   "facts": [
+    {"text": "Orbituary is a station in high orbit above Bloom.", "status": "in_game", "source": "https://starcitizen.tools/Orbituary", "names": ["Orbituary", "Bloom"]},
+    {"text": "Rough and Ready uses Orbituary to give outlaws traveling the system a place to stop.", "status": "in_game", "source": "https://starcitizen.tools/Orbituary", "names": ["Rough and Ready", "Orbituary"]},
+    {"text": "Pyrotechnic Amalgamated originally established Orbituary to supply its workers with fuel and other resources.", "status": "lore", "source": "https://starcitizen.tools/Orbituary", "names": ["Pyrotechnic Amalgamated", "Orbituary"]},
+    {"text": "Orbituary has shops, a clinic, a refinery deck, and ship repair and refueling.", "status": "in_game", "source": "https://starcitizen.tools/Orbituary", "names": ["Orbituary"]}
+   ]},
+  {"id": "pyro_i", "title": "Pyro I", "aliases": ["Pyro One"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Gray Gardens", "Rustville", "Stag's Rut"]},
+   "edges": ["pyro"],
+   "facts": [
+    {"text": "Pyro I is a rocky planet dangerously close to the violent solar flares of its star.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_I", "names": ["Pyro I"]},
+    {"text": "Pyro I's surface temperature is approximately 220 degrees Celsius, and its atmosphere is toxic.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_I", "names": ["Pyro I", "Celsius"]},
+    {"text": "Violent storms around Pyro I can disable ships with distortion damage.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_I", "names": ["Pyro I"]},
+    {"text": "No significant mineral deposits have been found on Pyro I's surface.", "status": "lore", "source": "https://starcitizen.tools/Pyro_I", "names": ["Pyro I"]},
+    {"text": "Gray Gardens Depot, Rustville and Stag's Rut are on Pyro I.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_I", "names": ["Gray Gardens Depot", "Rustville", "Stag's Rut", "Pyro I"]}
+   ]},
+  {"id": "monox", "title": "Monox", "aliases": ["Pyro II"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Monox"]},
+   "edges": ["pyro", "checkmate"],
+   "facts": [
+    {"text": "Pyro II is nicknamed Monox for the carbon monoxide in its atmosphere.", "status": "lore", "source": "https://starcitizen.tools/Monox", "names": ["Pyro II", "Monox"]},
+    {"text": "Monox is a coreless planet that will, in time, fall into its star.", "status": "lore", "source": "https://starcitizen.tools/Monox", "names": ["Monox"]},
+    {"text": "A metal rush saw human trade ships quickly deplete Monox of its deposits.", "status": "lore", "source": "https://starcitizen.tools/Monox", "names": ["Monox"]},
+    {"text": "The Valakkar sandworm species lives on Monox.", "status": "lore", "source": "https://starcitizen.tools/Monox", "names": ["Valakkar", "Monox"]},
+    {"text": "Checkmate Station occupies the L4 Lagrange point of Monox.", "status": "in_game", "source": "https://starcitizen.tools/Monox", "names": ["Checkmate Station", "Lagrange", "Monox"]},
+    {"text": "Settlements on Monox include Jackson's Swap, Last Ditch and Sunset Mesa.", "status": "in_game", "source": "https://starcitizen.tools/Monox", "names": ["Monox", "Jackson's Swap", "Last Ditch", "Sunset Mesa"]}
+   ]},
+  {"id": "bloom", "title": "Bloom", "aliases": ["Pyro III"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Bloom"]},
+   "edges": ["pyro", "orbituary", "pyro_lawless"],
+   "facts": [
+    {"text": "Bloom, Pyro III, has a breathable oxygen-nitrogen atmosphere.", "status": "in_game", "source": "https://starcitizen.tools/Bloom", "names": ["Bloom", "Pyro III"]},
+    {"text": "Bloom has frozen biomes and expanses of liquid saltwater in its more temperate zones.", "status": "in_game", "source": "https://starcitizen.tools/Bloom", "names": ["Bloom"]},
+    {"text": "Bloom is known to be a haven for outlaws.", "status": "lore", "source": "https://starcitizen.tools/Bloom", "names": ["Bloom"]},
+    {"text": "Orbituary, run by the Rough and Ready gang, orbits Bloom.", "status": "in_game", "source": "https://starcitizen.tools/Bloom", "names": ["Orbituary", "Rough and Ready", "Bloom"]},
+    {"text": "Prospect Depot and Starlight Service Station are among Bloom's facilities.", "status": "in_game", "source": "https://starcitizen.tools/Bloom", "names": ["Prospect Depot", "Starlight Service Station", "Bloom"]}
+   ]},
+  {"id": "pyro_iv", "title": "Pyro IV", "aliases": ["Pyro Four"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Pyro IV"]},
+   "edges": ["pyro", "pyro_v"],
+   "facts": [
+    {"text": "Pyro IV is a rocky protoplanet much like Mercury.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_IV", "names": ["Pyro IV", "Mercury"]},
+    {"text": "Astronomers believe a collision knocked Pyro IV out of its orbit and into orbit around Pyro V.", "status": "lore", "source": "https://starcitizen.tools/Pyro_IV", "names": ["Pyro IV", "Pyro V"]},
+    {"text": "Pyro IV will either crash into Pyro V or be torn apart into a ring system.", "status": "lore", "source": "https://starcitizen.tools/Pyro_IV", "names": ["Pyro IV", "Pyro V"]},
+    {"text": "Pyro IV's atmosphere is toxic, and breathing equipment is required on the surface.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_IV", "names": ["Pyro IV"]},
+    {"text": "Chawla's Beach and Dinger's Depot are on Pyro IV.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_IV", "names": ["Chawla's Beach", "Dinger's Depot", "Pyro IV"]}
+   ]},
+  {"id": "pyro_v", "title": "Pyro V", "aliases": ["Pyro Five"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Gaslight", "Rat's Nest"]},
+   "edges": ["pyro", "pyro_iv"],
+   "facts": [
+    {"text": "Pyro V is a massive yellow and green gas giant slowly pulling Pyro IV into its orbit.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_V", "names": ["Pyro V", "Pyro IV"]},
+    {"text": "Pyro V is a low-yield refueling point because of the poor hydrogen mix in its upper atmosphere.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_V", "names": ["Pyro V"]},
+    {"text": "All five of Pyro V's Lagrange points host former Pyrotechnic Amalgamated stations.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_V", "names": ["Pyro V", "Lagrange", "Pyrotechnic Amalgamated"]},
+    {"text": "Gaslight and Rat's Nest are stations at Pyro V's Lagrange points.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_V", "names": ["Gaslight", "Rat's Nest", "Pyro V", "Lagrange"]},
+    {"text": "Pyro V's moons include Ignis, Vatra, Adir, Fairo, Fuego and Vuur.", "status": "in_game", "source": "https://starcitizen.tools/Pyro_V", "names": ["Pyro V", "Ignis", "Vatra", "Adir", "Fairo", "Fuego", "Vuur"]}
+   ]},
+  {"id": "terminus", "title": "Terminus", "aliases": ["Pyro VI"],
+   "anchors": {"system": ["Pyro"], "location_contains": ["Terminus"]},
+   "edges": ["pyro", "ruin_station", "pyro_lawless"],
+   "facts": [
+    {"text": "Terminus, Pyro VI, is barren and desolate, bombarded by Pyro's solar flares.", "status": "in_game", "source": "https://starcitizen.tools/Terminus", "names": ["Terminus", "Pyro VI", "Pyro"]},
+    {"text": "Terminus is extremely cold, and storms can drop daytime temperatures below minus 120 degrees Celsius.", "status": "in_game", "source": "https://starcitizen.tools/Terminus", "names": ["Terminus", "Celsius"]},
+    {"text": "The atmosphere of Terminus is laced with methane.", "status": "in_game", "source": "https://starcitizen.tools/Terminus", "names": ["Terminus"]},
+    {"text": "Ruin Station orbits Terminus.", "status": "in_game", "source": "https://starcitizen.tools/Ruin_Station", "names": ["Ruin Station", "Terminus"]},
+    {"text": "Feuds between factions make Terminus extremely dangerous for civilians and outlaws alike.", "status": "lore", "source": "https://starcitizen.tools/Terminus", "names": ["Terminus"]},
+    {"text": "Blackrock Exchange and Rough Landing are among the settlements on Terminus.", "status": "in_game", "source": "https://starcitizen.tools/Terminus", "names": ["Blackrock Exchange", "Rough Landing", "Terminus"]}
+   ]},
+  {"id": "nyx", "title": "Nyx", "aliases": ["the Nyx system"],
+   "anchors": {"system": ["Nyx"]},
+   "edges": ["stanton", "pyro", "delamar", "levski", "peoples_alliance"],
+   "facts": [
+    {"text": "Nyx's star is an F-type main-sequence star.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Nyx"]},
+    {"text": "The Glaciem Ring, a dense asteroid belt, and the nebula make Nyx a very good place to hide.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Glaciem Ring", "Nyx"]},
+    {"text": "Nyx is unclaimed by the UEE.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Nyx", "UEE"]},
+    {"text": "Nyx I is a coreless world that the Gold Horizon corporation has mined clean.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Nyx I", "Gold Horizon"]},
+    {"text": "Nyx III is an ice giant with no breathable atmosphere or valuable materials.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Nyx III"]},
+    {"text": "The navjumper Carla Larry discovered Nyx in 2582.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Carla Larry", "Nyx"]},
+    {"text": "Nyx has jump points to Bremen, Castra, Odin, Pyro, Stanton, Tohil and Virgil.", "status": "lore", "source": "https://starcitizen.tools/Nyx_system", "names": ["Nyx", "Bremen", "Castra", "Odin", "Pyro", "Stanton", "Tohil", "Virgil"]}
+   ]},
+  {"id": "delamar", "title": "Delamar", "aliases": [],
+   "anchors": {"system": ["Nyx"], "location_contains": ["Delamar"]},
+   "edges": ["nyx", "levski", "peoples_alliance"],
+   "facts": [
+    {"text": "Delamar is the largest asteroid in the Glaciem Ring of the Nyx system.", "status": "in_game", "source": "https://starcitizen.tools/Delamar", "names": ["Delamar", "Glaciem Ring", "Nyx"]},
+    {"text": "A borehole goes right through Delamar, with large parts of Levski on one side.", "status": "in_game", "source": "https://starcitizen.tools/Delamar", "names": ["Delamar", "Levski"]},
+    {"text": "Delamar's mining facility was abandoned for years before refugees from the UEE moved in.", "status": "lore", "source": "https://starcitizen.tools/Delamar", "names": ["Delamar", "UEE"]},
+    {"text": "The settlement on Delamar was formed by free-thinkers during the oppressive Messer era.", "status": "lore", "source": "https://starcitizen.tools/Delamar", "names": ["Delamar", "Messer"]},
+    {"text": "Delamar is a refuge for political activists and those wishing to escape the eye of the Empire.", "status": "lore", "source": "https://starcitizen.tools/Delamar", "names": ["Delamar", "Empire"]}
+   ]},
+  {"id": "levski", "title": "Levski", "aliases": [],
+   "anchors": {"system": ["Nyx"], "location_contains": ["Levski"]},
+   "edges": ["delamar", "nyx", "peoples_alliance"],
+   "facts": [
+    {"text": "Levski is a free town grown from the old QV Planet Services mining facility on Delamar.", "status": "lore", "source": "https://starcitizen.tools/Levski", "names": ["Levski", "QV Planet Services", "Delamar"]},
+    {"text": "Levski is named for the ancient Earth revolutionary Vasil Levski, who dreamed of an egalitarian society.", "status": "lore", "source": "https://starcitizen.tools/Levski", "names": ["Levski", "Earth", "Vasil Levski"]},
+    {"text": "Levski was founded by the People's Alliance and remains its headquarters.", "status": "lore", "source": "https://starcitizen.tools/Levski", "names": ["Levski", "People's Alliance"]},
+    {"text": "Activists escaping the Messers found refuge in Delamar's vacated mining facility.", "status": "lore", "source": "https://starcitizen.tools/Levski", "names": ["Messers", "Delamar"]},
+    {"text": "As word of the free town spread, anti-Messer activists, intellectuals and pacifists came to Levski.", "status": "lore", "source": "https://starcitizen.tools/Levski", "names": ["Messer", "Levski"]},
+    {"text": "Levski has a hospital, a refinery, ship sales and repairs, and the Grand Barter Bazaar.", "status": "in_game", "source": "https://starcitizen.tools/Levski", "names": ["Levski", "Grand Barter Bazaar"]}
+   ]},
+  {"id": "peoples_alliance", "title": "People's Alliance", "aliases": ["the People's Alliance"],
+   "anchors": {"system": ["Nyx"], "location_contains": ["Levski"]},
+   "edges": ["levski", "delamar", "nyx"],
+   "facts": [
+    {"text": "The People's Alliance is an independent political group upholding an egalitarian society separate from the UEE.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["People's Alliance", "UEE"]},
+    {"text": "The People's Alliance motto is stronger together.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["People's Alliance"]},
+    {"text": "The People's Alliance was founded in 2655 in an abandoned mining facility on Delamar.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["People's Alliance", "Delamar"]},
+    {"text": "The People's Alliance view of today's UEE can be summarised as complicated.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["People's Alliance", "UEE"]},
+    {"text": "The People's Alliance follows six community rules stressing egalitarianism and peaceful conflict resolution.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["People's Alliance"]},
+    {"text": "Levski still accepts those who wish to live away from the UEE.", "status": "lore", "source": "https://starcitizen.tools/People%27s_Alliance", "names": ["Levski", "UEE"]}
+   ]}
+ ]
+}
