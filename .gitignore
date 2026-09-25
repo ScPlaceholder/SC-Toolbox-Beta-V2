@@ -99,3 +99,12 @@ tools/SuitMk2/**/*.onnx
 tools/SuitMk2/**/*.gguf
 tools/SuitMk2/models/yamnet/yamnet.data
 tools/SuitMk2/**/*.bak*
+
+# Debug captures and local archives (runtime/dev leftovers, not source)
+/debug_*.png
+/chart_header_debug.png
+/tools/debug_*.png
+/tools/*.zip
+
+# Agent worktrees (full copies of the repo; never commit)
+**/.claude/worktrees/
