@@ -11,9 +11,8 @@ import queue
 import sys
 import threading
 import time
-import traceback
 from logging.handlers import RotatingFileHandler
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Bootstrap project root and skill directory
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
@@ -94,38 +93,6 @@ _SWP_NOSIZE = 0x0001
 _SWP_NOMOVE = 0x0002
 _SWP_NOACTIVATE = 0x0010
 _SW_RESTORE = 9
-_WM_HOTKEY = 0x0312
-_PM_REMOVE = 0x0001
-_MOD_ALT = 0x0001
-_MOD_CONTROL = 0x0002
-_MOD_SHIFT = 0x0004
-_MOD_WIN = 0x0008
-_VK_MAP = {
-    **{c: 0x41 + i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")},
-    **{str(i): 0x30 + i for i in range(10)},
-    "F1": 0x70, "F2": 0x71, "F3": 0x72, "F4": 0x73,
-    "F5": 0x74, "F6": 0x75, "F7": 0x76, "F8": 0x77,
-    "F9": 0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B,
-}
-_DEFAULT_HOTKEY = "ctrl+shift+t"
-
-
-def _parse_hotkey(hk: str) -> Tuple[int, int]:
-    mods = 0
-    vk = 0
-    for part in hk.upper().split("+"):
-        part = part.strip()
-        if part in ("CTRL", "CONTROL"):
-            mods |= _MOD_CONTROL
-        elif part == "SHIFT":
-            mods |= _MOD_SHIFT
-        elif part == "ALT":
-            mods |= _MOD_ALT
-        elif part in ("WIN", "WINDOWS"):
-            mods |= _MOD_WIN
-        else:
-            vk = _VK_MAP.get(part, 0)
-    return mods, vk
 
 
 def _pin_btn_qss(pinned: bool) -> str:
@@ -918,9 +885,6 @@ class TradeHubWindow(SCWindow):
         self._last_refresh: Optional[float] = None
         self._view_mode = "ROUTES"
         self._visible = True
-        self._hotkey = _DEFAULT_HOTKEY
-        self._hotkey_stop: Optional[threading.Event] = None
-        self._hotkey_thread: Optional[threading.Thread] = None
         self._freight_mode = "BULK"  # "BULK" or "MIXED"
         self._allow_illegal = False  # default: no illegal cargo
         self._all_mixed: list = []
@@ -933,8 +897,6 @@ class TradeHubWindow(SCWindow):
         cfg = load_config()
         if cfg.get("ship_name"):
             self._set_ship(cfg["ship_name"])
-        if cfg.get("hotkey"):
-            self._hotkey = cfg["hotkey"]
         self._freight_mode = cfg.get("freight_mode", "BULK")
         self._allow_illegal = cfg.get("allow_illegal_cargo", False)
         if hasattr(self, '_btn_bulk'):
@@ -944,7 +906,6 @@ class TradeHubWindow(SCWindow):
         self._sync_table_visibility()
 
         self._start_ipc()
-        self._start_hotkey_listener()
         QTimer.singleShot(500, self._start_load)
         QTimer.singleShot(int(refresh_interval * 1000), self._auto_refresh)
 
@@ -1403,7 +1364,7 @@ class TradeHubWindow(SCWindow):
         self._refresh_display()
 
     def _save_settings(self):
-        save_config({"ship_name": self._ship_name, "hotkey": self._hotkey, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
+        save_config({"ship_name": self._ship_name, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
 
     def _set_view_mode(self, mode: str):
         self._view_mode = mode
@@ -1821,7 +1782,7 @@ class TradeHubWindow(SCWindow):
     def _set_ship(self, name: str, scu: int = 0):
         self._ship_name = name
         self._ship_scu = scu if scu > 0 else scu_for_ship(name)
-        save_config({"ship_name": name, "hotkey": self._hotkey, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
+        save_config({"ship_name": name, "freight_mode": self._freight_mode, "allow_illegal_cargo": self._allow_illegal})
         # Rebuild loops with new ship
         scu_val = self._ship_scu
         routes_ref = self._all_routes
@@ -2254,8 +2215,6 @@ class TradeHubWindow(SCWindow):
             <p><span style="{accent_style}">ROI</span> &mdash; Return on
             investment: profit as a percentage of purchase cost.</p>
             <p style="{hdr_style}">TIPS</p>
-            <p>\u2022 Press <span style="{accent_style}">Ctrl+Shift+T</span> to
-            toggle Trade Hub visibility from anywhere.</p>
             <p>\u2022 Click column headers to sort. Click again to reverse.</p>
             <p>\u2022 Hit <span style="{accent_style}">REFRESH</span> to pull
             fresh data from the UEX API. Data auto-refreshes every 5 minutes.</p>
@@ -2415,46 +2374,6 @@ class TradeHubWindow(SCWindow):
         dlg.show()
         start_entry.setFocus()
 
-    # ── Hotkey ──
-
-    def _start_hotkey_listener(self):
-        if not _user32:
-            return
-        mods, vk = _parse_hotkey(self._hotkey)
-        if not mods or not vk:
-            return
-        if self._hotkey_stop:
-            self._hotkey_stop.set()
-        if self._hotkey_thread and self._hotkey_thread.is_alive():
-            self._hotkey_thread.join(timeout=1.0)
-        self._hotkey_stop = threading.Event()
-        self._hotkey_thread = threading.Thread(
-            target=self._hotkey_listener,
-            args=(mods, vk, self._hotkey_stop),
-            daemon=True, name="trade-hub-hotkey",
-        )
-        self._hotkey_thread.start()
-
-    def _hotkey_listener(self, mods, vk, stop_evt):
-        HOTKEY_ID = 2001
-        try:
-            if not _user32.RegisterHotKey(None, HOTKEY_ID, mods, vk):
-                return
-            msg = ctypes.wintypes.MSG()
-            while not stop_evt.is_set():
-                if _user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, _PM_REMOVE):
-                    if msg.message == _WM_HOTKEY and msg.wParam == HOTKEY_ID:
-                        QTimer.singleShot(0, self._toggle_visibility)
-                else:
-                    time.sleep(0.05)
-        except OSError:
-            log.debug("Hotkey listener error: %s", traceback.format_exc())
-        finally:
-            try:
-                _user32.UnregisterHotKey(None, HOTKEY_ID)
-            except OSError:
-                pass
-
     def _toggle_visibility(self):
         if self._visible:
             self.hide()
@@ -2476,8 +2395,6 @@ class TradeHubWindow(SCWindow):
     def _dispatch(self, cmd: dict):
         t = cmd.get("type", "")
         if t == "quit":
-            if self._hotkey_stop:
-                self._hotkey_stop.set()
             self.close()
             sys.exit(0)
         elif t == "show":
@@ -2504,11 +2421,6 @@ class TradeHubWindow(SCWindow):
         elif t == "refresh":
             self._status_label.setText("  Refreshing...")
             self._fetcher.fetch_async(self._on_routes)
-        elif t == "set_hotkey":
-            new_hk = cmd.get("hotkey", "")
-            if new_hk:
-                self._hotkey_entry.setText(new_hk)
-                self._apply_hotkey()
         elif t == "opacity":
             val = max(0.3, min(1.0, float(cmd.get("value", 0.95))))
             self.set_opacity(val)
@@ -2524,8 +2436,6 @@ class TradeHubWindow(SCWindow):
             self._starmap_panel.shutdown()
         if hasattr(self, '_ipc'):
             self._ipc.stop()
-        if self._hotkey_stop:
-            self._hotkey_stop.set()
         super().closeEvent(event)
 
 
