@@ -1,0 +1,2 @@
+# raw per-case records are big; summary.json / summary.md are committed
+*.jsonl

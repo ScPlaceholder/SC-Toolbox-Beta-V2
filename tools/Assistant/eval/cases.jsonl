@@ -1,0 +1,63 @@
+{"id": "c01", "category": "clear", "q": "how much does a cat hold", "expect_tool": ["ship_info"], "args": {"name": ["caterpillar", "cat"]}}
+{"id": "c02", "category": "clear", "q": "what's the SCU on a C2 Hercules?", "expect_tool": ["ship_info"], "args": {"name": ["c2"]}}
+{"id": "c03", "category": "clear", "q": "cargo capacity of the Freelancer MAX", "expect_tool": ["ship_info"], "args": {"name": ["freelancer"]}}
+{"id": "c04", "category": "clear", "q": "where can I buy a Cutlass Black", "expect_tool": ["ship_buy_rent"], "args": {"ship": ["cutlass"]}}
+{"id": "c05", "category": "clear", "q": "can I rent a Prospector anywhere?", "expect_tool": ["ship_buy_rent"], "args": {"ship": ["prospector"]}}
+{"id": "c06", "category": "clear", "q": "how much is a Constellation Taurus in aUEC and where do I pick one up", "expect_tool": ["ship_buy_rent"], "args": {"ship": ["taurus", "constellation"]}}
+{"id": "c07", "category": "clear", "q": "what should I haul in my cat", "expect_tool": ["find_trade_routes"], "args": {"ship": ["caterpillar", "cat"]}}
+{"id": "c08", "category": "clear", "q": "best trade route for a Hull C in Pyro", "expect_tool": ["find_trade_routes"], "args": {"ship": ["hullc"], "system": ["pyro"]}}
+{"id": "c09", "category": "clear", "q": "I wanna do gold runs with my Freelancer, where do I buy and sell", "expect_tool": ["find_trade_routes"], "args": {"ship": ["freelancer"], "commodity": ["gold"]}}
+{"id": "c10", "category": "clear", "q": "got a C2, what's the most profitable run right now", "expect_tool": ["find_trade_routes"], "args": {"ship": ["c2"]}}
+{"id": "c11", "category": "clear", "q": "where do I buy a P4-AR", "expect_tool": ["find_item_price"], "args": {"item": ["p4ar", "p4"]}}
+{"id": "c12", "category": "clear", "q": "cheapest place to grab an FS-9", "expect_tool": ["find_item_price"], "args": {"item": ["fs9"]}}
+{"id": "c13", "category": "clear", "q": "who sells the Arrowhead sniper and for how much", "expect_tool": ["find_item_price"], "args": {"item": ["arrowhead"]}}
+{"id": "c14", "category": "clear", "q": "what mission gives the Trawler Scraper Module blueprint", "expect_tool": ["missions_for_blueprint"], "args": {"name": ["trawler"]}}
+{"id": "c15", "category": "clear", "q": "how do I unlock the Karna blueprint", "expect_tool": ["missions_for_blueprint"], "args": {"name": ["karna"]}}
+{"id": "c16", "category": "clear", "q": "which contracts drop the Pembroke armor blueprint", "expect_tool": ["missions_for_blueprint"], "args": {"name": ["pembroke"]}}
+{"id": "c17", "category": "clear", "q": "where do I find quant", "expect_tool": ["where_to_mine"], "args": {"resource": ["quantanium", "quant"]}}
+{"id": "c18", "category": "clear", "q": "where can I mine hadanite", "expect_tool": ["where_to_mine"], "args": {"resource": ["hadanite"]}}
+{"id": "c19", "category": "clear", "q": "best spot to go rock hunting for laranite?", "expect_tool": ["where_to_mine"], "args": {"resource": ["laranite"]}}
+{"id": "c20", "category": "clear", "q": "any bounty missions in Pyro", "expect_tool": ["search_missions"], "args": {"mission_type": ["bounty"], "system": ["pyro"]}}
+{"id": "c21", "category": "clear", "q": "what missions does Headhunters give", "expect_tool": ["search_missions"], "args": {"faction": ["headhunter"]}}
+{"id": "c22", "category": "clear", "q": "show me salvage contracts in Stanton", "expect_tool": ["search_missions"], "args": {"mission_type": ["salvage"], "system": ["stanton"]}}
+{"id": "c23", "category": "clear", "q": "what do I need to craft a P4-AR", "expect_tool": ["blueprint_recipe"], "args": {"name": ["p4ar", "p4"]}}
+{"id": "c24", "category": "clear", "q": "recipe for the Pembroke armor", "expect_tool": ["blueprint_recipe"], "args": {"name": ["pembroke"]}}
+{"id": "c25", "category": "clear", "q": "what mats does it take to make a Karna", "expect_tool": ["blueprint_recipe"], "args": {"name": ["karna"]}}
+{"id": "c26", "category": "clear", "q": "scanner says 8620, what is it", "expect_tool": ["identify_signal"], "args": {"value": ["8620"]}}
+{"id": "c27", "category": "clear", "q": "I'm getting a 3170 signal on the radar", "expect_tool": ["identify_signal"], "args": {"value": ["3170"]}}
+{"id": "c28", "category": "clear", "q": "what's a 4700 ping", "expect_tool": ["identify_signal"], "args": {"value": ["4700"]}}
+{"id": "c29", "category": "clear", "q": "how strong is a Prospector with a Helix 1 and two Surge modules", "expect_tool": ["mining_loadout_stats"], "args": {"ship": ["prospector"], "laser": ["helix"]}}
+{"id": "c30", "category": "clear", "q": "stats on a MOLE running a Lancet", "expect_tool": ["mining_loadout_stats"], "args": {"ship": ["mole"], "laser": ["lancet"]}}
+{"id": "c31", "category": "clear", "q": "what are the numbers on a stock Golem", "expect_tool": ["mining_loadout_stats"], "args": {"ship": ["golem"]}}
+{"id": "c32", "category": "clear", "q": "how do I load my Hercules", "expect_tool": ["cargo_layout"], "args": {"ship": ["hercules", "c2", "m2"]}}
+{"id": "c33", "category": "clear", "q": "box layout for a Caterpillar", "expect_tool": ["cargo_layout"], "args": {"ship": ["caterpillar"]}}
+{"id": "c34", "category": "clear", "q": "what containers fit in a Zeus CL and how many", "expect_tool": ["cargo_layout"], "args": {"ship": ["zeus"]}}
+{"id": "c35", "category": "clear", "q": "jump route from Stanton to Pyro", "expect_tool": ["jump_route"], "args": {"from_system": ["stanton"], "to_system": ["pyro"]}}
+{"id": "c36", "category": "clear", "q": "I'm in Pyro, how do I get to Nyx", "expect_tool": ["jump_route"], "args": {"from_system": ["pyro"], "to_system": ["nyx"]}}
+{"id": "c37", "category": "clear", "q": "which gates do I take from stanton to nyx", "expect_tool": ["jump_route"], "args": {"from_system": ["stanton"], "to_system": ["nyx"]}}
+{"id": "c38", "category": "clear", "q": "how many medpens do I have on me", "expect_tool": ["current_loadout"], "args": {}}
+{"id": "c39", "category": "clear", "q": "what am I carrying right now, gun and mags", "expect_tool": ["current_loadout"], "args": {}}
+{"id": "c40", "category": "clear", "q": "how many hours have I sunk into this game", "expect_tool": ["playtime_summary"], "args": {}}
+{"id": "c41", "category": "clear", "q": "what's my longest play session", "expect_tool": ["playtime_summary"], "args": {}}
+{"id": "c42", "category": "clear", "q": "what's the best DPS loadout for an Asgard", "expect_tool": ["best_ship_weapons"], "args": {"ship": ["asgard"]}, "note": "was n01 (no_tool) before best_ship_weapons existed"}
+{"id": "c43", "category": "clear", "q": "what's in my loadout", "expect_tool": ["current_loadout"], "args": {}}
+{"id": "c44", "category": "clear", "q": "max burst build for a Hammerhead", "expect_tool": ["best_ship_weapons"], "args": {"ship": ["hammerhead"], "goal": ["burst"]}}
+{"id": "a01", "category": "ambiguous", "q": "I'd like to see the optimal way to fill an Ironclad", "options": [["layout", "pack", "container", "box", "grid", "load"], ["profit", "trade", "route", "commodit", "money", "sell"]], "note": "cargo_layout (packing) vs find_trade_routes (profit)"}
+{"id": "a02", "category": "ambiguous", "q": "what's the best way to fill up my cat", "options": [["layout", "pack", "container", "box", "grid", "load"], ["profit", "trade", "route", "commodit", "money", "sell"]], "note": "cargo_layout vs find_trade_routes"}
+{"id": "a03", "category": "ambiguous", "q": "where do I get a P4-AR", "options": [["buy", "shop", "store", "price", "purchase"], ["craft", "blueprint", "recipe", "mission"]], "note": "buy (find_item_price) vs craft (blueprint_recipe / missions_for_blueprint)"}
+{"id": "a04", "category": "ambiguous", "q": "where can I get gold", "options": [["mine", "mining"], ["buy", "trade", "terminal", "route", "purchase"]], "note": "where_to_mine vs buying it (find_trade_routes)"}
+{"id": "a05", "category": "ambiguous", "q": "find me some missions", "options": [["system", "stanton", "pyro", "nyx"], ["type", "bounty", "faction", "salvage", "delivery", "kind"]], "note": "search_missions needs at least one filter; ask which"}
+{"id": "a06", "category": "ambiguous", "q": "give me a route to Pyro", "options": [["jump", "gate", "travel", "get to", "navigat"], ["trade", "profit", "cargo", "commodit", "haul"]], "note": "jump_route vs find_trade_routes; start system and ship both unknown"}
+{"id": "a07", "category": "ambiguous", "q": "what's the best loadout", "options": [["mining", "prospector", "mole", "golem", "laser"], ["fps", "weapon", "gun", "combat", "your current", "armor"]], "note": "mining loadout vs FPS loadout vs ship guns (best_ship_weapons)"}
+{"id": "a08", "category": "ambiguous", "q": "how do I get the Karna", "options": [["buy", "shop", "store", "price", "purchase"], ["craft", "blueprint", "recipe", "mission"]], "note": "buy (find_item_price) vs blueprint (missions_for_blueprint)"}
+{"id": "a09", "category": "ambiguous", "q": "open it", "options": [["which", "what tool", "what would you like", "what should i open"], ["which", "what tool", "what would you like", "what should i open"]], "note": "no referent; ask which tool"}
+{"id": "a10", "category": "ambiguous", "q": "help me with cargo", "options": [["layout", "pack", "container", "box", "grid", "load"], ["profit", "trade", "route", "haul", "capacity", "scu"]], "note": "cargo_layout vs find_trade_routes vs ship_info, and no ship given"}
+{"id": "n02", "category": "no_tool", "q": "hey, how's it going?", "note": "chit-chat"}
+{"id": "n03", "category": "no_tool", "q": "thanks, that's all for now", "note": "chit-chat"}
+{"id": "n04", "category": "no_tool", "q": "what's the fastest ship in the game", "note": "no tool covers speed"}
+{"id": "n05", "category": "no_tool", "q": "tell me a joke about Crusader pilots", "note": "chit-chat"}
+{"id": "n06", "category": "no_tool", "q": "how do I fix a 30k disconnect", "note": "no tool covers tech support"}
+{"id": "x01", "category": "action", "q": "open mining signals", "expect_tool": ["launch_tool"], "args": {"name": ["signal"]}, "followup": "yes"}
+{"id": "x02", "category": "action", "q": "pull up the trade hub", "expect_tool": ["open_trade_hub", "launch_tool"], "args": {"name": ["trade"]}, "followup": "yes"}
+{"id": "x03", "category": "action", "q": "open the cargo loader", "expect_tool": ["launch_tool"], "args": {"name": ["cargo"]}, "followup": "no"}
+{"id": "x04", "category": "action", "q": "can you bring up the star map tool", "expect_tool": ["launch_tool"], "args": {"name": ["starmap", "map"]}, "followup": "yes"}
