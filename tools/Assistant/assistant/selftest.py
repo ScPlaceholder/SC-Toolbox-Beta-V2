@@ -13,8 +13,11 @@ Verdicts:
 
 Also checked: the agent's tool-call/result pairing with a scripted model
 (no duplicate results, no orphans, "no" still produces a result), the
-yes/no parser, ipc_bus liveness against a real process, and that no tool
-wrote into the toolbox or ~/.sctoolbox while answering.
+yes/no parser, ipc_bus liveness against a real process, that no tool
+wrote into the toolbox or ~/.sctoolbox while answering, and the router
+(section 5): nicknames, an ambiguous question that asks, the follow-up
+that answers it, confirm-first actions, the phrasing guard, and falling
+back to router mode when no model is reachable.
 
 Runs one worker at a time (memory is tight on the dev box) and loads no
 ML model. Exit code: 0 when nothing FAILed, 1 otherwise.
@@ -47,6 +50,7 @@ from assistant import scunpacked                            # noqa: E402
 from assistant.builtin_tools import build_default_registry  # noqa: E402
 from assistant.logic import classify_confirmation           # noqa: E402
 from assistant.providers import _to_anthropic, _to_openai_wire  # noqa: E402
+from assistant.router import Decision                       # noqa: E402
 from assistant.tools import ToolContext, ToolError          # noqa: E402
 
 _counts: "collections.Counter" = collections.Counter()
@@ -368,7 +372,7 @@ def run_conversations() -> None:
 
     def convo(label, script, turns, expect):
         opened.clear()
-        a = agent_mod.AssistantAgent(reg, ctx)
+        a = agent_mod.AssistantAgent(reg, ctx, mode="llm")   # the all-LLM loop
         m = ScriptedModel(script)
         a.provider = m
         replies, bad = [], []
@@ -478,6 +482,126 @@ def run_yesno() -> None:
              + ("" if got == want else f"  (want {want!r})"))
 
 
+# ── 5. router: nicknames, asking, follow-ups, degradation ────────────────
+
+def run_router() -> None:
+    print("\n== 5. router (no model): names, asking, follow-ups, no-model fallback")
+    from assistant.router import Router, get_catalog
+    t0 = time.perf_counter()
+    cat = get_catalog(ROOT)
+    load_s = time.perf_counter() - t0
+    reg = build_default_registry()
+    r = Router(reg, ROOT, cat)
+    sizes = {t: v["names"] for t, v in cat.summary().items()}
+    _say("PASS" if all(sizes[t] for t in ("ship", "commodity", "resource", "system", "tool"))
+         else "FAIL", f"catalog from the tools' own data in {load_s:.2f}s", _short(sizes, 400))
+
+    def check(label, q, kind, tool=None, args=None, pending=None, says=()):
+        t1 = time.perf_counter()
+        d = r.decide(q, pending)
+        ms = (time.perf_counter() - t1) * 1000
+        bad = []
+        if d.kind not in (kind if isinstance(kind, tuple) else (kind,)):
+            bad.append(f"kind {d.kind!r}, want {kind!r}")
+        if tool and d.tool != tool:
+            bad.append(f"tool {d.tool!r}, want {tool!r}")
+        for k, v in (args or {}).items():
+            if d.args.get(k) != v:
+                bad.append(f"{k}={d.args.get(k)!r}, want {v!r}")
+        low = (d.question or d.reply).lower()
+        for w in says:
+            if w not in low:
+                bad.append(f"reply lacks {w!r}")
+        _say("PASS" if not bad else "FAIL", f"{label}: {q!r} [{ms:.0f} ms]",
+             f"{d.kind} {d.tool} {d.args} {d.question or d.reply!r}\n{d.reason}"
+             + ("\n" + "\n".join(bad) if bad else ""))
+        return d
+
+    # nicknames resolve to real names from the data
+    check("nickname cat", "how much does a cat hold", "call", "ship_info", {"name": "Caterpillar"})
+    check("nickname clad", "cargo layout for my clad", "call", "cargo_layout", {"ship": "Ironclad"})
+    check("nickname herc", "best trade route for my herc", "call", "find_trade_routes",
+          {"ship": "C2 Hercules"})
+    check("nickname quant", "where do I find quant", "call", "where_to_mine",
+          {"resource": "Quantainium"})
+    check("DPS goes to best_ship_weapons", "what's the best DPS loadout for an Asgard",
+          ("call", "lean"), "best_ship_weapons", {"ship": "Asgard"})
+    check("no tool: honest", "what's the fastest ship in the game", "none", says=("can't",))
+    # ambiguous: ask naming both, then the follow-up picks one
+    d = check("ambiguous asks", "I'd like to see the optimal way to fill an Ironclad", "ask",
+              says=("pack", "trade", "ironclad"))
+    if d.pending:
+        check("follow-up picks trade", "the profit one", "call", "find_trade_routes",
+              {"ship": "Ironclad"}, pending=d.pending)
+    d = check("missing filter asks", "find me some missions", "ask", says=("system", "type"))
+    if d.pending:
+        check("follow-up fills it", "bounty in Pyro", "call", "search_missions",
+              {"system": "Pyro", "mission_type": "Bounty Hunter"}, pending=d.pending)
+
+    ctx = ToolContext(base_dir=ROOT)
+    launched = []
+    reg.get("launch_tool").func = lambda c, name: (launched.append(name),
+                                                    {"launched": name, "STUB": True})[1]
+
+    # confirm-first survives in router mode
+    a = agent_mod.AssistantAgent(reg, ctx, mode="router")
+    q = a.handle_user_text("open mining signals")
+    n = a.handle_user_text("no")
+    _say("PASS" if q.endswith("Say yes or no.") and not launched else "FAIL",
+         "router action: asks first, 'no' runs nothing", f"{q!r} -> {n!r}, launched={launched}")
+    a.handle_user_text("open mining signals")
+    y = a.handle_user_text("yes")
+    wp = wire_problems(a._messages)
+    _say("PASS" if launched == ["Mining Signals"] and not wp else "FAIL",
+         "router action: 'yes' runs it once, history pairs", f"{y!r} launched={launched} wire={wp}")
+
+    # the phrasing guard: a rephrasing that invents a number is dropped
+    a = agent_mod.AssistantAgent(reg, ctx, mode="router+llm")
+    a.provider = a.aux = ScriptedModel([("The Caterpillar holds 100 SCU.", [])])
+    rep = a.handle_user_text("how much does a cat hold")
+    ph = a.trace[-1].get("phrase") or {}
+    _say("PASS" if "576" in rep and ph.get("ungrounded") == [100.0] else "FAIL",
+         "phrase guard: invented '100 SCU' rejected, plain answer spoken", f"{rep!r} {ph}")
+    a.provider = a.aux = ScriptedModel([("A Caterpillar carries 576 SCU of cargo.", [])])
+    rep = a.handle_user_text("how much does a cat hold")
+    _say("PASS" if rep == "A Caterpillar carries 576 SCU of cargo." else "FAIL",
+         "phrase guard: a grounded rephrasing is used", repr(rep))
+
+    # tie-break: the model only chooses among the router's candidates
+    a = agent_mod.AssistantAgent(reg, ctx, mode="router+llm")
+    a.provider = a.aux = ScriptedModel([("", [{"id": "t1", "name": "playtime_summary",
+                                                "arguments": {}}])])
+    d = Decision("lean", tool="ship_info", args={"name": "Caterpillar"},
+                 candidates=[("ship_info", 3.0), ("cargo_layout", 2.0)],
+                 args_by_tool={"ship_info": {"name": "Caterpillar"},
+                               "cargo_layout": {"ship": "Caterpillar"}})
+    rec = {}
+    out = a._tiebreak("what about my cat", d, rec)
+    _say("PASS" if out.tool == "ship_info" else "FAIL",
+         "tie-break: a tool outside the candidates is ignored", f"{out.tool} {rec}")
+
+    # no model reachable: both LLM modes answer through the router
+    from assistant.config import LLMConfig
+    for mode in ("router+llm", "llm"):
+        cfg = LLMConfig()
+        cfg.mode, cfg.base_url, cfg.model, cfg.timeout = mode, "http://127.0.0.1:9/v1", "qwen2.5:0.5b", 5
+        a = agent_mod.AssistantAgent(build_default_registry(), ctx)
+        a.configure(cfg)
+        t1 = time.perf_counter()
+        rep = a.handle_user_text("how much does a cat hold")
+        dt = time.perf_counter() - t1
+        ok = "576" in rep and a.effective_mode == "router" and bool(a.last_llm_error)
+        _say("PASS" if ok else "FAIL", f"no model reachable ({mode}) -> router answer [{dt:.1f}s]",
+             f"{rep!r} effective={a.effective_mode} err={a.last_llm_error[:80]!r}")
+    cfg = LLMConfig()
+    cfg.mode = "router"
+    a = agent_mod.AssistantAgent(build_default_registry(), ctx)
+    a.configure(cfg)
+    rep = a.handle_user_text("how much does a cat hold")
+    _say("PASS" if "576" in rep and a.provider is None else "FAIL",
+         "mode=router: no provider built at all", repr(rep))
+
+
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     print("SC Toolbox Assistant selftest")
@@ -492,6 +616,7 @@ def main(argv=None) -> int:
     run_ipc()
     run_conversations()
     run_yesno()
+    run_router()
     worker_pool.shutdown_all()
     print("\n== SUMMARY " + "  ".join(f"{k}={_counts[k]}" for k in
                                       ("PASS", "EMPTY-VALID", "FAIL", "SKIP")))

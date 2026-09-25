@@ -9,8 +9,16 @@ variable (handy for testing):
                                 http://localhost:1234/v1  (LM Studio)
                                 https://api.openai.com/v1
   SC_LLM_API_KEY    -- provider key (empty for local servers)
-  SC_LLM_MODEL      -- e.g. qwen2.5:14b, gpt-4o-mini, claude-sonnet-5
+  SC_LLM_MODEL      -- e.g. qwen2.5:0.5b, gpt-4o-mini, claude-sonnet-5
   SC_LLM_MAX_TOKENS / SC_LLM_TEMPERATURE
+  SC_ASSISTANT_MODE -- "router" (no model), "router+llm" (default: code
+                       picks the tool, the model only tie-breaks and
+                       phrases) or "llm" (the model picks everything)
+
+The default model is qwen2.5:0.5b: in router+llm it only has to choose
+between two or three tools and rephrase a sentence, which is small enough
+to run beside the companion model on an ordinary PC. With no model
+reachable the Assistant answers in router mode by itself.
 
 Defaults point at a local Ollama — works offline, nothing leaves the
 machine. Edit the JSON (or the Settings dialog in the panel) to point
@@ -36,7 +44,9 @@ class LLMConfig:
     provider: str = "openai"          # "openai" | "anthropic"
     base_url: str = "http://localhost:11434/v1"
     api_key: str = ""
-    model: str = "qwen2.5:14b"
+    model: str = "qwen2.5:0.5b"
+    # "router" | "router+llm" | "llm" -- see agent.py
+    mode: str = "router+llm"
     max_tokens: int = 1024
     temperature: float = 0.2
     # Seconds to wait on the LLM HTTP call (local models can be slow to
@@ -71,6 +81,8 @@ class LLMConfig:
             self.api_key = env.get("SC_LLM_API_KEY", "")
         if env.get("SC_LLM_MODEL"):
             self.model = env["SC_LLM_MODEL"]
+        if env.get("SC_ASSISTANT_MODE"):
+            self.mode = env["SC_ASSISTANT_MODE"]
         if env.get("SC_LLM_MAX_TOKENS"):
             try:
                 self.max_tokens = int(env["SC_LLM_MAX_TOKENS"])

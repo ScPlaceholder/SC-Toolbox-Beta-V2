@@ -89,12 +89,14 @@ class _SettingsDialog(QDialog):
         self.api_key = QLineEdit(cfg.api_key)
         self.api_key.setEchoMode(QLineEdit.Password)
         self.max_tokens = QLineEdit(str(cfg.max_tokens))
+        self.mode = QLineEdit(cfg.mode)
 
         lay.addRow("Provider (openai|anthropic)", self.provider)
         lay.addRow("Base URL", self.base_url)
         lay.addRow("Model", self.model)
         lay.addRow("API key (empty for local)", self.api_key)
         lay.addRow("Max tokens", self.max_tokens)
+        lay.addRow("Mode (router | router+llm | llm)", self.mode)
 
         btns = QDialogButtonBox(QDialogButtonBox.Save |
                                 QDialogButtonBox.Cancel)
@@ -107,6 +109,8 @@ class _SettingsDialog(QDialog):
         self.cfg.base_url = self.base_url.text().strip()
         self.cfg.model = self.model.text().strip()
         self.cfg.api_key = self.api_key.text().strip()
+        from .agent import normalize_mode
+        self.cfg.mode = normalize_mode(self.mode.text())
         try:
             self.cfg.max_tokens = max(64, int(self.max_tokens.text()))
         except ValueError:
@@ -222,8 +226,8 @@ class AssistantWindow(SCWindow):
         input_row.addWidget(btn_send)
         self.content_layout.addLayout(input_row)
 
-        self._lbl_status = QLabel("idle — no LLM until configured" if not cfg.ready()
-                                  else f"ready — {cfg.model}")
+        self._lbl_status = QLabel("ready — router only (no model)" if cfg.mode == "router"
+                                  else f"ready — {cfg.mode} / {cfg.model}")
         self._lbl_status.setStyleSheet(
             f"color: {P.energy_cyan}; font-family: Consolas; font-size: 8pt; "
             f"background: transparent; padding: 4px 12px;")
@@ -319,7 +323,7 @@ class AssistantWindow(SCWindow):
             cfg = dlg.result_config()
             cfg.save()
             self._agent.configure(cfg)
-            self._set_status(f"LLM set — {cfg.provider} / {cfg.model}")
+            self._set_status(f"LLM set — {cfg.mode} / {cfg.provider} / {cfg.model}")
 
     # ── state ────────────────────────────────────────────────────────────
     def _load_state(self) -> dict:
