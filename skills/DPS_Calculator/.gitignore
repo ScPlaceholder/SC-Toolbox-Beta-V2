@@ -7,3 +7,6 @@ __pycache__/
 .erkul*
 .fy_*
 .scunpacked*
+
+# AI task prompts: working notes, kept on disk, not published (J 2026-09-25)
+*_PROMPT.md
