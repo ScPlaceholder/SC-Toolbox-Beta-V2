@@ -86,7 +86,23 @@ Releases are hosted on **ScPlaceholder/SC-Toolbox-Beta-V2**. That repo is the up
 
 ## Install location
 
-Default: `%LOCALAPPDATA%\SC_Toolbox`, per user, no admin needed. Velopack's Setup supports
-`--installto <DIR>`, and the custom installer is being given an "Install to" choice. This section
-will be completed when that lands. An existing install's real location is in
-`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SC_Toolbox` → `InstallLocation`.
+Default: `%LOCALAPPDATA%\SC_Toolbox`, per user, no admin needed.
+
+The custom installer (commit a9e1f66) has an **Install to** row with a Browse button:
+- `build/installer_ui/InstallPaths.cs` is the only place that decides the folder:
+  - An existing install's `InstallLocation` from
+    `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SC_Toolbox` wins; failing that, a
+    legacy default install counts; failing that, the user's choice; failing that, the default.
+  - Picking `D:\Games` installs to `D:\Games\SC_Toolbox`.
+- **Existing installs cannot be moved.** Updates go where the app already is, and the row says so.
+  To move it, uninstall first.
+- Velopack's setup gets `--installto <dir>` only when the target is not the default, so the default
+  path behaves exactly as before.
+- **A new folder is refused if:** it isn't a full path, it's inside Program Files without admin,
+  it isn't writable, its drive has less than 4 GB free, or it already holds unrelated files (Velopack
+  appears to clean the target folder).
+
+**Not yet tested with a real install** (as of 2026-09-25): whether Velopack records the custom folder
+as `InstallLocation`, a later update in place at a custom folder, the shortcut and Launch from a
+custom folder, and the window's look. It can't be tested on J's main PC as-is, because an existing
+2.2.15 install there takes priority. Use a machine without SC Toolbox installed.
