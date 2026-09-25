@@ -70,6 +70,29 @@ def _fy_slug(name: str) -> str:
     return s
 
 
+def _fy_slug_candidates(slug: str, limit: int = 6) -> list:
+    """Slugs to try on FleetYards, most specific first.
+
+    The window passes the game class name ("drak-vulture-teach"). FleetYards has
+    no page for many variants (Teach, Collector skins, Tier 2 Medivac) and names a
+    few ships without the manufacturer prefix ("razor"). So: the slug itself, then
+    trailing tokens trimmed one at a time (never below two), then the slug without
+    its manufacturer prefix. Measured 2026-09-25 on 12 class names that 404'd: 7 of
+    12 resolve this way; the rest have no FleetYards page at all.
+    """
+    parts = [p for p in slug.split("-") if p]
+    out = [slug]
+    for n in range(len(parts) - 1, 1, -1):
+        out.append("-".join(parts[:n]))
+    if len(parts) > 1:
+        out.append("-".join(parts[1:]))
+    seen: list = []
+    for c in out:
+        if c and c not in seen:
+            seen.append(c)
+    return seen[:limit]
+
+
 def _fy_hp_group(fy_list: list) -> dict:
     groups: dict = {}
     for hp in (fy_list or []):
@@ -394,7 +417,13 @@ class ComponentRepository:
 
         def _run():
             try:
-                data = self._fy_api.fetch_hardpoints(slug)
+                data = []
+                for cand in _fy_slug_candidates(slug):
+                    data = self._fy_api.fetch_hardpoints(cand)
+                    if data:
+                        if cand != slug:
+                            _log.info("FY hardpoints: %s resolved as %s", slug, cand)
+                        break
                 if data:
                     try:
                         self._fy_cache.put(slug, data)
