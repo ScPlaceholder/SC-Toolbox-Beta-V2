@@ -55,6 +55,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import math
 import os
 import tempfile
 import urllib.request
@@ -66,13 +67,31 @@ REPO = "StarCitizenWiki/scunpacked-data"
 RAW_URL = "https://raw.githubusercontent.com/" + REPO + "/{commit}/{file}"
 FILES = ("ships.json", "ship-items.json")
 INDEX_FILE = "guns_index.json"
-ADAPTER_VERSION = 4
+ADAPTER_VERSION = 5          # 5: pellets, spread, projectile range per gun
 
 ATTRIBUTION = ("Ship and weapon data: StarCitizenWiki/scunpacked-data. "
                "Calculator lineage: erkul.games. Star Citizen content (c) "
                "Cloud Imperium Games; not affiliated.")
 
 GOALS = {"sustained": "dps_sus", "burst": "dps_raw", "alpha": "alpha"}
+
+# Realistic mode (scatter guns only): the defaults a player can override.
+# 300 m is the CLOSE end of a dogfight, chosen because it favours the
+# scatter gun: if it loses there, it loses at longer range too. 10 m is
+# the width of a light/medium fighter's silhouette (a Gladius is ~17 m
+# wide, an Arrow ~14 m, both ~4-5 m tall), modelled as a 10 m disc.
+REALISTIC_RANGE_M = 300.0
+REALISTIC_TARGET_SIZE_M = 10.0
+REALISTIC_MODEL = (
+    "ESTIMATE for scatter guns only: pellets leave in a cone whose half-angle is the "
+    "gun's Spread (degrees, stdItem.Weapon.Modes[].Spread.Maximum), spread evenly over "
+    "the cone's cross-section; aim is dead centre on a still target seen as a disc of "
+    "the stated size at the stated range. Expected pellets hitting = pellets x "
+    "(target radius / cone radius)^2, capped at all of them; DPS and alpha are scaled "
+    "by hits / pellets. Beyond the projectile's range nothing hits. Reading Spread as a "
+    "half-angle is an assumption (not documented in the data); read as a full angle "
+    "the cone is half as wide and about 4x as many pellets hit. Other guns are unchanged "
+    "(their own spread is not modelled).")
 _REQUIRED_WEAPON_TAGS = ("flightReady", "weaponMountUsable")
 
 # ship-items.json also carries NPC, capital-AI, cutscene and test variants of
@@ -203,6 +222,9 @@ def weapon_stats(item: dict) -> Optional[dict]:
     if alpha is None and fire_type != "beam":
         alpha = per_shot
     tags = list(std.get("Tags") or [])
+    pellets = int(_f(m.get("PelletsPerShot")) or 1)
+    spread = m.get("Spread") or {}
+    ammo = std.get("Ammunition") or {}
     req = std.get("RequiredTags") or []
     if isinstance(req, str):
         req = req.split()
@@ -218,6 +240,10 @@ def weapon_stats(item: dict) -> Optional[dict]:
         "dps_sus": None if sus is None else round(sus, 2),
         "alpha": None if alpha is None else round(alpha, 2),
         "src_burst": _f(dmg.get("Burst")),
+        "pellets": max(1, pellets),
+        "spread_min": _f(spread.get("Minimum")),
+        "spread_max": _f(spread.get("Maximum")),
+        "range_m": _f(ammo.get("Range")) or _f(w.get("EffectiveRange")),
         "tags": tags,
         "req": list(req),
         "mountable": all(t in tags for t in _REQUIRED_WEAPON_TAGS),
@@ -447,3 +473,52 @@ def fits(slot: dict, w: dict) -> bool:
 def candidates_for(slot: dict, weapons: dict, key: str) -> list:
     """Weapons that fit *slot*, as optimizer candidate dicts (need 'size' + key)."""
     return [w for w in weapons.values() if w.get(key) is not None and fits(slot, w)]
+
+
+# ── realistic mode: scatter guns ──────────────────────────────────────────
+
+def is_scatter(w: dict) -> bool:
+    """More than one pellet per shot. The tag alone misses the Distortion
+    scatter guns (tagged DistortionScatterGun) and an untagged AA gun."""
+    return (w.get("pellets") or 1) > 1 or any("ScatterGun" in t for t in w.get("tags") or ())
+
+
+def scatter_hits(w: dict, range_m: float = REALISTIC_RANGE_M,
+                 target_size_m: float = REALISTIC_TARGET_SIZE_M) -> dict:
+    """Expected pellets of one shot that hit (see REALISTIC_MODEL)."""
+    n = int(w.get("pellets") or 1)
+    sp = w.get("spread_max") or w.get("spread_min")
+    out = {"pellets": n}
+    if not sp or sp <= 0:
+        out.update(expected_hits=1.0, hit_fraction=round(1.0 / n, 4),
+                   basis="no spread data: ranked by single-pellet damage (one pellet hits)")
+        return out
+    out["spread_deg"] = sp
+    rng = w.get("range_m")
+    if rng and range_m > rng:
+        out.update(expected_hits=0.0, hit_fraction=0.0,
+                   basis=f"target beyond the projectile's {rng:.0f} m range")
+        return out
+    cone_r = range_m * math.tan(math.radians(sp))
+    tr = target_size_m / 2.0
+    frac = 1.0 if cone_r <= tr else (tr / cone_r) ** 2
+    out.update(cone_radius_m=round(cone_r, 2), hit_fraction=round(frac, 4),
+               expected_hits=round(n * frac, 3), basis="spread cone")
+    return out
+
+
+def realistic_weapon(w: dict, range_m: float = REALISTIC_RANGE_M,
+                     target_size_m: float = REALISTIC_TARGET_SIZE_M) -> dict:
+    """*w* itself for a non-scatter gun; for a scatter gun a copy whose
+    dps_sus / dps_raw / alpha are scaled by expected hits / pellets."""
+    if not is_scatter(w):
+        return w
+    h = scatter_hits(w, range_m, target_size_m)
+    f = h["expected_hits"] / max(1, h["pellets"])
+    c = dict(w)
+    for k in ("dps_sus", "dps_raw", "alpha"):
+        if w.get(k) is not None:
+            c[k] = round(w[k] * f, 2)
+            c[k + "_all_pellets"] = w[k]
+    c["scatter_estimate"] = h
+    return c

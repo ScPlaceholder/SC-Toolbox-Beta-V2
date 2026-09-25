@@ -253,8 +253,14 @@ def _weapons(a, r):
     if not summ:
         return ""
     guns = _join([f"{_n(x.get('count'))} x {x.get('weapon')} (size {_n(x.get('size'))})" for x in summ[:4]])
-    return (f"Best {r.get('metric', 'DPS')} for the {r.get('ship')}: {guns}, "
-            f"{_n(r.get('total'))} total. Guns only.")
+    out = (f"Best {r.get('metric', 'DPS')} for the {r.get('ship')}: {guns}, "
+           f"{_n(r.get('total'))} total. Guns only.")
+    rl = r.get("realistic")
+    if isinstance(rl, dict):
+        out += (f" Scatter guns rated by an estimate of pellets hitting a "
+                f"{_n(rl.get('target_size_m'))} m target at {_n(rl.get('range_m'))} m"
+                + (", and the total includes that estimate." if r.get("total_is_estimate") else "."))
+    return out
 
 
 def _pin(a, r):

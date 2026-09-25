@@ -254,6 +254,68 @@ def run_dps(reg, ctx) -> None:
          f"size rule: {n} picks over 3 ships x 3 goals, each weapon exactly its slot's size",
          "\n".join(bad[:10]))
 
+    # realistic mode: scatter guns rated by pellets that hit, others untouched
+    try:
+        norm = reg.get("best_ship_weapons").run(ctx, {"ship": "Asgard", "goal": "sustained"})
+        real = reg.get("best_ship_weapons").run(ctx, {"ship": "Asgard", "goal": "sustained",
+                                                      "realistic": True})
+    except ToolError as exc:
+        _say("FAIL", "realistic mode: Asgard", str(exc))
+        norm = real = None
+    if real is not None:
+        s3n = [p for p in norm["picks"] if p["size"] == 3]
+        s3r = [p for p in real["picks"] if p["size"] == 3]
+        rl = real.get("realistic") or {}
+        cons = rl.get("scatter_guns_considered") or []
+        best_sc = max((c.get("sustained_estimate") or 0 for c in cons), default=0)
+        scat_r = [p for p in s3r if "dps_all_pellets" in p]
+        bad = []
+        if not (rl.get("range_m") and rl.get("target_size_m") and "ESTIMATE" in rl.get("model", "")):
+            bad.append("no stated range / target / ESTIMATE label")
+        if not cons:
+            bad.append("no scatter gun was considered, nothing was recomputed")
+        for p in scat_r:
+            if "ESTIMATE" not in p.get("caveat", ""):
+                bad.append(f"{p['slot']}: scatter pick without an ESTIMATE caveat")
+        if not scat_r and not all((p.get("dps") or 0) >= best_sc for p in s3r):
+            bad.append("a non-scatter S3 pick scores below the best scatter estimate")
+        still = sorted({p["weapon"] for p in scat_r})
+        _say("PASS" if not bad else "FAIL",
+             "realistic mode: Asgard S3 picks recomputed at "
+             f"{rl.get('range_m'):g} m vs a {rl.get('target_size_m'):g} m target",
+             "normal:    " + ", ".join(f"{p['guns']}x {p['weapon']} {p['dps']}" for p in s3n)
+             + "\nrealistic: " + ", ".join(f"{p['guns']}x {p['weapon']} {p['dps']}" for p in s3r)
+             + f"\nbest scatter estimate {best_sc}; scatter gun still wins: "
+             + (", ".join(still) if still else "NO")
+             + f"\ntotal {norm['total']} -> {real['total']}"
+             + ("\n" + "\n".join(bad) if bad else ""))
+
+        # a non-scatter gun's DPS is identical in both modes
+        by_n = {p["slot"]: p for p in norm["picks"]}
+        same = [(p["weapon"], p["dps"], by_n[p["slot"]]["dps"]) for p in real["picks"]
+                if p.get("weapon") and "dps_all_pellets" not in p
+                and by_n.get(p["slot"], {}).get("weapon") == p["weapon"]]
+        moved = [x for x in same if x[1] != x[2]]
+        touched = [c for c, x in w.items()
+                   if not scunpacked.is_scatter(x) and scunpacked.realistic_weapon(x) is not x]
+        _say("PASS" if same and not moved and not touched else "FAIL",
+             "realistic mode: non-scatter guns keep their DPS",
+             f"same pick, same DPS: {sorted(set((a, b) for a, b, _ in same))}"
+             f"\nnon-scatter guns altered by realistic_weapon: {len(touched)} of "
+             f"{sum(1 for x in w.values() if not scunpacked.is_scatter(x))}"
+             + (f"\nMOVED: {moved}" if moved else ""))
+
+    # a scatter gun with no spread data falls back to one pellet, and says so
+    dom = dict(w["HRST_LaserScatterGun_S3"], spread_min=None, spread_max=None)
+    fb = scunpacked.realistic_weapon(dom)
+    h = fb.get("scatter_estimate") or {}
+    want = round(dom["dps_sus"] / dom["pellets"], 2)
+    ok = ("no spread data" in h.get("basis", "") and "single-pellet" in h.get("basis", "")
+          and fb["dps_sus"] == want and h.get("expected_hits") == 1.0)
+    _say("PASS" if ok else "FAIL", "realistic mode: no spread data -> single-pellet damage, said so",
+         f"{dom['name']} with Spread removed: sustained {dom['dps_sus']} -> {fb['dps_sus']} "
+         f"(want {want}); basis: {h.get('basis')!r}")
+
     # an unknown ship is a clean, user-presentable error, not a crash
     try:
         r = reg.get("best_ship_weapons").run(ctx, {"ship": "Zzyzx Flapdoodle"})

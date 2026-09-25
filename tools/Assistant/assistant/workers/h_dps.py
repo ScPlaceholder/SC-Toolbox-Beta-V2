@@ -61,7 +61,20 @@ def _r(x):
     return None if x is None else round(float(x), 1)
 
 
-def best_ship_weapons(ship: str, goal: str = "sustained") -> dict:
+def _pos(x, default: float, name: str) -> float:
+    if x in (None, ""):
+        return default
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        raise L.ToolFail(f"{name} must be a number (got '{x}')")
+    if not 0 < v <= 20000:
+        raise L.ToolFail(f"{name} must be between 0 and 20000 metres (got {v:g})")
+    return v
+
+
+def best_ship_weapons(ship: str, goal: str = "sustained", realistic: bool = False,
+                      range_m=None, target_size_m=None) -> dict:
     goal = (goal or "sustained").strip().lower()
     goal = {"sustain": "sustained", "dps": "sustained", "raw": "burst",
             "peak": "burst", "alpha strike": "alpha"}.get(goal, goal)
@@ -74,6 +87,13 @@ def best_ship_weapons(ship: str, goal: str = "sustained") -> dict:
     except S.ScunpackedError as exc:
         raise L.ToolFail(str(exc))
     weapons = idx["weapons"]
+    rng = _pos(range_m, S.REALISTIC_RANGE_M, "range_m")
+    tsz = _pos(target_size_m, S.REALISTIC_TARGET_SIZE_M, "target_size_m")
+    if realistic:
+        # scatter guns get a copy with hit-scaled figures; every other gun is
+        # the very same dict, so its numbers cannot move
+        weapons = {c: S.realistic_weapon(w, rng, tsz) for c, w in weapons.items()}
+    scatter_seen: dict = {}
 
     picks, not_counted = [], []
     tot = {"goal": 0.0, "dps_sus": 0.0, "dps_raw": 0.0, "alpha": 0.0}
@@ -94,6 +114,10 @@ def best_ship_weapons(ship: str, goal: str = "sustained") -> dict:
                 grp["weapons"].append(wn)
             continue
         cands = sorted(S.candidates_for(slot, weapons, key), key=lambda w: w["name"])
+        if realistic:
+            for c in cands:
+                if "scatter_estimate" in c and (c["name"], c["size"]) not in scatter_seen:
+                    scatter_seen[(c["name"], c["size"])] = c
         res = optimize_weapons([slot], lambda msz, c=cands: c, key=key)
         best = res["picks"][0]["weapon"]
         if best is not None and not S.fits(slot, best):
@@ -111,7 +135,12 @@ def best_ship_weapons(ship: str, goal: str = "sustained") -> dict:
                 row["caveat"] = "charged weapon: DPS depends on charge time; unverified"
             elif best.get("fire") == "beam":
                 row["caveat"] = "beam: no sustained figure in the data"
-            elif "ScatterGun" in (best.get("tags") or ()):
+            elif "scatter_estimate" in best:
+                h = best["scatter_estimate"]
+                row["caveat"] = (f"scatter gun, ESTIMATE: {h['expected_hits']:g} of {h['pellets']} "
+                                 f"pellets hit a {tsz:g} m target at {rng:g} m ({h['basis']})")
+                row["dps_all_pellets"] = _r(best.get(key + "_all_pellets"))
+            elif S.is_scatter(best):
                 row["caveat"] = "scatter gun: every pellet hitting"
             for k in ("dps_sus", "dps_raw", "alpha"):
                 tot[k] += float(best.get(k) or 0)
@@ -152,6 +181,23 @@ def best_ship_weapons(ship: str, goal: str = "sustained") -> dict:
         "note": NOTE,
         "attribution": S.ATTRIBUTION,
     }
+    if realistic:
+        est = sorted(scatter_seen.values(), key=lambda w: (-w["size"], w["name"]))
+        result["realistic"] = {
+            "range_m": rng, "target_size_m": tsz,
+            "model": S.REALISTIC_MODEL,
+            "scatter_guns_considered": [
+                {"weapon": w["name"], "size": w["size"],
+                 goal + "_all_pellets": _r(w.get(key + "_all_pellets")),
+                 goal + "_estimate": _r(w.get(key)),
+                 **{k: v for k, v in w["scatter_estimate"].items()}}
+                for w in est],
+        }
+        if any("dps_all_pellets" in p for p in picks):
+            result["total_is_estimate"] = True      # a scatter pick is in it
+        if any("scatter_estimate" in (weapons.get(c) or {}) for c in
+               [s["stock"] for s in entry["slots"] if s["stock"]]):
+            result["realistic"]["note"] = "stock totals also use the scatter estimate"
     if not_counted:
         result["not_counted"] = not_counted
     if entry.get("empty_turret_ports"):

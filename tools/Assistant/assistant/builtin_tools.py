@@ -79,11 +79,26 @@ def _ship_buy_rent(ctx: ToolContext, ship: str) -> dict:
         "ship": {"type": "string", "description": "Ship name, e.g. Gladius or Cutlass Black"},
         "goal": {"type": "string", "enum": ["sustained", "burst", "alpha"],
                  "description": "What to maximise: sustained (default), burst or alpha"},
+        "realistic": {"type": "boolean",
+                      "description": "Default false: scatter guns count every pellet hitting. "
+                                     "True: scatter guns are rated by an ESTIMATE of the pellets "
+                                     "that hit a target at a range (from the gun's spread cone); "
+                                     "other guns are unchanged"},
+        "range_m": {"type": "number",
+                    "description": "Realistic mode: engagement range in metres (default 300)"},
+        "target_size_m": {"type": "number",
+                          "description": "Realistic mode: target width in metres "
+                                         "(default 10, a light/medium fighter)"},
     },
     required=["ship"],
 )
-def _best_ship_weapons(ctx: ToolContext, ship: str, goal: str = "sustained") -> dict:
-    return _w(ctx, "dps", "best_ship_weapons", ship=ship, goal=goal)
+def _best_ship_weapons(ctx: ToolContext, ship: str, goal: str = "sustained",
+                       realistic: bool = False, range_m: float = None,
+                       target_size_m: float = None) -> dict:
+    args = {"ship": ship, "goal": goal}
+    if realistic:
+        args.update(realistic=True, range_m=range_m, target_size_m=target_size_m)
+    return _w(ctx, "dps", "best_ship_weapons", **args)
 
 
 # ── trading and prices ────────────────────────────────────────────────────
