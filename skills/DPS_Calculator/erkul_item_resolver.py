@@ -114,6 +114,80 @@ def _build():
     return index
 
 
+def _scunpacked_dir():
+    """The active scunpacked build folder the DPS window already uses, or None."""
+    try:
+        from data import scunpacked_provider as P
+        return P.S.cache_dir(P.ensure_data(allow_fetch=False)["dir"])
+    except Exception:
+        return None
+
+
+def _build_scunpacked(d=None):
+    """The same ref/localName -> record index, built from scunpacked-data.
+
+    Used whenever erkul cannot answer (its network is off by default, and the cache
+    expires after TTL), which otherwise left this index EMPTY: every bespoke rack,
+    UUID turret and PDC housing resolved to nothing. Scored 2026-09-25 against the
+    last erkul cache on the 331 refs both know: rack capacity 138/138, turret gun
+    ports 81/81, utility flag 327/331 (the 4 differences are tractor-beam remote
+    turrets that scunpacked names correctly and erkul called "Remote Turret").
+    Default guns come from the ship loadouts (turret_pdc_behr_a ->
+    behr_laserrepeater_pdc_s1 on the Polaris)."""
+    d = d or _scunpacked_dir()
+    if not d:
+        return {}
+    try:
+        items = json.loads((Path(d) / "ship-items.json").read_text(encoding="utf-8"))
+        ships = json.loads((Path(d) / "ships.json").read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  warn: scunpacked fallback unavailable: {e}")
+        return {}
+
+    default_gun = {}
+
+    def walk(entries):
+        for e in entries or []:
+            cn = (e.get("ClassName") or "").lower()
+            kids = e.get("Loadout") or []
+            if cn and cn not in default_gun:
+                for k in kids:
+                    if (k.get("Type") or "").startswith("WeaponGun") and k.get("ClassName"):
+                        default_gun[cn] = k["ClassName"].lower()
+                        break
+            walk(kids)
+
+    for s in ships:
+        walk(s.get("Loadout"))
+
+    index = {}
+    for it in items:
+        si = it.get("stdItem") or {}
+        ports = si.get("Ports") or []
+        gun_ports = 0
+        for p in ports:
+            types = set(p.get("Types") or []) | {t.get("Type") for t in (p.get("CompatibleTypes") or [])}
+            if "WeaponGun" in types:
+                gun_ports += 1
+        rack = si.get("MissileRack") or {}
+        local_name = (it.get("className") or "").lower()
+        rec = {
+            "name": it.get("name") or si.get("Name", ""),
+            "type": it.get("type", ""),
+            "subType": it.get("subType", ""),
+            "port_count": int(rack.get("MissileCount") or len(ports)),
+            "gun_ports": gun_ports,
+            "default_gun": default_gun.get(local_name, ""),
+            "local_name": local_name,
+            "src": "scunpacked",
+        }
+        if it.get("reference"):
+            index[it["reference"]] = rec
+        if local_name:
+            index[local_name] = rec
+    return index
+
+
 def _load():
     if ITEMS_CACHE.exists():
         try:
@@ -123,12 +197,15 @@ def _load():
                 return blob["items"]
         except Exception:
             pass
-    idx = _build()
+    idx = _build() if _network_allowed() else {}
     if idx:  # only persist a non-empty fetch
         ITEMS_CACHE.write_text(
             json.dumps({"ts": time.time(), "v": CACHE_VERSION, "items": idx}),
             encoding="utf-8")
-    return idx
+        return idx
+    # erkul could not answer: build from scunpacked (kept in memory, never written
+    # into the erkul cache file, so the two sources are never mixed on disk)
+    return _build_scunpacked()
 
 
 _INDEX = None
