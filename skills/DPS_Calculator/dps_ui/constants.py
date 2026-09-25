@@ -153,7 +153,7 @@ QD_COLS = [
     (_("Spool s"),    "spool",       7, YELLOW,     lambda v, it: f"{v:.1f}" if v else "\u2014"),
     (_("Cooldown s"), "cooldown",    9, FG_DIM,     lambda v, it: f"{v:.1f}" if v else "\u2014"),
     (_("Fuel/Mm"),    "fuel_rate",   8, ENERGY_COL, lambda v, it: f"{v:.2f}" if v else "\u2014"),
-    (_("Power kW"),   "power_draw",  8, ORANGE,     lambda v, it: f"{v/1000:.1f}" if v else "\u2014"),
+    (_("Power"),   "power_draw",  8, ORANGE,     lambda v, it: f"{v:g}" if v else "\u2014"),
     (_("EM"),         "em_max",      8, YELLOW,     lambda v, it: f"{v:,.0f}" if v else "\u2014"),
     (_("HP"),         "hp",          6, PHYS_COL,   lambda v, it: f"{v:.0f}" if v else "\u2014"),
 ]
@@ -202,7 +202,7 @@ SHIELD_TABLE_COLS = [
     (_("Phys"),    "res_phys_max",    5, PHYS_COL,   lambda v, it: pct(v)),
     (_("Enrg"),    "res_energy_max",  5, ENERGY_COL, lambda v, it: pct(v)),
     (_("Dist"),    "res_dist_max",    5, DIST_COL,   lambda v, it: pct(v)),
-    (_("Power"),   "power_draw",      6, ORANGE,     lambda v, it: f"{v/1000:.1f}" if v else "\u2014"),
+    (_("Power"),   "power_draw",      6, ORANGE,     lambda v, it: f"{v:g}" if v else "\u2014"),
     (_("EM"),      "em_max",          5, YELLOW,     lambda v, it: f"{v:,.0f}" if v else "\u2014"),
 ]
 
@@ -210,7 +210,7 @@ COOLER_TABLE_COLS = [
     (_("Name"),    "name",         12, FG,       lambda v, it: it["name"]),
     (_("Class"),   "class",         5, FG_DIM,   lambda v, it: str(v) if v else "\u2014"),
     (_("Cool\u2193"),  "cooling_rate",   7, GREEN,    lambda v, it: f"{v:,.0f}" if v else "\u2014"),
-    (_("Pwr"),     "power_draw",    6, ORANGE,   lambda v, it: f"{v/1000:.1f}" if v else "\u2014"),
+    (_("Pwr"),     "power_draw",    6, ORANGE,   lambda v, it: f"{v:g}" if v else "\u2014"),
     (_("IR"),      "ir_max",        5, THERM_COL, lambda v, it: f"{v:.0f}" if v else "\u2014"),
     (_("EM"),      "em_max",        5, YELLOW,    lambda v, it: f"{v:.0f}" if v else "\u2014"),
     (_("HP"),      "hp",            5, PHYS_COL,  lambda v, it: f"{v:.0f}" if v else "\u2014"),
@@ -221,7 +221,7 @@ RADAR_TABLE_COLS = [
     (_("Class"),   "class",          5, FG_DIM,   lambda v, it: str(v) if v else "\u2014"),
     (_("Det\u2193"),   "detection_min",   6, GREEN,    lambda v, it: f"{v:.0f}" if v else "\u2014"),
     (_("Max"),     "detection_max",   6, FG,       lambda v, it: f"{v:.0f}" if v else "\u2014"),
-    (_("Power"),   "power_draw",      6, ORANGE,   lambda v, it: f"{v/1000:.1f}" if v else "\u2014"),
+    (_("Power"),   "power_draw",      6, ORANGE,   lambda v, it: f"{v:g}" if v else "\u2014"),
     (_("EM"),      "em_max",          5, YELLOW,   lambda v, it: f"{v:.0f}" if v else "\u2014"),
     (_("HP"),      "hp",              5, PHYS_COL, lambda v, it: f"{v:.0f}" if v else "\u2014"),
 ]
@@ -251,7 +251,7 @@ EMP_TABLE_COLS = [
 
 QED_TABLE_COLS = [
     (_("Name"),      "name",       18, FG,       lambda v, it: it["name"]),
-    (_("Power kW"),  "power_draw",  8, ORANGE,   lambda v, it: f"{v/1000:.1f}" if v else "\u2014"),
+    (_("Power"),  "power_draw",  8, ORANGE,   lambda v, it: f"{v:g}" if v else "\u2014"),
     (_("HP"),        "hp",          6, PHYS_COL, lambda v, it: f"{v:.0f}" if v else "\u2014"),
     (_("EM"),        "em_max",      6, YELLOW,   lambda v, it: f"{v:.0f}" if v else "\u2014"),
 ]

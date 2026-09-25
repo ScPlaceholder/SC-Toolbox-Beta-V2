@@ -13,6 +13,12 @@ Two resilience layers, both deliberate:
 
 Keyed by (system, body) normalised names so a map click on a planet, moon,
 city or station body resolves straight to its terminals.
+
+``items_prices_all`` rows carry only ``id_terminal`` and ``terminal_name``
+(no system, no station or city), so each row is joined to the UEX
+``terminals`` list by id first, the same terminal -> location lookup
+Market Finder does (service.py ``term_map``, ui/widgets.py). Without that
+join every row was skipped and the index came back empty.
 """
 from __future__ import annotations
 
@@ -63,30 +69,69 @@ class ItemsIndexLoader(QObject):
                             for i in mres.data if i.get("id") is not None}
             except Exception:
                 meta = {}
-            for r in res.data:
-                try:
-                    item_id = r.get("id_item")
-                    if item_id is None:
-                        continue
-                    price = float(r.get("price_buy") or 0)
-                    sys_n = norm_loc(str(r.get("star_system_name") or ""))
-                    term_n = norm_loc(str(r.get("terminal_name")
-                                          or r.get("space_station_name")
-                                          or r.get("city_name") or ""))
-                    if not sys_n or not term_n:
-                        continue
-                    m = meta.get(int(item_id)) or {}
-                    index.setdefault((sys_n, term_n), []).append({
-                        "item_id": int(item_id),
-                        "price_buy": price,
-                        "name": m.get("name") or "Item #%s" % item_id,
-                        "category": m.get("category") or m.get("section") or "",
-                    })
-                except (TypeError, ValueError):
-                    continue
+            terminals: Dict[int, dict] = {}
+            try:
+                tres = uex_api.get("terminals")
+                terminals = {int(t["id"]): t for t in (tres.data or [])
+                             if t.get("id") is not None}
+            except Exception:
+                terminals = {}
+            index = build_index(res.data, terminals, meta)
         except Exception:
             pass
         self.done.emit(index, source)
+
+
+# where a terminal is, most specific first; each becomes an index key
+_PLACE_FIELDS = ("space_station_name", "city_name", "outpost_name", "terminal_name")
+
+
+def build_index(price_rows: List[dict], terminals: Dict[int, dict],
+                meta: Optional[Dict[int, dict]] = None) -> Dict[IndexKey, List[dict]]:
+    """(system, place) -> items, from items_prices_all joined to terminals.
+
+    A row is filed under its terminal's station, city or outpost name and
+    under the terminal name, so a map body ("Area 18", "Port Tressler")
+    and a terminal name both resolve. A row whose terminal is unknown is
+    kept only if the row itself names a system.
+    """
+    meta = meta or {}
+    index: Dict[IndexKey, List[dict]] = {}
+    for r in price_rows or []:
+        try:
+            item_id = r.get("id_item")
+            if item_id is None:
+                continue
+            term = terminals.get(int(r.get("id_terminal") or 0)) or {}
+            sys_n = norm_loc(str(term.get("star_system_name")
+                                 or r.get("star_system_name") or ""))
+            if not sys_n:
+                continue
+            places = []
+            for fld in _PLACE_FIELDS:
+                v = norm_loc(str(term.get(fld) or r.get(fld) or ""))
+                if v and v not in places:
+                    places.append(v)
+            if not places:
+                continue
+            m = meta.get(int(item_id)) or {}
+            entry = {
+                "item_id": int(item_id),
+                "price_buy": float(r.get("price_buy") or 0),
+                "name": m.get("name") or r.get("item_name") or "Item #%s" % item_id,
+                "category": m.get("category") or m.get("section") or "",
+            }
+            for place in places:
+                index.setdefault((sys_n, place), []).append(entry)
+        except (TypeError, ValueError):
+            continue
+    return index
+
+
+def index_counts(index: Dict[IndexKey, List[dict]]) -> Tuple[int, int]:
+    """(distinct items, places) in an index, for the status line."""
+    items = {e["item_id"] for rows in (index or {}).values() for e in rows}
+    return len(items), len(index or {})
 
 
 def items_at(index: Dict[IndexKey, List[dict]], body: str, system: str) -> List[dict]:
@@ -110,6 +155,14 @@ def items_at(index: Dict[IndexKey, List[dict]], body: str, system: str) -> List[
                     if cur is None or (0 < e["price_buy"] < (cur["price_buy"] or 1e18)):
                         merged[e["item_id"]] = dict(e)
                 rows = list(merged.values())
+    # one row per item: a city or station has several shops selling the
+    # same thing, and the card lists items, so keep the cheapest
+    best: Dict[int, dict] = {}
+    for e in rows:
+        cur = best.get(e["item_id"])
+        if cur is None or (0 < e["price_buy"] < (cur["price_buy"] or 1e18)):
+            best[e["item_id"]] = e
+    rows = list(best.values())
     rows.sort(key=lambda e: (e["price_buy"] <= 0, e["price_buy"] or 1e18,
                              str(e.get("name") or "")))
     return rows

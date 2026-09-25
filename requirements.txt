@@ -5,3 +5,4 @@ mss>=9.0.0
 pytesseract>=0.3.10
 Pillow>=10.0.0
 cryptography>=42.0.0
+faster-whisper>=1.0.0

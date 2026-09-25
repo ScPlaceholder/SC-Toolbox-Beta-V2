@@ -32,7 +32,7 @@ from .galaxy_view import GalaxyView
 from .planet_system_view import PlanetSystemView
 from .planet_view import PlanetView
 from .system_view import SystemView
-from .items_index import ItemsIndexLoader, items_at
+from .items_index import ItemsIndexLoader, index_counts, items_at
 from .item_popout import ItemPopOut
 from .location_dialog import LocationDialog
 from .grocery import GroceryPanel
@@ -583,8 +583,12 @@ class StarmapPanel(QWidget):
                 w.update()
         src = {"live": "UEX live", "cache": "UEX cache",
                "offline": "offline"}.get(source, "")
-        if src:
-            self.voice_status("items index ready (%s)" % src)
+        n_items, n_places = index_counts(self._items_index)
+        if not n_places:
+            self.voice_status("items index empty (%s): no item prices to show" % (src or "no data"))
+        else:
+            self.voice_status("items index ready (%s): %d items at %d places"
+                              % (src, n_items, n_places))
 
     def _terminal_names(self) -> set:
         """Normalised names of every UEX terminal known to the items index,

@@ -29,9 +29,17 @@ except ImportError:
     _HAS_RAPIDFUZZ = False
     import difflib
 
-_TOOLBOX_ROOT = os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-#  voice -> starmap -> Starmap -> skills -> SC_Toolbox_Beta_V1.2
+_TOOLBOX_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+#  destination_engine.py -> voice -> starmap -> Starmap -> skills -> SC_Toolbox_Beta_V1.2
+#  (five dirnames; four stopped at skills/, so the live set_route_ai data was never found)
+
+# Keys shorter than this are never matched: destinations.json carries the
+# alphabet headers of raw_locations.txt ('c', 'k', 'io', ...) as keys, and
+# fuzzy matching offered them ("which one? c, e, h, k, klescher ...").
+# They stay in the file (the WingmanAI skill shares it); they are only
+# left out of lookups.
+_MIN_KEY_LEN = 3
 
 
 def default_data_dir() -> str:
@@ -56,8 +64,14 @@ class DestinationPhoneticEngine:
         self.learning: Dict[str, str] = self._load_json(self.learning_file)
         self.blacklist: Dict[str, bool] = self._load_json(self.blacklist_file)
 
+        # Lookups use only real names; the value dicts are shared with
+        # self.destinations, so alias edits show up in both.
+        self.matchable: Dict[str, Dict] = {
+            k: v for k, v in self.destinations.items()
+            if len(self.normalize(k)) >= _MIN_KEY_LEN}
+
         # Pre-calculate keys for faster lookup during fuzzy matching
-        self.destination_keys = list(self.destinations.keys())
+        self.destination_keys = list(self.matchable.keys())
 
     # ------------------------------------------------------------
     #                        JSON HELPERS
@@ -118,12 +132,12 @@ class DestinationPhoneticEngine:
     # ------------------------------------------------------------
     def find_exact(self, phrase: str) -> Optional[str]:
         key = self.normalize(phrase)
-        if key in self.destinations:
+        if key in self.matchable:
             return key
 
         # Check normalized keys in destinations
         # (Useful if keys in JSON are not perfectly normalized)
-        for d in self.destinations:
+        for d in self.matchable:
             if key == self.normalize(d):
                 return d
         return None
@@ -141,7 +155,7 @@ class DestinationPhoneticEngine:
     def find_alias(self, phrase: str) -> Optional[str]:
         n = self.normalize(phrase)
 
-        for dest, data in self.destinations.items():
+        for dest, data in self.matchable.items():
             aliases = data.get("aliases", [])
             for a in aliases:
                 # Aliases are stored normalized, but we normalize again for safety
@@ -189,10 +203,10 @@ class DestinationPhoneticEngine:
 
         # 1. Build a combined search list and a lookup map:
         #    {alias_name: primary_destination}
-        search_choices = list(self.destinations.keys())
+        search_choices = list(self.matchable.keys())
         alias_to_dest = {}
 
-        for dest, data in self.destinations.items():
+        for dest, data in self.matchable.items():
             aliases = data.get("aliases", [])
             for alias in aliases:
                 norm_alias = self.normalize(alias)

@@ -135,6 +135,10 @@ class PowerAllocatorWidget(QWidget):
     # -- public API (delegate to engine, then sync UI) -------------------------
 
     def load_ship(self, ship_data):
+        # a ship with an installed power component that has no data
+        # (scunpacked provider "power_gaps") gets "—" for EM / IR, not a
+        # signature that silently leaves that component out
+        self._sig_known = not (isinstance(ship_data, dict) and ship_data.get("power_gaps"))
         self._engine.load_ship(ship_data)
         self._rebuild_columns()
         self._sync_ui()
@@ -215,8 +219,9 @@ class PowerAllocatorWidget(QWidget):
     def _sync_ui(self):
         result = self._engine.recalculate()
 
-        self._lbl_em.setText(fmt_sig(result["em_sig"]))
-        self._lbl_ir.setText(fmt_sig(result["ir_sig"]))
+        known = getattr(self, "_sig_known", True)
+        self._lbl_em.setText(fmt_sig(result["em_sig"]) if known else "—")
+        self._lbl_ir.setText(fmt_sig(result["ir_sig"]) if known else "—")
         self._lbl_cs.setText(fmt_sig(result["cs_sig"]))
         self._lbl_output.setText(
             f"{result['pp_online']} / {int(result['total_capacity'])}"

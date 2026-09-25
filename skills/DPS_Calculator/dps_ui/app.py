@@ -775,27 +775,24 @@ class DpsCalcApp(SCWindow):
                 self._power_ratio_mult      = getattr(pa, "power_ratio_mult",      1.0)
             self._update_footer()
 
-        if self._data.source == "scunpacked":
-            # The allocator simulates erkul's resource network (power segments,
-            # per-weapon pools). That model has not been ported to scunpacked, so
-            # it is switched off rather than fed data it cannot read.
-            if hasattr(self, "_power_allocator"):
-                del self._power_allocator
-            note = QLabel(_(
-                "Power allocation is disabled with scunpacked-data: the power/"
-                "signature simulation was built on erkul's resource model and is "
-                "not ported yet. DPS is shown at full weapon power; IR/EM "
-                "signatures and the power budget are not calculated."), container)
-            note.setWordWrap(True)
-            note.setStyleSheet(
-                f"color: {YELLOW}; font-family: Consolas; font-size: 8pt; "
-                f"background-color: {BG2}; padding: 6px 8px;")
-            self._right_layout.insertWidget(self._right_layout.count() - 1, note)
-        else:
-            self._power_allocator = PowerAllocator(
-                container, item_lookup_fn=_item_lookup, raw_lookup_fn=_raw_lookup,
-                on_change=_on_power_change)
-            self._right_layout.insertWidget(self._right_layout.count() - 1, self._power_allocator)
+        # With scunpacked-data the raw lookup resolves to erkul-shaped power
+        # records built from each item's resource network
+        # (data/scunpacked_provider._power_raw), so the same allocator runs.
+        self._power_allocator = PowerAllocator(
+            container, item_lookup_fn=_item_lookup, raw_lookup_fn=_raw_lookup,
+            on_change=_on_power_change)
+        self._right_layout.insertWidget(self._right_layout.count() - 1, self._power_allocator)
+        # Installed power components with no data (scunpacked provider): the
+        # signatures read "—" for this ship, and the reason is shown here
+        self._power_gaps = list(ship.get("power_gaps") or [])
+        if self._power_gaps:
+            gap_lbl = QLabel(_("Signatures not computed — missing power data: ")
+                             + "; ".join(self._power_gaps), container)
+            gap_lbl.setWordWrap(True)
+            gap_lbl.setStyleSheet(
+                f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt; "
+                f"background: transparent; padding: 2px 8px;")
+            self._right_layout.insertWidget(self._right_layout.count() - 1, gap_lbl)
 
         # Sections
         section(_("WEAPON DPS"), GREEN)
@@ -2013,11 +2010,6 @@ class DpsCalcApp(SCWindow):
         _set("pwr_draw", f"{tot_pwr_draw:,.0f}" if tot_pwr_draw else "\u2014")
         margin = tot_pwr_out - tot_pwr_draw
         _set("pwr_margin", f"{margin:+,.0f}" if tot_pwr_out else "\u2014")
-        if self._data.source == "scunpacked":
-            # power is counted in segments now; draw per component is not mapped
-            _set("pwr_output", f"{tot_pwr_out:,.0f} segments" if tot_pwr_out else "\u2014")
-            _set("pwr_draw", _("n/a (not ported)"))
-            _set("pwr_margin", _("n/a (not ported)"))
 
         self._update_signatures()
 
@@ -2067,34 +2059,33 @@ class DpsCalcApp(SCWindow):
         _set("wpn_hp",        f"{int(hp):,}" if hp else "\u2014")
 
     def _update_signatures(self) -> None:
-        if self._data.source == "scunpacked":
-            for key in ("ir", "em"):
-                if key in self._sig_vars:
-                    self._sig_vars[key].setText("n/a")
-            for key in ("sig_em", "sig_ir"):
-                lbl = self._ov_vars.get(key)
-                if lbl:
-                    lbl.setText(_("n/a (power model not ported)"))
-            return
         em_sig = 0.0
         ir_sig = 0.0
+        known = False
         if hasattr(self, "_power_allocator"):
             pa = self._power_allocator
             em_sig = getattr(pa, "em_signature", 0)
             ir_sig = getattr(pa, "ir_signature", 0)
+            # no power plant resolved, or an installed power component with no
+            # data (power_gaps) = the model is incomplete for this ship: say so
+            # ("—") instead of printing a zero or understated signature
+            known = (bool(getattr(pa._engine, "_pp_count", 0))
+                     and not getattr(self, "_power_gaps", None))
 
+        em_txt = fmt_sig(em_sig) if known else "—"
+        ir_txt = fmt_sig(ir_sig) if known else "—"
         if "ir" in self._sig_vars:
-            self._sig_vars["ir"].setText(fmt_sig(ir_sig))
+            self._sig_vars["ir"].setText(ir_txt)
         if "em" in self._sig_vars:
-            self._sig_vars["em"].setText(fmt_sig(em_sig))
+            self._sig_vars["em"].setText(em_txt)
 
         v = self._ov_vars
         lbl = v.get("sig_em")
         if lbl:
-            lbl.setText(fmt_sig(em_sig))
+            lbl.setText(em_txt)
         lbl = v.get("sig_ir")
         if lbl:
-            lbl.setText(fmt_sig(ir_sig))
+            lbl.setText(ir_txt)
 
     # -- Power simulation ------------------------------------------------------
 

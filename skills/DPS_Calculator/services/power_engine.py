@@ -313,7 +313,10 @@ class PowerAllocatorEngine:
         for w in self._components["weapons"]:
             res = w.get("resource", {}).get("online", {})
             wpn_consumption += float(res.get("consumption", {}).get("power", 0) or 0)
-        wpn_consumption = math.ceil(wpn_consumption)
+        # round first: a float sum of per-gun draws depends on the order the
+        # ports are walked (0.45*4 + 0.6*2 is 3.0 one way, 3.0000000000000004
+        # the other), and ceil() turned that into 3 vs 4 enabled weapon pips
+        wpn_consumption = math.ceil(round(wpn_consumption, 6))
 
         self._seg_config["weapon"] = []
         for i in range(wpn_pool_size):

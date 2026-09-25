@@ -46,7 +46,7 @@ from typing import Callable, Optional
 
 _log = logging.getLogger(__name__)
 
-PROVIDER_VERSION = 3
+PROVIDER_VERSION = 6          # 6: resource-network power records (power_raw), power_gaps
 INDEX_FILE = "dpscalc_index.json"
 ACTIVE_FILE = "dpscalc_active.json"
 GITHUB_COMMITS = "https://api.github.com/repos/StarCitizenWiki/scunpacked-data/commits"
@@ -198,6 +198,125 @@ def _num(x):
         return None
 
 
+# ── resource network (power / cooling / signatures) ───────────────────────
+#
+# services/power_engine.py simulates erkul's allocator and reads erkul's item
+# shape, ``resource.online``. scunpacked carries the same game data as
+# ``stdItem.ResourceNetwork.States[Name="Online"]``; this translates one into
+# the other, field for field, and nothing else:
+#
+#   generation.powerSegment          <- Deltas[Type=Generation, Resource=Power].Rate
+#   consumption.powerSegment         <- Deltas[Type=Conversion|Consumption, Resource=Power].Rate
+#   consumption.power  (guns only)   <- same Rate (erkul keeps guns fractional, e.g. 0.1)
+#   conversionMinimumFraction        <- Deltas[Type=Conversion, Resource=Power].MinimumFraction
+#   powerConsumptionMinimumFraction  <- Deltas[Type=Consumption, Resource=Power].MinimumFraction
+#   generation.cooling / shield / lifeSupport
+#                                    <- Deltas[Type=Conversion].GeneratedRate by GeneratedResource
+#   powerRanges.low / medium / high  <- PowerRanges[0] / [1] / [2]  (Start, Modifier, RegisterRange)
+#   signatureParams.em / ir .nominalSignature
+#                                    <- Signature.EM / .IR (absent = 0; stdItem.Emission
+#                                       carries the same numbers for every item in 4.10.1)
+#
+# stdItem.PowerConnection / HeatConnection are the pre-resource-network model
+# (kW draw, PowerToEM, TemperatureToIR). In 4.10.1 they appear on one base-
+# building item and no ship component, so they are not read.
+#
+# An item with no Online state, or whose power delta has no Rate (the
+# "NetworkReflection" radars), has no power record: its draw shows "—" and
+# the engine does not count it, rather than being given a made-up number.
+
+POWER_TYPES = ("WeaponGun", "Shield", "Cooler", "PowerPlant", "Radar", "QuantumDrive",
+               "LifeSupportGenerator", "FlightController")
+_GENERATED = {"Coolant": "cooling", "Shield": "shield", "LifeSupport": "lifeSupport"}
+_BANDS = ("low", "medium", "high")
+
+
+def _online_state(std: dict) -> Optional[dict]:
+    for s in ((std.get("ResourceNetwork") or {}).get("States") or []):
+        if s.get("Name") == "Online":
+            return s
+    return None
+
+
+def _resource_online(std: dict, gun: bool = False) -> Optional[dict]:
+    """erkul ``resource.online`` from a scunpacked item, or None when the item
+    has no Online state or no power rate (then nothing about its power is known)."""
+    st = _online_state(std)
+    if st is None:
+        return None
+    cons, gen, out = {}, {}, {}
+    has_power = False
+    for d in st.get("Deltas") or []:
+        kind, res = d.get("Type"), d.get("Resource")
+        if res == "Power":
+            rate = _num(d.get("Rate"))
+            if kind == "Generation" and rate is not None:
+                gen["powerSegment"] = rate
+                has_power = True
+            elif kind in ("Conversion", "Consumption") and rate is not None:
+                cons["power" if gun else "powerSegment"] = rate
+                frac = _num(d.get("MinimumFraction"))
+                if frac is not None:
+                    key = ("conversionMinimumFraction" if kind == "Conversion"
+                           else "powerConsumptionMinimumFraction")
+                    out[key] = frac
+                if kind == "Conversion" and d.get("GeneratedResource") in _GENERATED:
+                    gen[_GENERATED[d["GeneratedResource"]]] = _num(d.get("GeneratedRate")) or 0.0
+                has_power = True
+        elif res == "Coolant" and kind == "Consumption":
+            cons["cooling"] = _num(d.get("Rate")) or 0.0
+    if not has_power:
+        return None
+    ranges = st.get("PowerRanges") or []
+    sig = st.get("Signature") or {}
+    out.update({
+        "consumption": cons,
+        "generation": gen,
+        "powerRanges": {band: {"start": _num(r.get("Start")) or 0,
+                               "modifier": _num(r.get("Modifier")),
+                               "registerRange": _num(r.get("RegisterRange")) or 0}
+                        for band, r in zip(_BANDS, ranges)},
+        "signatureParams": {"em": {"nominalSignature": _num(sig.get("EM")) or 0.0},
+                            "ir": {"nominalSignature": _num(sig.get("IR")) or 0.0}},
+    })
+    return out
+
+
+def _power_raw(it: dict) -> dict:
+    """The erkul-shaped item record power_engine's raw lookup returns."""
+    std = it.get("stdItem") or {}
+    t = it.get("type") or ""
+    raw = {"type": t, "subType": it.get("subType") or "",
+           "size": int(it.get("size") or std.get("Size") or 0),
+           "name": it.get("name") or std.get("Name") or it.get("className") or "",
+           "ref": it.get("reference") or std.get("UUID") or "",
+           "localName": (it.get("className") or "").lower()}
+    onl = _resource_online(std, gun=(t == "WeaponGun"))
+    if onl is not None:
+        raw["resource"] = {"online": onl}
+    if t == "Shield":
+        sh = std.get("Shield") or {}
+        res = sh.get("Resistance") or {}
+        raw["shield"] = {
+            "maxShieldRegen": _num(sh.get("MaxShieldRegen")) or 0.0,
+            "resistance": {f"{k}{m}": _num((res.get(v) or {}).get(mm)) or 0.0
+                           for k, v in (("physical", "Physical"), ("energy", "Energy"),
+                                        ("distortion", "Distortion"))
+                           for m, mm in (("Min", "Minimum"), ("Max", "Maximum"))},
+        }
+    return raw
+
+
+def _power_draw(it: dict) -> Optional[float]:
+    """Segments the item consumes (erkul's ``consumption.powerSegment``); 0 for a
+    generator; None when the item has no power record."""
+    onl = _resource_online(it.get("stdItem") or {})
+    if onl is None:
+        return None
+    return (onl["consumption"].get("powerSegment") or 0.0) if not onl["generation"].get(
+        "powerSegment") else 0.0
+
+
 def _common(it: dict) -> dict:
     std = it.get("stdItem") or {}
     dd = std.get("DescriptionData") or {}
@@ -205,7 +324,6 @@ def _common(it: dict) -> dict:
     emis = std.get("Emission") or {}
     em = emis.get("Em")
     ir = emis.get("Ir")
-    rn = std.get("ResourceNetwork") or {}
     req = std.get("RequiredTags") or []
     if isinstance(req, str):
         req = req.split()
@@ -226,11 +344,8 @@ def _common(it: dict) -> dict:
         "hp": _num(dur.get("Health")),
         "em_max": _num(em.get("Maximum")) if isinstance(em, dict) else _num(em),
         "ir_max": _num(ir.get("Maximum")) if isinstance(ir, dict) else _num(ir),
-        # power in the new resource-network model is counted in segments; the
-        # window's kW columns cannot show it, so power_draw stays empty and the
-        # segment count is kept for reference
-        "power_draw": None,
-        "power_segments": _num(((rn.get("Usage") or {}).get("Power") or {}).get("Maximum")),
+        # power segments consumed (resource network); None = no power record
+        "power_draw": _power_draw(it),
         "required_tags": " ".join(req),
         "tags": std.get("Tags") or [],
         "listable": not junk and not req,
@@ -577,26 +692,133 @@ def _gun_slots(ship_raw: dict, entry: dict, weapons: dict) -> tuple:
     return rows, not_counted
 
 
-def _ship(raw: dict, entry: dict, weapons: dict, armor_types: dict) -> dict:
+def _untype_not_counted(loadout: list, not_counted: list) -> None:
+    """Point-defence turrets and crew door guns are left out of the window's gun
+    totals (``_EXCLUDED``); leave them out of the power budget the same way.
+    erkul's allocator never counted them either, by accident of its data
+    (checked against the May erkul cache): its PDC ports (Idris, Polaris, 890
+    Jump, Perseus, Phoenix) were untyped, pointed at a turret its catalog did
+    not hold, and had no gun under them; its crew-mount GT-210 (Asgard,
+    Valkyrie, Cutlass Steel, Starlancer TAC) is a class its weapon catalog did
+    not hold, so the lookup failed. Here the gun port under each one gets no
+    item type and its item is kept under ``stockLocalName`` / ``stockReference``
+    instead of the keys the power allocator resolves: the same outcome, stated
+    as a rule instead of inherited from gaps."""
+    for nc in not_counted or []:
+        ports, port = loadout, None
+        for part in nc["id"].split("/"):
+            port = next((p for p in ports if (p.get("itemPortName") or "").lower()
+                         == part.lower()), None)
+            if port is None:
+                break
+            ports = port.get("loadout") or []
+        if port is not None:
+            port["itemTypes"] = []
+            if "localName" in port:
+                port["stockLocalName"] = port.pop("localName")
+            if "localReference" in port:
+                port["stockReference"] = port.pop("localReference")
+            port["not_counted"] = nc["reason"]
+
+
+def _installed(entries, type_prefix: str, out=None) -> list:
+    """Class names (lower) of every item of one type installed anywhere in a
+    scunpacked Loadout tree, in tree order."""
+    out = [] if out is None else out
+    for e in entries or []:
+        if (e.get("Type") or "").split(".", 1)[0] == type_prefix and e.get("ClassName"):
+            out.append(e["ClassName"].lower())
+        _installed(e.get("Loadout"), type_prefix, out)
+    return out
+
+
+def _power_ship_fields(raw: dict, power_raw: dict) -> dict:
+    """Ship-level inputs of services/power_engine.py, in erkul's shape:
+
+      rnPowerPools.weaponGun.poolSize  <- PowerPools.WeaponGun.Size (Size -1 = dynamic
+                                          pool: no fixed weapon pips, as erkul's
+                                          {"type": "dynamic"})
+      ifcs.resource.online             <- the installed FlightController item's Online
+                                          state (engine pips + minimum fraction)
+      items.lifeSupports[].data        <- every installed LifeSupportGenerator
+      armor.data.armor.signal*         <- Armor.SignalMultipliers.{Electromagnetic,
+                                          Infrared, CrossSection}
+    Not carried by scunpacked: erkul's ``buff.regenModifier`` (crew weapon-regen
+    multipliers). It is left out, so the engine uses its neutral 1.0."""
+    pools = {}
+    for key, name in (("weaponGun", "WeaponGun"),):
+        size = ((raw.get("PowerPools") or {}).get(name) or {}).get("Size")
+        if isinstance(size, (int, float)) and size >= 0:
+            pools[key] = {"type": "fixed", "poolSize": int(size)}
+        elif size is not None:
+            pools[key] = {"type": "dynamic"}
+    fc_res = None
+    for cls in _installed(raw.get("Loadout"), "FlightController"):
+        rec = power_raw.get(cls)
+        if rec and rec.get("resource"):
+            fc_res = rec["resource"]
+            break
+    lss = [{"localName": cls, "data": power_raw[cls]}
+           for cls in _installed(raw.get("Loadout"), "LifeSupportGenerator")
+           if cls in power_raw and power_raw[cls].get("resource")]
+    sm = (raw.get("Armor") or {}).get("SignalMultipliers") or {}
+    # Installed power components the engine cannot see, said out loud (the
+    # window shows "—" for the signatures of a ship with any gap)
+    gaps = []
+    if _installed(raw.get("Loadout"), "WheeledController"):
+        gaps.append("ground-vehicle drive controller (WheeledController): no item "
+                    "power record in scunpacked-data (only its segment count, not "
+                    "its minimum fraction)")
+    elif fc_res is None and raw.get("IsSpaceship"):
+        gaps.append("flight controller: no power record")
+    for t in POWER_TYPES:
+        if t in ("WeaponGun", "FlightController"):
+            continue
+        for cls in _installed(raw.get("Loadout"), t):
+            if not (power_raw.get(cls) or {}).get("resource"):
+                gaps.append(f"{t} {cls}: no power record")
+    return {
+        "rnPowerPools": pools,
+        "ifcs_resource": fc_res,
+        "power_gaps": gaps,
+        "items": {"lifeSupports": lss},
+        "armor_signals": {"signalElectromagnetic": sm.get("Electromagnetic", 1),
+                          "signalInfrared": sm.get("Infrared", 1),
+                          "signalCrossSection": sm.get("CrossSection", 1)},
+    }
+
+
+def _ship(raw: dict, entry: dict, weapons: dict, armor_types: dict,
+          power_raw: Optional[dict] = None) -> dict:
     arm = raw.get("Armor") or {}
     rm = arm.get("ResistanceMultipliers") or {}
     ifcs = ((raw.get("FlightCharacteristics") or {}).get("IFCS") or {})
     cs = raw.get("CrossSection") or {}
     rows, not_counted = _gun_slots(raw, entry, weapons)
+    pw = _power_ship_fields(raw, power_raw or {})
+    ifcs_d = {"scmSpeed": ifcs.get("ScmSpeed") or 0,
+              "maxAfterburnSpeed": ifcs.get("BoostSpeedForward") or 0}
+    if pw["ifcs_resource"]:
+        ifcs_d["resource"] = pw["ifcs_resource"]
+    loadout = _translate(raw.get("Loadout"))
+    _untype_not_counted(loadout, not_counted)
     return {
         "name": raw.get("Name"),
         "ref": raw.get("UUID") or "",
         "className": raw.get("ClassName"),
-        "loadout": _translate(raw.get("Loadout")),
+        "loadout": loadout,
+        "power_gaps": pw["power_gaps"],
         "armor": {"data": {
             "subType": armor_types.get(arm.get("UUID"), ""),
             "health": {"hp": arm.get("Health") or 0,
                        "damageResistanceMultiplier": {
                            "physical": rm.get("Physical", 1), "energy": rm.get("Energy", 1),
-                           "distortion": rm.get("Distortion", 1)}}}},
+                           "distortion": rm.get("Distortion", 1)}},
+            "armor": pw["armor_signals"]}},
+        "rnPowerPools": pw["rnPowerPools"],
+        "items": pw["items"],
         "hull": {"totalHp": raw.get("Health") or 0},
-        "ifcs": {"scmSpeed": ifcs.get("ScmSpeed") or 0,
-                 "maxAfterburnSpeed": ifcs.get("BoostSpeedForward") or 0},
+        "ifcs": ifcs_d,
         "qtFuelCapacity": (raw.get("QuantumTravel") or {}).get("FuelCapacity") or 0,
         "fuelCapacity": (raw.get("Propulsion") or {}).get("FuelCapacity") or 0,
         "cargo": raw.get("Cargo") or 0,
@@ -624,8 +846,11 @@ def build_window_index(a: dict) -> dict:
     kinds["weapons"] = []
     kinds["ore_pods"] = []
     armor_types = {}
+    power_raw = {}           # class (lower) -> erkul-shaped record for power_engine
     for it in items:
         t, sub = it.get("type"), it.get("subType")
+        if t in POWER_TYPES and it.get("className"):
+            power_raw[it["className"].lower()] = _power_raw(it)
         if t == "Armor":
             armor_types[it.get("reference")] = sub or ""
             continue
@@ -656,7 +881,7 @@ def build_window_index(a: dict) -> dict:
         entry = gidx["ships"].get(raw["ClassName"])
         if not entry:
             continue
-        sd = _ship(raw, entry, weapons_by_cls, armor_types)
+        sd = _ship(raw, entry, weapons_by_cls, armor_types, power_raw)
         name = sd["name"] or raw["ClassName"]
         if name in seen:                        # duplicate display names: variants
             name = f"{name} ({raw['ClassName']})"
@@ -675,6 +900,7 @@ def build_window_index(a: dict) -> dict:
         "ships": ships,
         "items": kinds,
         "adapter_weapons": gw,
+        "power_raw": power_raw,
     }
 
 

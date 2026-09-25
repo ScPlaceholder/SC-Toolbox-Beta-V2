@@ -782,8 +782,11 @@ class ComponentRepository:
                 for st in items.get(kind) or []:
                     bln.setdefault(st["local_name"], st)
             snap.by_local_name = bln
-            snap.raw_by_local_name = {}
-            snap.raw_by_ref = {}
+            # erkul-shaped power records (data/scunpacked_provider._power_raw):
+            # what the power allocator's raw lookup resolves ports against
+            praw = idx.get("power_raw") or {}
+            snap.raw_by_local_name = dict(praw)
+            snap.raw_by_ref = {r["ref"]: r for r in praw.values() if r.get("ref")}
             if cancelled():
                 return
             emit_stage("Indexing ships", 3, 3)

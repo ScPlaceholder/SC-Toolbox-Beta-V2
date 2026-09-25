@@ -29,8 +29,9 @@ from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
 
 from shared.qt.theme import P
 
-_TOOLBOX_ROOT = os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+_TOOLBOX_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+#  route_setter.py -> voice -> starmap -> Starmap -> skills -> SC_Toolbox_Beta_V1.2
 
 SUPPORTED_CALIBRATION_VERSION = 1
 
