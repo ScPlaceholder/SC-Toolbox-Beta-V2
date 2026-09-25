@@ -1122,24 +1122,58 @@ public partial class MainWindow : Window
     //  Desktop shortcut handling
     // ──────────────────────────────────────────────────────────────────
 
+    // Velopack names its desktop shortcut after the pack TITLE ("SC Toolbox", with a space).
+    // This installer used to look for / create "SC_Toolbox.lnk", so a real install on
+    // 2026-09-25 (laptop test) ended with TWO desktop shortcuts, and unticking the box
+    // could not remove Velopack's. Both names are handled now; the legacy one is only
+    // ever deleted when it points into THIS install, never a user's own shortcut.
+    private const string VELOPACK_LNK = "SC Toolbox.lnk";
+    private const string LEGACY_LNK = "SC_Toolbox.lnk";
+
+    private bool PointsIntoInstall(string lnkPath)
+    {
+        if (!File.Exists(lnkPath)) return false;
+        try
+        {
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null) return false;
+            dynamic? shell = Activator.CreateInstance(shellType);
+            if (shell == null) return false;
+            try
+            {
+                string target = shell.CreateShortcut(lnkPath).TargetPath ?? "";
+                var root = Path.GetFullPath(_installRoot).TrimEnd('\\') + "\\";
+                return target.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+            }
+            finally { System.Runtime.InteropServices.Marshal.ReleaseComObject(shell); }
+        }
+        catch { return false; }
+    }
+
     private void ApplyDesktopShortcutPreference(bool wantShortcut)
     {
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        var shortcutPath = Path.Combine(desktop, "SC_Toolbox.lnk");
+        var velopackPath = Path.Combine(desktop, VELOPACK_LNK);
+        var legacyPath = Path.Combine(desktop, LEGACY_LNK);
+
+        // A leftover "SC_Toolbox.lnk" from older versions of this installer is a duplicate
+        // either way; remove it when it points into this install.
+        if (PointsIntoInstall(legacyPath)) File.Delete(legacyPath);
 
         if (!wantShortcut)
         {
-            // User opted out — remove Velopack's auto-created one if present.
-            if (File.Exists(shortcutPath))
-            {
-                File.Delete(shortcutPath);
-            }
+            // User opted out — remove Velopack's auto-created one (only if it is ours).
+            if (PointsIntoInstall(velopackPath)) File.Delete(velopackPath);
             return;
         }
 
+        // Velopack already made it: keep that one, don't add a second.
+        if (File.Exists(velopackPath)) return;
+        var shortcutPath = velopackPath;
+
         // User wants a shortcut. Find the launcher .exe to point at, then
-        // ensure the .lnk exists. We always re-create (overwrite) so the
-        // target path stays correct even if Velopack's location changed.
+        // create the .lnk under Velopack's own name (only reached when Velopack
+        // did not make one).
         var appDir = _installRoot;
         var primaryTarget = Path.Combine(appDir, "SC_Toolbox.exe");
         var fallbackTarget = Path.Combine(appDir, "current", "SC_Toolbox.exe");
