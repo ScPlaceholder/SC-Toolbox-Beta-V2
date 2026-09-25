@@ -48,6 +48,7 @@ TOOLS = {
     "mining":       (os.path.join("skills", "Mining_Loadout"),      "h_mining.py"),
     "starmap":      (os.path.join("skills", "Starmap"),             "h_starmap.py"),
     "battle_buddy": (os.path.join("tools", "Battle_Buddy"),         "h_battle_buddy.py"),
+    "dps":          (os.path.join("skills", "DPS_Calculator"),      "h_dps.py"),
 }
 
 # seconds a result stays cached, per worker function (default below)

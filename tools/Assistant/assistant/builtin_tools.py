@@ -11,13 +11,15 @@ Two kinds of tools:
 Descriptions are written for a small local model: each says WHEN to use
 the tool in the user's own words, and what comes back.
 
-Not here yet (phase B, waiting on J): DPS / optimal ship build.
+Phase B (guns only): best_ship_weapons picks the best gun per hardpoint
+from scunpacked-data. Full builds (power, shields, coolers) are not here.
 """
 from __future__ import annotations
 
 import logging
 
 from . import headless, ipc_bus
+from .scunpacked import ATTRIBUTION as _SCUNPACKED_ATTRIBUTION
 from .tools import ToolContext, ToolError, ToolRegistry, tool
 
 log = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ def build_default_registry() -> ToolRegistry:
               _missions_for_blueprint, _where_to_mine, _search_missions,
               _blueprint_recipe, _identify_signal, _mining_loadout_stats,
               _cargo_layout, _jump_route, _current_loadout, _playtime_summary,
+              _best_ship_weapons,
               _show_route_popup, _open_trade_hub, _launch_tool):
         reg.register(t)
     return reg
@@ -60,6 +63,27 @@ def _ship_info(ctx: ToolContext, name: str) -> dict:
 )
 def _ship_buy_rent(ctx: ToolContext, ship: str) -> dict:
     return _w(ctx, "market", "ship_buy_rent", ship=ship)
+
+
+@tool(
+    name="best_ship_weapons",
+    description=(
+        "Best gun for every gun hardpoint of a ship, by sustained DPS, burst "
+        "DPS or alpha. Use for 'best loadout for a Gladius', 'what guns should "
+        "I put on my Arrow', 'max burst build for a Hammerhead'. GUNS ONLY "
+        "(no missiles, power, shields or coolers) and an upper bound: the "
+        "ship's weapon power pool is not modelled. Returns each slot with its "
+        "size and the chosen weapon, totals, and the data build. "
+        + _SCUNPACKED_ATTRIBUTION),
+    params={
+        "ship": {"type": "string", "description": "Ship name, e.g. Gladius or Cutlass Black"},
+        "goal": {"type": "string", "enum": ["sustained", "burst", "alpha"],
+                 "description": "What to maximise: sustained (default), burst or alpha"},
+    },
+    required=["ship"],
+)
+def _best_ship_weapons(ctx: ToolContext, ship: str, goal: str = "sustained") -> dict:
+    return _w(ctx, "dps", "best_ship_weapons", ship=ship, goal=goal)
 
 
 # ── trading and prices ────────────────────────────────────────────────────

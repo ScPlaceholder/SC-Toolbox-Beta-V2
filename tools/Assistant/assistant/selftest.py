@@ -43,6 +43,7 @@ except (AttributeError, ValueError):
 
 from assistant import agent as agent_mod                    # noqa: E402
 from assistant import headless, ipc_bus, worker_pool        # noqa: E402
+from assistant import scunpacked                            # noqa: E402
 from assistant.builtin_tools import build_default_registry  # noqa: E402
 from assistant.logic import classify_confirmation           # noqa: E402
 from assistant.providers import _to_anthropic, _to_openai_wire  # noqa: E402
@@ -111,6 +112,13 @@ CASES = [
     ("J: what's in my loadout", "current_loadout", {}, _nonempty("weapons"), "weapons listed"),
     ("how many hours have I played", "playtime_summary", {},
      lambda r: (r.get("total_hours") or 0) > 0, "total_hours > 0"),
+    ("J: best guns for an Asgard", "best_ship_weapons", {"ship": "Asgard"},
+     lambda r: (r.get("ship") == "Anvil Asgard" and r.get("gun_slots") == 8
+                and (r.get("total") or 0) > 0
+                and str(r.get("data_build", "")).startswith("4.10.1")
+                and r.get("attribution") == scunpacked.ATTRIBUTION
+                and not any("Reign" in str(p.get("weapon")) for p in r.get("picks") or [])),
+     "Anvil Asgard, 8 gun slots, no Storm-only Reign-3, build + attribution"),
 ]
 
 
@@ -191,9 +199,66 @@ def run_tools(reg, ctx) -> dict:
         _say("FAIL", f"no-writes guard: {len(changed)} file(s) changed during the tool run",
              "\n".join(changed[:20]) + "\n(another running toolbox process can also cause this)")
     else:
-        _say("PASS", f"no-writes guard: {len(before)} files in the 10 tool folders "
+        _say("PASS", f"no-writes guard: {len(before)} files in the {len(worker_pool.TOOLS)} tool folders "
                      "and ~/.sctoolbox unchanged")
     return results
+
+
+# ── 1c. best_ship_weapons: the size rule and a clean error ───────────────
+
+def run_dps(reg, ctx) -> None:
+    print("\n== 1c. best_ship_weapons: size rule, ship-locked guns, unknown ship")
+    # the fit rule on its own, against real weapons from the cached data
+    try:
+        idx = scunpacked.load_index(allow_fetch=False)
+    except scunpacked.ScunpackedError as exc:
+        _say("FAIL", "scunpacked index", str(exc))
+        return
+    w = idx["weapons"]
+    s4 = {"min_size": 4, "max_size": 4, "editable": True, "stock": None, "tags": []}
+    asg = next(x for x in idx["ships"]["ANVL_Asgard"]["slots"] if x["max_size"] == 3)
+    storm = idx["ships"]["TMBL_Storm"]["slots"][0]
+    got = {
+        "S3 Panther in an S4 slot": scunpacked.fits(s4, w["KLWE_LaserRepeater_S3"]),
+        "S4 Rhino in an S4 slot": scunpacked.fits(s4, w["KLWE_LaserRepeater_S4"]),
+        "S5 Galdereen in an S4 slot": scunpacked.fits(s4, w["KLWE_LaserRepeater_S5"]),
+        "Storm-only Reign-3 on an Asgard S3": scunpacked.fits(asg, w["HRST_Storm_LaserRepeater_S3"]),
+        "Reign-3 on the Storm (its stock)": scunpacked.fits(storm, w["HRST_Storm_LaserRepeater_S3"]),
+    }
+    want = {"S3 Panther in an S4 slot": False, "S4 Rhino in an S4 slot": True,
+            "S5 Galdereen in an S4 slot": False, "Storm-only Reign-3 on an Asgard S3": False,
+            "Reign-3 on the Storm (its stock)": True}
+    _say("PASS" if got == want else "FAIL", "fit rule: size range + required tags",
+         "\n".join(f"{k}: {v}" + ("" if want[k] == v else f"  (want {want[k]})")
+                   for k, v in got.items()))
+
+    # every pick of three real ships, every goal, respects its slot size
+    bad, n = [], 0
+    for ship in ("Asgard", "Hammerhead", "Vanguard Warden"):
+        for goal in ("sustained", "burst", "alpha"):
+            try:
+                r = reg.get("best_ship_weapons").run(ctx, {"ship": ship, "goal": goal})
+            except ToolError as exc:
+                bad.append(f"{ship}/{goal}: {exc}")
+                continue
+            for p in r.get("picks") or []:
+                n += p.get("guns", 1)
+                if p.get("weapon") and p.get("weapon_size") != p.get("size"):
+                    bad.append(f"{ship}/{goal}: {p['weapon']} S{p.get('weapon_size')} "
+                               f"in S{p.get('size')} {p['slot']}")
+    _say("PASS" if not bad and n else "FAIL",
+         f"size rule: {n} picks over 3 ships x 3 goals, each weapon exactly its slot's size",
+         "\n".join(bad[:10]))
+
+    # an unknown ship is a clean, user-presentable error, not a crash
+    try:
+        r = reg.get("best_ship_weapons").run(ctx, {"ship": "Zzyzx Flapdoodle"})
+        _say("FAIL", "unknown ship gives a clean error", f"answered instead: {_short(r, 300)}")
+    except ToolError as exc:
+        msg = str(exc)
+        ok = msg.startswith("no ship matching 'Zzyzx Flapdoodle'") and "crash" not in msg
+        _say("PASS" if ok else "FAIL", "unknown ship gives a clean error", msg)
+    worker_pool.get_pool(ROOT).shutdown()
 
 
 # ── 2. ipc_bus liveness ───────────────────────────────────────────────────
@@ -423,6 +488,7 @@ def main(argv=None) -> int:
     ctx = ToolContext(base_dir=ROOT)
     if "--no-live" not in argv:
         run_tools(reg, ctx)
+        run_dps(reg, ctx)
     run_ipc()
     run_conversations()
     run_yesno()
