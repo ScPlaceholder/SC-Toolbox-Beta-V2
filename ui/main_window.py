@@ -181,7 +181,7 @@ class UpdateBubble(QWidget):
         def _worker():
             tmp_path = None
             try:
-                from shared.auto_updater import download, apply_zip
+                from shared.auto_updater import download, apply_zip, is_installer
 
                 def _on_progress(done, total):
                     if total > 0:
@@ -190,6 +190,14 @@ class UpdateBubble(QWidget):
                     else:
                         label = f"{done / (1024 * 1024):.1f} MB"
                     self._cb_queue.put(lambda t=label: self._status_lbl.setText(t))
+
+                if is_installer(self._download_url):
+                    # The release asset is the setup .exe: run it, then close the
+                    # launcher so the installer can replace the files in use.
+                    path = download(self._download_url, _on_progress, self._cancel,
+                                    suffix=".exe")
+                    self._cb_queue.put(lambda p=path: self._launch_installer(p))
+                    return
 
                 tmp_path = download(self._download_url, _on_progress, self._cancel)
 
@@ -217,6 +225,19 @@ class UpdateBubble(QWidget):
 
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
+
+    def _launch_installer(self, path):
+        from shared.auto_updater import run_installer
+        try:
+            run_installer(path)
+        except Exception as exc:
+            self._on_error(f"Could not start the installer: {exc}")
+            return
+        self._poll_timer.stop()
+        self._update_btn.setText("INSTALLING...")
+        self._status_lbl.setText("Installer opened - closing the toolbox so it can update")
+        from PySide6.QtWidgets import QApplication
+        QTimer.singleShot(1500, lambda: QApplication.instance().quit())
 
     def _on_update_done(self, count):
         self._poll_timer.stop()

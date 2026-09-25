@@ -52,7 +52,28 @@ def _should_skip(rel_path: str) -> bool:
     return False
 
 
-def download(url: str, on_progress, cancel: threading.Event) -> str:
+def is_installer(url: str) -> bool:
+    """True when the release asset is the Windows setup .exe, not a zip.
+
+    Every release since the installer existed ships SC_Toolbox_Setup_<ver>.exe,
+    and update_checker prefers that asset. The UI used to hand it to apply_zip,
+    which cannot open an .exe, so the UPDATE NOW button always failed."""
+    return url.lower().split("?", 1)[0].endswith(".exe")
+
+
+def run_installer(path: str) -> None:
+    """Start the downloaded setup .exe detached, so it outlives the launcher.
+
+    The caller must quit the launcher right after, so the installer can replace
+    its files. The installer's own wizard is shown (no silent flags)."""
+    import subprocess
+    flags = 0
+    if os.name == "nt":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+    subprocess.Popen([path], creationflags=flags, close_fds=True)
+
+
+def download(url: str, on_progress, cancel: threading.Event, suffix: str = ".zip") -> str:
     """Download *url* to a temp file and return its path.
 
     *on_progress(bytes_done, total)* is called periodically; *total* may be 0
@@ -65,7 +86,7 @@ def download(url: str, on_progress, cancel: threading.Event) -> str:
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
         total = int(resp.headers.get("Content-Length", 0) or 0)
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="sc_toolbox_update_")
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="sc_toolbox_update_")
         try:
             done = 0
             chunk = 65536  # 64 KiB
