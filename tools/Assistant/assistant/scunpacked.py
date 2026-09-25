@@ -35,6 +35,8 @@ Walk every port of the ship's Loadout tree:
     neither); both are listed but excluded from the totals.
   * a port holding a ``WeaponGun.Gun`` that has no fire modes (the Taurus
     tractor beam is typed that way) is not a gun slot.
+  * the empty, non-editable gun ports inside a camera turret (Idris P/M
+    "Remote Camera Turret") are not gun slots: nothing can be fitted there.
 
 Which weapon may go in a slot (the fit rule)
 --------------------------------------------
@@ -67,7 +69,7 @@ REPO = "StarCitizenWiki/scunpacked-data"
 RAW_URL = "https://raw.githubusercontent.com/" + REPO + "/{commit}/{file}"
 FILES = ("ships.json", "ship-items.json")
 INDEX_FILE = "guns_index.json"
-ADAPTER_VERSION = 5          # 5: pellets, spread, projectile range per gun
+ADAPTER_VERSION = 6          # 6: camera-turret ports are not gun slots; 5: pellets, spread, range
 
 ATTRIBUTION = ("Ship and weapon data: StarCitizenWiki/scunpacked-data. "
                "Calculator lineage: erkul.games. Star Citizen content (c) "
@@ -325,6 +327,14 @@ def extract_ship(ship: dict) -> dict:
                     add_slot(e, ancestors, p, here_tags, cls, bool(e.get("Editable")))
                 continue
             if not cls:
+                # Camera turrets (Idris P/M "Remote Camera Turret") carry two
+                # non-editable, always-empty gun ports. They are sensors, not
+                # weapon mounts, so they are not gun slots. Scoped to camera
+                # turrets only: other non-editable empty ports (Mustang, C1,
+                # Starlifter) were not verified and are left as they were.
+                if any("camera" in (a.get("ClassName") or "").lower() for a in ancestors) \
+                        and not e.get("Editable"):
+                    continue
                 if _accepts_gun(e):
                     add_slot(e, ancestors, p, here_tags, None, True)
                 elif _accepts_turret(e) and not any(
