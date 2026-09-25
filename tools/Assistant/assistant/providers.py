@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import urllib.error
 import urllib.request
 
@@ -160,6 +161,17 @@ def _to_openai_wire(messages: list) -> list:
         out.append(m)
     return out
 
+def _ipv4_loopback(url: str) -> str:
+    """http://localhost:... -> http://127.0.0.1:...
+
+    On Windows, urllib resolves "localhost" to ::1 first; Ollama and LM
+    Studio listen on IPv4 only, so every request waited ~2 s for the IPv6
+    attempt to fail before falling back (measured on the dev box: 2.06-2.39 s
+    per call via localhost vs 0.02-0.04 s via 127.0.0.1).
+    """
+    return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", url, flags=re.I)
+
+
 class OpenAICompatibleProvider:
     """Any server exposing POST base_url/chat/completions."""
 
@@ -169,7 +181,7 @@ class OpenAICompatibleProvider:
         self.cfg = cfg
 
     def chat(self, messages: list, tools: list) -> tuple:
-        url = self.cfg.base_url.rstrip("/") + "/chat/completions"
+        url = _ipv4_loopback(self.cfg.base_url.rstrip("/")) + "/chat/completions"
         body: dict = {
             "model": self.cfg.model,
             "messages": _to_openai_wire(messages),

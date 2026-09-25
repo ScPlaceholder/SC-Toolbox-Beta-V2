@@ -42,7 +42,7 @@ def _config_path() -> str:
 @dataclass
 class LLMConfig:
     provider: str = "openai"          # "openai" | "anthropic"
-    base_url: str = "http://localhost:11434/v1"
+    base_url: str = "http://127.0.0.1:11434/v1"
     api_key: str = ""
     model: str = "qwen2.5:0.5b"
     # "router" | "router+llm" | "llm" -- see agent.py
