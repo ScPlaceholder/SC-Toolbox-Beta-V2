@@ -45,6 +45,19 @@ class Tool:
     parameters: dict = field(default_factory=dict)   # JSON schema properties
     required: list = field(default_factory=list)
     confirm: bool = False
+    # For confirm tools: what the action does, as a verb phrase with
+    # optional {arg} placeholders, e.g. "open {name}". Used for the yes/no
+    # question and for the reply when the user declines.
+    action: str = ""
+
+    def describe_action(self, arguments: Optional[dict] = None) -> str:
+        """Human phrase for this call, e.g. 'open Trade Hub'."""
+        if not self.action:
+            return "run " + self.name.replace("_", " ")
+        try:
+            return self.action.format_map(_Blank(arguments or {}))
+        except (ValueError, IndexError):
+            return self.action
 
     def spec(self) -> dict:
         """OpenAI/Anthropic tool spec."""
@@ -87,6 +100,11 @@ class Tool:
             elif key in self.required:
                 raise ToolError(f"{self.name}: missing required argument '{key}'")
         return out
+
+
+class _Blank(dict):
+    def __missing__(self, key):
+        return "it"
 
 
 def _coerce_value(value: Any, type_name: Optional[str]) -> Any:
@@ -155,7 +173,8 @@ class ToolRegistry:
 
 
 def tool(name: str, description: str, params: Optional[dict] = None,
-         required: Optional[list] = None, confirm: bool = False) -> Callable:
+         required: Optional[list] = None, confirm: bool = False,
+         action: str = "") -> Callable:
     """Decorator registering ``fn`` as a tool on the decorated registry."""
     def wrap(fn: Callable) -> Tool:
         return Tool(
@@ -165,5 +184,6 @@ def tool(name: str, description: str, params: Optional[dict] = None,
             parameters=params or {},
             required=required or [],
             confirm=confirm,
+            action=action,
         )
     return wrap

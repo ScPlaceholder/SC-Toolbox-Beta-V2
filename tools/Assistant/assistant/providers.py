@@ -98,15 +98,19 @@ def _to_anthropic(messages: list, tools: list) -> dict:
             out.append({"role": "assistant", "content": blocks})
             continue
         if role == "tool":
-            out.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": m.get("tool_call_id", ""),
-                    "content": m.get("content", ""),
-                    "is_error": bool(m.get("is_error")),
-                }],
-            })
+            block = {
+                "type": "tool_result",
+                "tool_use_id": m.get("tool_call_id", ""),
+                "content": m.get("content", ""),
+                "is_error": bool(m.get("is_error")),
+            }
+            prev = out[-1] if out else None
+            # all results for one assistant turn go in ONE user message
+            if (prev and prev["role"] == "user" and isinstance(prev["content"], list)
+                    and all(b.get("type") == "tool_result" for b in prev["content"])):
+                prev["content"].append(block)
+            else:
+                out.append({"role": "user", "content": [block]})
             continue
         out.append({"role": "user", "content": m.get("content", "")})
     body: dict = {
