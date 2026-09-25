@@ -53,6 +53,7 @@ from dps_ui.helpers import _port_label, group_short, pct, _fy_slug, _fy_hp_group
 from dps_ui.widgets import ComponentTable, ComponentPickerPopup, _picker_btn
 from dps_ui.power_widget import PowerAllocatorWidget as PowerAllocator
 from data.repository import ComponentRepository
+from data.source import ATTRIBUTION, erkul_network_allowed
 from services.slot_extractor import (
     extract_slots_by_type, extract_mount_slots, extract_mining_laser_slots,
     extract_utility_slots, extract_salvage_head_slots, extract_fuel_pod_slots,
@@ -310,7 +311,9 @@ class DpsCalcApp(SCWindow):
         hdr_lay.addStretch(1)
 
         # Status
-        self._status_lbl = QLabel(_("Fetching data from erkul.games\u2026"), hdr)
+        self._status_lbl = QLabel(
+            _("Loading scunpacked-data\u2026") if self._data.source == "scunpacked"
+            else _("Fetching data from erkul.games\u2026"), hdr)
         self._status_lbl.setStyleSheet(
             f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt; background: transparent;"
         )
@@ -460,6 +463,16 @@ class DpsCalcApp(SCWindow):
         foot_lay.addStretch(1)
         parent_layout.addWidget(footer)
 
+        # Data attribution (always visible)
+        self._attr_lbl = QLabel(ATTRIBUTION, self)
+        self._attr_lbl.setWordWrap(True)
+        self._attr_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self._attr_lbl.setStyleSheet(
+            f"background-color: {HEADER_BG}; color: {FG_DIM}; font-family: Consolas; "
+            f"font-size: 7pt; padding: 2px 10px 4px 10px;"
+        )
+        parent_layout.addWidget(self._attr_lbl)
+
     def _toggle_crafting(self, on: bool) -> None:
         """Header 'Crafting' toggle: open the panel when checked, close it when not."""
         if on:
@@ -509,6 +522,11 @@ class DpsCalcApp(SCWindow):
         except Exception:
             return
         slots = getattr(self, "_current_weapon_slots", []) or []
+        if any(s.get("sc_slots") for s in slots):
+            # scunpacked: each slot carries its own candidate list (the adapter's
+            # fit rule), so an S3 gun is never offered for an S4-only turret
+            slots = [dict(s, candidates=self._data.weapon_candidates_for_slot(s))
+                     for s in slots]
         current = getattr(self, "_last_dps", {}) or {}
         old = getattr(self, "_opt_dialog", None)
         if old is not None:
@@ -757,10 +775,27 @@ class DpsCalcApp(SCWindow):
                 self._power_ratio_mult      = getattr(pa, "power_ratio_mult",      1.0)
             self._update_footer()
 
-        self._power_allocator = PowerAllocator(
-            container, item_lookup_fn=_item_lookup, raw_lookup_fn=_raw_lookup,
-            on_change=_on_power_change)
-        self._right_layout.insertWidget(self._right_layout.count() - 1, self._power_allocator)
+        if self._data.source == "scunpacked":
+            # The allocator simulates erkul's resource network (power segments,
+            # per-weapon pools). That model has not been ported to scunpacked, so
+            # it is switched off rather than fed data it cannot read.
+            if hasattr(self, "_power_allocator"):
+                del self._power_allocator
+            note = QLabel(_(
+                "Power allocation is disabled with scunpacked-data: the power/"
+                "signature simulation was built on erkul's resource model and is "
+                "not ported yet. DPS is shown at full weapon power; IR/EM "
+                "signatures and the power budget are not calculated."), container)
+            note.setWordWrap(True)
+            note.setStyleSheet(
+                f"color: {YELLOW}; font-family: Consolas; font-size: 8pt; "
+                f"background-color: {BG2}; padding: 6px 8px;")
+            self._right_layout.insertWidget(self._right_layout.count() - 1, note)
+        else:
+            self._power_allocator = PowerAllocator(
+                container, item_lookup_fn=_item_lookup, raw_lookup_fn=_raw_lookup,
+                on_change=_on_power_change)
+            self._right_layout.insertWidget(self._right_layout.count() - 1, self._power_allocator)
 
         # Sections
         section(_("WEAPON DPS"), GREEN)
@@ -958,9 +993,17 @@ class DpsCalcApp(SCWindow):
             nc = len(self._data.coolers_by_name)
             nm = len(self._data.missiles_by_name)
             _log.info("  %d weapons, %d shields, %d coolers, %d missiles", nw, ns, nc, nm)
+            src = "erkul.games"
+            if self._data.source == "scunpacked":
+                info = self._data.source_info or {}
+                src = f"scunpacked {info.get('build', '?')}"
+                self._attr_lbl.setText(
+                    f"{ATTRIBUTION}   Data build: {info.get('build', '?')} "
+                    f"(commit {(info.get('commit') or '?')[:12]})")
+                self._version_lbl.setText(str(info.get("build", "LIVE")).split("-LIVE")[0])
             self._status_lbl.setText(
                 f"Ready \u2014 {len(names)} ships \u00b7 {nw} weapons \u00b7 {ns} shields "
-                f"\u00b7 {nc} coolers \u00b7 {nm} missiles | erkul.games"
+                f"\u00b7 {nc} coolers \u00b7 {nm} missiles | {src}"
             )
 
             if self._pending_ship:
@@ -1074,7 +1117,7 @@ class DpsCalcApp(SCWindow):
             self._apply_ship_loadout(ship, loadout)
         else:
             ref = ship.get("ref", "")
-            if ref:
+            if ref and erkul_network_allowed():
                 self._status_lbl.setText(f"Loading {self._ship_name} loadout\u2026")
                 def _fetch_loadout(s=ship, r=ref):
                     result = []
@@ -1120,9 +1163,23 @@ class DpsCalcApp(SCWindow):
 
         # ── Weapons + Gimbals/Mounts (unified per Erkul style) ─────────────────
         # Each weapon hardpoint shows: [optional gimbal row] + [weapon row]
-        all_weapon_slots = extract_slots_by_type(loadout, {"WeaponGun", "Turret"})
+        sc_rows = ship.get("sc_gun_slots")
+        if sc_rows is not None:
+            # scunpacked: gun slots, sizes, locks and candidates come from the
+            # Assistant's adapter (data/scunpacked_provider.py). No gimbal swap
+            # row: the adapter keeps each slot's own size range (mount shown in
+            # the label).
+            all_weapon_slots = [dict(r) for r in sc_rows]
+            for s in all_weapon_slots:
+                s["mount_ref"] = ""
+                s["mount_required_tags"] = ""
+                s["required_tags"] = ""
+                if s.get("gun_count", 1) <= 1:
+                    s.pop("gun_count", None)
+        else:
+            all_weapon_slots = extract_slots_by_type(loadout, {"WeaponGun", "Turret"})
         self._current_weapon_slots = all_weapon_slots  # for the Optimizer panel
-        for s in all_weapon_slots:
+        for s in ([] if sc_rows is not None else all_weapon_slots):
             lr     = s.get("local_ref", "")    # resolved inner weapon ref
             or_ref = s.get("outer_ref", "")    # what's directly in the port
             s["mount_ref"]           = ""
@@ -1154,11 +1211,17 @@ class DpsCalcApp(SCWindow):
         # Slots that came from housing recursion have "/" in their label.
         # Grouped housing slots (gun_count > 1) have no "/" but still belong
         # in the TURRETS section.
-        gun_slots    = [s for s in all_weapon_slots
-                        if " / " not in s["label"] and "gun_count" not in s]
-        turret_slots = [s for s in all_weapon_slots
-                        if " / "     in s["label"] or  "gun_count" in s]
+        if sc_rows is not None:
+            gun_slots    = [s for s in all_weapon_slots if not s.get("turret")]
+            turret_slots = [s for s in all_weapon_slots if s.get("turret")]
+        else:
+            gun_slots    = [s for s in all_weapon_slots
+                            if " / " not in s["label"] and "gun_count" not in s]
+            turret_slots = [s for s in all_weapon_slots
+                            if " / "     in s["label"] or  "gun_count" in s]
         self._rebuild_weapons_section(self._left_layout, gun_slots, turret_slots)
+        if sc_rows is not None:
+            self._add_sc_weapon_notes(self._left_layout, ship)
 
         # ── Missiles + Missile Racks (unified per Erkul style) ─────────────────
         # Each missile hardpoint shows: [rack hardware row] + [per-missile rows]
@@ -1362,10 +1425,20 @@ class DpsCalcApp(SCWindow):
         def _fy_done(groups: dict):
             self._fy_groups = groups
             self._rebuild_thrusters_section(groups)
-            self._status_lbl.setText(f"Loaded: {ship_name}")
+            if any(groups.get(k) for k in ("main_thrusters", "retro_thrusters",
+                                           "maneuvering_thrusters")):
+                self._status_lbl.setText(f"Loaded: {ship_name}")
+            else:
+                self._status_lbl.setText(
+                    f"Loaded: {ship_name} (thrusters: no FleetYards data for this ship)")
 
+        # FleetYards model slugs are the game class name ("aegs-gladius"); the
+        # scunpacked display name ("Aegis Gladius") does not resolve there
+        fy_name = ship_name
+        if ship.get("className") and ship.get("sc_gun_slots") is not None:
+            fy_name = ship["className"].lower().replace("_", "-")
         self._data.fetch_fy_hardpoints(
-            ship_name,
+            fy_name,
             on_done=lambda g: self._cb.call_on_main(_fy_done, g),
         )
 
@@ -1430,8 +1503,12 @@ class DpsCalcApp(SCWindow):
             # ── Weapon picker (indented when under a gimbal) ──────────────────
             weapon_slot = dict(slot)
             weapon_slot["max_size"] = weapon_max_size
-            list_fn_w = (lambda sz, _rt=rt_w:
-                         self._data.weapons_for_size_filtered(sz, _rt))
+            if slot.get("sc_slots"):
+                list_fn_w = (lambda sz, _s=slot:
+                             self._data.weapon_candidates_for_slot(_s))
+            else:
+                list_fn_w = (lambda sz, _rt=rt_w:
+                             self._data.weapons_for_size_filtered(sz, _rt))
             weapon_tbl = self._build_table_slot(
                 parent_layout, section_key, weapon_slot,
                 list_fn_w, self._data.find_weapon,
@@ -1464,6 +1541,32 @@ class DpsCalcApp(SCWindow):
             for slot in turret_slots:
                 # Turret inner gun positions may have user-swappable gimbals
                 _build_gun_slot(parent_layout, slot)
+
+    def _add_sc_weapon_notes(self, parent_layout, ship: dict) -> None:
+        """Guns the totals leave out, and empty turret ports, said out loud."""
+        lines = []
+        groups: dict = {}
+        for nc in ship.get("sc_not_counted") or []:
+            g = groups.setdefault(nc["reason"], [])
+            g.append(nc)
+        for reason, rows in groups.items():
+            names = sorted({r["weapon"] for r in rows})
+            lines.append(f"{len(rows)} gun(s) not counted \u2014 {reason}: "
+                         + ", ".join(names))
+        n_empty = len(ship.get("sc_empty_turret_ports") or [])
+        if n_empty:
+            lines.append(f"{n_empty} empty turret port(s): a turret must be fitted before "
+                         f"a gun can be chosen; turret swaps are not modelled.")
+        if not lines:
+            return
+        self._section_header(parent_layout, _("NOT IN TOTALS"), FG_DIM)
+        for text in lines:
+            lbl = QLabel("  " + text)
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(
+                f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt; "
+                f"background: transparent; padding: 2px 8px;")
+            parent_layout.insertWidget(parent_layout.count() - 1, lbl)
 
     def _rebuild_mounts_section(self, parent_layout, slots) -> None:
         """Legacy stub — mounts are now embedded in _rebuild_weapons_section."""
@@ -1910,6 +2013,11 @@ class DpsCalcApp(SCWindow):
         _set("pwr_draw", f"{tot_pwr_draw:,.0f}" if tot_pwr_draw else "\u2014")
         margin = tot_pwr_out - tot_pwr_draw
         _set("pwr_margin", f"{margin:+,.0f}" if tot_pwr_out else "\u2014")
+        if self._data.source == "scunpacked":
+            # power is counted in segments now; draw per component is not mapped
+            _set("pwr_output", f"{tot_pwr_out:,.0f} segments" if tot_pwr_out else "\u2014")
+            _set("pwr_draw", _("n/a (not ported)"))
+            _set("pwr_margin", _("n/a (not ported)"))
 
         self._update_signatures()
 
@@ -1959,6 +2067,15 @@ class DpsCalcApp(SCWindow):
         _set("wpn_hp",        f"{int(hp):,}" if hp else "\u2014")
 
     def _update_signatures(self) -> None:
+        if self._data.source == "scunpacked":
+            for key in ("ir", "em"):
+                if key in self._sig_vars:
+                    self._sig_vars[key].setText("n/a")
+            for key in ("sig_em", "sig_ir"):
+                lbl = self._ov_vars.get(key)
+                if lbl:
+                    lbl.setText(_("n/a (power model not ported)"))
+            return
         em_sig = 0.0
         ir_sig = 0.0
         if hasattr(self, "_power_allocator"):
@@ -2005,6 +2122,12 @@ class DpsCalcApp(SCWindow):
     # -- Version check ---------------------------------------------------------
 
     def _start_version_check(self) -> None:
+        if self._data.source == "scunpacked":
+            self._start_sc_update_check()
+            return
+        if not erkul_network_allowed():
+            return
+
         def _check():
             version = ""
             for path in ("/live/gameVersion", "/live/version"):
@@ -2048,6 +2171,35 @@ class DpsCalcApp(SCWindow):
                 self._data.save_cache_with_version(version)
         threading.Thread(target=_check, daemon=True).start()
 
+    def _start_sc_update_check(self) -> None:
+        """Ask GitHub once whether scunpacked-data has a newer build; if so,
+        download it in the background (network + disk only, no parsing) and
+        offer it through Refresh."""
+        if getattr(self, "_sc_update_checked", False):
+            return
+        self._sc_update_checked = True
+
+        def _check():
+            from data import scunpacked_provider as scp
+            try:
+                upd = scp.check_update()
+            except Exception as exc:
+                _log.info("scunpacked update check skipped: %s", exc)
+                return
+            if not upd:
+                return
+            build, commit = upd
+            try:
+                scp.download(build, commit)
+            except Exception as exc:
+                _log.warning("scunpacked %s download failed: %s", build, exc)
+                return
+            self._sc_update = (build, commit)
+            self._cb.call_on_main(
+                self._status_lbl.setText,
+                f"scunpacked-data {build} is available \u2014 press Refresh to load it")
+        threading.Thread(target=_check, daemon=True).start()
+
     def _show_version_badge(self, version: str) -> None:
         self._version_lbl.setText(f"v{version}")
 
@@ -2063,6 +2215,9 @@ class DpsCalcApp(SCWindow):
         popup.show_relative_to(self)
 
     def _do_refresh(self) -> None:
+        if self._data.source == "scunpacked":
+            self._do_sc_refresh()
+            return
         self._status_lbl.setText(_("Refreshing from erkul.games\u2026"))
         try:
             if os.path.isfile(CACHE_FILE):
@@ -2072,6 +2227,31 @@ class DpsCalcApp(SCWindow):
         self._data.invalidate_and_reload(
             on_done=lambda: self._cb.call_on_main(self._on_data_loaded)
         )
+
+    def _do_sc_refresh(self) -> None:
+        """Load the newest scunpacked build (downloaded by the update check, or
+        fetched now). Parsing runs on the main thread on purpose: PySide6 +
+        Python 3.14 crash when a worker thread parses large JSON under Qt."""
+        from data import scunpacked_provider as scp
+        self._status_lbl.setText(_("Refreshing scunpacked-data\u2026"))
+        QApplication.processEvents()
+        try:
+            upd = getattr(self, "_sc_update", None)
+            if upd is None:
+                upd = scp.check_update()
+            if upd:
+                scp.activate(*upd)
+                self._sc_update = None
+            idx = scp.load_window_index(allow_fetch=True)
+        except Exception as exc:
+            self._status_lbl.setText(f"Refresh failed: {exc}")
+            return
+        with self._data._lock:
+            self._data.loaded = False
+            self._data.loading = False
+            self._data.error = None
+        self._data.load(on_done=lambda: self._cb.call_on_main(self._on_data_loaded),
+                        preloaded_cache=idx)
 
     def _reset_all(self) -> None:
         if self._ship_name:

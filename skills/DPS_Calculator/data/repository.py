@@ -15,6 +15,7 @@ import requests
 from data.api_client import ErkulApiClient, FleetyardsApiClient
 from data.cache import DiskCache, FleetyardsCache
 from data.scunpacked_repository import ScunpackedRepository
+from data.source import use_scunpacked, erkul_network_allowed, ErkulNetworkDisabled
 from services.dps_calculator import compute_weapon_stats
 from services.stat_computation import (
     compute_shield_stats,
@@ -72,7 +73,9 @@ def _fy_slug(name: str) -> str:
 def _fy_hp_group(fy_list: list) -> dict:
     groups: dict = {}
     for hp in (fy_list or []):
-        t = hp.get("type", "unknown")
+        # FleetYards' current API names the group "category" (main_thrusters,
+        # retro_thrusters, maneuvering_thrusters); older responses used "type"
+        t = hp.get("type") or hp.get("category") or "unknown"
         groups.setdefault(t, []).append(hp)
     return groups
 
@@ -151,8 +154,14 @@ class ComponentRepository:
         self._cache = DiskCache(CACHE_FILE, CACHE_TTL, CACHE_VERSION)
         self._fy_cache = FleetyardsCache(FY_HP_CACHE_FILE, FY_HP_TTL)
 
-        # scunpacked-data repository (thrusters, CMLs)
+        # scunpacked-data repository (thrusters, CMLs) -- legacy erkul path only
         self._scunpacked = ScunpackedRepository()
+
+        # scunpacked-data window provider (the default source; data/source.py)
+        self.source = "scunpacked" if use_scunpacked() else "erkul"
+        self.source_info: dict = {}          # build, commit, source, fetched_at
+        self._sc_adapter_weapons: dict = {}  # cls -> adapter weapon record
+        self._sc_weapons_by_cls: dict = {}   # cls -> window weapon row
 
     # ── Backward-compatible property accessors into _IndexSnapshot ────────
 
@@ -387,7 +396,13 @@ class ComponentRepository:
             try:
                 data = self._fy_api.fetch_hardpoints(slug)
                 if data:
-                    self._fy_cache.put(slug, data)
+                    try:
+                        self._fy_cache.put(slug, data)
+                    except (TypeError, ValueError, OSError) as e:
+                        # FleetYards now returns ints past 64 bits (e.g. an
+                        # unlimited jump range); the fast JSON writer refuses
+                        # them. Show the data anyway, just do not cache it.
+                        _log.warning("FY cache write skipped for %s: %s", slug, e)
                     if on_done:
                         on_done(_fy_hp_group(data))
                     return
@@ -486,6 +501,8 @@ class ComponentRepository:
                     self.cached_game_version = self._cache.load_game_version()
                     _log.info("  Game version: %s", self.cached_game_version)
                 else:
+                    if not erkul_network_allowed():
+                        raise ErkulNetworkDisabled("DPS Calculator catalogs")
                     _log.info("  No cache, fetching from erkul.games...")
                     raw = {}
                     endpoints = [
@@ -717,7 +734,97 @@ class ComponentRepository:
                     on_done()
                 _log.info("  on_done callback fired")
 
-        threading.Thread(target=_run, daemon=True).start()
+        if self.source == "scunpacked":
+            def target():
+                self._run_scunpacked(on_done, _emit_stage, _cancelled, preloaded_cache)
+        else:
+            target = _run
+        threading.Thread(target=target, daemon=True).start()
+
+    # ── scunpacked-data load ──────────────────────────────────────────────
+
+    _SC_KIND_ATTRS = {
+        "weapons": "weapons", "shields": "shields", "coolers": "coolers",
+        "radars": "radars", "missiles": "missiles", "powerplants": "powerplants",
+        "qdrives": "qdrives", "missile_racks": "missile_racks", "mounts": "mounts",
+        "emps": "emps", "qeds": "qeds", "bombs": "bombs", "turrets": "turrets",
+        "mining_lasers": "mining_lasers", "tool_arms": "tool_arms",
+        "salvage_heads": "salvage_heads", "mining_modifiers": "mining_modifiers",
+        "salvage_modifiers": "salvage_modifiers", "ore_pods": "ore_pods",
+        "fuel_tanks": "fuel_tanks", "modules": "erkul_modules",
+    }
+
+    def _run_scunpacked(self, on_done, emit_stage, cancelled, preloaded) -> None:
+        """Index the scunpacked window index (data/scunpacked_provider.py).
+
+        *preloaded* is the index dict, parsed on the main thread before Qt
+        started. Only dict building happens here."""
+        try:
+            emit_stage("Loading scunpacked-data", 1, 3)
+            idx = preloaded
+            if not idx:
+                from data import scunpacked_provider as scp
+                idx = scp.load_window_index(allow_fetch=True)
+            if cancelled():
+                return
+            emit_stage("Indexing items", 2, 3)
+            snap = _IndexSnapshot()
+            items = idx.get("items") or {}
+            for kind, attr in self._SC_KIND_ATTRS.items():
+                by_ref = getattr(snap, f"{attr}_by_ref")
+                by_name = getattr(snap, f"{attr}_by_name")
+                for st in items.get(kind) or []:
+                    if st.get("ref"):
+                        by_ref[st["ref"]] = st
+                    by_name[f"{st['local_name']}_{st['size']}"] = st
+            bln = {}
+            for kind in self._SC_KIND_ATTRS:
+                for st in items.get(kind) or []:
+                    bln.setdefault(st["local_name"], st)
+            snap.by_local_name = bln
+            snap.raw_by_local_name = {}
+            snap.raw_by_ref = {}
+            if cancelled():
+                return
+            emit_stage("Indexing ships", 3, 3)
+            sbn = {}
+            for name, sd in (idx.get("ships") or {}).items():
+                sbn[name] = sd
+                sbn.setdefault(name.lower(), sd)
+            snap.ships_by_name = sbn
+            info = {k: idx.get(k) for k in ("build", "commit", "source", "fetched_at", "dir")}
+            with self._lock:
+                self.raw = {"/live/ships": [{"data": sd} for sd in (idx.get("ships") or {}).values()]}
+                self._idx = snap
+                self._sc_adapter_weapons = idx.get("adapter_weapons") or {}
+                self._sc_weapons_by_cls = {w["cls"]: w for w in items.get("weapons") or []}
+                self.source_info = info
+                self.cached_game_version = info.get("build") or ""
+                self.loaded = True
+                self.loading = False
+            _log.info("scunpacked %s (%s): %d ships, %d weapons, %d shields",
+                      info.get("build"), (info.get("commit") or "")[:12],
+                      len(idx.get("ships") or {}), len(items.get("weapons") or []),
+                      len(items.get("shields") or []))
+        except Exception as exc:
+            _log.error("scunpacked load FAILED: %s", exc, exc_info=True)
+            with self._lock:
+                self.error = str(exc)
+        finally:
+            with self._lock:
+                self.loading = False
+            if on_done:
+                on_done()
+
+    def weapon_candidates_for_slot(self, slot: dict) -> list:
+        """Weapons that may go in one window gun slot. For scunpacked slots the
+        size / player-gun / ship-lock / locked-port rule is the Assistant
+        adapter's ``fits`` (data/scunpacked_provider.candidates)."""
+        if not slot.get("sc_slots"):
+            return self.weapons_for_size_filtered(slot.get("max_size") or 1,
+                                                  slot.get("required_tags", ""))
+        from data import scunpacked_provider as scp
+        return scp.candidates(slot, self._sc_adapter_weapons, self._sc_weapons_by_cls)
 
     # ── Ship accessors ────────────────────────────────────────────────────
 
@@ -732,7 +839,26 @@ class ComponentRepository:
 
     def get_ship_data(self, name: str) -> Optional[dict]:
         idx = self._idx  # snapshot read
-        return idx.ships_by_name.get(name) or idx.ships_by_name.get(name.lower())
+        hit = idx.ships_by_name.get(name) or idx.ships_by_name.get(name.lower())
+        if hit or self.source != "scunpacked" or not name:
+            return hit
+        # scunpacked names carry the manufacturer ("Aegis Gladius"); voice/IPC
+        # commands often do not ("Gladius"). Match without it, then by
+        # substring, shortest name first.
+        q = name.strip().lower()
+        qt = q.split()
+        best = None
+        for n, sd in idx.ships_by_name.items():
+            if n != sd.get("name"):
+                continue
+            nl = n.lower()
+            bare = nl.split(" ", 1)[1] if " " in nl else nl
+            if q == bare:
+                return sd
+            if (q in nl or all(t in nl.split() for t in qt)) and \
+                    (best is None or len(n) < len(best.get("name", ""))):
+                best = sd
+        return best
 
     # ── Fast cross-category lookups (O(1)) ──────────────────────────────
 
@@ -874,8 +1000,11 @@ class ComponentRepository:
         return self._find(idx.mining_lasers_by_ref, idx.mining_lasers_by_name, q, max_size)
 
     def _list_for_size(self, by_name: dict, max_size: int) -> list:
+        # scunpacked rows carry "listable" (False for NPC / placeholder / ship-
+        # locked items); erkul rows have no such key and are unaffected.
         return sorted(
-            [v for v in by_name.values() if v["size"] <= max_size],
+            [v for v in by_name.values()
+             if v["size"] <= max_size and v.get("listable") is not False],
             key=lambda x: (-x["size"], x["name"]),
         )
 
@@ -891,7 +1020,8 @@ class ComponentRepository:
         """Return only items with no required_tags (generic, fits any slot)."""
         return sorted(
             [v for v in by_name.values()
-             if v["size"] <= max_size and not v.get("required_tags", "")],
+             if v["size"] <= max_size and not v.get("required_tags", "")
+             and v.get("listable") is not False],
             key=lambda x: (-x["size"], x["name"]),
         )
 
@@ -912,7 +1042,7 @@ class ComponentRepository:
         exact-size matches, and undersized racks waste hardpoint space.
         """
         all_racks = [v for v in self._idx.missile_racks_by_name.values()
-                     if v["size"] == sz]
+                     if v["size"] == sz and v.get("listable") is not False]
         seen: dict = {}
         for r in sorted(all_racks, key=lambda x: len(x.get("local_name", ""))):
             key = (r["name"].strip(), r["size"])

@@ -57,13 +57,29 @@ def main():
         # eliminates the race.
         # Use stale_ok=True so expired cache is still returned — the UI
         # can display instantly while a background refresh runs.
-        from data.repository import CACHE_FILE, CACHE_TTL, CACHE_VERSION
-        from data.cache import DiskCache
-        _pre_cache = DiskCache(CACHE_FILE, CACHE_TTL, CACHE_VERSION)
-        _preloaded = _pre_cache.load(stale_ok=True)
-        _needs_refresh = not _pre_cache.is_fresh() if _preloaded else True
-        log.info("Pre-loaded cache: %s (needs_refresh=%s)",
-                 "OK" if _preloaded else "miss", _needs_refresh)
+        from data.source import use_scunpacked
+        if use_scunpacked():
+            # scunpacked-data (default). First run downloads ~55 MB from GitHub
+            # and derives a small index; later runs read the index only.
+            from data import scunpacked_provider as _scp
+            try:
+                _preloaded = _scp.load_window_index(
+                    allow_fetch=True, on_status=lambda m: log.info(m))
+                log.info("scunpacked index: %s @ %s, %d ships",
+                         _preloaded.get("build"), (_preloaded.get("commit") or "")[:12],
+                         len(_preloaded.get("ships") or {}))
+            except Exception:
+                log.error("scunpacked preload failed; the window will retry", exc_info=True)
+                _preloaded = None
+            _needs_refresh = False
+        else:
+            from data.repository import CACHE_FILE, CACHE_TTL, CACHE_VERSION
+            from data.cache import DiskCache
+            _pre_cache = DiskCache(CACHE_FILE, CACHE_TTL, CACHE_VERSION)
+            _preloaded = _pre_cache.load(stale_ok=True)
+            _needs_refresh = not _pre_cache.is_fresh() if _preloaded else True
+            log.info("Pre-loaded cache: %s (needs_refresh=%s)",
+                     "OK" if _preloaded else "miss", _needs_refresh)
 
         from PySide6.QtWidgets import QApplication
         from shared.qt.theme import apply_theme

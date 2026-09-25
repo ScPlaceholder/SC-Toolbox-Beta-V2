@@ -32,13 +32,23 @@ class ErkulApiClient:
         self.headers = headers
         self._client = HttpClient(base_url, headers=headers, timeout=timeout, max_retries=retries)
 
+    @staticmethod
+    def _gate(path: str) -> None:
+        # erkul.games: third-party automated access is not authorized. The
+        # client is kept for the legacy path but refuses to send (data/source.py).
+        from data.source import erkul_network_allowed, ErkulNetworkDisabled
+        if not erkul_network_allowed():
+            raise ErkulNetworkDisabled(path)
+
     def fetch(self, path: str) -> list:
+        self._gate(path)
         result = self._client.get_json(path)
         if result.ok:
             return result.data if isinstance(result.data, list) else [result.data] if result.data else []
         raise ApiError(f"{self.base_url}{path}", message=result.error)
 
     def fetch_safe(self, path: str, warn_cb: Callable[[str], None] | None = None) -> list:
+        self._gate(path)
         result = self._client.get_json(path)
         if result.ok:
             return result.data if isinstance(result.data, list) else [result.data] if result.data else []

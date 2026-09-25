@@ -128,9 +128,15 @@ class FleetyardsCache:
         return {}
 
     def _save_disk(self):
+        # Serialize BEFORE opening the file, then swap it in: a payload the
+        # writer refuses (FleetYards sends ints past 64 bits) must not leave a
+        # truncated, zero-byte cache behind.
+        blob = _dumps(self._mem)
+        tmp = self.path + ".tmp"
         try:
-            with open(self.path, "wb") as f:
-                f.write(_dumps(self._mem))
+            with open(tmp, "wb") as f:
+                f.write(blob)
+            os.replace(tmp, self.path)
         except OSError as e:
             _log.warning("FY disk cache save failed: %s", e)
 
@@ -148,7 +154,13 @@ class FleetyardsCache:
 
     def put(self, slug: str, hardpoints: list):
         self._mem[slug] = {"ts": time.time(), "hardpoints": hardpoints}
-        self._save_disk()
+        try:
+            self._save_disk()
+        except (TypeError, ValueError):
+            # keep it in memory for this session only, so it cannot poison
+            # every later save
+            self._mem.pop(slug, None)
+            raise
 
     @property
     def mem(self) -> dict:

@@ -95,7 +95,16 @@ class OptimizerDialog(QDialog):
 
     def _recompute(self, *_a):
         key = _GOALS[self._goal.currentIndex()][1]
-        result = optimize_weapons(self._slots, self._cands, key)
+        if any("candidates" in s for s in self._slots):
+            # slot-aware (scunpacked): ask the optimizer about one slot at a time
+            # with exactly that slot's candidates, as the Assistant's DPS worker does
+            result = {"picks": [], "total": 0.0}
+            for s in self._slots:
+                r = optimize_weapons([s], lambda _msz, _c=s["candidates"]: _c, key)
+                result["picks"].extend(r["picks"])
+                result["total"] += r["total"]
+        else:
+            result = optimize_weapons(self._slots, self._cands, key)
         cmp = compare_to_current(result["total"], self._current.get(key, 0))
 
         opt = cmp["optimized"]; cur = cmp["current"]; pct = cmp["pct_below"]

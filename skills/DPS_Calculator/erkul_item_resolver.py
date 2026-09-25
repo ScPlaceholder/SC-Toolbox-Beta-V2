@@ -46,7 +46,18 @@ _NONWEAPON_HINTS = ("tractor", "mining", "salvage", "tractorbeam", "towing",
                     "quantumenforcement", "scanner", "ping", "cargo", "tool")
 
 
+def _network_allowed():
+    """erkul.games requests are off (data/source.py); fail closed."""
+    try:
+        from data.source import erkul_network_allowed
+        return erkul_network_allowed()
+    except Exception:
+        return False
+
+
 def _fetch(path):
+    if not _network_allowed():
+        raise RuntimeError("erkul.games requests are disabled (data/source.py)")
     req = urllib.request.Request(BASE + path, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
