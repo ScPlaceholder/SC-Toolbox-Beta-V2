@@ -1,0 +1,18 @@
+{ "ts": 1, "ships": [
+  { "manufacturer": "Drake", "name": "Caterpillar", "capacity": 576,
+    "groups": [ { "x": 0, "z": 0, "grids": [
+      { "x": 0, "y": 0, "z": 0, "width": 6, "height": 4, "length": 4 },
+      { "x": 0, "y": 0, "z": 5, "width": 5, "height": 4, "length": 1 },
+      { "x": 0, "y": 0, "z": 11, "width": 1, "height": 2, "length": 4 },
+      { "x": 0, "y": 0, "z": 15, "width": 5, "height": 2, "length": 6 },
+      { "x": 0, "y": 0, "z": 21, "width": 5, "height": 1, "length": 4 }
+    ] } ], "labels": [] },
+  { "manufacturer": "Aegis", "name": "Avenger Titan", "capacity": 12,
+    "groups": [ { "x": 0, "z": 0, "grids": [
+      { "x": 0, "y": 0, "z": 0, "width": 2, "height": 3, "length": 2 }
+    ] } ], "labels": [] },
+  { "manufacturer": "ARGO", "name": "MOLE", "capacity": 96,
+    "groups": [ { "x": 0, "z": 0, "grids": [
+      { "x": 0, "y": 0, "z": 0, "width": 6, "height": 4, "length": 4 }
+    ] } ], "labels": [] }
+] }

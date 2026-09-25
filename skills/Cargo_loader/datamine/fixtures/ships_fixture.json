@@ -1,0 +1,27 @@
+{
+  "Caterpillar": {
+    "Name": "Caterpillar",
+    "Manufacturer": "Drake",
+    "CargoGrids": [
+      { "X": 5.0, "Y": 7.5, "Z": 5.0, "SCU": 96, "MinSize": 1, "MaxSize": 2, "Position": { "X": 0, "Y": 0, "Z": 0 } },
+      { "X": 1.25, "Y": 6.25, "Z": 5.0, "SCU": 20, "MinSize": 1, "MaxSize": 2 },
+      { "X": 5.0, "Y": 1.25, "Z": 2.5, "SCU": 8, "MinSize": 1, "MaxSize": 1 },
+      { "X": 3.75, "Y": 6.25, "Z": 5.0, "SCU": 60, "MinSize": 1, "MaxSize": 2 },
+      { "X": 2.5, "Y": 6.25, "Z": 2.5, "SCU": 20, "MinSize": 1, "MaxSize": 1 }
+    ]
+  },
+  "Avenger_Titan": {
+    "Name": "Avenger Titan",
+    "Manufacturer": "Aegis",
+    "CargoGrids": [
+      { "X": 2.5, "Y": 2.5, "Z": 3.75, "SCU": 12, "MinSize": 1, "MaxSize": 1 }
+    ]
+  },
+  "Hull-C": {
+    "Name": "Hull C",
+    "Manufacturer": "MISC",
+    "CargoGrids": [
+      { "X": 5.0, "Y": 3.75, "Z": 3.75, "SCU": 48, "MinSize": 1, "MaxSize": 2 }
+    ]
+  }
+}
