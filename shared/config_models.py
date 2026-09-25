@@ -127,7 +127,7 @@ class SkillConfig:
 
 @dataclass
 class LauncherSettings:
-    hotkey_launcher: str = "<shift>+`"
+    hotkey_launcher: str = "<ctrl>+0"
     language: str = "en"
     scroll_on_hover: bool = False  # scroll wheel adjusts spinboxes/sliders on hover
     grid_rows: int = 3
@@ -144,7 +144,7 @@ class LauncherSettings:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], skills: list[SkillConfig]) -> LauncherSettings:
-        hotkey_launcher = str(data.get("hotkey_launcher", "<shift>+`"))
+        hotkey_launcher = str(data.get("hotkey_launcher", "<ctrl>+0"))
         language = str(data.get("language", "en"))
         scroll_on_hover = bool(data.get("scroll_on_hover", False))
         grid_rows = _clamp(_safe_int(data.get("grid_rows", 3), 3), 1, 10)

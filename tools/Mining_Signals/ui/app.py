@@ -594,7 +594,7 @@ class MiningSignalsApp(SCWindow):
             title="Mining Signals",
             icon_text="",
             accent_color=ACCENT,
-            hotkey_text="Shift+9",
+            hotkey_text="Ctrl+1",
             extra_buttons=[("Tutorial", self._show_tutorial)],
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
@@ -796,7 +796,7 @@ class MiningSignalsApp(SCWindow):
         """)
         ocr_layout.addWidget(self._inline_result)
 
-        self._hotkey_hint = QLabel("Shift+9 to hide", self._ocr_row)
+        self._hotkey_hint = QLabel("Ctrl+1 to hide", self._ocr_row)
         self._hotkey_hint.setStyleSheet(f"""
             font-family: Consolas, monospace;
             font-size: 7pt; color: {P.fg_dim};

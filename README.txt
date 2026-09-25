@@ -42,7 +42,7 @@ QUICK START
 4. Press the launcher hotkey to hide/show the launcher
 
 Default Hotkeys:
-  Shift + `    Toggle SC Toolbox launcher window
+  Ctrl + 0     Toggle SC Toolbox launcher window
   Shift + 1    DPS Calculator
   Shift + 2    Cargo Loader
   Shift + 3    Mission Database
@@ -50,6 +50,17 @@ Default Hotkeys:
   Shift + 5    Market Finder
   Shift + 6    Trade Hub
   Shift + 7    Craft Database
+  Shift + 8    Battle Buddy
+  Shift + 9    Starmap
+  Shift + 0    Mouse Blocker
+  Ctrl + 1     Mining Signals
+  Ctrl + 2     SuitMk2
+  Ctrl + 3     AI Assistant
+  Ctrl + 4     PlayTime Calculator
+
+Every default is a modifier plus a number (no letter or symbol keys), and
+none is bound in Star Citizen's default keyboard profile. If two tools share
+a combo the launcher keeps the first and warns in its status line.
 
 All hotkeys can be customized in Settings.
 

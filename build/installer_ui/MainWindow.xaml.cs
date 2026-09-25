@@ -50,7 +50,7 @@ public partial class MainWindow : Window
     // Tips shown above the status panel during install.
     private static readonly string[] _tips = new[]
     {
-        "Tip · Press Shift+9 to toggle the Mining Signals overlay while in-game.",
+        "Tip · Press Ctrl+1 to toggle the Mining Signals overlay while in-game.",
         "Tip · The first scan is slow (cold-start ML models) — subsequent scans take ~1 second.",
         "Tip · Click 'Calibrate Mining Crops' if values look off — re-locks the OCR rows.",
         "Tip · The signature/instability scanner requires the SCAN RESULTS panel visible.",

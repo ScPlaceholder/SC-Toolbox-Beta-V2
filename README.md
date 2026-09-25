@@ -37,7 +37,7 @@
 1. Download `SC_Toolbox_Setup_X.Y.Z.exe`
 2. Run the installer (no admin rights needed — installs per-user)
 3. Launch from the desktop shortcut or Start Menu
-4. First launch: press **Shift + `** to open the launcher, then click any tile or use its hotkey
+4. First launch: press **Ctrl + 0** to open the launcher, then click any tile or use its hotkey
 
 ---
 
@@ -75,11 +75,20 @@
 | Shift+6 | **Trade Hub** | Trade route calculator for single-hop & multi-leg routes | uexcorp.space |
 | Shift+7 | **Craft Database** | Crafting recipe browser with material requirements | scmdb.net |
 | Shift+8 | **Battle Buddy** | Real-time HUD overlay — tracks kills, deaths, and inventory from game logs | Star Citizen game log |
+| Shift+9 | **Starmap** | Galaxy, system and planet map with commodity prices, a grocery list and voice navigation | bundled systems data, uexcorp.space |
 | Shift+0 | **Mouse Blocker** | Blocks mouse input to the game window so you can use overlays without clicking through | — |
-| Shift+T | **PlayTime Calculator** | Tracks time played per session and in total, read from the game logs | Star Citizen game log |
-| — | **Mining Signals** | Live screen overlay reading signal scan %, mass, resistance, and instability from the SCAN RESULTS panel — powered by the new **SC_OCR** engine | Screen capture (SC_OCR + Tesseract) |
+| Ctrl+1 | **Mining Signals** | Live screen overlay reading signal scan %, mass, resistance, and instability from the SCAN RESULTS panel — powered by the new **SC_OCR** engine | Screen capture (SC_OCR + Tesseract) |
+| Ctrl+2 | **SuitMk2** | Suit companion: Elah and Montaigne talk about what happens in your game, push-to-talk questions | Star Citizen game log |
+| Ctrl+3 | **AI Assistant** | Ask about trade routes, cargo, prices, missions and loadouts by voice or text | the other tools' data |
+| Ctrl+4 | **PlayTime Calculator** | Tracks time played per session and in total, read from the game logs | Star Citizen game log |
 
-Press **Shift + `** to toggle the launcher window.
+Press **Ctrl + 0** to toggle the launcher window.
+
+Every default hotkey is a modifier plus a number, never a letter or symbol key, so a hotkey cannot
+fire while you type. Shift+number and Ctrl+number are unbound in Star Citizen's default keyboard
+profile (4.x, checked against defaultProfile.xml); Alt+1 to Alt+4 are taken (target pins, mining
+consumables). If two tools end up on the same combo, the launcher keeps the first, leaves the
+other unbound and says so in its status line. Rebind any of them in Settings.
 
 ### SC_OCR — purpose-built for Star Citizen
 

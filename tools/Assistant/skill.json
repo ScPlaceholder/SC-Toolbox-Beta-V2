@@ -5,6 +5,6 @@
   "color": "#66ddff",
   "folder": "Assistant",
   "script": "assistant_app.py",
-  "hotkey": "",
+  "hotkey": "<ctrl>+3",
   "settings_key": "hotkey_assistant"
 }

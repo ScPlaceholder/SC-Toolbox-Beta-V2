@@ -75,7 +75,7 @@ def main() -> None:
         x=args["x"], y=args["y"], w=args["w"], h=args["h"], opacity=args["opacity"])
 
     window = PlayTimeWindow(
-        geometry=geometry, hotkey_text="Shift+T", cmd_file=args.get("cmd_file"))
+        geometry=geometry, hotkey_text="Ctrl+4", cmd_file=args.get("cmd_file"))
     window.show()
 
     if args.get("cmd_file"):
