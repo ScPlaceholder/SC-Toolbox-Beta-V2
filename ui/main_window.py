@@ -436,7 +436,7 @@ class LauncherWindow(SCWindow):
         btn_bar_layout.addWidget(self._update_notice)
 
         for label, cb in [
-            (_t("GITHUB"), lambda: webbrowser.open("https://github.com/ScPlaceholder/SC-Toolbox")),
+            (_t("GITHUB"), lambda: webbrowser.open("https://github.com/ScPlaceholder/SC-Toolbox-Beta-V2")),
             (_t("UPDATE"), self._check_for_updates),
         ]:
             b = QPushButton(label, btn_bar)
