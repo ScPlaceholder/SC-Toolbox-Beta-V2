@@ -66,6 +66,15 @@ public partial class MainWindow : Window
     // collides with it.
     private Process? _setupProcess;
 
+    // ONE resolved install root used everywhere below (2026-09-25).
+    // Before this, %LOCALAPPDATA%\SC_Toolbox was rebuilt in six places.
+    // Resolution lives in InstallPaths: an existing install's registered
+    // InstallLocation wins (it is never moved), else the user's choice,
+    // else the default.
+    private readonly string _defaultRoot = InstallPaths.DefaultRoot();
+    private string _installRoot = InstallPaths.DefaultRoot();
+    private bool _hasExistingInstall;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -82,6 +91,7 @@ public partial class MainWindow : Window
         VersionText.Text = "v" + INSTALLER_VERSION;
         WelcomeTitle.Text = $"Welcome to SC Toolbox v{INSTALLER_VERSION} setup";
         StatusTitle.Text = $"Installing SC Toolbox {INSTALLER_VERSION}";
+        ResolveInstallRoot();
         Loaded += OnLoaded;
         Closing += OnClosing;
     }
@@ -115,7 +125,7 @@ public partial class MainWindow : Window
         // the "ALREADY INSTALLED → Launch" celebration so the user can
         // just click Launch. This preserves the previous already-installed
         // shortcut path. StartInstallAsync handles all of that already.
-        if (DetectExistingInstallVersion() == INSTALLER_VERSION)
+        if (DetectExistingInstallVersion(_installRoot) == INSTALLER_VERSION)
         {
             // Hide the welcome panel + show the status panel directly so
             // EnterCompletionState (called inside StartInstallAsync) has
@@ -132,6 +142,24 @@ public partial class MainWindow : Window
 
     private void InstallButton_Click(object sender, RoutedEventArgs e)
     {
+        // A fresh install goes wherever the user chose, so check that
+        // folder first and refuse with a clear message rather than handing
+        // Setup.exe a path it will fail on (or, worse, clean out). An
+        // existing install is updated in place and needs no check here.
+        if (!_hasExistingInstall)
+        {
+            var problem = InstallPaths.Validate(_installRoot, InstallPaths.SystemContext());
+            if (problem != null)
+            {
+                MessageBox.Show(this, problem, "Choose a different install folder",
+                                MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
+        // Lock the location for the rest of the run.
+        BrowseButton.IsEnabled = false;
+
         // User has consented — swap Welcome → Status panel, then kick off
         // the install. The desktop-shortcut checkbox on the Welcome panel
         // remains in the visual tree (we just hide its parent), so its
@@ -139,6 +167,81 @@ public partial class MainWindow : Window
         WelcomePanel.Visibility = Visibility.Collapsed;
         StatusPanel.Visibility = Visibility.Visible;
         _ = StartInstallAsync();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Install location
+    // ──────────────────────────────────────────────────────────────────
+
+    private void ResolveInstallRoot()
+    {
+        var existing = InstallPaths.FindExistingRoot();
+        _hasExistingInstall = existing != null;
+        _installRoot = existing ?? _defaultRoot;
+        InstallPathBox.Text = _installRoot;
+        InstallPathBox.ToolTip = _installRoot;
+
+        if (_hasExistingInstall)
+        {
+            // Moving an existing install is out of scope: Velopack's
+            // registry entry, Update.exe and shortcuts all point here.
+            BrowseButton.IsEnabled = false;
+            InstallToNote.Text =
+                "SC Toolbox is already installed here, so this update goes to the same folder. "
+              + "Moving an existing install is not supported: to use a different folder, "
+              + "uninstall SC Toolbox first, then run this installer again.";
+            InstallToNote.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void BrowseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_hasExistingInstall) return;
+
+        // Start the picker at the parent of the current target so the
+        // user sees where SC_Toolbox would be created.
+        string? initial = null;
+        try
+        {
+            initial = InstallPaths.NearestExisting(
+                Path.GetDirectoryName(_installRoot) ?? _installRoot, Directory.Exists);
+        }
+        catch { }
+
+        var dlg = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Choose where to install SC Toolbox (an SC_Toolbox folder is created inside it)",
+            Multiselect = false,
+        };
+        if (!string.IsNullOrEmpty(initial)) dlg.InitialDirectory = initial;
+        if (dlg.ShowDialog(this) != true) return;
+
+        string target;
+        try
+        {
+            target = InstallPaths.TargetFromPicked(dlg.FolderName);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"That folder path is not valid: {ex.Message}",
+                            "Choose a different install folder",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Tell the user now rather than at Install time, but still accept
+        // the choice into the box only when it passes.
+        var problem = InstallPaths.Validate(target, InstallPaths.SystemContext());
+        if (problem != null)
+        {
+            MessageBox.Show(this, problem, "Choose a different install folder",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _installRoot = target;
+        InstallPathBox.Text = target;
+        InstallPathBox.ToolTip = target;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -317,7 +420,8 @@ public partial class MainWindow : Window
     // until the subprocess actually exits, then snaps to 100. This is the
     // same pattern Velopack's own splash uses internally.
 
-    private const string APP_INSTALL_DIR_NAME = "SC_Toolbox";
+    // The install folder name now lives in InstallPaths.APP_DIR_NAME, and
+    // the resolved root in _installRoot.
     private const string SETUP_EXE_NAME = "SC_Toolbox-win-Setup.exe";
     private const int FAKE_PROGRESS_CEILING = 95;
     private const int EXPECTED_INSTALL_SECONDS = 25;
@@ -392,12 +496,11 @@ public partial class MainWindow : Window
     /// &lt;version&gt; element with a regex — quicker than pulling in an
     /// XML parser, and the format is stable across Velopack releases.
     /// </summary>
-    private static string? DetectExistingInstallVersion()
+    private static string? DetectExistingInstallVersion(string installRoot)
     {
         try
         {
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var manifest = Path.Combine(localAppData, APP_INSTALL_DIR_NAME, "current", "sq.version");
+            var manifest = Path.Combine(installRoot, "current", "sq.version");
             if (!File.Exists(manifest)) return null;
             var content = File.ReadAllText(manifest);
             var m = System.Text.RegularExpressions.Regex.Match(
@@ -425,10 +528,8 @@ public partial class MainWindow : Window
     /// if it has a valid <c>sq.version</c> — that would be eating a
     /// healthy install.
     /// </summary>
-    private static void WipeStaleInstallRoot()
+    private static void WipeStaleInstallRoot(string installRoot, bool isDefaultRoot)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installRoot = Path.Combine(localAppData, APP_INSTALL_DIR_NAME);
         if (!Directory.Exists(installRoot)) return;
 
         // Healthy install? Leave it alone — DetectExistingInstallVersion
@@ -436,6 +537,11 @@ public partial class MainWindow : Window
         // handles upgrade/downgrade fine when sq.version is present.
         var manifest = Path.Combine(installRoot, "current", "sq.version");
         if (File.Exists(manifest)) return;
+
+        // A user-chosen folder is only ever wiped when it visibly holds
+        // Velopack leftovers (Update.exe, .velopack_lock, packages\). The
+        // default %LOCALAPPDATA%\SC_Toolbox keeps its original behaviour.
+        if (!isDefaultRoot && !InstallPaths.LooksLikeVelopackRoot(installRoot)) return;
 
         // No manifest. This is leftover state from a failed uninstall.
         // Best-effort recursive delete; per-file errors are non-fatal.
@@ -472,10 +578,8 @@ public partial class MainWindow : Window
     /// user never has to manually kill processes via Task Manager just
     /// to re-install.
     /// </summary>
-    private static void CleanupOrphanedInstallProcesses()
+    private static void CleanupOrphanedInstallProcesses(string installRoot)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installRoot = Path.Combine(localAppData, APP_INSTALL_DIR_NAME);
         if (!Directory.Exists(installRoot)) return;
 
         var rootCanon = Path.GetFullPath(installRoot)
@@ -577,14 +681,14 @@ public partial class MainWindow : Window
         // for context — without this, Setup.exe fails because it can't
         // overwrite files held by lingering processes from the previous
         // install.
-        CleanupOrphanedInstallProcesses();
+        CleanupOrphanedInstallProcesses(_installRoot);
 
         // Wipe leftover state from a failed previous uninstall — only if
         // the dir lacks a valid sq.version manifest, so we never eat a
         // healthy install. Order matters: must run after the process
         // sweep above so Update.exe has released its file locks before
         // we try to delete it.
-        WipeStaleInstallRoot();
+        WipeStaleInstallRoot(_installRoot, InstallPaths.SamePath(_installRoot, _defaultRoot));
 
         // Ensure the Microsoft Visual C++ Runtime is present before we
         // run Velopack's Setup.exe.  Mining Signals' OCR pipeline links
@@ -605,7 +709,7 @@ public partial class MainWindow : Window
         // failed". Surfacing it as "Already installed" instead is
         // honest AND lets the user click Launch instead of being
         // confused into re-downloading.
-        var existing = DetectExistingInstallVersion();
+        var existing = DetectExistingInstallVersion(_installRoot);
         if (existing == INSTALLER_VERSION)
         {
             Progress.Value = 100;
@@ -637,7 +741,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        StatusDetail.Text = "Starting installation…";
+        StatusDetail.Text = $"Starting installation to {_installRoot}…";
 
         // Launch Velopack's Setup.exe in --silent mode. Without --silent,
         // Setup.exe pops a confirmation dialog by default. Hiding the
@@ -654,11 +758,15 @@ public partial class MainWindow : Window
             var psi = new ProcessStartInfo
             {
                 FileName = setupExe,
-                Arguments = "--silent",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
             };
+            // "--silent" alone for the default root (unchanged behaviour);
+            // "--silent --installto <dir>" for any other root. ArgumentList
+            // quotes each item, so spaces and trailing backslashes are safe.
+            foreach (var a in InstallPaths.SetupArguments(_installRoot, _defaultRoot))
+                psi.ArgumentList.Add(a);
             proc = Process.Start(psi);
         }
         catch (Exception ex)
@@ -685,8 +793,7 @@ public partial class MainWindow : Window
         // motion. We also detect stalls (no growth for N seconds) so a
         // hung Setup.exe (e.g. blocked on a hidden repair dialog) is
         // surfaced instead of silently parking the bar at 95 %.
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installDir = Path.Combine(localAppData, APP_INSTALL_DIR_NAME);
+        var installDir = _installRoot;
 
         // Baseline-relative progress: if there's already a previous
         // install in place, ignore those bytes and only count what's
@@ -784,7 +891,7 @@ public partial class MainWindow : Window
         // it as success and run our post-install repair anyway.
         if (proc.ExitCode != 0)
         {
-            var landed = DetectExistingInstallVersion();
+            var landed = DetectExistingInstallVersion(_installRoot);
             if (landed != INSTALLER_VERSION)
             {
                 StatusTitle.Text = "Installation failed";
@@ -812,7 +919,7 @@ public partial class MainWindow : Window
         try
         {
             StatusDetail.Text = "Verifying installed files…";
-            int repaired = RepairMissingFilesFromNupkg();
+            int repaired = RepairMissingFilesFromNupkg(_installRoot);
             if (repaired > 0)
             {
                 StatusDetail.Text = $"Restored {repaired} file(s) skipped during extraction.";
@@ -862,10 +969,8 @@ public partial class MainWindow : Window
     /// Returns the number of files restored. Throws on unexpected I/O —
     /// caller wraps in try/catch.
     /// </summary>
-    private static int RepairMissingFilesFromNupkg()
+    private static int RepairMissingFilesFromNupkg(string installRoot)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installRoot = Path.Combine(localAppData, APP_INSTALL_DIR_NAME);
         var packagesDir = Path.Combine(installRoot, "packages");
         var currentDir = Path.Combine(installRoot, "current");
 
@@ -1035,8 +1140,7 @@ public partial class MainWindow : Window
         // User wants a shortcut. Find the launcher .exe to point at, then
         // ensure the .lnk exists. We always re-create (overwrite) so the
         // target path stays correct even if Velopack's location changed.
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appDir = Path.Combine(localAppData, APP_INSTALL_DIR_NAME);
+        var appDir = _installRoot;
         var primaryTarget = Path.Combine(appDir, "SC_Toolbox.exe");
         var fallbackTarget = Path.Combine(appDir, "current", "SC_Toolbox.exe");
         var target = File.Exists(primaryTarget) ? primaryTarget
@@ -1113,14 +1217,14 @@ public partial class MainWindow : Window
 
     private void LaunchButton_Click(object sender, RoutedEventArgs e)
     {
-        // Velopack installs to %LocalAppData%\<AppId>\<AppId>.exe.
+        // Velopack installs to <root>\<AppId>.exe, where <root> is
+        // %LocalAppData%\<AppId> by default or the --installto folder.
         // The launcher .exe at that path picks up the app from current\.
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var installedExe = Path.Combine(localAppData, APP_INSTALL_DIR_NAME, "SC_Toolbox.exe");
+        var installedExe = Path.Combine(_installRoot, "SC_Toolbox.exe");
         // Some Velopack versions put the launcher at current\<AppId>.exe instead.
         if (!File.Exists(installedExe))
         {
-            var alt = Path.Combine(localAppData, APP_INSTALL_DIR_NAME, "current", "SC_Toolbox.exe");
+            var alt = Path.Combine(_installRoot, "current", "SC_Toolbox.exe");
             if (File.Exists(alt)) installedExe = alt;
         }
 

@@ -107,6 +107,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <!-- Welcome headline -->
@@ -125,12 +126,60 @@
                                    FontSize="13"
                                    Foreground="{StaticResource TextDimBrush}"
                                    TextWrapping="Wrap"
-                                   Text="This will install SC Toolbox to %LOCALAPPDATA%\SC_Toolbox\ (~1.4 GB on disk). It includes a bundled Python runtime, machine-learning models for Mining Signals OCR, and a Tesseract OCR engine — no separate downloads or system-wide installs are needed." />
+                                   Text="This will install SC Toolbox to the folder below (~1.4 GB on disk). It includes a bundled Python runtime, machine-learning models for Mining Signals OCR, and a Tesseract OCR engine — no separate downloads or system-wide installs are needed." />
 
                         <!-- Options + buttons row. Mirrors the layout of the
                              status panel below so the visual transition feels
                              continuous when Install is clicked. -->
-                        <Grid Grid.Row="2" Margin="0,18,0,0">
+                        <!-- Install-to row (2026-09-25): the resolved install root plus
+                             a Browse button. For an existing install it shows where that
+                             install lives, read-only, with InstallToNote explaining why.
+                             MainWindow.xaml.cs fills both at load time. -->
+                        <Grid Grid.Row="2" Margin="0,14,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                       Text="Install to"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0" />
+                            <TextBox Grid.Row="0" Grid.Column="1"
+                                     x:Name="InstallPathBox"
+                                     IsReadOnly="True"
+                                     FontSize="13"
+                                     FontFamily="Consolas"
+                                     Padding="6,4"
+                                     VerticalContentAlignment="Center"
+                                     Background="#141a24"
+                                     Foreground="{StaticResource TextBrush}"
+                                     BorderBrush="{StaticResource PanelBorderBrush}"
+                                     BorderThickness="1"
+                                     Text="%LOCALAPPDATA%\SC_Toolbox" />
+                            <Button Grid.Row="0" Grid.Column="2"
+                                    x:Name="BrowseButton"
+                                    Content="Browse…"
+                                    Padding="16,4"
+                                    Margin="10,0,0,0"
+                                    Click="BrowseButton_Click" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                       x:Name="InstallToNote"
+                                       Margin="0,6,0,0"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextDimBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed"
+                                       Text="" />
+                        </Grid>
+
+                        <Grid Grid.Row="3" Margin="0,18,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
