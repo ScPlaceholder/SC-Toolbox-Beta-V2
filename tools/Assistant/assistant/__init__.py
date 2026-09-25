@@ -9,9 +9,10 @@ Architecture (all optional-dependency gated, stdlib-only core):
   * tools       -- @tool decorator + ToolRegistry: every toolbox feature
                    is exposed to the LLM as a typed, JSON-schema-described
                    callable with an optional human confirmation gate.
-  * headless    -- headless data services (trade routes via Trade Hub's
-                   UEX client, ship data, market prices) so the LLM can
-                   *summon information* without opening any UI.
+  * worker_pool -- runs each tool's headless calls in its own worker
+                   subprocess (the tools' package names collide), so the
+                   LLM can *summon information* without opening any UI.
+  * headless    -- in-process helpers: ship SCU, popup shaping, tool names.
   * ipc_bus     -- cross-skill command bus: finds live skill IPC files by
                    the launcher's ``sc_toolbox_<skill>_*.jsonl`` convention
                    and pushes commands (e.g. pin a route popup in Trade Hub).
@@ -20,9 +21,10 @@ Architecture (all optional-dependency gated, stdlib-only core):
                    answer back.
   * voice       -- ears (mic + faster-whisper) and mouth (SAPI TTS),
                    adapted from the proven Starmap voice subsystem.
-  * builtin_tools -- the reference toolset wiring the above together:
-                   ship_info, find_trade_routes, find_market_price,
-                   show_route_popup (confirm-gated), open_trade_hub.
+  * builtin_tools -- the toolset: one tool per toolbox capability (trade,
+                   market, missions, crafting, mining, cargo, starmap,
+                   loadout, play time) plus confirm-gated actions
+                   (show_route_popup, open_trade_hub, launch_tool).
   * panel       -- the always-on-top HUD window the user talks to.
 """
 from __future__ import annotations

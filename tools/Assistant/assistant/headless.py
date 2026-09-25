@@ -1,78 +1,54 @@
-"""Headless data services — information without opening any tool window.
+"""In-process headless helpers — the few things that need no tool worker.
 
-These functions let the LLM *summon* toolbox data directly:
+  * ship_info()          -- cargo SCU from shared.ships (no network)
+  * ship_scu()           -- same, 0 when unknown
+  * route_popup_data()   -- shape a find_trade_routes route for Trade
+                            Hub's pinned popup (pure)
+  * resolve_skill()      -- map a spoken tool name to a launcher skill id
+  * call()               -- run a function in a tool's worker subprocess
 
-  * ship_info()          -- cargo SCU, presets (shared.ships)
-  * find_trade_routes()  -- UEX commodities_routes ranked by est. profit,
-                            reusing Trade Hub's own UEXClient + route_engine
-  * route_popup_data()   -- shape a route for Trade Hub's pinned popup
-  * find_market_price()  -- UEX item prices at every terminal
+Everything that imports a skill's own modules runs in a per-tool worker
+(worker_pool.py), because the skills reuse top-level package names and
+cannot share one interpreter. This module only imports ``shared`` and the
+launcher's ``core.skill_registry``, which every process already has.
 
-Skill modules are imported lazily with a one-time sys.path insertion, so
-this module loads fine even if a skill folder is missing — the tools just
-return a clean error for the LLM to relay.
+The old in-process trade route and market price paths were removed: they
+used UEX's /commodities_routes and bare /items, both of which UEX now
+answers with HTTP 400.
 """
 from __future__ import annotations
 
 import logging
-import os
-import sys
 
+from . import logic
 from .tools import ToolError
+from .worker_pool import get_pool
 
 log = logging.getLogger(__name__)
 
-_imports_done = False
-_uex_client_mod = None
-_route_engine = None
-_ships = None
 
-
-def _skill_dir(base_dir: str, folder: str) -> str:
-    return os.path.join(base_dir, "skills", folder)
-
-
-def _wire_imports(base_dir: str) -> None:
-    """One-time lazy import of Trade Hub's data layer and shared.ships."""
-    global _imports_done, _uex_client_mod, _route_engine, _ships
-    if _imports_done:
-        return
-    _imports_done = True
-
-    try:
-        from shared import ships as ships_mod
-        _ships = ships_mod
-    except Exception as exc:                              # noqa: BLE001
-        log.warning("headless: shared.ships unavailable: %s", exc)
-
-    th = _skill_dir(base_dir, "Trade_Hub")
-    if os.path.isdir(th) and th not in sys.path:
-        sys.path.insert(0, th)
-    try:
-        import uex_client as uc
-        _uex_client_mod = uc
-    except Exception as exc:                              # noqa: BLE001
-        log.warning("headless: Trade Hub uex_client unavailable: %s", exc)
-        return
-    try:
-        import route_engine as re_mod
-        _route_engine = re_mod
-    except Exception as exc:                              # noqa: BLE001
-        log.warning("headless: Trade Hub route_engine unavailable: %s", exc)
+def call(base_dir: str, tool_key: str, fn: str, args: dict, timeout: float = 90.0):
+    """Run ``fn(**args)`` in the *tool_key* worker; ToolError on failure."""
+    return get_pool(base_dir).call(tool_key, fn, args, timeout=timeout)
 
 
 def ship_info(base_dir: str, name: str) -> dict:
     """Cargo capacity and preset info for a ship (fuzzy name match)."""
-    _wire_imports(base_dir)
-    if _ships is None:
-        raise ToolError("ship database unavailable")
-    presets = getattr(_ships, "SHIP_PRESETS", {})
+    try:
+        from shared import ships as ships_mod
+    except Exception as exc:                                # noqa: BLE001
+        raise ToolError(f"ship database unavailable: {exc}")
+    presets = getattr(ships_mod, "SHIP_PRESETS", {})
     needle = (name or "").strip().lower()
     if not needle:
         raise ToolError("say a ship name, e.g. Caterpillar")
     for key, scu in presets.items():
         if needle in key.lower() or key.lower() in needle:
             return {"ship": key, "scu": scu}
+    near = logic.best_matches(name, presets.keys(), limit=1, min_score=0.6)
+    if near:
+        key = near[0][1]
+        return {"ship": key, "scu": presets[key]}
     raise ToolError(f"ship '{name}' not found — try another name")
 
 
@@ -82,57 +58,6 @@ def ship_scu(base_dir: str, name: str) -> int:
         return int(ship_info(base_dir, name).get("scu", 0))
     except ToolError:
         return 0
-
-
-def find_trade_routes(base_dir: str, ship: str = "", commodity: str = "",
-                      system: str = "", top_n: int = 5,
-                      allow_illegal: bool = True) -> list:
-    """Top trade routes ranked by estimated profit for the ship."""
-    _wire_imports(base_dir)
-    if _uex_client_mod is None or _route_engine is None:
-        raise ToolError("Trade Hub data layer unavailable")
-
-    scu = ship_scu(base_dir, ship) if ship else 0
-    client = _uex_client_mod.UEXClient()
-    try:
-        routes = client.get_routes()
-    except Exception as exc:                              # noqa: BLE001
-        raise ToolError(f"UEX route fetch failed: {exc}") from exc
-    if not routes:
-        raise ToolError("UEX returned no routes — try again in a moment")
-
-    fs = _route_engine.FilterState(
-        system=system or "",
-        commodity=commodity or "",
-        allow_illegal=allow_illegal,
-    )
-    filtered = _route_engine.apply_filters(routes, fs)
-    ranked = _route_engine.top_routes(filtered, ship_scu=scu, n=max(1, min(top_n, 20)))
-    ship_lbl = ship if ship else "any ship"
-
-    out = []
-    for r in ranked:
-        eff = r.effective_scu(scu)
-        out.append({
-            "commodity": r.commodity,
-            "buy_system": r.buy_system,
-            "buy_location": r.buy_location,
-            "buy_terminal": r.buy_terminal,
-            "sell_system": r.sell_system,
-            "sell_location": r.sell_location,
-            "sell_terminal": r.sell_terminal,
-            "price_buy": r.price_buy,
-            "price_sell": r.price_sell,
-            "scu_available": r.scu_available,
-            "scu_demand": r.scu_demand,
-            "effective_scu": eff,
-            "margin_per_scu": r.margin,
-            "est_profit": r.estimated_profit(scu),
-            "investment": r.investment(scu),
-            "illegal": bool(getattr(r, "is_illegal", False)),
-            "ship": ship_lbl,
-        })
-    return out
 
 
 def route_popup_data(route: dict, ship: str = "", ship_scu: int = 0) -> dict:
@@ -164,55 +89,57 @@ def route_popup_data(route: dict, ship: str = "", ship_scu: int = 0) -> dict:
         "sell_system": route.get("sell_system", "?"),
         "scu_available": int(route.get("scu_available", 0)),
         "scu_demand": int(route.get("scu_demand", 0)),
-        "distance": 0,   # terminal-ID telemetry not available headless
+        "distance": float(route.get("distance_gm") or 0),
     }
 
 
-def find_market_price(base_dir: str, item_name: str, top_n: int = 5) -> dict:
-    """Where to buy an item, from UEX items + items_prices."""
-    from shared.api_config import UEX_BASE_URL, UEX_HEADERS, UEX_TIMEOUT
-    from shared.http_client import HttpClient
+# spoken aliases -> launcher skill id (ids come from core.skill_registry)
+_SKILL_ALIASES = {
+    "trade": "trade", "trading": "trade", "trade hub": "trade", "routes": "trade",
+    "market": "market", "market finder": "market", "shop": "market", "prices": "market",
+    "missions": "missions", "mission database": "missions", "mission db": "missions",
+    "craft": "craft_db", "crafting": "craft_db", "craft database": "craft_db",
+    "blueprints": "craft_db",
+    "mining": "mining", "mining loadout": "mining",
+    "signals": "mining_signals", "mining signals": "mining_signals", "scanner": "mining_signals",
+    "cargo": "cargo", "cargo loader": "cargo",
+    "dps": "dps", "dps calculator": "dps", "loadout builder": "dps",
+    "battle buddy": "battle_buddy", "hud": "battle_buddy",
+    "playtime": "playtime", "play time": "playtime",
+    "starmap": "starmap", "star map": "starmap", "map": "starmap",
+    "mouse blocker": "mouse_blocker",
+    "suit": "suitmk2", "suitmk2": "suitmk2",
+    "assistant": "assistant",
+}
 
-    needle = (item_name or "").strip().lower()
-    if not needle:
-        raise ToolError("say an item name, e.g. P4-AR rifle")
-    http = HttpClient(UEX_BASE_URL, headers=UEX_HEADERS, timeout=UEX_TIMEOUT)
 
-    # Resolve item id by name (UEX /items is a flat list).
-    result = http.get_json("/items")
-    if not result.ok:
-        raise ToolError("UEX items fetch failed: {0}".format(result.error))
-    payload = result.data
-    items = payload if isinstance(payload, list) else (payload or {}).get("data", [])
-    match = None
-    for it in items:
-        nm = (it.get("name") or "").lower()
-        if needle in nm:
-            match = it
-            if nm == needle:
-                break
-    if match is None:
-        raise ToolError(f"item '{item_name}' not found on UEX")
-    item_id = match.get("id")
-    if not item_id:
-        raise ToolError(f"UEX item '{item_name}' has no id")
+def list_skills(base_dir: str) -> list:
+    """The launcher's discovered skills: [{id, name, folder}]."""
+    try:
+        from core.skill_registry import discover_skills
+    except Exception as exc:                                # noqa: BLE001
+        raise ToolError(f"launcher skill registry unavailable: {exc}")
+    return [{"id": s.id, "name": str(s.name), "folder": s.folder}
+            for s in discover_skills(base_dir)]
 
-    price_result = http.get_json("items_prices?id_item={0}".format(item_id))
-    if not price_result.ok:
-        raise ToolError("UEX price fetch failed: {0}".format(price_result.error))
-    ppayload = price_result.data
-    rows = ppayload if isinstance(ppayload, list) else (ppayload or {}).get("data", [])
 
-    def _row(r: dict) -> dict:
-        return {
-            "terminal": r.get("terminal_name") or r.get("location_name") or "?",
-            "price": r.get("price") or r.get("price_buy") or 0,
-            "stock": r.get("stock") or r.get("inventory") or 0,
-        }
-
-    buys = [_row(r) for r in rows if (r.get("price_buy") or r.get("price"))]
-    buys.sort(key=lambda x: (x["price"] or 0))
-    return {
-        "item": match.get("name"),
-        "cheapest": buys[:max(1, min(top_n, 10))],
-    }
+def resolve_skill(base_dir: str, name: str) -> dict:
+    """Map a spoken tool name to one discovered skill (ToolError if none)."""
+    skills = list_skills(base_dir)
+    by_id = {s["id"]: s for s in skills}
+    q = logic.norm(name)
+    if not q:
+        raise ToolError("say which tool to open, e.g. Trade Hub")
+    if q.replace(" ", "_") in by_id:
+        return by_id[q.replace(" ", "_")]
+    if q in _SKILL_ALIASES and _SKILL_ALIASES[q] in by_id:
+        return by_id[_SKILL_ALIASES[q]]
+    labels = []
+    for s in skills:
+        labels += [(s["name"], s), (s["folder"].replace("_", " "), s), (s["id"].replace("_", " "), s)]
+    labels += [(alias, by_id[sid]) for alias, sid in _SKILL_ALIASES.items() if sid in by_id]
+    try:
+        best, _ = logic.resolve_one(name, labels, key=lambda t: t[0], what="toolbox tool")
+    except logic.ToolFail as exc:
+        raise ToolError(f"{exc}. Tools: " + ", ".join(s["name"] for s in skills))
+    return best[1]

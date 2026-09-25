@@ -85,7 +85,12 @@ def main() -> int:
 
     win.show()
     log.info("assistant: up (base_dir=%s)", BASE_DIR)
-    return app.exec()
+    rc = app.exec()
+    # stop the per-tool worker subprocesses (they also exit on their own
+    # when this process's pipes close)
+    from assistant.worker_pool import shutdown_all
+    shutdown_all()
+    return rc
 
 
 if __name__ == "__main__":
