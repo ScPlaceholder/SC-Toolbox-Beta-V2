@@ -11,7 +11,7 @@
 ; Kept in step with pyproject.toml. build_installer.bat can override it with
 ; /DMyAppVersion=<ver>, which this #ifndef lets through.
 #ifndef MyAppVersion
-  #define MyAppVersion "2.3.1"
+  #define MyAppVersion "2.4.0"
 #endif
 #define MyAppPublisher "SC Toolbox"
 #define MyAppURL       "https://github.com/ScPlaceholder/SC-Toolbox-Beta-V2"
