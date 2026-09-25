@@ -1,0 +1,10 @@
+{
+  "id": "assistant",
+  "name": "AI Assistant",
+  "icon": "\ud83e\udd16",
+  "color": "#66ddff",
+  "folder": "Assistant",
+  "script": "assistant_app.py",
+  "hotkey": "",
+  "settings_key": "hotkey_assistant"
+}
