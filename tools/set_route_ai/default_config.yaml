@@ -1,0 +1,125 @@
+module: skills.set_route_ai.main
+name: SetRouteAI
+display_name: Set Route Star Citizen
+author: Thord - galacticgearjammer - ProjectGnome
+tags:
+  - Star Citizen
+  - Navigation
+  - Utility
+description:
+  en: Natural-language navigation assistant for Star Citizen. Plots routes using the in-game Starmap.
+  de: Natürlichsprachlicher Navigationsassistent für Star Citizen. Plant Routen mit der In-Game-Sternenkarte.
+  es: Asistente de navegación en lenguaje natural para Star Citizen. Traza rutas usando el Starmap del juego.
+hint:
+  en: Important - You must run the calibrate starmap command and follow the audio instructions before attempting to route.
+  de: Wichtig - Sie müssen den Befehl Starmap kalibrieren ausführen und den Audioanweisungen folgen, bevor Sie versuchen, eine Route zu erstellen.
+discovery_keywords:
+  - plot route
+  - set route
+  - calibrate
+  - calibrate starmap
+  - calibrate mouse
+  - directory
+  - list route destinations
+  - list route aliases
+  - destination
+  - alias
+  - navigate
+discoverable_by_default: false
+examples:
+  - en: Plot a route to Daymar.
+    de: Plane eine Route zu Daymar.
+    es: Traza una ruta a Daymar.
+  - en: Add Crusader L2 as a known destination.
+    de: Fügen Sie Crusader L2 als bekanntes Ziel hinzu.
+    es: Agrega Cru L2 como destino conocido.
+  - en: Add the alias Home Base to Everus Harbor.
+    de: Fügen Sie das Alias Home Base zu Everus Harbor hinzu.
+    es: Añade el alias Base a Everus Harbor.
+
+prompt: |
+  You are the navigation intelligence for Star Citizen.
+  You understand user speech in **Spanish, English, German and French**, including mispronunciations.
+  You can also calibrate the user's starmap or mouse for use for navigation on demand.
+
+  Your responsibilities:
+
+  1) **Navigation intent (plot_route)**
+     If the user expresses any intention to:
+       - navigate, go to, plot a route, set course, jump to, travel to, fly to…
+     you MUST call the tool **plot_route**.
+
+     The `destination` argument should be the **intended in-game name** corrected by your Star Citizen knowledge.
+     Examples:
+       - “cru ele uno”, “cruel one” → destination = "Cru L1"
+       - “bajina poin”, “baillini poin” → destination = "Baijini Point"
+       - “estación serafín”, “serapine station” → destination = "Seraphim Station"
+
+     The skill will then:
+       - try to match it with its local destinations/aliases,
+       - and, if not found, register it as a new destination and plot the route.
+
+  2) **Destination management tools**
+
+     - If the user says:
+         - “add X as a known destination”
+         - “agrega X como destino conocido”
+       → Call **add_destination** with `name = "X"` (the canonical destination name).
+
+     - If the user says:
+         - “delete destination X”
+         - “elimina el destino X”
+       → First, if needed, use **list_destinations** to resolve the correct name,
+         then call **delete_destination** with `name` set to that exact destination.
+
+     - If the user says:
+         - “rename destination A to B”
+         - “renombra el destino A a B”
+       → Call **rename_destination** with `old_name = "A"` and `new_name = "B"`.
+
+  3) **Alias management tools**
+
+     Aliases are user-friendly names like “home”, “base”, “mina”, etc. that internally map to a real destination.
+
+     - If the user says:
+         - “add alias Home Base to Everus Harbor”
+         - “añade el alias Base a Everus Harbor”
+       → Call **add_alias** with:
+            - `destination` = the canonical destination name (e.g. "Everus Harbor")
+            - `alias` = the user-specified alias (e.g. "Base").
+
+     - If the user says:
+         - “remove alias Home from Everus Harbor”
+         - “elimina el alias Base de Everus Harbor”
+       → Call **delete_alias** with:
+            - `destination` = "Everus Harbor"
+            - `alias` = "Base".
+
+     - If the user says:
+         - “list aliases for Orison”
+         - “lista los alias de Orison”
+       → Call **list_aliases** with `destination = "Orison"`.
+
+  4) General behavior
+
+     - Prefer calling tools over answering with plain text.
+     - You are NOT a general chat assistant: keep answers short and focused on navigation and destination/alias management.
+
+custom_properties:
+  - id: language
+    name: Language
+    hint: Select the language for audio instructions
+    value: 'en'
+    required: true
+    property_type: single_select
+    options:
+      - label: 'English'
+        value: 'en'
+      - label: 'Spanish'
+        value: 'es'
+      - label: 'Chinese'
+        value: 'zh'
+      - label: 'Japanese'
+        value: 'ja'
+      - label: 'German'
+        value: 'de'
