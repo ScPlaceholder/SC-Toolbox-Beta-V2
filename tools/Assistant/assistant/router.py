@@ -479,6 +479,7 @@ class Decision:
 _BUY = r"\b(buy|buying|purchase|purchasing|pick (one|it|them) up|pick up|order)\b"
 _ACQ = r"\b(get|obtain|acquire|source|find|farm)\b"
 _OPEN = r"\b(open|launch|start|pull up|bring up|show|run|fire up|load up)\b"
+_DISTANCE = r"\b(how far|far away|far is it|distance|how many jumps|how long does it take|how long to get)\b"
 _PRICE = r"\b(how much is|how much for|how much does|price|prices|cost|costs|cheapest|cheap|auec)\b"
 
 RULES = [
@@ -806,6 +807,16 @@ class Router:
                 add("jump_route", 1.5)
             if re.search(r"\broute\b", t):
                 add("jump_route", 1.5)
+            if re.search(_DISTANCE, t):
+                # "how far is Pyro from Nyx", "distance between Pyro and Nyx":
+                # between two systems the only distance there is is jumps
+                add("jump_route", 3.0 if len(systems) >= 2 else 1.5)
+            elif len(systems) >= 2 and re.search(r"\bfrom\b", t) and re.search(r"\bto\b", t):
+                add("jump_route", 1.5)              # "... from Stanton to Nyx"
+        elif ship and re.search(r"\bjump\w*\b", t):
+            # "how far can a Cutlass jump": a ship's quantum range, not a
+            # route between systems (none was named); no tool covers it
+            add("jump_route", -3.0)
         elif re.search(r"\broute\b", t) and not ship and not comm:
             # "I need a route": travel or trade, nothing tells them apart
             add("jump_route", 2.0)

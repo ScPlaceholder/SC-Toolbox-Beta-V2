@@ -527,6 +527,13 @@ def run_router() -> None:
     check("DPS goes to best_ship_weapons", "what's the best DPS loadout for an Asgard",
           ("call", "lean"), "best_ship_weapons", {"ship": "Asgard"})
     check("no tool: honest", "what's the fastest ship in the game", "none", says=("can't",))
+    # "how far" between two systems is a jump route (live-test miss)
+    check("how far -> jump route", "how far is pyro from nyx", "call", "jump_route",
+          {"from_system": "Nyx", "to_system": "Pyro"})
+    check("get from X to Y -> jump route", "how do I get from Stanton to Nyx", "call", "jump_route",
+          {"from_system": "Stanton", "to_system": "Nyx"})
+    check("near-miss: a ship's jump range is not a route", "how far can a Cutlass jump", "none",
+          says=("can't",))
     # ambiguous: ask naming both, then the follow-up picks one
     d = check("ambiguous asks", "I'd like to see the optimal way to fill an Ironclad", "ask",
               says=("pack", "trade", "ironclad"))
