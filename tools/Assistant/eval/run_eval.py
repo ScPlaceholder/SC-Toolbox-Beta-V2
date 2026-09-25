@@ -470,6 +470,21 @@ def score_case(case: dict, rec: dict, full_names: list) -> dict:
         s["asked"] = (not s["provider_error"]) and not called and "?" in reply
     if cat == "no_tool":
         s["restrained"] = not called and not s["provider_error"]
+        # a near-miss ("how far can a Cutlass jump") must not be steered
+        # toward the tool it resembles: asking "to which system?" is no call,
+        # but it is the wrong answer all the same
+        banned = set(case.get("not_tool") or ())
+        if banned:
+            steered = []
+            for e in rec["trace"]:
+                if e.get("by") != "router":
+                    continue
+                if e.get("tool") in banned:
+                    steered.append(e["tool"])
+                elif e.get("kind") == "ask" and not e.get("tool"):
+                    steered += [c[0] for c in (e.get("candidates") or [])[:2] if c[0] in banned]
+            s["steered_to"] = steered
+            s["restrained"] = s["restrained"] and not steered
 
     # names the router resolved from the question against the tools' data
     # ("cat" -> Caterpillar) are grounded in the question, not invented

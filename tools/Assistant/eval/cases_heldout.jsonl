@@ -24,3 +24,11 @@
 {"id": "h24", "category": "no_tool", "q": "good morning!", "note": "chit-chat"}
 {"id": "h25", "category": "action", "q": "launch the mission database", "expect_tool": ["launch_tool"], "args": {"name": ["mission"]}, "followup": "yes"}
 {"id": "h26", "category": "action", "q": "open the DPS calculator", "expect_tool": ["launch_tool"], "args": {"name": ["dps"]}, "followup": "no"}
+{"id": "h27", "category": "clear", "q": "how far is Stanton from Pyro", "expect_tool": ["jump_route"], "args": {"from_system": ["pyro"], "to_system": ["stanton"]}, "note": "'how far is X from Y': the user is at Y"}
+{"id": "h28", "category": "clear", "q": "how many jumps is it from Nyx to Stanton", "expect_tool": ["jump_route"], "args": {"from_system": ["nyx"], "to_system": ["stanton"]}}
+{"id": "h29", "category": "clear", "q": "what's the quickest way to get from Stanton to Nyx", "expect_tool": ["jump_route"], "args": {"from_system": ["stanton"], "to_system": ["nyx"]}}
+{"id": "h30", "category": "clear", "q": "route from Pyro to Stanton please", "expect_tool": ["jump_route"], "args": {"from_system": ["pyro"], "to_system": ["stanton"]}}
+{"id": "h31", "category": "clear", "q": "how far away is nyx from stanton", "expect_tool": ["jump_route"], "args": {"from_system": ["stanton"], "to_system": ["nyx"]}, "note": "lowercase, 'far away'"}
+{"id": "h32", "category": "clear", "q": "what's the distance between Pyro and Nyx", "expect_tool": ["jump_route"], "args": {"from_system": ["pyro", "nyx"], "to_system": ["pyro", "nyx"]}, "note": "'between X and Y' names no direction; either order is right"}
+{"id": "h33", "category": "no_tool", "q": "how far can a Cutlass jump", "not_tool": ["jump_route"], "note": "near-miss: quantum range of a ship, no systems named; no tool covers it"}
+{"id": "h34", "category": "no_tool", "q": "how far is the Kraken from release", "not_tool": ["jump_route"], "note": "near-miss: 'how far is X from Y' with a ship and no systems; no tool covers release dates"}
