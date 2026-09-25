@@ -566,6 +566,10 @@ def run_router() -> None:
     rep = a.handle_user_text("how much does a cat hold")
     _say("PASS" if rep == "A Caterpillar carries 576 SCU of cargo." else "FAIL",
          "phrase guard: a grounded rephrasing is used", repr(rep))
+    a.provider = a.aux = ScriptedModel([("The Caterpillar is a big hauler.", [])])
+    rep = a.handle_user_text("how much does a cat hold")
+    _say("PASS" if "576" in rep else "FAIL",
+         "phrase guard: a rephrasing that lost the answer (576) is dropped", repr(rep))
 
     # tie-break: the model only chooses among the router's candidates
     a = agent_mod.AssistantAgent(reg, ctx, mode="router+llm")

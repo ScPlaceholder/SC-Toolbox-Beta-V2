@@ -8,9 +8,10 @@ Three modes (LLMConfig.mode):
   * "router+llm"  -- the default. The router still decides. The model is
                      only asked to (a) choose among the router's top 2-3
                      tools when the router leans but is not sure, and
-                     (b) rephrase the plain answer. A rephrasing that
-                     says a number the result never did is thrown away and
-                     the plain answer is spoken instead.
+                     (b) rephrase the plain answer. A rephrasing that says
+                     a number the result never did, or drops a number or
+                     most of the names the plain answer had, is thrown
+                     away and the plain answer is spoken instead.
   * "llm"         -- the original loop: the model sees every tool and
                      decides everything.
 
@@ -41,7 +42,7 @@ import re
 import time
 from typing import Callable, Optional
 
-from .answers import plain_answer, ungrounded_numbers
+from .answers import dropped_names, dropped_numbers, plain_answer, ungrounded_numbers
 from .logic import classify_confirmation, norm
 from .providers import ProviderError, make_provider
 from .router import Decision, Router
@@ -214,6 +215,7 @@ class AssistantAgent:
         d = self.router.decide(text, pending)
         rec = {"by": "router", "text": text, "kind": d.kind, "tool": d.tool,
                "args": dict(d.args), "candidates": d.candidates[:4], "reason": d.reason,
+               "args_by_tool": d.args_by_tool,
                "called": False, "mode": self.effective_mode}
         self.trace.append(rec)
         self._messages.append({"role": "user", "content": text})
@@ -258,7 +260,9 @@ class AssistantAgent:
         after a trade route, offer (once) to pin it."""
         draft = plain_answer(tool.name, args, result)
         reply = draft
-        if self.effective_mode == "router+llm" and not (isinstance(result, dict) and result.get("error")):
+        # actions are said in fixed words ("Opened Starmap."); nothing to phrase
+        if (self.effective_mode == "router+llm" and not tool.confirm
+                and not (isinstance(result, dict) and result.get("error"))):
             reply = self._phrase(question, tool.name, result, draft, rec)
         routes = result.get("routes") if isinstance(result, dict) else None
         pin = self.registry.get("show_route_popup")
@@ -340,11 +344,13 @@ class AssistantAgent:
             return draft
         said = (said or "").strip().strip('"').strip()
         bad = ungrounded_numbers(said, draft, result, question)
+        lost = dropped_numbers(said, draft) + dropped_names(said, draft, result)
         too_long = len(said) > max(300, 3 * len(draft))
-        use = bool(said) and not bad and not too_long
+        use = bool(said) and not bad and not lost and not too_long
         if rec is not None:
-            rec["phrase"] = {"llm": said, "ungrounded": bad, "too_long": too_long, "used": use,
-                             "latency_s": round(time.perf_counter() - t0, 3)}
+            rec["phrase"] = {"llm": said, "draft": draft, "ungrounded": bad, "dropped": lost,
+                             "too_long": too_long,
+                             "used": use, "latency_s": round(time.perf_counter() - t0, 3)}
         return said if use else draft
 
     def _llm_chat(self, text: str, rec: dict) -> str:

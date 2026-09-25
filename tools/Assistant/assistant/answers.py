@@ -77,7 +77,7 @@ def _generic(r: dict) -> str:
 # ── one formatter per tool, over the real result shapes ───────────────────
 
 def _ship_info(a, r):
-    return f"The {str(r.get('ship', '?')).title()} holds {_n(r.get('scu'))} SCU."
+    return f"The {_proper(r.get('ship', '?'))} holds {_n(r.get('scu'))} SCU."
 
 
 def _ship_buy_rent(a, r):
@@ -95,12 +95,18 @@ def _ship_buy_rent(a, r):
     return " ".join(out)
 
 
+def _proper(name) -> str:
+    """The trade and cargo workers return SHIP_PRESETS keys, all lowercase."""
+    s = str(name or "")
+    return s.title() if s and s == s.lower() else s
+
+
 def _trade(a, r):
     routes = r.get("routes") or []
     if not routes:
         return ""
     x = routes[0]
-    ship = r.get("ship") or a.get("ship") or "your ship"
+    ship = _proper(r.get("ship") or a.get("ship")) or "your ship"
     scu = r.get("ship_scu")
     head = f"Best run for the {ship}" + (f" ({_n(scu)} SCU)" if scu else "")
     return (f"{head}: {x.get('commodity')}, buy at {x.get('buy_terminal')} in "
@@ -190,7 +196,10 @@ def _signal(a, r):
 def _mining(a, r):
     st = r.get("stats") or {}
     bits = [f"{k.replace('_', ' ')} {_n(v)}" for k, v in list(st.items())[:3]]
-    mods = r.get("modules") or []
+    counts: dict = {}
+    for m in r.get("modules") or []:
+        counts[m] = counts.get(m, 0) + 1
+    mods = [(f"{k} x {m}" if k > 1 else m) for m, k in ((m, counts[m]) for m in counts)]
     s = f"A {r.get('ship')} with the {r.get('laser')}" + (f" and {_join(mods)}" if mods else "")
     if bits:
         s += ": " + ", ".join(bits)
@@ -290,7 +299,28 @@ def numbers_in(text: str) -> list:
         if m.group(2):
             v *= _MULT[m.group(2).lower()]
         out.append(v)
+    for m in _WORD_NUM.finditer(text or ""):         # "three missions"
+        out.append(float(_WORDS[m.group(1).lower()]))
     return out
+
+
+_WORDS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve".split())}
+_WORD_NUM = re.compile(r"\b(" + "|".join(_WORDS) + r")\b", re.I)
+_CAPWORD = re.compile(r"(?<![.!?]\s)(?<!^)\b([A-Z][A-Za-z0-9\-']{3,})")
+
+
+def dropped_names(reply: str, draft: str, result) -> list:
+    """Names from the result that the plain answer said and a rephrasing
+    lost, when it lost more than half of them. 'A 4,700 ping is a ping
+    value for a specific game' has lost 'Quantainium', i.e. the answer."""
+    data = _flat(result).lower()
+    names = {w for w in _CAPWORD.findall(draft or "") if w.lower() in data}
+    if not names:
+        return []
+    low = (reply or "").lower()
+    lost = sorted(w for w in names if w.lower() not in low)
+    return lost if len(lost) * 2 > len(names) else []
 
 
 def _flat(obj) -> str:
@@ -312,6 +342,18 @@ def ungrounded_numbers(reply: str, *sources) -> list:
             continue
         bad.append(v)
     return bad
+
+
+def dropped_numbers(reply: str, draft: str) -> list:
+    """Numbers the plain answer said (3 and up) that a rephrasing lost.
+    A rephrasing that drops the price or the count has lost the answer
+    ("Yes, you can rent a Prospector anywhere.")."""
+    said = numbers_in(reply)
+    out = []
+    for v in numbers_in(draft):
+        if v >= 3 and not any(abs(v - s) <= max(0.5, 0.01 * abs(v)) for s in said):
+            out.append(v)
+    return out
 
 
 def _sig(v: float) -> int:
