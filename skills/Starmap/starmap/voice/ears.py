@@ -29,6 +29,17 @@ _MIN_VOICE_MS = 300         # utterances shorter than this are discarded
 _GAP_MS = 900               # silence gap that ends an utterance
 _MAX_UTTERANCE_MS = 12000   # hard cap, keeps stray noise from running forever
 
+# Whisper hint (initial_prompt): the names and command words it should expect.
+# Without it small.en heard "Montaigne" as "documentini", "Elah" as "Filla" and
+# dropped it, "route to Pyro" as "Routed by room", "fun facts on" as "fun facts on it".
+# The same text is used by the SuitMk2, Assistant and Starmap ears.
+_WHISPER_PROMPT = (
+    "Elah, Montaigne. Fun facts on. Fun facts off. What missions do I have? "
+    "Navigate to Area 18. Set route to Port Tressler. Route to Pyro. Clear route. "
+    "Zoom in. Zoom out. Back to galaxy. Take me home. Commodities. Market finder. "
+    "Toggle the grocery list. Stop listening. Help. "
+    "Best trade route for my Caterpillar. Open the Trade Hub.")
+
 
 class EarsController(QObject):
     listeningChanged = Signal(bool)
@@ -231,7 +242,8 @@ class EarsController(QObject):
     def _transcribe(self, pcm) -> None:
         try:
             model = self._get_model()
-            segments, _info = model.transcribe(pcm, language="en", beam_size=5)
+            segments, _info = model.transcribe(pcm, language="en", beam_size=5,
+                                              initial_prompt=_WHISPER_PROMPT)
             text = " ".join(s.text for s in segments).strip()
             if text:
                 self.transcript.emit(text)
