@@ -5,7 +5,7 @@
   "color": "#7fd1b9",
   "folder": "SuitMk2",
   "script": "suitmk2_companion_app.py",
-  "hotkey": "<shift>+s",
+  "hotkey": "<ctrl>+2",
   "settings_key": "hotkey_suitmk2",
   "preload": true
 }

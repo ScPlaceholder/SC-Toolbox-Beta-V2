@@ -162,12 +162,16 @@ class SuitWindow(SCWindow):
                                   "Takes effect when the model service restarts.")
         self._presence.currentTextChanged.connect(self._set_presence)
         ctl.addWidget(self._presence)
-        self._talk = QPushButton("Talk key: " + (InputBinding.from_dict(self.s['talk_key']).describe()
-                                                 if self.s.get('talk_key') else 'set...'))
+        self._talk = QPushButton("Talk key: set...")
         self._talk.setStyleSheet(_btn_ss())
         self._talk.setToolTip("Push-to-talk: hold it and ask Elah or Montaigne something (local speech-to-text)")
         self._talk.clicked.connect(self._set_talk_key)
         ctl.addWidget(self._talk)
+        # says why holding a key does nothing: no talk key yet, or voice libraries missing
+        self._talk_hint = QLabel("")
+        self._talk_hint.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
+        self._talk_hint.setWordWrap(True)
+        ctl.addWidget(self._talk_hint)
         test = QPushButton("Test voices")
         test.setStyleSheet(_btn_ss())
         test.clicked.connect(self._test_voices)
@@ -316,9 +320,21 @@ class SuitWindow(SCWindow):
         self.ears.transcript.connect(self._on_transcript)
         self.ears.listeningChanged.connect(self._on_listening)
         self.ears.statusChanged.connect(lambda m: self.core and self.core._note(f"ears: {m}"))
+        self.ears.needsInstall.connect(self._on_needs_install)
+        self._voice_missing = []
         if self.s.get("talk_key"):
             self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
             QTimer.singleShot(1500, self.ears.arm)
+        self._show_talk_key()
+        # arm() is what reports missing voice libraries, and it only runs once a
+        # talk key is set, so check up front as well
+        try:
+            from voice_in import missing_deps
+            _miss = missing_deps()
+        except Exception:
+            _miss = []
+        if _miss:
+            self._on_needs_install(_miss)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
         self._timer.start(1000)
@@ -460,10 +476,31 @@ class SuitWindow(SCWindow):
         if dlg.exec() and dlg.result is not None:
             self.s["talk_key"] = dlg.result.to_dict()
             st.save(self.s)
-            self._talk.setText("Talk key: " + dlg.result.describe())
             self.ears.disarm()
             self.ears.set_binding(dlg.result)
+            self._show_talk_key()
             self.ears.arm()
+
+    def _show_talk_key(self) -> None:
+        """Talk button text + the hint beside it."""
+        if self.s.get("talk_key"):
+            self._talk.setText("Talk key: " + InputBinding.from_dict(self.s["talk_key"]).describe())
+        else:
+            self._talk.setText("Talk key: set...")
+        if self._voice_missing:
+            self._talk_hint.setText("Voice input needs: pip install " + " ".join(self._voice_missing))
+        elif not self.s.get("talk_key"):
+            self._talk_hint.setText("No talk key set: click Talk key and press the key to hold while you talk.")
+        else:
+            self._talk_hint.setText("")
+        self._talk_hint.setVisible(bool(self._talk_hint.text()))
+
+    def _on_needs_install(self, packages: list) -> None:
+        """EarsController.needsInstall: voice libraries are missing, so say which."""
+        self._voice_missing = list(packages or [])
+        self._show_talk_key()
+        if self.core is not None:
+            self.core._note("ears: voice input needs pip install " + " ".join(self._voice_missing))
 
     def _on_listening(self, on: bool) -> None:
         if self.core is not None:

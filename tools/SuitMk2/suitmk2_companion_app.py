@@ -5,7 +5,7 @@ Reads Star Citizen's Game.log, decides what is worth saying, has a LOCAL model w
 two local Piper voices. Nothing leaves the PC.
 
 Launched by skill_launcher with `preload: true`: it starts hidden with the toolbox and runs all session; the window
-(Shift+S) is a dashboard, and closing it only hides it.
+(Ctrl+2) is a dashboard, and closing it only hides it.
 
 Args: <x> <y> <w> <h> <opacity> <cmd_file>
 """
@@ -41,7 +41,7 @@ def main() -> None:
     apply_theme(app)
 
     geometry = WindowGeometry(x=args["x"], y=args["y"], w=args["w"], h=args["h"], opacity=args["opacity"])
-    window = SuitWindow(geometry=geometry, hotkey_text="Shift+S", cmd_file=args.get("cmd_file"))
+    window = SuitWindow(geometry=geometry, hotkey_text="Ctrl+2", cmd_file=args.get("cmd_file"))
 
     if not os.environ.get("SC_TOOLBOX_PRELOAD"):
         window.show()          # standalone / explicit launch: show the dashboard; preload: run hidden
