@@ -789,6 +789,12 @@ class Router:
         # missions
         if re.search(r"\b(missions?|contracts?)\b", t) and re.search(r"\bblueprints?\b", t):
             add("search_missions", -3.0)
+        if re.search(r"\b(missions?|contracts?|jobs?|gigs?|bounties)\b", t) and not re.search(
+                r"\b(loadout|inventory|gear|kit|carrying|medpens?|med pens?|oxypens?|oxy pens?|"
+                r"grenades?|mags|magazines|ammo)\b", t):
+            # "what missions do I have": "do I have" is a loadout phrase, but
+            # with a missions word and nothing carried named, it is missions
+            add("current_loadout", -3.0)
         if by.get("mission_type"):
             add("search_missions", 2.0)
         if by.get("faction"):
