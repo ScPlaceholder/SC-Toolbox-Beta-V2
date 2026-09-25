@@ -30,7 +30,7 @@ def parse_po(po_path: Path) -> list[tuple[bytes, bytes]]:
     def _flush():
         mid = "".join(msgid_parts)
         mstr = "".join(msgstr_parts)
-        if mid:  # skip empty msgid (header handled separately)
+        if mid or mstr:  # keep the header (empty msgid): it carries the charset, without it gettext decodes as ASCII
             entries.append((mid, mstr))
 
     for line in lines:
