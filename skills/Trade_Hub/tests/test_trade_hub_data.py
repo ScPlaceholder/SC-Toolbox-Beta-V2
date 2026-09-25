@@ -217,8 +217,10 @@ class TestHelpers:
         assert any(c in result for c in ("s", "m", "h"))
 
     def test_fmt_eta_minutes(self):
-        result = fmt_eta(5.0)
-        assert "m" in result or "h" in result
+        # default quantum speed 0.283 Gm/s: 5 Gm is 18 s, so minutes need a longer hop
+        assert fmt_eta(5.0) == "18s"
+        assert fmt_eta(100.0) == "6m"      # 353 s
+        assert fmt_eta(2000.0) == "2.0h"   # 7067 s
 
 
 # ── route_from_api tests ────────────────────────────────────────────────────
