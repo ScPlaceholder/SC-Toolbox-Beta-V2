@@ -3,7 +3,8 @@
 Layout:
 
   [ title bar                                             ✕ ]
-  [ Ears ] [ Set Mic Keybind ] [ Voice Replies ] [ Settings… ]
+  [ Ears ] [ Set Mic Key ] [ Voice Replies ] [ Settings… ]
+  <no-mic-key hint, only while no key is set>
   You:  <last thing the ears heard>
   AI:   <the assistant's reply, word-wrapped>
   <status line>
@@ -150,6 +151,8 @@ class AssistantWindow(SCWindow):
         # ── voice ────────────────────────────────────────────────────────
         self._mouth = Mouth()
         self._ears = EarsController(self)
+        # hold-to-talk by default; "mic_mode": "toggle" in the state file opts out
+        self._ears.set_mode(self._state.get("mic_mode", "push"))
         self._ears.statusChanged.connect(self._set_status)
         self._ears.transcript.connect(self._on_transcript)
         self._ears.needsInstall.connect(self._on_needs_install)
@@ -171,7 +174,7 @@ class AssistantWindow(SCWindow):
         self._btn_ears.toggled.connect(self._on_ears_toggled)
         row.addWidget(self._btn_ears)
 
-        self._btn_key = QPushButton("Set Mic Keybind")
+        self._btn_key = QPushButton("Set Mic Key")
         self._btn_key.setStyleSheet(_btn_ss())
         self._btn_key.clicked.connect(self._pick_binding)
         row.addWidget(self._btn_key)
@@ -189,6 +192,16 @@ class AssistantWindow(SCWindow):
         row.addStretch(1)
         self.content_layout.addLayout(row)
 
+        # shown while no mic key is set (and after a refused one), so the
+        # user sees why holding a key does nothing
+        self._lbl_mic = QLabel("")
+        self._lbl_mic.setWordWrap(True)
+        self._lbl_mic.setStyleSheet(
+            f"color: {P.yellow}; "
+            f"font-family: Consolas; font-size: 9pt; "
+            f"background: transparent; padding: 0 12px;")
+        self.content_layout.addWidget(self._lbl_mic)
+
         self._lbl_heard = QLabel("You: —")
         self._lbl_heard.setWordWrap(True)
         self._lbl_heard.setStyleSheet(
@@ -196,9 +209,9 @@ class AssistantWindow(SCWindow):
             f"background: transparent; padding: 0 12px;")
         self.content_layout.addWidget(self._lbl_heard)
 
-        self._lbl_reply = QLabel("AI: arm the ears, set a keybind, and talk "
-                                 "to me. Ask for the best cargo route for "
-                                 "your ship.")
+        self._lbl_reply = QLabel("AI: set a mic key, arm the ears, then hold "
+                                 "the key and talk to me. Ask for the best "
+                                 "cargo route for your ship.")
         self._lbl_reply.setWordWrap(True)
         self._lbl_reply.setStyleSheet(
             f"color: {P.fg_bright}; font-family: Consolas; font-size: 10pt; "
@@ -294,18 +307,32 @@ class AssistantWindow(SCWindow):
             self._ears.disarm()
 
     def _pick_binding(self) -> None:
-        self._set_status("press a key or mouse button…")
+        self._set_status("press the key to hold while you talk (left/right click not allowed)…")
+        self._btn_key.setText("Press a key…")
         self._capture = KeyCaptureDialog(self)
         self._capture.captured.connect(self._binding_captured)
+        self._capture.refused.connect(self._binding_refused)
         if not self._capture.start():
             self._set_status("pynput missing — pip install pynput")
+            self._show_mic_key()
+
+    def _binding_refused(self, why: str) -> None:
+        # the capture keeps listening; say why in the binding UI itself
+        self._btn_key.setText("Not that one - press a key…")
+        self._lbl_mic.setText(why)
+        self._lbl_mic.setVisible(True)
+        self._set_status(why)
 
     def _binding_captured(self, binding: InputBinding) -> None:
         self._capture = None
-        self._ears.set_binding(binding)
+        if not self._ears.set_binding(binding):
+            self._binding_refused(binding.refused())
+            return
         self._state["binding"] = {"kind": binding.kind, "code": binding.code}
         self._save_state()
-        self._set_status("keybind set: " + binding.describe())
+        self._set_status("mic key set: " + binding.describe()
+                         + (" (hold to talk)" if self._ears.mode() == "push" else ""))
+        self._show_mic_key()
         if self._btn_ears.isChecked():
             self._ears.disarm()
             self._ears.arm()
@@ -313,8 +340,29 @@ class AssistantWindow(SCWindow):
     def _restore_binding(self) -> None:
         raw = self._state.get("binding")
         if raw and raw.get("code"):
-            self._ears.set_binding(InputBinding(raw.get("kind", "key"),
-                                                raw["code"]))
+            b = InputBinding(raw.get("kind", "key"), raw["code"])
+            if b.refused():
+                # an old saved left/right click: do not arm it, ask for a key
+                self._lbl_mic.setText("Your saved mic key (" + b.describe() + ") is no longer "
+                                      "allowed. " + b.refused())
+                self._show_mic_key(keep_hint=True)
+                return
+            self._ears.set_binding(b)
+        self._show_mic_key()
+
+    def _show_mic_key(self, keep_hint: bool = False) -> None:
+        """Button text + hint line from the current binding."""
+        b = self._ears.binding()
+        if b is None:
+            self._btn_key.setText("Set Mic Key")
+            if not keep_hint:
+                self._lbl_mic.setText("No mic key set. Click Set Mic Key and press the "
+                                      "keyboard key you want to hold while you talk.")
+            self._lbl_mic.setVisible(True)
+        else:
+            self._btn_key.setText("Mic key: " + b.describe())
+            self._lbl_mic.setText("")
+            self._lbl_mic.setVisible(False)
 
     # ── settings ─────────────────────────────────────────────────────────
     def _edit_settings(self) -> None:

@@ -24,6 +24,23 @@ class InputBinding:
             return "mouse " + self.code.replace("Button.", "")
         return self.code.replace("Key.", "")
 
+    def refused(self) -> str:
+        """Why this binding cannot be the mic key, or "" if it can.
+
+        Left and right click are refused: the listener does not swallow
+        the click, so every shot fired or menu clicked in game would also
+        open the mic.
+        """
+        if self.kind == "mouse" and self.code in REFUSED_MOUSE:
+            return REFUSED_MSG
+        return ""
+
+
+# pynput Button names that can never be the mic key
+REFUSED_MOUSE = ("Button.left", "Button.right")
+REFUSED_MSG = ("Left and right mouse buttons can't be the mic key: every click in "
+               "game would open the mic. Press a keyboard key (or a side mouse button).")
+
 
 class HotkeyMonitor(QObject):
     """Watches a binding and re-emits pressed/released as Qt signals."""
@@ -106,10 +123,13 @@ class HotkeyMonitor(QObject):
 class KeyCaptureDialog(QObject):
     """One-shot 'press anything' capture (keyboard or mouse).
 
-    Emits captured(InputBinding) then stops listening.
+    Emits captured(InputBinding) then stops listening. A refused press
+    (left or right click) emits refused(message) and keeps listening, so
+    the user can press a key straight after.
     """
 
     captured = Signal(object)
+    refused = Signal(str)
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
@@ -157,5 +177,11 @@ class KeyCaptureDialog(QObject):
             self._finish(InputBinding("key", ch))
 
     def _got_click(self, x, y, button, pressed) -> None:
-        if pressed:
-            self._finish(InputBinding("mouse", str(button)))
+        if not pressed:
+            return
+        binding = InputBinding("mouse", str(button))
+        why = binding.refused()
+        if why:
+            self.refused.emit(why)
+            return
+        self._finish(binding)

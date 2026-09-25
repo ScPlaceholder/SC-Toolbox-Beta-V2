@@ -11,6 +11,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import threading
+import time
 from queue import Queue
 from typing import Optional
 
@@ -28,7 +29,15 @@ _TTS_TIMEOUT = 30
 
 
 class EarsController(QObject):
-    """Mic + FastWhisper behind a trigger binding (toggle mode)."""
+    """Mic + FastWhisper behind a trigger binding.
+
+    Modes:
+      * push (default) - hold-to-talk: the mic is open while the key is
+        held and releasing it transcribes. A pause mid-sentence does not
+        end it; only the release does, or the 12 s cap.
+      * toggle - press once to open, a 0.9 s silence gap (or a second
+        press) ends the utterance.
+    """
 
     listeningChanged = Signal(bool)
     statusChanged = Signal(str)
@@ -40,12 +49,14 @@ class EarsController(QObject):
         self._binding = None
         self._monitor = None
         self._armed = False
+        self._mode = "push"                      # push (hold-to-talk) | toggle
         self._model_name = "small.en"
         self._stream = None
         self._frames = []
         self._last_rms = 0.0
         self._voice_ms = 0
         self._quiet_ms = 0
+        self._started = 0.0
         self._recording = False
         self._model = None
         self._lock = threading.Lock()
@@ -56,11 +67,24 @@ class EarsController(QObject):
         self._tick.timeout.connect(self._watch_silence)
 
     # ── config ───────────────────────────────────────────────────────────
-    def set_binding(self, binding) -> None:
+    def set_binding(self, binding) -> bool:
+        """Returns False (binding not set) for a refused binding such as
+        left or right click."""
+        why = binding.refused() if binding is not None and hasattr(binding, "refused") else ""
+        if why:
+            self.statusChanged.emit(why)
+            return False
         self._binding = binding
         if self._armed:
             self.disarm()
             self.arm()
+        return True
+
+    def mode(self) -> str:
+        return self._mode
+
+    def set_mode(self, mode: str) -> None:
+        self._mode = "toggle" if mode == "toggle" else "push"
 
     def set_model(self, name: str) -> None:
         self._model_name = name or "small.en"
@@ -68,6 +92,9 @@ class EarsController(QObject):
 
     def armed(self) -> bool:
         return self._armed
+
+    def recording(self) -> bool:
+        return self._recording
 
     def binding(self):
         return self._binding
@@ -80,7 +107,7 @@ class EarsController(QObject):
             self.needsInstall.emit(missing)
             return False
         if self._binding is None:
-            self.statusChanged.emit("no trigger set — use Set Mic Keybind")
+            self.statusChanged.emit("no mic key set — click Set Mic Key and press the key to hold while you talk")
             return False
         from .voice_input import HotkeyMonitor
         if self._monitor is None:
@@ -88,19 +115,28 @@ class EarsController(QObject):
             self._monitor.triggered.connect(self._on_trigger)
         self._armed = True
         ok = self._monitor.start(self._binding)
-        self.statusChanged.emit("ears armed")
+        self.statusChanged.emit("ears armed (%s, %s)" % (
+            self._binding.describe(), "hold to talk" if self._mode == "push" else "toggle"))
         return ok
 
     def disarm(self) -> None:
+        was_armed = self._armed
         self._armed = False
         if self._monitor is not None:
             self._monitor.stop()
         if self._recording:
             self._abort_recording()
-        self.statusChanged.emit("ears off")
+        if was_armed:                            # keep a failed arm()'s reason on screen
+            self.statusChanged.emit("ears off")
 
     # ── trigger / capture ────────────────────────────────────────────────
     def _on_trigger(self, pressed: bool) -> None:
+        if self._mode == "push":
+            if pressed:
+                self._begin()                    # key auto-repeat: _begin ignores repeats
+            elif self._recording:
+                self._finish()
+            return
         if not pressed:
             return
         if self._recording:
@@ -122,6 +158,7 @@ class EarsController(QObject):
         self._last_rms = 0.0
         self._voice_ms = 0
         self._quiet_ms = 0
+        self._started = time.monotonic()
         try:
             self._stream = sd.InputStream(
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
@@ -153,6 +190,12 @@ class EarsController(QObject):
             self._quiet_ms = 0
         elif self._voice_ms >= _MIN_VOICE_MS:
             self._quiet_ms += 100
+        if self._mode == "push":
+            # hold-to-talk: the release ends it, never a pause; 12 s cap
+            # (wall clock: timer ticks drift late under load)
+            if (time.monotonic() - self._started) * 1000 >= _MAX_UTTERANCE_MS:
+                self._finish()
+            return
         if self._voice_ms >= _MAX_UTTERANCE_MS or \
                 (self._voice_ms >= _MIN_VOICE_MS and self._quiet_ms >= _GAP_MS):
             self._finish()
