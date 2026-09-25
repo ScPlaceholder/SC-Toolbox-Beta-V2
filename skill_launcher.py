@@ -241,6 +241,7 @@ class SCToolboxApp:
 
         # ── Hotkeys ──
         self._hotkey_listener = None
+        self._hotkey_conflicts: list = []
         self._start_hotkeys()
 
         # ── Auto-check for updates (2s after launch) ──
@@ -415,6 +416,8 @@ class SCToolboxApp:
             return
 
         bindings = self._build_hotkey_bindings()
+        if self._hotkey_conflicts:
+            self._window.set_status(self._hotkey_conflicts[0])
         if not bindings:
             return
         try:
@@ -434,12 +437,46 @@ class SCToolboxApp:
             self._hotkey_listener = None
 
     def _build_hotkey_bindings(self) -> dict:
+        """hotkey string -> callback, for GlobalHotKeys.
+
+        Duplicates are detected, not resolved by dict order: two tools on
+        the same combo (compared after parsing, so "<shift>+9" and
+        "<Shift>+9" are one combo) would otherwise mean the later one
+        silently overwrote the earlier. The first claimant keeps it (the
+        launcher, then tools in launcher order); every later one is left
+        unbound and a warning names both. A combo pynput cannot parse is
+        skipped with a warning instead of failing the whole listener.
+        The warnings are kept in self._hotkey_conflicts.
+        """
         bindings = {}
+        owners: dict = {}                 # canonical combo -> label
+        self._hotkey_conflicts = []
         disabled = set(self._settings.disabled_skills)
         kb_disabled = set(self._settings.keybinds_disabled)
+
+        def claim(hk: str, label: str, callback) -> None:
+            try:
+                from pynput.keyboard import HotKey
+                combo = frozenset(str(k) for k in HotKey.parse(hk))
+            except ImportError:
+                combo = frozenset([hk.strip().lower()])
+            except ValueError as exc:
+                msg = f"Hotkey {hk!r} for {label} is not a valid key combo ({exc}); left unbound"
+                logger.warning(msg)
+                self._hotkey_conflicts.append(msg)
+                return
+            if combo in owners:
+                msg = (f"Hotkey conflict: {hk} is set for both "
+                       f"{owners[combo]} and {label}; {label} left unbound")
+                logger.warning(msg)
+                self._hotkey_conflicts.append(msg)
+                return
+            owners[combo] = label
+            bindings[hk] = callback
+
         if self._launcher_hotkey and "launcher" not in kb_disabled:
-            bindings[self._launcher_hotkey] = lambda: self._enqueue(
-                self._window.toggle_visibility)
+            claim(self._launcher_hotkey, "the launcher",
+                  lambda: self._enqueue(self._window.toggle_visibility))
         for skill in self._skills:
             if skill.id in disabled:
                 continue
@@ -448,8 +485,8 @@ class SCToolboxApp:
             hk = skill.hotkey
             sid = skill.id
             if hk:
-                bindings[hk] = lambda s=sid: self._enqueue(
-                    lambda s=s: self._toggle_skill(s))
+                claim(hk, skill.name, lambda s=sid: self._enqueue(
+                    lambda s=s: self._toggle_skill(s)))
         return bindings
 
     def _save_launcher_opacity(self) -> None:
