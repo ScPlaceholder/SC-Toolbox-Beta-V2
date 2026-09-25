@@ -1,0 +1,10 @@
+{
+  "id": "starmap",
+  "name": "Starmap",
+  "icon": "✦",
+  "color": "#44ccff",
+  "folder": "Starmap",
+  "script": "starmap_app.py",
+  "hotkey": "<shift>+9",
+  "settings_key": "hotkey_starmap"
+}

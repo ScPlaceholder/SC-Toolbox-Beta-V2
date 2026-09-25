@@ -1,0 +1,1438 @@
+{
+  "meta": {
+    "source": "https://api.star-citizen.wiki/api/starsystems (paginated via page[number]=1..3) for systems+position+affiliation; per-system https://api.star-citizen.wiki/api/starsystems/{CODE}?include=jumppoints for jump-point connections",
+    "coordinate_units": "Galactic light-years (RSI/star-citizen.wiki starmap space). Sol at origin (0,0,0); values range roughly -75..+125 per axis, max magnitude ~139 ly. Field source: each system's position.{x,y,z}.",
+    "system_count": 90,
+    "notes": "Affiliation = name of first entry in the API 'affiliation' array (UEE, Vanduul, Xi'an, Banu, Unclaimed, Developing). in_game=true only for STANTON and PYRO (the only playable systems as of this data); all others false including Sol/Terra/Nyx. Jump points: the API stores each (bidirectional, direction='B') jump point on only ONE of its two endpoint systems, so the raw per-system lists are asymmetric. They have been SYMMETRIZED here: if system A's record lists a jump to B, B's jump_points also include A. After symmetrization, 78 of 90 systems have >=1 jump connection; the remaining 12 have none in the source (isolated/unconnected on the wiki starmap). 'status' codes in source were P=playable-region/available, M=Vanduul/military, N=non-accessible; not exported. No coordinate gaps: all 90 systems have x/y/z."
+  },
+  "systems": [
+    {
+      "code": "AYR'KA",
+      "name": "Ail'ka",
+      "position": {
+        "x": 139.16,
+        "y": -7.99,
+        "z": 39.58
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "HADUR",
+        "INDRA",
+        "TAL"
+      ]
+    },
+    {
+      "code": "BACCHUS",
+      "name": "Bacchus",
+      "position": {
+        "x": 21.18,
+        "y": -67.47,
+        "z": 36.86
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "DAVIEN",
+        "GARRON",
+        "GEDDON"
+      ]
+    },
+    {
+      "code": "BAKER",
+      "name": "Baker",
+      "position": {
+        "x": 89.54,
+        "y": -5.42,
+        "z": -39.71
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "HADUR",
+        "KIEL",
+        "OSIRIS",
+        "PALLAS",
+        "TAYAC"
+      ]
+    },
+    {
+      "code": "BANSHEE",
+      "name": "Banshee",
+      "position": {
+        "x": -14.7,
+        "y": -62.06,
+        "z": -3.53
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "FORA",
+        "GARRON",
+        "LEIR",
+        "TAMSA",
+        "YULIN"
+      ]
+    },
+    {
+      "code": "BRANAUGH",
+      "name": "Branaugh",
+      "position": {
+        "x": -3.84,
+        "y": 50.27,
+        "z": -31.54
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "CHRONOS"
+      ]
+    },
+    {
+      "code": "BREMEN",
+      "name": "Bremen",
+      "position": {
+        "x": 13.61,
+        "y": 19.08,
+        "z": -6.41
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "KALLIS",
+        "NYX",
+        "TANGA",
+        "VEGA"
+      ]
+    },
+    {
+      "code": "CALIBAN",
+      "name": "Caliban",
+      "position": {
+        "x": -31.41,
+        "y": -7.82,
+        "z": 3.56
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "NUL",
+        "OBERON",
+        "ORION",
+        "VIKING"
+      ]
+    },
+    {
+      "code": "CANO",
+      "name": "Cano",
+      "position": {
+        "x": 21.36,
+        "y": -8.61,
+        "z": 9.85
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "DAVIEN",
+        "PYRO"
+      ]
+    },
+    {
+      "code": "CASTRA",
+      "name": "Castra",
+      "position": {
+        "x": 40.19,
+        "y": 18.96,
+        "z": 21.06
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "HADRIAN",
+        "NYX",
+        "OSO",
+        "OYA",
+        "PYRO"
+      ]
+    },
+    {
+      "code": "CATHCART",
+      "name": "Cathcart",
+      "position": {
+        "x": 26.63,
+        "y": -21.69,
+        "z": 16.41
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "DAVIEN",
+        "HADES",
+        "KILIAN",
+        "NEXUS"
+      ]
+    },
+    {
+      "code": "CENTAURI",
+      "name": "Centauri",
+      "position": {
+        "x": -27.05,
+        "y": -27.12,
+        "z": 22.16
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "ELYSIUM",
+        "NUL"
+      ]
+    },
+    {
+      "code": "CHARON",
+      "name": "Charon",
+      "position": {
+        "x": 72.4,
+        "y": -48.43,
+        "z": 13.66
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "GENESIS",
+        "HELIOS",
+        "KINS",
+        "TYROL"
+      ]
+    },
+    {
+      "code": "CHRONOS",
+      "name": "Chronos",
+      "position": {
+        "x": -18.84,
+        "y": 54.18,
+        "z": 13.78
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BRANAUGH",
+        "KELLOG"
+      ]
+    },
+    {
+      "code": "COREL",
+      "name": "Corel",
+      "position": {
+        "x": 45.35,
+        "y": -48.69,
+        "z": 19.85
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "GEDDON",
+        "GENESIS",
+        "NEMO"
+      ]
+    },
+    {
+      "code": "CROSHAW",
+      "name": "Croshaw",
+      "position": {
+        "x": -0.53,
+        "y": -10.88,
+        "z": -0.8
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "FERRON",
+        "NUL",
+        "RHETOR",
+        "SOL"
+      ]
+    },
+    {
+      "code": "DAVIEN",
+      "name": "Davien",
+      "position": {
+        "x": 13.36,
+        "y": -18.61,
+        "z": 3.85
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BACCHUS",
+        "CANO",
+        "CATHCART",
+        "FERRON",
+        "KILIAN",
+        "SOL"
+      ]
+    },
+    {
+      "code": "EEALUS",
+      "name": "\u0112'aluth (Eealus)",
+      "position": {
+        "x": 44.75,
+        "y": 59.45,
+        "z": 26.95
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "OYA",
+        "RIHLAH",
+        "TRISE",
+        "VIRTUS"
+      ]
+    },
+    {
+      "code": "EL'SIN",
+      "name": "El'sin",
+      "position": {
+        "x": 80.76,
+        "y": 70.46,
+        "z": 24.67
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "ELLIS",
+      "name": "Ellis",
+      "position": {
+        "x": 45.25,
+        "y": -21.55,
+        "z": -3.71
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "KILIAN",
+        "MAGNUS",
+        "MIN",
+        "NEXUS",
+        "TARANIS"
+      ]
+    },
+    {
+      "code": "ELYSIUM",
+      "name": "Elysium",
+      "position": {
+        "x": -32.42,
+        "y": -40.18,
+        "z": -20.8
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CENTAURI",
+        "IDRIS",
+        "LEIR",
+        "VANGUARD"
+      ]
+    },
+    {
+      "code": "FERRON",
+      "name": "Ferron",
+      "position": {
+        "x": -4.65,
+        "y": -24.19,
+        "z": -4.61
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CROSHAW",
+        "DAVIEN",
+        "IDRIS"
+      ]
+    },
+    {
+      "code": "FORA",
+      "name": "Fora",
+      "position": {
+        "x": 2.66,
+        "y": -67.59,
+        "z": -50.64
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BANSHEE",
+        "NEMO",
+        "RHETOR"
+      ]
+    },
+    {
+      "code": "GARRON",
+      "name": "Garron",
+      "position": {
+        "x": -14.53,
+        "y": -45.83,
+        "z": -4.35
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "BACCHUS",
+        "BANSHEE",
+        "IDRIS",
+        "LEIR"
+      ]
+    },
+    {
+      "code": "GEDDON",
+      "name": "Geddon",
+      "position": {
+        "x": 44.97,
+        "y": -59.38,
+        "z": 12.84
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "BACCHUS",
+        "COREL",
+        "GLIESE"
+      ]
+    },
+    {
+      "code": "GENESIS",
+      "name": "Genesis",
+      "position": {
+        "x": 58.19,
+        "y": -45.92,
+        "z": 19.33
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "CHARON",
+        "COREL",
+        "TARANIS"
+      ]
+    },
+    {
+      "code": "GLIESE",
+      "name": "Gliese",
+      "position": {
+        "x": 49.8,
+        "y": -73.02,
+        "z": 24.55
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "GEDDON"
+      ]
+    },
+    {
+      "code": "GOSS",
+      "name": "Goss",
+      "position": {
+        "x": 85.11,
+        "y": -29.7,
+        "z": 8.19
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "HELIOS",
+        "OSIRIS",
+        "TAYAC",
+        "TERRA",
+        "TYROL"
+      ]
+    },
+    {
+      "code": "GURZIL",
+      "name": "Gurzil",
+      "position": {
+        "x": 71.94,
+        "y": 26.53,
+        "z": 13.95
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "HADRIAN",
+        "HORUS",
+        "OYA",
+        "RIHLAH"
+      ]
+    },
+    {
+      "code": "HADES",
+      "name": "Hades",
+      "position": {
+        "x": 26.81,
+        "y": -32.33,
+        "z": -3.96
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "CATHCART",
+        "NEMO",
+        "NEXUS"
+      ]
+    },
+    {
+      "code": "HADRIAN",
+      "name": "Hadrian",
+      "position": {
+        "x": 67.7,
+        "y": 8.08,
+        "z": 6.06
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CASTRA",
+        "GURZIL",
+        "KIEL",
+        "OYA",
+        "PYRO",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "HADUR",
+      "name": "Y\u0101'mon (Hadur)",
+      "position": {
+        "x": 116.42,
+        "y": -5.48,
+        "z": -34.91
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "AYR'KA",
+        "BAKER",
+        "INDRA",
+        "PALLAS"
+      ]
+    },
+    {
+      "code": "HELIOS",
+      "name": "Helios",
+      "position": {
+        "x": 67.77,
+        "y": -35.15,
+        "z": 9.04
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CHARON",
+        "GOSS",
+        "TARANIS",
+        "TYROL"
+      ]
+    },
+    {
+      "code": "HORUS",
+      "name": "Horus",
+      "position": {
+        "x": 89.52,
+        "y": 21.22,
+        "z": 22.12
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "GURZIL",
+        "KAYFA",
+        "KIEL",
+        "RIHLAH"
+      ]
+    },
+    {
+      "code": "IDRIS",
+      "name": "Idris",
+      "position": {
+        "x": -14.42,
+        "y": -35.08,
+        "z": -6.47
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "ELYSIUM",
+        "FERRON",
+        "GARRON",
+        "RHETOR"
+      ]
+    },
+    {
+      "code": "INDRA",
+      "name": "Kyuk'ya (Indra)",
+      "position": {
+        "x": 116.43,
+        "y": -26.96,
+        "z": -9.36
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "AYR'KA",
+        "HADUR",
+        "KINS",
+        "OSIRIS"
+      ]
+    },
+    {
+      "code": "KABAL",
+      "name": "Kabal",
+      "position": {
+        "x": -20.53,
+        "y": -45.83,
+        "z": -7.35
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "LEIR"
+      ]
+    },
+    {
+      "code": "KALLIS",
+      "name": "Kallis",
+      "position": {
+        "x": 22.29,
+        "y": 2.7,
+        "z": -3.52
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "BREMEN",
+        "OSO"
+      ]
+    },
+    {
+      "code": "KAYFA",
+      "name": "Kai'pua (Kayfa)",
+      "position": {
+        "x": 89.61,
+        "y": 48.47,
+        "z": -9.27
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "HORUS",
+        "RIHLAH"
+      ]
+    },
+    {
+      "code": "KELLOG",
+      "name": "Kellog",
+      "position": {
+        "x": -27.03,
+        "y": 37.93,
+        "z": -2.59
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "CHRONOS",
+        "ODIN",
+        "VECTOR",
+        "VIRGIL"
+      ]
+    },
+    {
+      "code": "KHABARI",
+      "name": "K.ap'a'ri (Khabari)",
+      "position": {
+        "x": 107.75,
+        "y": 70.57,
+        "z": 10.68
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "KIEL",
+      "name": "Kiel",
+      "position": {
+        "x": 80.51,
+        "y": 5.49,
+        "z": -12.5
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BAKER",
+        "HADRIAN",
+        "HORUS"
+      ]
+    },
+    {
+      "code": "KILIAN",
+      "name": "Kilian",
+      "position": {
+        "x": 30.59,
+        "y": -13.46,
+        "z": 3.15
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CATHCART",
+        "DAVIEN",
+        "ELLIS"
+      ]
+    },
+    {
+      "code": "KINS",
+      "name": "Kins",
+      "position": {
+        "x": 80.66,
+        "y": -64.89,
+        "z": 53.8
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "CHARON",
+        "INDRA"
+      ]
+    },
+    {
+      "code": "LEIR",
+      "name": "Leir",
+      "position": {
+        "x": -37.04,
+        "y": -59.36,
+        "z": -5.87
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "BANSHEE",
+        "ELYSIUM",
+        "GARRON",
+        "KABAL",
+        "VANGUARD",
+        "YULIN"
+      ]
+    },
+    {
+      "code": "MAGNUS",
+      "name": "Magnus",
+      "position": {
+        "x": 49.62,
+        "y": -13.12,
+        "z": 2.55
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "ELLIS",
+        "STANTON",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "MARKAHIL",
+      "name": "Malkail (Markahil)",
+      "position": {
+        "x": 121.38,
+        "y": 51.43,
+        "z": 15.18
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "MIN",
+      "name": "Min",
+      "position": {
+        "x": 40.15,
+        "y": -29.82,
+        "z": 17.68
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "ELLIS",
+        "NEXUS"
+      ]
+    },
+    {
+      "code": "NEMO",
+      "name": "Nemo",
+      "position": {
+        "x": 26.74,
+        "y": -43.16,
+        "z": -11.23
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "COREL",
+        "FORA",
+        "HADES"
+      ]
+    },
+    {
+      "code": "NEXUS",
+      "name": "Nexus",
+      "position": {
+        "x": 35.16,
+        "y": -27.03,
+        "z": -11.65
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CATHCART",
+        "ELLIS",
+        "HADES",
+        "MIN"
+      ]
+    },
+    {
+      "code": "NUL",
+      "name": "Nul",
+      "position": {
+        "x": -18.15,
+        "y": -10.62,
+        "z": -2.24
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "CALIBAN",
+        "CENTAURI",
+        "CROSHAW",
+        "OBERON",
+        "VEGA"
+      ]
+    },
+    {
+      "code": "NYX",
+      "name": "Nyx",
+      "position": {
+        "x": 26.54,
+        "y": 27.07,
+        "z": -14.52
+      },
+      "affiliation": "Unclaimed",
+      "in_game": true,
+      "jump_points": [
+        "BREMEN",
+        "CASTRA",
+        "ODIN",
+        "PYRO",
+        "STANTON",
+        "TOHIL",
+        "VIRGIL"
+      ]
+    },
+    {
+      "code": "OBERON",
+      "name": "Oberon",
+      "position": {
+        "x": -22.98,
+        "y": 2.81,
+        "z": 4.14
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "CALIBAN",
+        "NUL",
+        "TIBER",
+        "VEGA",
+        "VIRGIL"
+      ]
+    },
+    {
+      "code": "ODIN",
+      "name": "Odin",
+      "position": {
+        "x": -0.11,
+        "y": 37.88,
+        "z": -27.75
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "KELLOG",
+        "NYX",
+        "TANGA"
+      ]
+    },
+    {
+      "code": "ORETANI",
+      "name": "Oretani",
+      "position": {
+        "x": -12.65,
+        "y": -17.19,
+        "z": 10.38
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "ORION",
+      "name": "Orion",
+      "position": {
+        "x": -45.33,
+        "y": 0.06,
+        "z": 15.39
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "CALIBAN",
+        "TIBER",
+        "VIKING",
+        "VULTURE"
+      ]
+    },
+    {
+      "code": "OSIRIS",
+      "name": "Osiris",
+      "position": {
+        "x": 99.02,
+        "y": -21.55,
+        "z": -8.51
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "BAKER",
+        "GOSS",
+        "INDRA"
+      ]
+    },
+    {
+      "code": "OSO",
+      "name": "Oso",
+      "position": {
+        "x": 31.1,
+        "y": 13.59,
+        "z": -40.18
+      },
+      "affiliation": "Developing",
+      "in_game": false,
+      "jump_points": [
+        "CASTRA",
+        "KALLIS",
+        "PYRO"
+      ]
+    },
+    {
+      "code": "OYA",
+      "name": "Oya",
+      "position": {
+        "x": 49.33,
+        "y": 35.04,
+        "z": -0.55
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CASTRA",
+        "EEALUS",
+        "GURZIL",
+        "HADRIAN",
+        "TOHIL"
+      ]
+    },
+    {
+      "code": "PALLAS",
+      "name": "Th.us'\u016bng (Pallas)",
+      "position": {
+        "x": 103.46,
+        "y": 8.13,
+        "z": 12.69
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "BAKER",
+        "HADUR",
+        "TAL"
+      ]
+    },
+    {
+      "code": "PYRO",
+      "name": "Pyro",
+      "position": {
+        "x": 40.13,
+        "y": 8.41,
+        "z": -17.22
+      },
+      "affiliation": "Unclaimed",
+      "in_game": true,
+      "jump_points": [
+        "CANO",
+        "CASTRA",
+        "HADRIAN",
+        "NYX",
+        "OSO",
+        "STANTON",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "RHETOR",
+      "name": "Rhetor",
+      "position": {
+        "x": 13.62,
+        "y": -40.26,
+        "z": 24.35
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CROSHAW",
+        "FORA",
+        "IDRIS"
+      ]
+    },
+    {
+      "code": "RIHLAH",
+      "name": "R.il'a (Rihlah)",
+      "position": {
+        "x": 71.95,
+        "y": 48.63,
+        "z": 20.12
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "EEALUS",
+        "GURZIL",
+        "HORUS",
+        "KAYFA"
+      ]
+    },
+    {
+      "code": "SOL",
+      "name": "Sol",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "CROSHAW",
+        "DAVIEN"
+      ]
+    },
+    {
+      "code": "STANTON",
+      "name": "Stanton",
+      "position": {
+        "x": 49.53,
+        "y": -2.63,
+        "z": 16.48
+      },
+      "affiliation": "UEE",
+      "in_game": true,
+      "jump_points": [
+        "MAGNUS",
+        "NYX",
+        "PYRO",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "TAL",
+      "name": "T.\u0101l",
+      "position": {
+        "x": 121.19,
+        "y": 19.19,
+        "z": 7.65
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "AYR'KA",
+        "PALLAS"
+      ]
+    },
+    {
+      "code": "TAMSA",
+      "name": "Tamsa",
+      "position": {
+        "x": -18.82,
+        "y": -70.57,
+        "z": 15.03
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BANSHEE"
+      ]
+    },
+    {
+      "code": "TANGA",
+      "name": "Tanga",
+      "position": {
+        "x": -7.11,
+        "y": 32.88,
+        "z": -15.63
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "BREMEN",
+        "ODIN"
+      ]
+    },
+    {
+      "code": "TARANIS",
+      "name": "Taranis",
+      "position": {
+        "x": 53.63,
+        "y": -32.45,
+        "z": -5.81
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "ELLIS",
+        "GENESIS",
+        "HELIOS",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "TAYAC",
+      "name": "Tayac",
+      "position": {
+        "x": 80.74,
+        "y": -16.14,
+        "z": -64.06
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BAKER",
+        "GOSS",
+        "TERRA"
+      ]
+    },
+    {
+      "code": "TERRA",
+      "name": "Terra",
+      "position": {
+        "x": 67.71,
+        "y": -8.13,
+        "z": -3.14
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "GOSS",
+        "HADRIAN",
+        "MAGNUS",
+        "PYRO",
+        "STANTON",
+        "TARANIS",
+        "TAYAC"
+      ]
+    },
+    {
+      "code": "TIBER",
+      "name": "Tiber",
+      "position": {
+        "x": -35.52,
+        "y": 10.73,
+        "z": 6.15
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "OBERON",
+        "ORION",
+        "VECTOR",
+        "VIRGIL"
+      ]
+    },
+    {
+      "code": "TOHIL",
+      "name": "Tohil",
+      "position": {
+        "x": 35.62,
+        "y": 37.4,
+        "z": 12.09
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "NYX",
+        "OYA",
+        "VIRTUS"
+      ]
+    },
+    {
+      "code": "TRISE",
+      "name": "Trise",
+      "position": {
+        "x": 26.5,
+        "y": 65,
+        "z": 31.86
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "EEALUS",
+        "VIRTUS"
+      ]
+    },
+    {
+      "code": "TYROL",
+      "name": "Tyrol",
+      "position": {
+        "x": 80.7,
+        "y": -43.28,
+        "z": -17.19
+      },
+      "affiliation": "Unclaimed",
+      "in_game": false,
+      "jump_points": [
+        "CHARON",
+        "GOSS",
+        "HELIOS"
+      ]
+    },
+    {
+      "code": "VAGABOND",
+      "name": "Vagabond",
+      "position": {
+        "x": -63.81,
+        "y": -21.74,
+        "z": 9.63
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VANGUARD",
+      "name": "Vanguard",
+      "position": {
+        "x": -50.65,
+        "y": -45.84,
+        "z": -13.39
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "ELYSIUM",
+        "LEIR"
+      ]
+    },
+    {
+      "code": "VECTOR",
+      "name": "Vector",
+      "position": {
+        "x": -45.94,
+        "y": 37.78,
+        "z": -4.56
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "KELLOG",
+        "TIBER"
+      ]
+    },
+    {
+      "code": "VEGA",
+      "name": "Vega",
+      "position": {
+        "x": -8.54,
+        "y": 10.79,
+        "z": 17.98
+      },
+      "affiliation": "UEE",
+      "in_game": false,
+      "jump_points": [
+        "BREMEN",
+        "NUL",
+        "OBERON",
+        "VIRGIL"
+      ]
+    },
+    {
+      "code": "VENDETTA",
+      "name": "Vendetta",
+      "position": {
+        "x": -40.46,
+        "y": -24.25,
+        "z": 7.73
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VERITAS",
+      "name": "Veritas",
+      "position": {
+        "x": -59.47,
+        "y": 29.78,
+        "z": -9.28
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VERMILION",
+      "name": "Vermilion",
+      "position": {
+        "x": -77.78,
+        "y": 35.24,
+        "z": 12.35
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VESPER",
+      "name": "Vesper",
+      "position": {
+        "x": -54.9,
+        "y": -32.33,
+        "z": -3.89
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VIKING",
+      "name": "Viking",
+      "position": {
+        "x": -50.72,
+        "y": -13.45,
+        "z": -13.44
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "CALIBAN",
+        "ORION"
+      ]
+    },
+    {
+      "code": "VIRGIL",
+      "name": "Virgil",
+      "position": {
+        "x": -26.95,
+        "y": 16.28,
+        "z": 3.1
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "KELLOG",
+        "NYX",
+        "OBERON",
+        "TIBER",
+        "VEGA"
+      ]
+    },
+    {
+      "code": "VIRGO",
+      "name": "Virgo",
+      "position": {
+        "x": -68.17,
+        "y": 2.83,
+        "z": 12.56
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VIRTUS",
+      "name": "La'uo (Virtus)",
+      "position": {
+        "x": 30.94,
+        "y": 51.36,
+        "z": 17.24
+      },
+      "affiliation": "Xi'an",
+      "in_game": false,
+      "jump_points": [
+        "EEALUS",
+        "TOHIL",
+        "TRISE"
+      ]
+    },
+    {
+      "code": "VOLT",
+      "name": "Volt",
+      "position": {
+        "x": -55.07,
+        "y": 54.06,
+        "z": 10.78
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VOODOO",
+      "name": "Voodoo",
+      "position": {
+        "x": -76.36,
+        "y": -7.98,
+        "z": -14.67
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": []
+    },
+    {
+      "code": "VULTURE",
+      "name": "Vulture",
+      "position": {
+        "x": -63.7,
+        "y": 0.07,
+        "z": 5.99
+      },
+      "affiliation": "Vanduul",
+      "in_game": false,
+      "jump_points": [
+        "ORION"
+      ]
+    },
+    {
+      "code": "YULIN",
+      "name": "Yulin",
+      "position": {
+        "x": -10.82,
+        "y": -75.57,
+        "z": 23.03
+      },
+      "affiliation": "Banu",
+      "in_game": false,
+      "jump_points": [
+        "BANSHEE",
+        "LEIR"
+      ]
+    }
+  ]
+}
