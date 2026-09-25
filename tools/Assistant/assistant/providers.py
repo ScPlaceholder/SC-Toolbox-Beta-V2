@@ -171,6 +171,7 @@ class OpenAICompatibleProvider:
     def chat(self, messages: list, tools: list) -> tuple:
         url = self.cfg.base_url.rstrip("/") + "/chat/completions"
         body: dict = {
+            "model": self.cfg.model,
             "messages": _to_openai_wire(messages),
             "max_tokens": self.cfg.max_tokens,
             "temperature": self.cfg.temperature,
