@@ -412,6 +412,29 @@ class LauncherWindow(SCWindow):
         btn_bar_layout.setContentsMargins(10, 2, 10, 2)
         btn_bar_layout.setSpacing(6)
         btn_bar_layout.addStretch(1)
+
+        # Persistent "update available" notice beside the UPDATE button. The
+        # UpdateBubble auto-dismisses after 15 s; this stays until the app
+        # restarts, and clicking it reopens the bubble.
+        self._update_notice = QPushButton("", btn_bar)
+        self._update_notice.setCursor(Qt.PointingHandCursor)
+        self._update_notice.setStyleSheet(f"""
+            QPushButton {{
+                font-family: Consolas, monospace;
+                font-size: 7pt; font-weight: bold;
+                color: {P.bg_deepest};
+                background: {P.green};
+                border: none;
+                border-radius: 3px;
+                padding: 1px 8px;
+            }}
+            QPushButton:hover {{ background: #33ff99; }}
+        """)
+        self._update_notice.setVisible(False)
+        self._update_notice.clicked.connect(self._reopen_update_bubble)
+        self._last_update_result = None
+        btn_bar_layout.addWidget(self._update_notice)
+
         for label, cb in [
             (_t("GITHUB"), lambda: webbrowser.open("https://github.com/ScPlaceholder/SC-Toolbox")),
             (_t("UPDATE"), self._check_for_updates),
@@ -728,6 +751,10 @@ class LauncherWindow(SCWindow):
 
         if result.available:
             self.set_status(f"{_t('Update available')}: v{result.latest_version}", P.green)
+            self._last_update_result = result
+            self._update_notice.setText(f"\u25cf {_t('NEW')} v{result.latest_version}")
+            self._update_notice.setToolTip(_t("An update is available. Click for details."))
+            self._update_notice.setVisible(True)
             if self._update_bubble:
                 self._update_bubble.close()
             self._update_bubble = UpdateBubble(self, result)
@@ -735,6 +762,15 @@ class LauncherWindow(SCWindow):
         elif not silent:
             self.set_status(f"{_t('Up to date')} (v{result.current_version})", P.green)
             QTimer.singleShot(4000, lambda: self.set_status(_t("Ready")))
+
+    def _reopen_update_bubble(self) -> None:
+        """Clicking the NEW vX.Y.Z notice brings the update bubble back."""
+        if not self._last_update_result:
+            return
+        if self._update_bubble:
+            self._update_bubble.close()
+        self._update_bubble = UpdateBubble(self, self._last_update_result)
+        self._update_bubble.show()
 
     def _on_close(self) -> None:
         if self._update_bubble:
