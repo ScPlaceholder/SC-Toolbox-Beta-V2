@@ -228,6 +228,9 @@ class InGameRouteSetter:
             time.sleep(1.3)
 
             report("pressing Set Route...")
+            # Six presses ON PURPOSE, not a bug: when SC lags it drops single R
+            # presses, so this retries until one lands.
+            # (J, 2026-09-25; an audit had flagged it as spam.)
             for _ in range(6):
                 kb.press("r")
                 kb.release("r")
