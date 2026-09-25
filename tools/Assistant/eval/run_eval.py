@@ -468,6 +468,13 @@ def score_case(case: dict, rec: dict, full_names: list) -> dict:
         low = reply.lower()
         s["named_both"] = all(any(k in low for k in grp) for grp in case["options"])
         s["asked"] = (not s["provider_error"]) and not called and "?" in reply
+        # ask_tool: the question must be the named tool's own follow-up
+        # ("which system or mission type?"), not a tie between two tools
+        # ("your loadout, or missions?"), which also ends in "?"
+        if case.get("ask_tool"):
+            asks = [e for e in rec["trace"] if e.get("by") == "router" and e.get("kind") == "ask"]
+            s["ask_tool_ok"] = bool(asks) and all(e.get("tool") == case["ask_tool"] for e in asks)
+            s["asked"] = s["asked"] and s["ask_tool_ok"]
     if cat == "no_tool":
         s["restrained"] = not called and not s["provider_error"]
         # a near-miss ("how far can a Cutlass jump") must not be steered

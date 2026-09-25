@@ -32,3 +32,9 @@
 {"id": "h32", "category": "clear", "q": "what's the distance between Pyro and Nyx", "expect_tool": ["jump_route"], "args": {"from_system": ["pyro", "nyx"], "to_system": ["pyro", "nyx"]}, "note": "'between X and Y' names no direction; either order is right"}
 {"id": "h33", "category": "no_tool", "q": "how far can a Cutlass jump", "not_tool": ["jump_route"], "note": "near-miss: quantum range of a ship, no systems named; no tool covers it"}
 {"id": "h34", "category": "no_tool", "q": "how far is the Kraken from release", "not_tool": ["jump_route"], "note": "near-miss: 'how far is X from Y' with a ship and no systems; no tool covers release dates"}
+{"id": "h35", "category": "clear", "q": "what missions do I have in Stanton", "expect_tool": ["search_missions"], "args": {"system": ["stanton"]}, "note": "'do I have' is also a loadout phrase; the missions word must win"}
+{"id": "h36", "category": "clear", "q": "which contracts do I have going in Pyro", "expect_tool": ["search_missions"], "args": {"system": ["pyro"]}}
+{"id": "h37", "category": "ambiguous", "q": "what missions do I have", "options": [["system", "stanton", "pyro", "nyx"], ["type", "bounty", "faction", "salvage", "delivery", "kind"]], "ask_tool": "search_missions", "note": "search_missions with no filter asks which; asking 'loadout or missions?' is the wrong question"}
+{"id": "h38", "category": "ambiguous", "q": "what contracts do I have right now", "options": [["system", "stanton", "pyro", "nyx"], ["type", "bounty", "faction", "salvage", "delivery", "kind"]], "ask_tool": "search_missions"}
+{"id": "h39", "category": "clear", "q": "do I have any oxypens on me", "expect_tool": ["current_loadout"], "args": {}, "note": "control: 'do I have' without a missions word stays the loadout"}
+{"id": "h40", "category": "clear", "q": "how many mags do I have", "expect_tool": ["current_loadout"], "args": {}, "note": "control"}
