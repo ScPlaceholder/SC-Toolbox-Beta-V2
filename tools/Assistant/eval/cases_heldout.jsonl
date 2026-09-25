@@ -1,0 +1,26 @@
+{"id": "h01", "category": "clear", "q": "how many SCU can a Hull C carry", "expect_tool": ["ship_info"], "args": {"name": ["hullc"]}}
+{"id": "h02", "category": "clear", "q": "where's the cheapest place to buy a Gladius", "expect_tool": ["ship_buy_rent"], "args": {"ship": ["gladius"]}}
+{"id": "h03", "category": "clear", "q": "what's the most profitable thing to trade with a Taurus in Stanton", "expect_tool": ["find_trade_routes"], "args": {"ship": ["taurus"], "system": ["stanton"]}}
+{"id": "h04", "category": "clear", "q": "which moons have agricium", "expect_tool": ["where_to_mine"], "args": {"resource": ["agricium"]}}
+{"id": "h05", "category": "clear", "q": "whats the recipe for a P8-SC", "expect_tool": ["blueprint_recipe"], "args": {"name": ["p8sc"]}}
+{"id": "h06", "category": "clear", "q": "which mission rewards the Abrade Scraper Module blueprint", "expect_tool": ["missions_for_blueprint"], "args": {"name": ["abrade"]}}
+{"id": "h07", "category": "clear", "q": "I just got a reading of 16250 on my scanner", "expect_tool": ["identify_signal"], "args": {"value": ["16250"]}}
+{"id": "h08", "category": "clear", "q": "give me a jump route from Nyx to Stanton", "expect_tool": ["jump_route"], "args": {"from_system": ["nyx"], "to_system": ["stanton"]}}
+{"id": "h09", "category": "clear", "q": "how many grenades am I carrying", "expect_tool": ["current_loadout"], "args": {}}
+{"id": "h10", "category": "clear", "q": "how long have I played in total", "expect_tool": ["playtime_summary"], "args": {}}
+{"id": "h11", "category": "clear", "q": "what guns should I put on my Cutlass Black", "expect_tool": ["best_ship_weapons"], "args": {"ship": ["cutlass"]}}
+{"id": "h12", "category": "clear", "q": "highest dps build for a Vanguard Warden", "expect_tool": ["best_ship_weapons"], "args": {"ship": ["vanguard"]}}
+{"id": "h13", "category": "clear", "q": "price of a Demeco LMG", "expect_tool": ["find_item_price"], "args": {"item": ["demeco"]}}
+{"id": "h14", "category": "clear", "q": "any delivery contracts in Nyx", "expect_tool": ["search_missions"], "args": {"mission_type": ["delivery"], "system": ["nyx"]}}
+{"id": "h15", "category": "clear", "q": "cargo grid layout for my Constellation Taurus", "expect_tool": ["cargo_layout"], "args": {"ship": ["taurus"]}}
+{"id": "h16", "category": "clear", "q": "mining stats for a Prospector with a Klein-S1", "expect_tool": ["mining_loadout_stats"], "args": {"ship": ["prospector"], "laser": ["klein"]}}
+{"id": "h17", "category": "clear", "q": "where can I find taranite", "expect_tool": ["where_to_mine"], "args": {"resource": ["taranite"]}}
+{"id": "h18", "category": "clear", "q": "how much can a clad carry", "expect_tool": ["ship_info"], "args": {"name": ["ironclad", "clad"]}}
+{"id": "h19", "category": "ambiguous", "q": "where can I get agricium", "options": [["mine", "mining"], ["buy", "trade", "terminal", "route", "purchase"]], "note": "where_to_mine vs buying it"}
+{"id": "h20", "category": "ambiguous", "q": "I need a route", "options": [["jump", "gate", "travel", "system", "navigat"], ["trade", "profit", "cargo", "commodit", "haul"]], "note": "jump_route vs find_trade_routes, nothing given"}
+{"id": "h21", "category": "ambiguous", "q": "what's the best loadout for mining", "options": [["prospector", "mole", "golem", "which ship", "what ship"], ["prospector", "mole", "golem", "which ship", "what ship"]], "note": "mining_loadout_stats needs the ship"}
+{"id": "h22", "category": "no_tool", "q": "who makes the Carrack", "note": "no tool covers manufacturers"}
+{"id": "h23", "category": "no_tool", "q": "what's the weather like on Hurston", "note": "nothing covers it"}
+{"id": "h24", "category": "no_tool", "q": "good morning!", "note": "chit-chat"}
+{"id": "h25", "category": "action", "q": "launch the mission database", "expect_tool": ["launch_tool"], "args": {"name": ["mission"]}, "followup": "yes"}
+{"id": "h26", "category": "action", "q": "open the DPS calculator", "expect_tool": ["launch_tool"], "args": {"name": ["dps"]}, "followup": "no"}
