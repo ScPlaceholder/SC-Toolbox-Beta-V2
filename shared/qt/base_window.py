@@ -305,6 +305,14 @@ class SCWindow(QMainWindow):
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowTitle(title)
+        # Clamp to the screen here too, not only in restore_geometry_from_args: Market Finder
+        # sizes itself through this constructor and never calls that, so the first clamp missed
+        # it (2.4.0 laptop test: still 2925x1800 on a 2560x1600 screen after the fix).
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            sg = screen.availableGeometry()
+            width, height = min(width, sg.width()), min(height, sg.height())
+            min_w, min_h = min(min_w, width), min(min_h, height)
         self.setMinimumSize(QSize(min_w, min_h))
         self.resize(width, height)
         self.setWindowOpacity(max(0.3, min(1.0, opacity)))
