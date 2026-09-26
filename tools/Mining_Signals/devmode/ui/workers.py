@@ -71,12 +71,24 @@ class _Job(QRunnable):
         self.with_progress = with_progress
         self.signals = _JobSignals()
 
+    @staticmethod
+    def _emit(sig, *args) -> None:
+        """Emit, unless the window that owned the signals has already closed. Closing Dev Mode while a
+        job runs deletes them, and the old code then raised "Signal source has been deleted" - from
+        _progress that aborted the job itself mid-run. Only that exact case is swallowed."""
+        try:
+            sig.emit(*args)
+        except RuntimeError as e:
+            if "has been deleted" not in str(e):
+                raise
+            log.debug("Dev Mode job result dropped: its window closed first")
+
     def _progress(self, frac: float, msg: str = "") -> None:
         try:
             f = float(frac)
         except (TypeError, ValueError):
             f = 0.0
-        self.signals.progress.emit(self.job_id, max(0.0, min(1.0, f)), str(msg or ""))
+        self._emit(self.signals.progress, self.job_id, max(0.0, min(1.0, f)), str(msg or ""))
 
     def run(self) -> None:
         kwargs = dict(self.kwargs)
@@ -86,10 +98,10 @@ class _Job(QRunnable):
             result = self.fn(*self.args, **kwargs)
         except Exception as exc:  # forwarded to the UI and logged, never swallowed
             log.exception("Dev Mode job %s failed", getattr(self.fn, "__name__", self.fn))
-            self.signals.failed.emit(self.job_id, f"{type(exc).__name__}: {exc}",
-                                     traceback.format_exc())
+            self._emit(self.signals.failed, self.job_id, f"{type(exc).__name__}: {exc}",
+                       traceback.format_exc())
             return
-        self.signals.done.emit(self.job_id, result)
+        self._emit(self.signals.done, self.job_id, result)
 
 
 @dataclass

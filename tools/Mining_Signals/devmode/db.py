@@ -62,6 +62,12 @@ CREATE TABLE IF NOT EXISTS extractions (
 """
 
 _initialised: set[str] = set()
+# First-time setup must not run on two connections at once. Not every caller holds LOCK, and Dev Mode
+# opens several panels together, so on a FRESH install two threads could both see no ``source``
+# column and both ALTER it: "duplicate column name: source" (2.4.0 laptop test; 2 of 8 fresh-DB
+# trials with 16 threads). Serialised here, and _migrate tolerates the column already existing,
+# because a second PROCESS can race the same way and a thread lock cannot see it.
+_INIT_LOCK = threading.Lock()
 
 # Columns added after the first release. ``source`` tells a glyph cut from a
 # real capture ("capture") from one rendered from the game font ("font");
@@ -76,7 +82,11 @@ def _migrate(con) -> None:
     have = {r[1] for r in con.execute("PRAGMA table_info(glyphs)").fetchall()}
     for name, decl in _GLYPH_COLUMNS:
         if name not in have:
-            con.execute(f"ALTER TABLE glyphs ADD COLUMN {name} {decl}")
+            try:
+                con.execute(f"ALTER TABLE glyphs ADD COLUMN {name} {decl}")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e):
+                    raise           # another connection added it first: already migrated
     con.execute("CREATE INDEX IF NOT EXISTS ix_glyph_source ON glyphs(pool, source, status)")
 
 
@@ -92,9 +102,11 @@ def connect():
     try:
         key = str(p)
         if key not in _initialised or not p.exists():
-            con.executescript(_SCHEMA)
-            _migrate(con)
-            _initialised.add(key)
+            with _INIT_LOCK:
+                if key not in _initialised or not p.exists():
+                    con.executescript(_SCHEMA)
+                    _migrate(con)
+                    _initialised.add(key)
         yield con
         con.commit()
     finally:
