@@ -96,6 +96,17 @@ CHAT_PROMPT = (
     "short sentence. State no facts, names or numbers.")
 
 
+def _persona() -> str:
+    """The chosen character (Elah by default) appended to prompts that produce spoken words; '' for the Windows
+    voice. Read every call, so a Settings change applies to the next answer. The tie-break prompt stays neutral:
+    it only picks a tool and never speaks."""
+    try:
+        from shared.character_voice import persona_prompt
+        return persona_prompt()
+    except Exception:
+        return ""
+
+
 def normalize_mode(mode) -> str:
     m = str(mode or "").strip().lower().replace(" ", "")
     m = {"router-llm": "router+llm", "router_llm": "router+llm", "hybrid": "router+llm",
@@ -164,6 +175,8 @@ class AssistantAgent:
 
     # ── one utterance ────────────────────────────────────────────────────
     def handle_user_text(self, text: str) -> str:
+        if self._messages and self._messages[0].get("role") == "system":
+            self._messages[0]["content"] = SYSTEM_PROMPT + _persona()
         """Feed one user utterance; returns the assistant's reply text.
 
         If a confirm-gated tool is waiting, this utterance answers it:
@@ -332,7 +345,7 @@ class AssistantAgent:
                 rec: Optional[dict]) -> str:
         if not self._llm_ok():
             return draft
-        msgs = [{"role": "system", "content": PHRASE_PROMPT},
+        msgs = [{"role": "system", "content": PHRASE_PROMPT + _persona()},
                 {"role": "user", "content": f"Question: {question}\nFacts: {draft}"}]
         t0 = time.perf_counter()
         try:
@@ -356,7 +369,7 @@ class AssistantAgent:
     def _llm_chat(self, text: str, rec: dict) -> str:
         if not self._llm_ok():
             return ""
-        msgs = [{"role": "system", "content": CHAT_PROMPT}, {"role": "user", "content": text}]
+        msgs = [{"role": "system", "content": CHAT_PROMPT + _persona()}, {"role": "user", "content": text}]
         try:
             said, _ = self._aux_chat(msgs, [])
         except ProviderError as exc:

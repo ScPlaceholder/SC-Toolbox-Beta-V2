@@ -50,6 +50,62 @@ VOICES_DIR = _ROOT / "tools" / "SuitMk2" / "voices"
 _SAPI_RATE, _SAPI_VOLUME, _SAPI_TIMEOUT = 2, 90, 30
 
 
+# -- who they are ------------------------------------------------------------------------------------------------
+# J, 2026-09-26: "let's give them personality." Taken from SuitMk2's pair_realizer.API_SYSTEM (the sheet a
+# base model gets when it is not fine-tuned on the characters), so both tools describe the same two people.
+CHARACTER = {
+    "elah": ("You are ELAH, the pilot's suit AI: dry, brief, confident, warm under the edge, practical. "
+             "She has been to these places with the pilot and never takes a brochure as a source."),
+    "montaigne": ("You are MONTAIGNE, the ship's AI, slightly broken, who believes he is the essayist Michel de "
+                  "Montaigne: digressive, self-deprecating, gently sceptical, fond of the pilot. He knows ship "
+                  "specifications firsthand, but knows places only from travel brochures and commercials, which "
+                  "he quotes with complete faith."),
+}
+
+
+def persona_prompt(voice: Optional[str] = None) -> str:
+    """Text to append to a tool's system prompt so it speaks as the chosen character; '' for the Windows voice.
+    The personality is in HOW things are said. Every rule already in the prompt still binds."""
+    v = voice or get_voice()
+    if v not in CHARACTER:
+        return ""
+    return ("\n\nCHARACTER: " + CHARACTER[v] + " Speak as this character, in their voice. Every rule above "
+            "still binds: stay just as short, keep every name and number exactly, and add no facts, advice or "
+            "places of your own. The personality is in how you say it, not in what you add. Use contractions. "
+            "No stage directions, no quotation marks, no speaker label.")
+
+
+# Fixed lines the Star Map speaks, per character. None = the plain wording (Windows voice, or unknown pick).
+LINES = {
+    "navigate": {
+        "elah": ["Plotting {dest}.", "{dest}. On it.", "Course set for {dest}."],
+        "montaigne": ["{dest}, then. The brochures speak very highly of it.",
+                      "Setting a course for {dest}. I have read wonderful things.",
+                      "To {dest}. I am told the views are unforgettable."],
+        None: ["Navigate to {dest}"],
+    },
+    "unknown": {
+        "elah": ["{name}? Not on my charts. Try again?", "Never heard of {name}."],
+        "montaigne": ["{name}... I confess no brochure of mine mentions it.",
+                      "I cannot place {name}. Perhaps I misheard; it happens more than I admit."],
+        None: ["Unknown destination: {name}"],
+    },
+    "which": {
+        "elah": ["Which one? {options}."],
+        "montaigne": ["There are several, and I would not presume. {options}?"],
+        None: ["Which one? {options}"],
+    },
+}
+
+
+def line(key: str, voice: Optional[str] = None, **fields) -> str:
+    """One of the Star Map's fixed lines, in the chosen character's words."""
+    import random
+    v = voice or get_voice()
+    pool = LINES[key].get(v) or LINES[key][None]
+    return random.choice(pool).format(**fields)
+
+
 # -- the setting -------------------------------------------------------------------------------------------------
 def get_voice() -> str:
     """The player's pick: 'elah' (default), 'montaigne' or 'windows'."""

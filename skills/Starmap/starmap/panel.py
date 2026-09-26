@@ -781,6 +781,16 @@ class StarmapPanel(QWidget):
             self._btn_route.setText("Cancel")
 
     # ── voice replies (TTS) ───────────────────────────────────────────────
+    @staticmethod
+    def _cline(key: str, default: str, **fields) -> str:
+        """A fixed spoken line in the chosen character's words (shared/character_voice.LINES); the plain
+        wording if the shared module is unavailable."""
+        try:
+            from shared.character_voice import line
+            return line(key, **fields)
+        except Exception:
+            return default
+
     def speak(self, text: str) -> None:
         """Speak a confirmation when Voice Replies is on (never blocks)."""
         if getattr(self, "_voice_replies", True) and getattr(self, "_mouth", None):
@@ -965,17 +975,17 @@ class StarmapPanel(QWidget):
             return "destination engine unavailable"
         dest, alts = engine.find_destination(name)
         if alts:
-            self.speak("Which one? " + ", ".join(alts[:3]))
+            self.speak(self._cline("which", "Which one? " + ", ".join(alts[:3]), options=", ".join(alts[:3])))
             return "which one? " + ", ".join(alts[:6])
         if not dest:
-            self.speak("Unknown destination: %s" % name)
+            self.speak(self._cline("unknown", "Unknown destination: %s" % name, name=name))
             return "unknown destination: %s" % name
         # Mirror on our own map when the destination matches a known place.
         try:
             self.goto(dest.title())
         except Exception:
             pass
-        self.speak("Navigate to %s" % dest)
+        self.speak(self._cline("navigate", "Navigate to %s" % dest, dest=dest))
         if getattr(self, "_btn_game", None) is not None and self._btn_game.isChecked():
             setter = self._setter()
             if setter is None:
