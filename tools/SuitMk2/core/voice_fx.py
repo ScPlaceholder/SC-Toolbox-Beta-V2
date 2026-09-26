@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 import threading
 import time
 from collections import deque
@@ -476,7 +477,11 @@ class DuckingMonitor:
 # ---------------------------------------------------------------------------------------------------------------
 # selftest - renders WAVs, plays NOTHING
 # ---------------------------------------------------------------------------------------------------------------
-_SAMPLES = r"C:\Users\prjgn\Projects\elah-audio\voice_lab\engine_samples"
+# Selftest only. The dev machine points SUITMK2_FX_SAMPLES at its engine_samples
+# folder (real piper renders to compare against); everyone else gets a temp folder.
+# A hard-coded home path here failed the 2.4.0 build's "POLLUTED" staging check.
+_SAMPLES = os.environ.get("SUITMK2_FX_SAMPLES") or os.path.join(tempfile.gettempdir(),
+                                                                "suitmk2_voice_fx")
 
 
 def _synthetic_speech(sr: int, secs: float = 5.0, f0: float = 180.0, seed: int = 1) -> np.ndarray:
@@ -517,6 +522,7 @@ def _selftest() -> int:
         results.append((name, bool(ok)))
         print(f"  {'PASS' if ok else 'FAIL'}  {name}" + (f"   [{detail}]" if detail else ""))
 
+    os.makedirs(_SAMPLES, exist_ok=True)
     sources = []
     for spk, f0, seed in (("elah", 200.0, 1), ("montaigne", 110.0, 2)):
         sources.append((f"synthetic_{spk}", spk, _synthetic_speech(22050, 5.0, f0, seed), 22050))
