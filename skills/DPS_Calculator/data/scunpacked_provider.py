@@ -10,7 +10,7 @@ What comes from where
 ---------------------
 * Gun hardpoints, the weapon list and the fit rule (size min..max, player-gun
   filter, ship-lock tags, locked ports, burst/sustained/alpha) come from the
-  Assistant's adapter, tools/Assistant/assistant/scunpacked.py, loaded by path.
+  shared adapter, shared/scunpacked.py, loaded by path.
   Nothing here re-derives them: ``S.load_index`` gives the slots, ``S.fits`` /
   ``S.candidates_for`` decide what may go in a slot, and each window weapon's
   dps_raw / dps_sus / alpha are copied from the adapter's own weapon record.
@@ -53,12 +53,13 @@ GITHUB_COMMITS = "https://api.github.com/repos/StarCitizenWiki/scunpacked-data/c
 _BUILD_RE = re.compile(r"^\d+\.\d+(\.\d+)?-LIVE\.\d+$")
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ADAPTER_PATH = os.path.normpath(os.path.join(
-    _HERE, "..", "..", "..", "tools", "Assistant", "assistant", "scunpacked.py"))
+# In shared/ since 2026-09-26. It lived in tools/Assistant/assistant/, which the installer does not
+# ship, so every installed 2.4.0 test build crashed the DPS Calculator on launch (FileNotFoundError).
+_ADAPTER_PATH = os.path.normpath(os.path.join(_HERE, "..", "..", "..", "shared", "scunpacked.py"))
 
 
 def adapter():
-    """The Assistant's scunpacked adapter, loaded by path (same module name as
+    """The shared scunpacked adapter, loaded by path (same module name as
     workers/h_dps.py uses, so the two share one instance in one process)."""
     name = "_assist_scunpacked"
     mod = sys.modules.get(name)

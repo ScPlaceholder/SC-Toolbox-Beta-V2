@@ -2,8 +2,8 @@
 
 Runs in the DPS Calculator's folder so it can reuse that tool's greedy
 per-slot optimizer (services/optimizer.py optimize_weapons). Ship,
-hardpoint and weapon data come from the Assistant's own scunpacked
-adapter (assistant/scunpacked.py, loaded by path), not from the
+hardpoint and weapon data come from the shared scunpacked adapter
+(shared/scunpacked.py, loaded by path), not from the
 calculator's erkul cache: server.erkul.games is gone and that cache is
 empty.
 
@@ -30,7 +30,7 @@ def _adapter():
     name = "_assist_scunpacked"
     mod = sys.modules.get(name)
     if mod is None:
-        path = os.path.join(os.path.dirname(_HERE), "scunpacked.py")
+        path = os.path.normpath(os.path.join(_HERE, "..", "..", "..", "..", "shared", "scunpacked.py"))
         spec = importlib.util.spec_from_file_location(name, path)
         mod = importlib.util.module_from_spec(spec)
         sys.modules[name] = mod

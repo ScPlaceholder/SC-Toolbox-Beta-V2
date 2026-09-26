@@ -46,7 +46,7 @@ except (AttributeError, ValueError):
 
 from assistant import agent as agent_mod                    # noqa: E402
 from assistant import headless, ipc_bus, worker_pool        # noqa: E402
-from assistant import scunpacked                            # noqa: E402
+from shared import scunpacked                               # noqa: E402
 from assistant.builtin_tools import build_default_registry  # noqa: E402
 from assistant.logic import classify_confirmation           # noqa: E402
 from assistant.providers import _to_anthropic, _to_openai_wire  # noqa: E402

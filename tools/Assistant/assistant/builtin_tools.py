@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 
 from . import headless, ipc_bus
-from .scunpacked import ATTRIBUTION as _SCUNPACKED_ATTRIBUTION
+from shared.scunpacked import ATTRIBUTION as _SCUNPACKED_ATTRIBUTION
 from .tools import ToolContext, ToolError, ToolRegistry, tool
 
 log = logging.getLogger(__name__)

@@ -332,13 +332,11 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2) do (
     )
 )
 
-:: DPS Calculator loads the scunpacked adapter from tools\Assistant\assistant\scunpacked.py by
-:: path (data\scunpacked_provider.py). The Assistant tool itself is not shipped, so stage just
-:: that one file, and fail the build without it: 2.4.0's first install test crashed DPS on launch.
-if not exist "%STAGE%\tools\Assistant\assistant" mkdir "%STAGE%\tools\Assistant\assistant"
-copy /y "%ROOT%\tools\Assistant\assistant\scunpacked.py" "%STAGE%\tools\Assistant\assistant\scunpacked.py" >nul
-if not exist "%STAGE%\tools\Assistant\assistant\scunpacked.py" (
-    echo  [!] MISSING: tools\Assistant\assistant\scunpacked.py - the DPS Calculator cannot start without it
+:: DPS Calculator loads the scunpacked adapter from shared\scunpacked.py by path. It used to live in
+:: tools\Assistant\, which does not ship, and 2.4.0's first install test crashed DPS on launch.
+:: shared\ is staged whole; this only fails the build if the file ever goes missing again.
+if not exist "%STAGE%\shared\scunpacked.py" (
+    echo  [!] MISSING: shared\scunpacked.py - the DPS Calculator cannot start without it
     goto :fail
 )
 

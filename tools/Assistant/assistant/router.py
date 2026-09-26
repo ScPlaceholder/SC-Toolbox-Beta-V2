@@ -184,7 +184,7 @@ class Catalog:
                     self.add("ship", name, name, force=True)
             self.sources["ship"].append(f"Cargo Loader grid cache ({len(ships)})")
         try:
-            from .scunpacked import cache_dir, INDEX_FILE
+            from shared.scunpacked import cache_dir, INDEX_FILE
             idx = os.path.join(cache_dir(), INDEX_FILE)
         except Exception:                                   # noqa: BLE001
             idx = ""
