@@ -271,7 +271,8 @@ class StarmapPanel(QWidget):
         b = cfg.get("binding")
         if isinstance(b, dict):
             self._ears.set_binding(InputBinding.from_dict(b))
-        self._ears.set_mode(str(cfg.get("mode", "toggle")))
+        mode = str(cfg.get("mode", "push"))          # old "toggle" -> push-to-talk
+        self._ears.set_mode(mode if mode in ("push", "always") else "push")
         self._ears.set_model(str(cfg.get("model", "small.en")))
         self._voice_replies = bool(
             (load_state().get("voice") or {}).get("replies", True))
@@ -304,8 +305,11 @@ class StarmapPanel(QWidget):
             self._btn_ears.setEnabled(False)
             self._btn_ears.setToolTip(
                 "Voice ears need: pip install " + " ".join(missing))
+            self.voice_status("voice ears need: pip install " + " ".join(missing))
         else:
             self._refresh_ears_tooltip()
+            # J 2026-09-26: the ears are on by default, no on/off button.
+            QTimer.singleShot(0, lambda: self._btn_ears.setChecked(True))
 
     def _refresh_ears_tooltip(self) -> None:
         b = self._ears.binding()
@@ -324,8 +328,8 @@ class StarmapPanel(QWidget):
         menu = QMenu(self)
         menu.addAction("Set trigger (press any key / button)...", self._pick_binding)
         mode_menu = menu.addMenu("Mode")
-        for label, value in (("Toggle (press to talk, press to stop)", "toggle"),
-                             ("Push-to-talk (hold)", "push")):
+        for label, value in (("Push-to-talk (hold)", "push"),
+                             ("Always on", "always")):
             act = mode_menu.addAction(label)
             act.setCheckable(True)
             act.setChecked(self._ears.mode() == value)
@@ -337,15 +341,22 @@ class StarmapPanel(QWidget):
             act.setChecked(self._ears_model_name() == name)
             act.triggered.connect(lambda _=False, n=name: self._set_model(n))
         menu.addAction("Voice commands help", self.cmd_voice_help)
-        menu.exec(self._btn_ears.mapToGlobal(pos))
+        menu.exec(self._voicebar.mapToGlobal(pos))
 
     def _ears_model_name(self) -> str:
         return self._ears._model_name
 
     def _set_mode(self, value: str) -> None:
         self._ears.set_mode(value)
+        self._voicebar.sync_mode(value)
         self._refresh_ears_tooltip()
         self._save_soon()
+        if self._btn_ears.isChecked():           # re-arm so the new mode takes effect
+            self._ears.disarm()
+            if not self._ears.arm():
+                self._btn_ears.setChecked(False)
+        elif self._btn_ears.isEnabled():
+            self._btn_ears.setChecked(True)
 
     def _set_model(self, name: str) -> None:
         self._ears.set_model(name)
@@ -374,8 +385,10 @@ class StarmapPanel(QWidget):
 
     # command handlers (voice router target)
     def cmd_ears_off(self) -> str:
-        self._btn_ears.setChecked(False)
-        return "ears off"
+        # There is no off any more (J 2026-09-26); "ears off" drops to
+        # push-to-talk so an always-open mic stops listening to the room.
+        self._set_mode("push")
+        return "push-to-talk"
 
     def cmd_voice_help(self) -> str:
         lines = self._router.help_lines()

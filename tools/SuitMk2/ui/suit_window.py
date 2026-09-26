@@ -167,6 +167,14 @@ class SuitWindow(SCWindow):
         self._talk.setToolTip("Push-to-talk: hold it and ask Elah or Montaigne something (local speech-to-text)")
         self._talk.clicked.connect(self._set_talk_key)
         ctl.addWidget(self._talk)
+        # J 2026-09-26: ears are always on; the player picks how the mic listens.
+        self._talk_mode = QComboBox()
+        self._talk_mode.addItem("Push-to-talk", "push")
+        self._talk_mode.addItem("Always on", "always")
+        self._talk_mode.setCurrentIndex(1 if self.s.get("talk_mode") == "always" else 0)
+        self._talk_mode.setToolTip("Push-to-talk: hold the talk key.  Always on: the mic stays open, just talk.")
+        self._talk_mode.currentIndexChanged.connect(self._set_talk_mode)
+        ctl.addWidget(self._talk_mode)
         # says why holding a key does nothing: no talk key yet, or voice libraries missing
         self._talk_hint = QLabel("")
         self._talk_hint.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
@@ -315,7 +323,7 @@ class SuitWindow(SCWindow):
         self.lane = ConversationLane()
         self.store = None
         self.ears = EarsController(self)
-        self.ears.set_mode("push")
+        self.ears.set_mode("always" if self.s.get("talk_mode") == "always" else "push")
         self.ears.set_model("small.en")
         self.ears.transcript.connect(self._on_transcript)
         self.ears.listeningChanged.connect(self._on_listening)
@@ -324,6 +332,7 @@ class SuitWindow(SCWindow):
         self._voice_missing = []
         if self.s.get("talk_key"):
             self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
+        if self.s.get("talk_key") or self.ears.mode() == "always":
             QTimer.singleShot(1500, self.ears.arm)
         self._show_talk_key()
         # arm() is what reports missing voice libraries, and it only runs once a
@@ -487,6 +496,16 @@ class SuitWindow(SCWindow):
             self._show_talk_key()
             self.ears.arm()
 
+    def _set_talk_mode(self, _index: int = 0) -> None:
+        mode = self._talk_mode.currentData() or "push"
+        self.s["talk_mode"] = mode
+        st.save(self.s)
+        self.ears.disarm()
+        self.ears.set_mode(mode)
+        self._show_talk_key()
+        if mode == "always" or self.s.get("talk_key"):
+            self.ears.arm()
+
     def _show_talk_key(self) -> None:
         """Talk button text + the hint beside it."""
         if self.s.get("talk_key"):
@@ -498,7 +517,7 @@ class SuitWindow(SCWindow):
             # hint says what is missing, not a command they cannot run (2.4.0 install test).
             self._talk_hint.setText("Voice input is not included in this build (missing: "
                                     + ", ".join(self._voice_missing) + "). Everything else still works.")
-        elif not self.s.get("talk_key"):
+        elif not self.s.get("talk_key") and self.s.get("talk_mode") != "always":
             self._talk_hint.setText("No talk key set: click Talk key and press the key to hold while you talk.")
         else:
             self._talk_hint.setText("")

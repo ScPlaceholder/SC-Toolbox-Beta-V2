@@ -28,6 +28,7 @@ DEFAULTS = {
     "voices_dir": str(Path(__file__).resolve().parent.parent / "voices"),
     "pilot_id": "pilot",
     "talk_key": None,                 # push-to-talk binding (InputBinding dict), set from the window
+    "talk_mode": "push",              # "push" (hold the talk key) | "always" (mic open) - J 2026-09-26
     "chattiness": 2,                  # 0 silent .. 4 very chatty (pacing.py)
     "afk_minutes": 5,                 # no keyboard/mouse input this long = AFK: only urgent lines speak until input
                                       # returns (activity_mode.AfkWatch; READS the OS idle clock, sends nothing). 0 = off

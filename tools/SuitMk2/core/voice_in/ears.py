@@ -50,7 +50,8 @@ class EarsController(QObject):
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self._binding: Optional[InputBinding] = None
-        self._mode = "toggle"                    # toggle | push
+        self._mode = "toggle"                    # toggle | push | always
+        self._armed = False
         self._model_name = "small.en"
         self._monitor = HotkeyMonitor(self)
         self._monitor.triggered.connect(self._on_trigger)
@@ -82,14 +83,14 @@ class EarsController(QObject):
         return self._mode
 
     def set_mode(self, mode: str) -> None:
-        self._mode = "push" if mode == "push" else "toggle"
+        self._mode = mode if mode in ("push", "toggle", "always") else "toggle"
 
     def set_model(self, name: str) -> None:
         self._model_name = name or "small.en"
         self._model = None                       # force reload at next use
 
     def armed(self) -> bool:
-        return self._monitor._binding is not None
+        return self._armed
 
     def recording(self) -> bool:
         return self._recording
@@ -103,15 +104,23 @@ class EarsController(QObject):
         if missing:
             self.needsInstall.emit(missing)
             return False
+        if self._mode == "always":
+            # no key: the mic stays open and each silence-gapped utterance is transcribed
+            self._armed = True
+            self.statusChanged.emit("ears on (always on)")
+            QTimer.singleShot(0, self._begin)
+            return True
         if self._binding is None:
-            self.statusChanged.emit("no trigger set — right-click the ears button")
+            self.statusChanged.emit("no talk key set")
             return False
         ok = self._monitor.start(self._binding)
+        self._armed = bool(ok)
         self.statusChanged.emit(
             "ears armed (%s, %s)" % (self._binding.describe(), self._mode))
         return ok
 
     def disarm(self) -> None:
+        self._armed = False
         self._monitor.stop()
         if self._recording:
             self._abort_recording()
@@ -119,6 +128,8 @@ class EarsController(QObject):
 
     # ── trigger / capture ─────────────────────────────────────────────────
     def _on_trigger(self, pressed: bool) -> None:
+        if self._mode == "always":
+            return                               # mic never closes; the key is moot
         if self._mode == "push":
             if pressed:
                 self._begin()                    # key auto-repeat: _begin ignores repeats
@@ -209,6 +220,10 @@ class EarsController(QObject):
             self._frames = []
         return pcm.reshape(-1)
 
+    def _restart_if_armed(self) -> None:
+        if self._armed and self._mode == "always" and not self._recording:
+            self._begin()
+
     def _abort_recording(self) -> None:
         self._tick.stop()
         try:
@@ -225,6 +240,8 @@ class EarsController(QObject):
         voice_ms = self._voice_ms
         pcm = self._pcm()
         self._abort_recording()
+        if self._mode == "always" and self._armed:
+            QTimer.singleShot(0, self._restart_if_armed)    # a disarm before it fires wins
         if pcm is None or voice_ms < _MIN_VOICE_MS:
             self.statusChanged.emit("heard nothing")
             return

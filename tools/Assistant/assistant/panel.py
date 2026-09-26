@@ -156,14 +156,16 @@ class AssistantWindow(SCWindow):
         except Exception:
             self._mouth = Mouth()
         self._ears = EarsController(self)
-        # hold-to-talk by default; "mic_mode": "toggle" in the state file opts out
-        self._ears.set_mode(self._state.get("mic_mode", "push"))
+        # Ears are always on (J 2026-09-26); the player picks push-to-talk
+        # (default) or always on. An old saved "toggle" becomes push-to-talk.
+        mode = self._state.get("mic_mode", "push")
+        self._ears.set_mode(mode if mode in ("push", "always") else "push")
         self._ears.statusChanged.connect(self._set_status)
         self._ears.transcript.connect(self._on_transcript)
         self._ears.needsInstall.connect(self._on_needs_install)
 
         # ── chrome ───────────────────────────────────────────────────────
-        tb = SCTitleBar(self, title="AI ASSISTANT", icon_text="🤖",
+        tb = SCTitleBar(self, title="TOOLBOX ASSISTANT", icon_text="🤖",
                         accent_color=P.energy_cyan, show_minimize=True)
         tb.minimize_clicked.connect(self.showMinimized)
         tb.close_clicked.connect(self.close)
@@ -173,11 +175,23 @@ class AssistantWindow(SCWindow):
         row.setContentsMargins(10, 6, 10, 2)
         row.setSpacing(8)
 
-        self._btn_ears = QPushButton("Ears")
+        # The ears' armed state; never shown (the ears are always on).
+        self._btn_ears = QPushButton("Ears", self)
         self._btn_ears.setCheckable(True)
-        self._btn_ears.setStyleSheet(_btn_ss())
+        self._btn_ears.setVisible(False)
         self._btn_ears.toggled.connect(self._on_ears_toggled)
-        row.addWidget(self._btn_ears)
+
+        self._mode_btns = {}
+        for label, value in (("Push-to-talk", "push"), ("Always on", "always")):
+            b = QPushButton(label)
+            b.setCheckable(True)
+            b.setChecked(self._ears.mode() == value)
+            b.setStyleSheet(_btn_ss())
+            b.setToolTip("Hold your mic key to talk" if value == "push"
+                         else "The mic stays open; just talk")
+            b.clicked.connect(lambda _c=False, v=value: self._set_mic_mode(v))
+            row.addWidget(b)
+            self._mode_btns[value] = b
 
         self._btn_key = QPushButton("Set Mic Key")
         self._btn_key.setStyleSheet(_btn_ss())
@@ -214,9 +228,9 @@ class AssistantWindow(SCWindow):
             f"background: transparent; padding: 0 12px;")
         self.content_layout.addWidget(self._lbl_heard)
 
-        self._lbl_reply = QLabel("AI: set a mic key, arm the ears, then hold "
-                                 "the key and talk to me. Ask for the best "
-                                 "cargo route for your ship.")
+        self._lbl_reply = QLabel("AI: hold your mic key (or pick Always on) and "
+                                 "talk to me. Ask for the best cargo route for "
+                                 "your ship.")
         self._lbl_reply.setWordWrap(True)
         self._lbl_reply.setStyleSheet(
             f"color: {P.fg_bright}; font-family: Consolas; font-size: 10pt; "
@@ -255,6 +269,26 @@ class AssistantWindow(SCWindow):
         if geom and len(geom) == 4:
             self.setGeometry(*geom)
         self._restore_binding()
+        self._ensure_ears()
+
+    # ── ears: always on, push-to-talk or always-open mic ─────────────────
+    def _ensure_ears(self) -> None:
+        """(Re)arm the ears with the current mode and key."""
+        if self._btn_ears.isChecked():
+            self._ears.disarm()
+            if not self._ears.arm():
+                self._btn_ears.setChecked(False)
+        else:
+            self._btn_ears.setChecked(True)
+
+    def _set_mic_mode(self, value: str) -> None:
+        for v, b in self._mode_btns.items():
+            b.setChecked(v == value)
+        self._ears.set_mode(value)
+        self._state["mic_mode"] = value
+        self._save_state()
+        self._show_mic_key()
+        self._ensure_ears()
 
     # ── voice plumbing ───────────────────────────────────────────────────
     def _speak(self, text: str) -> None:
@@ -338,9 +372,7 @@ class AssistantWindow(SCWindow):
         self._set_status("mic key set: " + binding.describe()
                          + (" (hold to talk)" if self._ears.mode() == "push" else ""))
         self._show_mic_key()
-        if self._btn_ears.isChecked():
-            self._ears.disarm()
-            self._ears.arm()
+        self._ensure_ears()
 
     def _restore_binding(self) -> None:
         raw = self._state.get("binding")
@@ -358,7 +390,11 @@ class AssistantWindow(SCWindow):
     def _show_mic_key(self, keep_hint: bool = False) -> None:
         """Button text + hint line from the current binding."""
         b = self._ears.binding()
-        if b is None:
+        if b is None and self._ears.mode() == "always":
+            self._btn_key.setText("Set Mic Key")
+            self._lbl_mic.setText("")
+            self._lbl_mic.setVisible(False)       # no key needed with the mic always open
+        elif b is None:
             self._btn_key.setText("Set Mic Key")
             if not keep_hint:
                 self._lbl_mic.setText("No mic key set. Click Set Mic Key and press the "

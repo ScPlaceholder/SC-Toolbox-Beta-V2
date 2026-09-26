@@ -39,7 +39,8 @@ def _btn_ss() -> str:
 class VoiceControlBar(QWidget):
     """Calibrate / keybind / mic-mode / voice-reply controls + status."""
 
-    _MODES = (("Always on", "always"), ("Push-to-talk", "push"), ("Toggle", "toggle"))
+    # J 2026-09-26: ears always on; the player picks push-to-talk or always on.
+    _MODES = (("Push-to-talk", "push"), ("Always on", "always"))
 
     def __init__(self, panel) -> None:
         super().__init__(panel)
@@ -49,16 +50,15 @@ class VoiceControlBar(QWidget):
         lay.setContentsMargins(8, 5, 8, 5)
         lay.setSpacing(8)
 
-        # ── ears arm toggle ────────────────────────────────────────────────
-        self._btn_ears = QPushButton("Ears")
-        self._btn_ears.setCursor(Qt.PointingHandCursor)
+        # ── ears armed state (never shown: the ears are always on) ──────────
+        self._btn_ears = QPushButton("Ears", self)
         self._btn_ears.setCheckable(True)
-        self._btn_ears.setStyleSheet(_btn_ss())
+        self._btn_ears.setVisible(False)
         self._btn_ears.toggled.connect(panel._arm_ears)
-        self._btn_ears.setContextMenuPolicy(Qt.CustomContextMenu)
-        self._btn_ears.customContextMenuRequested.connect(panel._ears_menu)
-        lay.addWidget(self._btn_ears)
-        panel._btn_ears = self._btn_ears       # the panel's cmd_ears_off etc. use it
+        panel._btn_ears = self._btn_ears       # the panel's arm / tooltip code uses it
+        # the old right-click menu (trigger, whisper model, help) moves to the bar
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(panel._ears_menu)
 
         # ── mic mode (exclusive) ───────────────────────────────────────────
         mic_lbl = QLabel("Mic:")
