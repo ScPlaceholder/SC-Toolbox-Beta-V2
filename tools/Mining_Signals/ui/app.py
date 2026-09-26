@@ -342,6 +342,19 @@ def _load_config() -> dict:
                     log.debug("config: eager migration save failed: %s", exc)
     except (OSError, json.JSONDecodeError):
         pass
+    # No usable game folder (fresh install: the shipped config has null, and
+    # the default above is one developer's path): use the Star Citizen folder
+    # linked in the launcher's first-launch popup, taking the channel whose
+    # Game.log was written most recently. This feeds both the refinery log
+    # monitor and Game.log resolution detection, which read game_dir.
+    if not (cfg.get("game_dir") and os.path.isdir(str(cfg["game_dir"]))):
+        try:
+            from shared.sc_install import get_sc_root, newest_game_log
+            shared_log = newest_game_log(get_sc_root())
+            if shared_log:
+                cfg["game_dir"] = os.path.dirname(shared_log)
+        except ImportError:
+            pass
     return cfg
 
 
