@@ -259,10 +259,16 @@ class RouteCalibrationDialog(QDialog):
 
 
     stepCaptured = Signal()
+    clickSeen = Signal(int, int)     # step 1: a click was seen (not yet confirmed)
+    enterPressed = Signal()          # step 1: Enter confirms the most recent click
 
+    # Step 1 waits for ENTER (J, 2026-09-26). The first click in the game is often only the click that
+    # focuses the game window, so taking it as the search-bar position calibrated the wrong spot. Now any
+    # number of clicks are allowed in step 1; the most recent one is kept, and Enter confirms it.
     _STEPS = (
-        "Step 1 of 3: in the game, press F2 to open the starmap,\n"
-        "zoom out with the mouse wheel, then LEFT-CLICK the search bar.",
+        "Step 1 of 3: in the game, press F2 to open the starmap and\n"
+        "zoom out with the mouse wheel. Click into the game if you need to,\n"
+        "then LEFT-CLICK the search bar and press ENTER to confirm.",
         "Step 2 of 3: in the search bar type a destination in your\n"
         "current system, then LEFT-CLICK its result.",
         "Step 3 of 3: LEFT-CLICK the centre of the map.",
@@ -303,6 +309,10 @@ class RouteCalibrationDialog(QDialog):
             self._label.setText("Calibration needs pynput (pip install pynput).")
         else:
             self.stepCaptured.connect(self._on_step_captured)
+            self.clickSeen.connect(self._on_click_seen)
+            self.enterPressed.connect(self._on_enter)
+            self._pending = None          # step 1's most recent click, confirmed by Enter
+            self._kb_listener = None
             self._show_step()
             self._start_listener()
 
@@ -322,6 +332,11 @@ class RouteCalibrationDialog(QDialog):
                     return True
             except Exception:
                 pass
+            if not self._points:
+                # step 1: remember the most recent click; ENTER confirms it
+                self._pending = (int(x), int(y))
+                self.clickSeen.emit(int(x), int(y))
+                return True
             self._points.append((int(x), int(y)))
             self.stepCaptured.emit()
             return len(self._points) < 3
@@ -332,6 +347,33 @@ class RouteCalibrationDialog(QDialog):
         except Exception:
             self._listener = None
             self._label.setText("Could not start the global click listener.")
+            return
+        # ENTER is pressed in the GAME, which has focus, so it needs a global keyboard listener too.
+        try:
+            from pynput import keyboard
+
+            def on_press(key):
+                if key in (keyboard.Key.enter,) or getattr(key, "vk", None) == 13:
+                    self.enterPressed.emit()
+                return True
+
+            self._kb_listener = keyboard.Listener(on_press=on_press)
+            self._kb_listener.start()
+        except Exception:
+            self._kb_listener = None
+
+    def _on_click_seen(self, x: int, y: int) -> None:
+        if not self._points:
+            self._label.setText(self._STEPS[0] + f"\n\nLast click: ({x}, {y}). Press ENTER if that was the "
+                                "search bar, or click it again.")
+
+    def _on_enter(self) -> None:
+        """Step 1 only: keep the most recent click as the search-bar position."""
+        if self._points or self._pending is None:
+            return
+        self._points.append(self._pending)
+        self._pending = None
+        self.stepCaptured.emit()
 
     def _on_step_captured(self) -> None:
         if len(self._points) >= 3:
@@ -361,6 +403,12 @@ class RouteCalibrationDialog(QDialog):
             except Exception:
                 pass
             self._listener = None
+        if getattr(self, "_kb_listener", None) is not None:
+            try:
+                self._kb_listener.stop()
+            except Exception:
+                pass
+            self._kb_listener = None
 
     def reject(self) -> None:
         self._stop_listener()
