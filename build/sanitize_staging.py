@@ -44,6 +44,8 @@ def main():
                     help="same-length replacement token; if omitted, auto = same-length redaction so the "
                          "build script can pass just --user %%USERNAME%% without hardcoding a name")
     ap.add_argument("--apply", action="store_true", help="actually modify (default: dry run)")
+    ap.add_argument("--final", action="store_true",
+                    help="verify EVERY file, no exceptions (the last gate, after all staging and cleanup)")
     a = ap.parse_args()
     staging = os.path.abspath(a.staging)
     tok = a.user
@@ -198,8 +200,16 @@ def main():
     # PDB path the .NET compiler embeds; in EVERY Velopack release, 2.3.1 included), SuitMk2's
     # Rust audio tap (cargo registry paths) and a Cargo Loader README. A full-staging scan found
     # exactly those three, so this gate is quiet on a clean tree rather than an alarm to ignore.
+    # The early run (Step 7) happens BEFORE the build's recursive cleanup deletes __pycache__,
+    # .pytest_cache, tests and .claude, and pip's fresh .pyc files embed the staging path: build 7
+    # failed on 3,382 such hits, every one inside those four folder names (checked: zero outside).
+    # So the early run skips them; --final (run after that cleanup) skips nothing. Keep this set in
+    # step with the Remove-Item list in build_installer.bat.
+    CLEANED_LATER = set() if a.final else {"__pycache__", ".pytest_cache", "tests", ".claude"}
     remaining = []
     for root, dirs, files in os.walk(staging):
+        if CLEANED_LATER & set(os.path.relpath(root, staging).split(os.sep)):
+            continue
         if not dry and BACKUP_DIR_RE.search(os.path.basename(root)):
             continue
         for f in files:

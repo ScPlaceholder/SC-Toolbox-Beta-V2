@@ -1026,7 +1026,7 @@ echo  [OK] Launcher staged.
 :: the one file that carried the build username in every Velopack release up to 2.3.1.
 :: Idempotent: a clean tree only costs the re-read.
 echo  [*] Final privacy check over the complete staging tree...
-"%STAGE%\python\python.exe" "%BUILD%sanitize_staging.py" "%STAGE%" --user "%USERNAME%" --apply
+"%STAGE%\python\python.exe" "%BUILD%sanitize_staging.py" "%STAGE%" --user "%USERNAME%" --apply --final
 if !errorlevel! neq 0 (
     echo  [!] Final privacy check FAILED - the username is still in staging. Not packaging.
     goto :fail
