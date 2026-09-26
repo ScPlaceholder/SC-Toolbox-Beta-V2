@@ -62,7 +62,7 @@ def main():
     tag = "[DRY]" if dry else "[APPLY]"
     tokb, replb = tok.encode(), repl.encode()
 
-    pruned_dirs = scrubbed = 0
+    pruned_dirs = scrubbed = pruned_ckpt = ckpt_bytes = 0
 
     # PASS 1: prune backup model dirs only (safe; also drops strip-failed models)
     for root, dirs, files in os.walk(mining, topdown=True):
@@ -73,6 +73,22 @@ def main():
                 if not dry: shutil.rmtree(p, ignore_errors=True)
                 pruned_dirs += 1
                 dirs.remove(d)
+
+    # PASS 1b (2026-09-25): prune PyTorch training checkpoints (*.pt / *.pth), ~153 MB in 2.3.1.
+    # They cannot be used by a shipped copy: PyTorch is not in the bundled Python (checked: no
+    # site-packages/torch anywhere in the 2.3.1 package). No runtime module references a .pt/.pth
+    # path; only train_*/export_*/pretrain_* scripts and one sanity test do. Even the in-app online
+    # learner (ocr/online_learner.py) seeds its PyTorch copy from the shipped ONNX weights, not from
+    # these, and is a no-op without torch. They stay in the repo for retraining on the dev machine.
+    for root, dirs, files in os.walk(mining):
+        for f in files:
+            if f.lower().endswith((".pt", ".pth")):
+                fp = os.path.join(root, f)
+                size = os.path.getsize(fp)
+                print(f"{tag} prune ckpt: {os.path.relpath(fp, staging)} ({size / 1e6:.1f} MB)")
+                if not dry: os.remove(fp)
+                pruned_ckpt += 1
+                ckpt_bytes += size
 
     # PASS 2: same-length token scrub across EVERY file under the project tree (no extension filter —
     # the leak also hides in .csv/.out training logs; same-length byte replace is safe for any file type).
@@ -105,7 +121,8 @@ def main():
             except Exception:
                 pass
 
-    print(f"\n{tag} summary: prune_dirs={pruned_dirs} scrubbed_files={scrubbed}")
+    print(f"\n{tag} summary: prune_dirs={pruned_dirs} pruned_checkpoints={pruned_ckpt} "
+          f"({ckpt_bytes / 1e6:.0f} MB) scrubbed_files={scrubbed}")
     if dry:
         print(f"[DRY] after prune+scrub, files that would still contain '{tok}': "
               f"{len([r for r in remaining if not any(b in r for b in ('_bak_','models_bak_'))])} "
