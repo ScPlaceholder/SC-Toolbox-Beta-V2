@@ -14,7 +14,7 @@ import os
 from typing import Optional
 
 from PySide6.QtCore import Qt, QRectF, QPointF
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap, QPolygonF, QImage
 from PySide6.QtWidgets import (
     QWidget, QLabel, QGridLayout, QHBoxLayout, QSizePolicy, QFrame, QVBoxLayout,
 )
@@ -37,10 +37,14 @@ def _tier_name(t: int) -> str:
 
 
 def _heat(t: float) -> QColor:
-    """Frequency glow for normalised ``t`` in [0,1]: faint amber → strong amber."""
+    """Frequency glow for normalised ``t`` in [0,1]: a trace of amber for a part
+    hit once or twice, full hot orange for the most-hit part."""
     t = max(0.0, min(1.0, t))
-    c = QColor(GOLD)
-    c.setAlpha(int(45 + 150 * t))
+    lo, hi = QColor(GOLD), QColor("#ff7a1a")
+    c = QColor(int(lo.red() + (hi.red() - lo.red()) * t),
+               int(lo.green() + (hi.green() - lo.green()) * t),
+               int(lo.blue() + (hi.blue() - lo.blue()) * t))
+    c.setAlpha(int(35 + 220 * t ** 0.8))
     return c
 
 
@@ -70,15 +74,29 @@ def _paint_tip(p: QPainter, anchor: QPointF, bounds: QRectF, lines: list[tuple[s
 # Body diagram
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Part hotspots in the image's own pixel space (1088 × 1280).  Pico faces the
-# viewer, so the player's LEFT side is on the viewer's RIGHT.  The image is
-# symmetric about x = 544, so each left shape is its right twin mirrored.
+# Part regions in a 1088 × 1280 design space (the original art's pixels; the
+# shipped PNG is a 0.75x downscale, drawn to the same rect).  Pico faces the
+# viewer, so the player's LEFT side is on the viewer's RIGHT.  He is symmetric
+# about x = 544, so each left shape is its right twin mirrored.
+#
+# The regions are deliberately generous: every glow is clipped to Pico's own
+# silhouette (the PNG's alpha), so an arm region lights the flipper and nothing
+# around it.  Neighbouring regions share edges so no pixel is lit twice.
 _W, _H = 1088.0, 1280.0
 _PICO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                     "assets", "injury_pico.jpg")
+                     "assets", "injury_pico.png")
+# Brightness mask of the same art: bones and outlines opaque, dark flesh faint.
+# Glows are cut to it, so an injured arm lights up as glowing bone.
+_PICO_GLOW = os.path.join(os.path.dirname(_PICO), "injury_pico_glow.png")
 
-_RIGHT_ARM = [(330, 640), (380, 690), (360, 790), (210, 1005), (105, 990), (200, 770), (262, 670)]
-_RIGHT_LEG = [(300, 1020), (530, 1020), (530, 1250), (275, 1250)]
+_RIGHT_ARM = [(290, 590), (395, 655), (360, 720), (300, 930), (230, 1030), (70, 1020),
+              (100, 880), (215, 670)]
+# The hip line curves under the pelvis instead of cutting straight across.
+_HIP = [(288, 1020), (388, 1060), (544, 1078)]
+_TORSO = ([(395, 655), (693, 655), (728, 720), (788, 930)]
+          + [(_W - x, y) for x, y in _HIP] + _HIP[-2::-1]
+          + [(300, 930), (360, 720)])                    # inner edges = the arms' edges
+_RIGHT_LEG = _HIP + [(544, 1270), (240, 1270), (240, 1020)]
 
 
 def _mirror(pts):
@@ -95,11 +113,9 @@ def _poly(pts) -> QPainterPath:
 def _part_paths() -> dict[str, QPainterPath]:
     head = QPainterPath()
     head.addEllipse(QRectF(250, 225, 588, 430))       # helmet, ear-cups included
-    torso = _poly([(395, 655), (693, 655), (735, 760), (745, 900), (725, 1020),
-                   (363, 1020), (343, 900), (353, 760)])
     return {
         "head": head,
-        "torso": torso,
+        "torso": _poly(_TORSO),
         "right_arm": _poly(_RIGHT_ARM),               # viewer's left
         "left_arm": _poly(_mirror(_RIGHT_ARM)),       # viewer's right
         "right_leg": _poly(_RIGHT_LEG),
@@ -122,6 +138,7 @@ class BodyDiagram(QWidget):
         self._hover: Optional[str] = None
         self._hover_pos = QPointF()
         self._pixmap = QPixmap(_PICO)
+        self._glow_mask = QPixmap(_PICO_GLOW)
         self.setMouseTracking(True)
         self.setMinimumSize(260, 360)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -206,39 +223,14 @@ class BodyDiagram(QWidget):
 
         have_art = not self._pixmap.isNull()
         if have_art:
-            clip = QPainterPath()
-            clip.addRoundedRect(fr, 8, 8)
-            p.save()
-            p.setClipPath(clip)
             p.drawPixmap(fr, self._pixmap, QRectF(self._pixmap.rect()))
+            p.drawImage(fr.topLeft(), self._glow_layer(fr, s, mx))
+        else:
+            p.save()
+            p.translate(fr.left(), fr.top())
+            p.scale(s, s)
+            self._paint_parts(p, s, mx, bare=True)
             p.restore()
-
-        p.save()
-        p.translate(fr.left(), fr.top())
-        p.scale(s, s)
-        for key, path in _PATHS.items():
-            n = st.by_part.get(key, 0)
-            hot = key == self._hover
-            if mx and n:
-                fill = _heat(n / mx)
-            elif have_art:
-                fill = QColor(0, 0, 0, 0)          # unhurt: let Pico show through
-            else:
-                fill = QColor(P.bg_card)
-            if hot:
-                fill.setAlpha(min(255, fill.alpha() + 50))
-            p.setBrush(fill)
-            if hot:
-                pen = QPen(QColor(ACCENT))
-                pen.setWidthF(2.4 / max(s, 0.01))
-            elif have_art:
-                pen = QPen(Qt.NoPen)
-            else:
-                pen = QPen(QColor(P.border_card))
-                pen.setWidthF(1.6 / max(s, 0.01))
-            p.setPen(pen)
-            p.drawPath(path)
-        p.restore()
 
         # Count badges: a dark pill per part so the number reads over the art.
         font = QFont("Electrolize", max(8, int(40 * s)), QFont.Bold)
@@ -274,6 +266,49 @@ class BodyDiagram(QWidget):
         if self._hover:
             self._paint_hover(p)
         p.end()
+
+    def _paint_parts(self, p: QPainter, s: float, mx: int, bare: bool) -> None:
+        """Fill each part region by frequency (design-space coordinates)."""
+        st = self._stats
+        for key, path in _PATHS.items():
+            n = st.by_part.get(key, 0)
+            hot = key == self._hover
+            if mx and n:
+                fill = _heat(n / mx)
+            elif bare:
+                fill = QColor(P.bg_card)
+            else:
+                fill = QColor(0, 0, 0, 0)          # unhurt: Pico shows through
+            if hot:
+                fill = QColor(ACCENT) if not n else fill
+                fill.setAlpha(min(255, fill.alpha() + 70))
+            p.setBrush(fill)
+            if hot or bare:
+                pen = QPen(QColor(ACCENT if hot else P.border_card))
+                pen.setWidthF((6.0 if hot else 1.6) / max(s, 0.01))
+            else:
+                pen = QPen(Qt.NoPen)
+            p.setPen(pen)
+            p.drawPath(path)
+
+    def _glow_layer(self, fr: QRectF, s: float, mx: int) -> QImage:
+        """Part glows drawn on their own layer, then cut to Pico's silhouette."""
+        dpr = max(1.0, self.devicePixelRatioF())
+        img = QImage(max(1, int(fr.width() * dpr)), max(1, int(fr.height() * dpr)),
+                     QImage.Format_ARGB32_Premultiplied)
+        img.setDevicePixelRatio(dpr)
+        img.fill(Qt.transparent)
+        lp = QPainter(img)
+        lp.setRenderHint(QPainter.Antialiasing, True)
+        lp.save()
+        lp.scale(s, s)
+        self._paint_parts(lp, s, mx, bare=False)
+        lp.restore()
+        lp.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+        mask = self._glow_mask if not self._glow_mask.isNull() else self._pixmap
+        lp.drawPixmap(QRectF(0, 0, fr.width(), fr.height()), mask, QRectF(mask.rect()))
+        lp.end()
+        return img
 
     def _paint_hover(self, p: QPainter) -> None:
         key = self._hover

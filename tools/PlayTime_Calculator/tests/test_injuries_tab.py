@@ -56,7 +56,9 @@ def test_pico_art_ships_and_hotspots_hit_the_right_parts(app):
     assert os.path.isfile(_PICO)
     b = BodyDiagram()
     assert not b._pixmap.isNull()
-    assert (b._pixmap.width(), b._pixmap.height()) == (1088, 1280)   # hotspots are in this space
+    # regions live in 1088x1280 design space; the PNG must keep that aspect
+    assert b._pixmap.width() * 1280 == b._pixmap.height() * 1088
+    assert b._pixmap.hasAlphaChannel()                               # cut out, no purple
     # Front view: the player's left is on the viewer's right.
     assert _PATHS["left_arm"].boundingRect().center().x() > _PATHS["right_arm"].boundingRect().center().x()
     assert _PATHS["head"].contains(QPointF(544, 440))                 # the beak
