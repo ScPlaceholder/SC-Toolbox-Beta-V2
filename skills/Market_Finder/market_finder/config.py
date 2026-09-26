@@ -34,13 +34,37 @@ API_HEADERS: dict[str, str] = MARKET_FINDER_HEADERS
 
 # Category IDs that actually return data from the UEX API.
 # Trimmed from range(1, 91) — 38 empty categories removed (verified from cache).
+#
+# UEX now requires a parameter on /items (bare /items is HTTP 400
+# "requires_id_category_or_id_company_or_uuid"), so id_category is not an
+# optimisation any more — it is the only way in, and an id missing from this
+# list is an item class the Item Finder and the assistant's find_item_price
+# CANNOT see at all. That makes a stale list silent: the tool answers "no
+# such item" rather than failing.
+#
+# Re-measured 2026-09-26 against /categories, which now returns 100 rows with
+# ids up to 112 — the original trim was done when 90 was the highest id, so
+# everything above it had never been checked. Five of the 48 uncovered ids
+# hold items (41 items); the other 43 are empty or are mission/service
+# sections with no shop rows:
+#     80  Torpedo Tubes           2   Seeker IX-G / Typhoon IX-G Torpedo
+#    103  Life Support Generator  3   ComfortAir, ComfortAir Plus, Safehab
+#    107  Surface (Flair)        31   action figures, ship models
+#    109  Fabricator              1   RediMake Item Fabricator
+#    110  Salvage Beams           4   SureGrip S3 tractor beams
+# For scale: the ids already listed return 7,744 items.
+#
+# To re-check after a UEX patch: GET /categories, then GET
+# /items?id_category=<id> for every id not in this list, and add the ids that
+# come back non-empty. Do NOT just fetch every id — most are empty and it
+# doubles the request count for nothing.
 CATEGORY_IDS: list[int] = [
     1, 2, 3, 4, 5, 7, 8, 9, 10, 11,
     13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
     23, 24, 25, 26, 28, 29, 30, 31, 32, 33,
     34, 35, 36, 38, 41, 61, 62, 63, 64, 65,
-    67, 68, 70, 73, 74, 75, 79, 82, 83, 86,
-    87, 90,
+    67, 68, 70, 73, 74, 75, 79, 80, 82, 83,
+    86, 87, 90, 103, 107, 109, 110,
 ]
 
 # ---------------------------------------------------------------------------
