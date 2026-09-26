@@ -43,6 +43,23 @@ R_TOO_TALL = "sticks out of the top of the grid"
 R_OVERLAP = "overlaps another container"
 R_UNSUPPORTED = "not supported underneath (would float or overhang)"
 
+# Item warnings (items place anyway; the UI tints them amber and says why)
+W_OUTSIDE = "outside the cargo grids"
+W_TOO_TALL = "sticks out of the top of the grid"
+W_OVERLAP = "overlaps another box"
+W_FLOATING = "floating or overhanging"
+
+
+def is_item(box: tuple) -> bool:
+    """Items carry their catalogue key (a str) where containers carry SCU."""
+    return isinstance(box[6], str)
+
+
+def _aabb_overlap(a: tuple, b: tuple) -> bool:
+    return (a[0] < b[0] + b[3] and b[0] < a[0] + a[3]
+            and a[1] < b[1] + b[4] and b[1] < a[1] + a[4]
+            and a[2] < b[2] + b[5] and b[2] < a[2] + a[5])
+
 
 def rotate_yaw(dims: tuple[int, int, int]) -> tuple[int, int, int]:
     """Rotate a box 90 degrees about the vertical axis: swap w and l.
@@ -223,6 +240,93 @@ class PlacementContext:
         if not self._supported(x, y, z, w, l, floor):
             return pos, False, R_UNSUPPORTED
         return pos, True, OK
+
+    # -- items: warnings, not walls -------------------------------------------
+    #
+    # J, 2026-09-26: the quartermaster snaps items down; if they do not match
+    # the bay "that's user error not engine error", and impossible stacks are
+    # realistic. So an item always places. It snaps to whole cells and to the
+    # same flush magnet as containers (grid walls, containers AND other
+    # items), and every rule a container must obey becomes a warning. No
+    # per-item game snapping is modelled, on purpose.
+
+    def _item_floor(self, x: int, z: int, w: int, l: int) -> int:
+        ys = [_g(g, "y0") for g in self.grids
+              if _g(g, "x") < x + w and x < _g(g, "x") + g["w"]
+              and _g(g, "z") < z + l and z < _g(g, "z") + g["l"]]
+        return min(ys) if ys else 0
+
+    def _item_rest(self, x: int, z: int, w: int, l: int, floor: int) -> int:
+        """Rest on the tallest box under the item's MIDDLE cells (one or two
+        per axis). What the rest of the footprint touches is the player's
+        call and shows up as a warning."""
+        xs = (x + (w - 1) // 2, x + w // 2)
+        zs = (z + (l - 1) // 2, z + l // 2)
+        top = floor
+        for (bx, by, bz, bw, bh, bl, _s) in self.placed:
+            if (any(bx <= cx < bx + bw for cx in xs)
+                    and any(bz <= cz < bz + bl for cz in zs)):
+                top = max(top, by + bh)
+        return top
+
+    def item_warnings(self, pos: tuple, dims: tuple, *, skip: int | None = None) -> list[str]:
+        """Every container rule this item breaks, as warnings (empty = clean).
+
+        skip: index in self.placed of the item itself, when it is in there.
+        """
+        x, y, z = pos
+        w, h, l = dims
+        out: list[str] = []
+        # grids: every column of the footprint under some grid, and the item
+        # between that grid's floor and ceiling
+        where = None
+        for dx in range(w):
+            for dz in range(l):
+                cx, cz = x + dx, z + dz
+                gs = [g for g in self.grids
+                      if _g(g, "x") <= cx < _g(g, "x") + g["w"]
+                      and _g(g, "z") <= cz < _g(g, "z") + g["l"]]
+                if not gs:
+                    where = W_OUTSIDE
+                    break
+                if not any(_g(g, "y0") <= y and y + h <= _g(g, "y0") + g["h"] for g in gs):
+                    if any(_g(g, "y0") <= y for g in gs):
+                        where = where or W_TOO_TALL
+                    else:
+                        where = W_OUTSIDE
+                        break
+            if where == W_OUTSIDE:
+                break
+        if where:
+            out.append(where)
+        me = (x, y, z, w, h, l)
+        if any(i != skip and _aabb_overlap(me, b) for i, b in enumerate(self.placed)):
+            out.append(W_OVERLAP)
+        if not self._supported(x, y, z, w, l, self._item_floor(x, z, w, l)):
+            out.append(W_FLOATING)
+        return out
+
+    def snap_item(self, box: tuple, target: tuple,
+                  y: int | None = None) -> tuple[tuple[int, int, int], list[str]]:
+        """Where an item lands: ((x, y, z), warnings). It always lands.
+
+        box    = (w, h, l, key) in its current rotation
+        target = (x, z) desired min corner, may be fractional
+        y      = explicit height (stacking on a box the player pointed at);
+                 None rests it on whatever is under its middle.
+        """
+        w, h, l = box[0], box[1], box[2]
+        tx, tz = float(target[0]), float(target[-1])
+        grid = self._grid_under(tx + w / 2.0, tz + l / 2.0)
+        z0 = _round(tz)
+        x = _snap_axis(tx, w, self._wall_edges(grid, "x")
+                       + self._neighbour_edges("x", z0, l), self.thr)
+        z = _snap_axis(tz, l, self._wall_edges(grid, "z")
+                       + self._neighbour_edges("z", x, w), self.thr)
+        if y is None:
+            y = self._item_rest(x, z, w, l, self._item_floor(x, z, w, l))
+        pos = (x, int(y), z)
+        return pos, self.item_warnings(pos, (w, h, l))
 
 
 def snap_position(box: tuple, target: tuple, grids: list[dict],

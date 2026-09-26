@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QSizePolicy, QSpinBox, QTabWidget,
     QGraphicsView, QGraphicsScene, QGraphicsPolygonItem, QGraphicsTextItem,
     QGraphicsItemGroup, QDialog, QFileDialog,
-    QApplication,
+    QApplication, QLineEdit, QTreeWidget, QTreeWidgetItem, QHeaderView,
 )
 
 # Bootstrap project root and skill directory
@@ -61,7 +61,12 @@ from cargo_engine.rendering import (
     iso_project, auto_fit_cell, center_origin, compute_scene_extents,
     topological_sort_boxes, shade, label_color, iso_unproject,
 )
-from cargo_engine.manual_place import PlacementContext, rotate_yaw, move_box
+from cargo_engine.manual_place import PlacementContext, rotate_yaw, move_box, is_item, OK
+from cargo_engine import item_catalog
+from cargo_engine.item_catalog import (
+    CATEGORIES as ITEM_CATEGORIES, CATEGORY_COLORS as ITEM_COLORS,
+    COMPONENT_CATEGORIES,
+)
 from cargo_engine.validation import validate_layout
 
 from cargo_common import (
@@ -272,6 +277,23 @@ SLOT_FILL   = "#111827"
 SLOT_OUTLINE = "#252f48"
 
 _ROTATION_LABELS = ["0\u00b0", "90\u00b0", "180\u00b0", "270\u00b0"]
+
+# Items tab (J, 2026-09-26). An item that breaks a container rule still
+# places, tinted this amber, with the reason in the status line.
+ITEM_WARN = "#ffb000"
+
+
+def item_catalog_path() -> str | None:
+    """ship-items.json from the scunpacked cache (shared/scunpacked.py)."""
+    return item_catalog.default_path()
+
+
+def _mix(a: str, b: str, t: float) -> str:
+    """Blend hex colour a toward b by t (0..1)."""
+    ca, cb = QColor(a), QColor(b)
+    return QColor(round(ca.red() + (cb.red() - ca.red()) * t),
+                  round(ca.green() + (cb.green() - ca.green()) * t),
+                  round(ca.blue() + (cb.blue() - ca.blue()) * t)).name()
 
 
 # ── Data loader ────────────────────────────────────────────────────────────────
@@ -626,6 +648,9 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         self._label_item: QGraphicsTextItem | None = None
         self._click_callback = None
         self._drag_owner = None   # object with box_press/box_move/box_release
+        # Items: their own outline pen, and the warnings that tint them amber
+        self.item_pen: QPen | None = None
+        self.warnings: list[str] = []
         self.setAcceptedMouseButtons(Qt.LeftButton)
 
     def set_click_callback(self, cb) -> None:
@@ -641,6 +666,8 @@ class _CargoBoxGroup(QGraphicsItemGroup):
 
     def recolor(self, base_color: str) -> None:
         """Recolor the three faces using the given base color."""
+        if self.warnings:
+            base_color = _mix(base_color, ITEM_WARN, 0.55)
         colors = [
             shade(base_color, 0.50),  # wallB (darker)
             shade(base_color, 0.72),  # wallA (lighter)
@@ -650,8 +677,9 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         for i, face in enumerate(self._face_items):
             if i < len(colors):
                 face.setBrush(QBrush(QColor(colors[i])))
-                face.setPen(QPen(QColor(edge), 1))
-        if self._label_item:
+                face.setPen(QPen(self.item_pen) if self.item_pen is not None
+                            else QPen(QColor(edge), 1))
+        if self._label_item and self.item_pen is None:
             c_lft = colors[0] if colors else base_color
             self._label_item.setDefaultTextColor(QColor(label_color(c_lft)))
 
@@ -727,6 +755,25 @@ class CargoRenderer:
         self._last_boxes: list[tuple] = []
         self._manual_boxes: list[tuple] | None = None
         self._ghost = None
+        # Items tab: placed items (x, y, z, w, h, l, key) — a str key where a
+        # container has its SCU — kept apart from the containers so counts,
+        # Optimize and Auto mode never touch them. _item_defs maps key ->
+        # catalogue entry; _item_flags maps an item tuple -> its warnings.
+        self._items: list[tuple] = []
+        self._last_items: list[tuple] = []
+        self._item_defs: dict[str, dict] = {}
+        self._item_flags: dict[tuple, list[str]] = {}
+
+    def item_base_color(self, key: str) -> str:
+        cat = (self._item_defs.get(key) or {}).get("category")
+        return shade(ITEM_COLORS.get(cat, "#9e9e9e"), 0.62)
+
+    def base_color_for(self, group) -> str:
+        """Unpainted colour of a drawn box (container size or item category)."""
+        size = group.box_data[6]
+        if isinstance(size, str):
+            return self.item_base_color(size)
+        return CONT_COL.get(size, "#888888")
 
     def set_rotation(self, rotation: int) -> None:
         self._rotation = rotation % 4
@@ -751,14 +798,18 @@ class CargoRenderer:
         return iso_unproject(scene_x, scene_y, wy, cell, ox, oy,
                              rotation=rotation, total_gw=gw, total_gl=gl)
 
-    def show_ghost(self, wx, wy, wz, dw, dh, dl, valid: bool) -> None:
-        """Draw (or move) the translucent landing preview. Green = valid."""
+    def show_ghost(self, wx, wy, wz, dw, dh, dl, valid: bool, warn: bool = False) -> None:
+        """Draw (or move) the translucent landing preview. Green = valid,
+        amber = an item that places with a warning, red = refused."""
         self.clear_ghost()
         if self._pt is None:
             return
-        fill = QColor("#4caf50" if valid else "#f44336")
+        if valid and warn:
+            fill, edge = QColor(ITEM_WARN), QColor("#ffe0a0")
+        else:
+            fill = QColor("#4caf50" if valid else "#f44336")
+            edge = QColor("#b9f6ca" if valid else "#ffcdd2")
         fill.setAlpha(120)
-        edge = QColor("#b9f6ca" if valid else "#ffcdd2")
         grp = QGraphicsItemGroup()
         # footprint on the floor it lands on, then the three visible faces
         for pts in ([self._pt(wx, wy, wz), self._pt(wx + dw, wy, wz),
@@ -771,6 +822,7 @@ class CargoRenderer:
         grp.setZValue(10_000)
         grp.setAcceptedMouseButtons(Qt.NoButton)
         grp.ghost_valid = valid
+        grp.ghost_warn = bool(valid and warn)
         self._scene.addItem(grp)
         self._ghost = grp
 
@@ -796,6 +848,7 @@ class CargoRenderer:
         self._ghost = None
         self._box_groups = []
         self._last_boxes = []
+        self._last_items = []
         self._proj = None
         self._pt = None
 
@@ -838,13 +891,20 @@ class CargoRenderer:
             all_boxes = list(self._manual_boxes)
         else:
             all_boxes = self._collect_boxes(slots, bounds, slot_assignment, has_layout)
-        all_boxes = topological_sort_boxes(all_boxes, rotation=rotation,
+        # Items share the painter's sort with the containers, but stay out of
+        # _last_boxes (the container list every count and drag reads).
+        all_boxes = topological_sort_boxes(list(all_boxes) + list(self._items),
+                                           rotation=rotation,
                                            total_gw=gw, total_gl=gl)
-        self._last_boxes = [tuple(b) for b in all_boxes]
+        self._last_boxes = [tuple(b) for b in all_boxes if not is_item(b)]
+        self._last_items = [tuple(b) for b in all_boxes if is_item(b)]
 
         # Draw each box with 3 faces
         for idx, (wx, wy, wz, dw, dh, dl, size) in enumerate(all_boxes):
-            self._draw_box(wx, wy, wz, dw, dh, dl, size, pt, cell, idx)
+            if isinstance(size, str):
+                self._draw_item(wx, wy, wz, dw, dh, dl, size, pt, cell, idx)
+            else:
+                self._draw_box(wx, wy, wz, dw, dh, dl, size, pt, cell, idx)
 
         # Prune assignments for positions that no longer exist
         live_keys = {g.pos_key for g in self._box_groups}
@@ -986,6 +1046,54 @@ class CargoRenderer:
                 t.setPos(cx - t.boundingRect().width() / 2,
                          cy - t.boundingRect().height() / 2)
                 group.set_label(t)
+
+        self._scene.addItem(group)
+        self._box_groups.append(group)
+
+    def _draw_item(self, wx, wy, wz, dw, dh, dl, key, pt, cell, box_index) -> None:
+        """An item: darker category fill, a dashed outline in the category
+        colour, and a short name label on its top, so it never reads as a
+        numbered SCU container. Amber tint + solid amber outline = warning."""
+        box = (wx, wy, wz, dw, dh, dl, key)
+        d = self._item_defs.get(key) or {}
+        cat_col = ITEM_COLORS.get(d.get("category"), "#9e9e9e")
+        pos_key = (wx, wy, wz, key)
+        commodity = self._assignments.get(pos_key)
+        warnings = list(self._item_flags.get(box, []))
+
+        group = _CargoBoxGroup(box_index, box)
+        group.commodity = commodity
+        group.warnings = warnings
+        if warnings:
+            pen = QPen(QColor(ITEM_WARN), 2)
+        else:
+            pen = QPen(QColor(cat_col), 2)
+            pen.setStyle(Qt.DashLine)
+        pen.setCosmetic(True)
+        group.item_pen = pen
+        group.set_click_callback(self._on_box_clicked)
+        if self._drag_owner is not None:
+            group.set_drag_owner(self._drag_owner)
+
+        pts_wallB, pts_wallA, pts_t = self._face_points(wx, wy, wz, dw, dh, dl, pt)
+        for pts in (pts_wallB, pts_wallA, pts_t):
+            group.add_face(self._make_polygon_item(pts, "#000000", "#000000"))
+        group.recolor(commodity_color(commodity) if commodity
+                      else self.item_base_color(key))
+
+        # Short name on the top face (items are often one cell: the top is the
+        # face that is always there).
+        tx = [p[0] for p in pts_t]
+        ty = [p[1] for p in pts_t]
+        top_w = max(tx) - min(tx)
+        if top_w >= 14:
+            text = d.get("label") or key[:6]
+            fs = max(6, min(int(top_w / max(len(text), 1) * 1.1), 10))
+            t = self._scene.addText(text, QFont("Consolas", fs, QFont.Bold))
+            t.setDefaultTextColor(QColor(ITEM_WARN if warnings else "#ffffff"))
+            t.setPos(sum(tx) / 4 - t.boundingRect().width() / 2,
+                     sum(ty) / 4 - t.boundingRect().height() / 2)
+            group.set_label(t)
 
         self._scene.addItem(group)
         self._box_groups.append(group)
@@ -1525,6 +1633,9 @@ class CargoApp(SCWindow):
         # Manual (default): blank grid, boxes placed by hand. Auto: counts + Optimize.
         self._mode: str = "manual"
         self._place_size: int | None = None
+        self._place_item: str | None = None     # Items tab: catalogue key being placed
+        self._item_catalog: list[dict] | None = None
+        self._items_loading: bool = False
         self._place_rot: bool = False
         self._syncing: bool = False
         self._pending_loadout: dict | None = None
@@ -1894,6 +2005,14 @@ class CargoApp(SCWindow):
         self._bar_widget.setFixedHeight(10)
         cap_lay.addWidget(self._bar_widget)
 
+        # Items never count toward SCU; they get their own one-line tally.
+        self._items_summary_lbl = QLabel("", cap_outer)
+        self._items_summary_lbl.setWordWrap(False)
+        self._items_summary_lbl.setStyleSheet(
+            f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt; background: transparent;"
+        )
+        cap_lay.addWidget(self._items_summary_lbl)
+
         pad_lay.addWidget(cap_outer)
         pad_lay.addSpacing(4)
 
@@ -2138,19 +2257,35 @@ class CargoApp(SCWindow):
         pad_lay.addWidget(plan_title)
         pad_lay.addSpacing(4)
 
-        brush_lbl = QLabel(_("COMMODITY BRUSH"), pad)
+        # Commodities | Items (J, 2026-09-26: "the player would swap between
+        # the normal commodity tab and then the item tab").
+        self._brush_tabs = QTabWidget(pad)
+        self._brush_tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: 1px solid {BORDER}; background: {BG2}; }}
+            QTabBar::tab {{
+                background: {BG3}; color: {FG_DIM}; font-family: Consolas;
+                font-size: 8pt; padding: 4px 12px; border: 1px solid {BORDER};
+            }}
+            QTabBar::tab:selected {{ background: {ACCENT}; color: {BG}; font-weight: bold; }}
+        """)
+        com_tab = QWidget()
+        com_lay = QVBoxLayout(com_tab)
+        com_lay.setContentsMargins(6, 6, 6, 6)
+        com_lay.setSpacing(4)
+
+        brush_lbl = QLabel(_("COMMODITY BRUSH"), com_tab)
         brush_lbl.setStyleSheet(
             f"color: {FG_DIM}; font-family: Electrolize, Consolas; font-size: 8pt; "
             f"background: transparent;"
         )
-        pad_lay.addWidget(brush_lbl)
+        com_lay.addWidget(brush_lbl)
 
-        self._commodity_combo = SCFuzzyCombo(placeholder="Select commodity\u2026", parent=pad)
+        self._commodity_combo = SCFuzzyCombo(placeholder="Select commodity\u2026", parent=com_tab)
         self._commodity_combo.item_selected.connect(self._on_commodity_selected)
         # Mission cargo is there at once, before (or without) the UEX list.
         self._commodity_combo.set_items(list(PINNED_BRUSH))
-        pad_lay.addWidget(self._commodity_combo)
-        pad_lay.addSpacing(4)
+        com_lay.addWidget(self._commodity_combo)
+        com_lay.addSpacing(4)
 
         sel_row = QWidget(pad)
         sel_row_lay = QHBoxLayout(sel_row)
@@ -2170,10 +2305,10 @@ class CargoApp(SCWindow):
         )
         sel_row_lay.addWidget(self._brush_name_lbl, 1)
 
-        pad_lay.addWidget(sel_row)
-        pad_lay.addSpacing(6)
+        com_lay.addWidget(sel_row)
+        com_lay.addSpacing(6)
 
-        btn_clear_brush = QPushButton(_("Clear Brush"), pad)
+        btn_clear_brush = QPushButton(_("Clear Brush"), com_tab)
         btn_clear_brush.setCursor(Qt.PointingHandCursor)
         btn_clear_brush.setStyleSheet(f"""
             QPushButton {{
@@ -2184,11 +2319,11 @@ class CargoApp(SCWindow):
             QPushButton:hover {{ background-color: {BORDER}; color: {FG}; }}
         """)
         btn_clear_brush.clicked.connect(self._clear_brush)
-        pad_lay.addWidget(btn_clear_brush)
+        com_lay.addWidget(btn_clear_brush)
 
-        pad_lay.addSpacing(4)
+        com_lay.addSpacing(4)
 
-        btn_filter = QPushButton(_("Filter"), pad)
+        btn_filter = QPushButton(_("Filter"), com_tab)
         btn_filter.setCursor(Qt.PointingHandCursor)
         btn_filter.setStyleSheet(f"""
             QPushButton {{
@@ -2199,13 +2334,351 @@ class CargoApp(SCWindow):
             QPushButton:hover {{ background-color: {ACCENT}; color: {BG}; }}
         """)
         btn_filter.clicked.connect(self._open_filter_dialog)
-        pad_lay.addWidget(btn_filter)
+        com_lay.addWidget(btn_filter)
 
-        pad_lay.addStretch(1)
+        com_lay.addStretch(1)
+        self._brush_tabs.addTab(com_tab, _("Commodities"))
+        self._brush_tabs.addTab(self._build_items_tab(), _("Items"))
+        self._brush_tabs.currentChanged.connect(self._on_brush_tab)
+        pad_lay.addWidget(self._brush_tabs, 1)
 
+        # The Items list needs real height; on a short window the panel
+        # scrolls instead of crushing the list (or any row above it) to nothing.
+        self._brush_tabs.setMinimumHeight(260)
+        scroll = QScrollArea(parent)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(f"QScrollArea {{ background-color: {BG2}; border: none; }}"
+                             f"QScrollBar:vertical {{ width: 8px; background: {BG2}; }}"
+                             f"QScrollBar::handle:vertical {{ background: {BORDER}; }}")
+        pad.setStyleSheet(f"background-color: {BG2};")
+        # Width stays the panel's (as before the scroll area): never scroll sideways.
+        pad.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        scroll.setWidget(pad)
+        self._config_scroll = scroll
         parent_lay = QVBoxLayout(parent)
         parent_lay.setContentsMargins(0, 0, 0, 0)
-        parent_lay.addWidget(pad)
+        parent_lay.addWidget(scroll)
+
+    # ── Items tab ──────────────────────────────────────────────────────────────
+    #
+    # J, 2026-09-26: "add a category tab which lists out those and basically
+    # draws them in appropriately sized boxes. To snap and move around." An
+    # item arms placement like a container size button (ghost, click, R,
+    # right-click, Ctrl+Z, drag), snaps flush to containers AND items, and
+    # every container rule it breaks is a warning, never a refusal: "if they
+    # don't match their cargo bay that's user error not engine error".
+
+    def _build_items_tab(self) -> QWidget:
+        tab = QWidget()
+        lay = QVBoxLayout(tab)
+        lay.setContentsMargins(6, 6, 6, 6)
+        lay.setSpacing(4)
+
+        self._items_search = QLineEdit(tab)
+        self._items_search.setPlaceholderText(_("Search items…"))
+        self._items_search.setClearButtonEnabled(True)
+        self._items_search.setStyleSheet(
+            f"QLineEdit {{ background-color: {BG3}; color: {FG}; font-family: Consolas;"
+            f" font-size: 8pt; border: 1px solid {BORDER}; padding: 3px 4px; }}"
+        )
+        self._items_search.textChanged.connect(self._populate_items_tree)
+        lay.addWidget(self._items_search)
+
+        self._items_tree = QTreeWidget(tab)
+        self._items_tree.setColumnCount(2)
+        self._items_tree.setHeaderHidden(True)
+        self._items_tree.setIndentation(10)
+        self._items_tree.setRootIsDecorated(True)
+        self._items_tree.setUniformRowHeights(True)
+        hdr = self._items_tree.header()
+        hdr.setStretchLastSection(False)
+        hdr.setSectionResizeMode(0, QHeaderView.Stretch)            # name
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)   # S# WxHxL
+        self._items_tree.setStyleSheet(
+            f"QTreeWidget {{ background-color: {BG}; color: {FG}; font-family: Consolas;"
+            f" font-size: 8pt; border: 1px solid {BORDER}; }}"
+            f"QTreeWidget::item:selected {{ background-color: {ACCENT}; color: {BG}; }}"
+        )
+        self._items_tree.itemClicked.connect(self._on_item_row)
+        self._items_tree.itemActivated.connect(self._on_item_row)
+        lay.addWidget(self._items_tree, 1)
+
+        # One short line, no wrap (wrapped labels in this panel lose lines).
+        self._items_note = QLabel(_("Loading items…"), tab)
+        self._items_note.setWordWrap(False)
+        self._items_note.setStyleSheet(
+            f"color: {YELLOW}; font-family: Consolas; font-size: 8pt; background: transparent;"
+        )
+        lay.addWidget(self._items_note)
+
+        row = QWidget(tab)
+        row_lay = QHBoxLayout(row)
+        row_lay.setContentsMargins(0, 0, 0, 0)
+        row_lay.setSpacing(4)
+        small = f"""
+            QPushButton {{
+                background-color: {BG3}; color: {FG_DIM};
+                font-family: Consolas; font-size: 8pt;
+                border: 1px solid {BORDER}; padding: 3px 6px;
+            }}
+            QPushButton:hover {{ background-color: {BORDER}; color: {FG}; }}
+        """
+        self._items_fetch_btn = QPushButton(_("Download"), row)
+        self._items_fetch_btn.setToolTip(
+            _("Download the game item data (the same pinned build the DPS tool uses)"))
+        self._items_fetch_btn.setStyleSheet(small)
+        self._items_fetch_btn.clicked.connect(self._fetch_item_data)
+        self._items_fetch_btn.hide()
+        row_lay.addWidget(self._items_fetch_btn)
+        row_lay.addStretch(1)
+        btn_clear_items = QPushButton("✕ " + _("Clear items"), row)
+        btn_clear_items.setCursor(Qt.PointingHandCursor)
+        btn_clear_items.setStyleSheet(small)
+        btn_clear_items.clicked.connect(self._clear_items)
+        row_lay.addWidget(btn_clear_items)
+        lay.addWidget(row)
+        return tab
+
+    def _on_brush_tab(self, index: int) -> None:
+        if index == 1:                       # Items
+            self._ensure_item_catalog()
+            # On a short window, bring the list into view (vertically only).
+            bar = self._config_scroll.verticalScrollBar()
+            bar.setValue(min(bar.maximum(), self._brush_tabs.y()))
+
+    def _ensure_item_catalog(self) -> None:
+        """Parse ship-items.json off the UI thread, once, on first need."""
+        if self._item_catalog is not None or self._items_loading:
+            return
+        path = item_catalog_path()
+        if not path or not os.path.isfile(path):
+            self._items_note.setText(_("Item data not downloaded yet."))
+            self._items_fetch_btn.show()
+            return
+        self._items_loading = True
+        self._items_note.setText(_("Loading items…"))
+
+        def work():
+            try:
+                cat = item_catalog.load_catalog(path) or []
+            except Exception:                           # noqa: BLE001
+                log.exception("item catalogue failed to load")
+                cat = None
+            self._main_thread_call.emit(lambda: self._on_items_loaded(cat))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_items_loaded(self, catalog) -> None:
+        self._items_loading = False
+        if catalog is None:
+            self._items_note.setText(_("Item data could not be read."))
+            return
+        self._set_item_catalog(catalog)
+
+    def _fetch_item_data(self) -> None:
+        """Download via shared/scunpacked.py (its pinned build, its cache)."""
+        if self._items_loading:
+            return
+        self._items_loading = True
+        self._items_fetch_btn.setEnabled(False)
+        self._items_note.setText(_("Downloading item data…"))
+
+        def work():
+            ok = True
+            try:
+                from shared import scunpacked
+                scunpacked.fetch_raw()
+            except Exception:                           # noqa: BLE001
+                log.exception("item data download failed")
+                ok = False
+            self._main_thread_call.emit(lambda: self._on_item_fetch_done(ok))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_item_fetch_done(self, ok: bool) -> None:
+        self._items_loading = False
+        self._items_fetch_btn.setEnabled(True)
+        if not ok:
+            self._items_note.setText(_("Download failed. Try again later."))
+            return
+        self._items_fetch_btn.hide()
+        self._ensure_item_catalog()
+
+    def _set_item_catalog(self, catalog: list[dict]) -> None:
+        self._item_catalog = list(catalog)
+        for d in self._item_catalog:
+            self._renderer._item_defs[d["key"]] = d
+        self._items_fetch_btn.hide()
+        self._populate_items_tree()
+        self._render_grid()
+
+    @staticmethod
+    def _item_row_text(d: dict) -> str:
+        w, h, l = d["dims"]
+        size = f"S{d['size']} " if d.get("size") else ""
+        return f"{size}{w}×{h}×{l}" + ("~" if d.get("approx") else "")
+
+    def _populate_items_tree(self, _text=None) -> None:
+        tree = self._items_tree
+        tree.blockSignals(True)
+        tree.clear()
+        cat = self._item_catalog
+        if not cat:
+            tree.blockSignals(False)
+            if cat is not None:
+                self._items_note.setText(_("No items in the data."))
+            return
+        q = self._items_search.text().strip().lower()
+        by_cat: dict[str, list[dict]] = {}
+        for d in cat:
+            if q and q not in d["name"].lower() and q not in d["key"].lower() \
+                    and q not in item_catalog.CATEGORY_LABELS[d["category"]].lower():
+                continue
+            by_cat.setdefault(d["category"], []).append(d)
+
+        def add_cat(parent, key, label):
+            items = by_cat.get(key, [])
+            node = QTreeWidgetItem([f"{label} ({len(items)})", ""])
+            node.setForeground(0, QBrush(QColor(ITEM_COLORS[key])))
+            node.setData(0, Qt.UserRole, None)
+            node.setFlags(node.flags() & ~Qt.ItemIsSelectable)
+            for d in items:
+                leaf = QTreeWidgetItem([d["name"], self._item_row_text(d)])
+                leaf.setData(0, Qt.UserRole, d["key"])
+                leaf.setForeground(1, QBrush(QColor(FG_DIM)))
+                src = {"grid": _("from its cargo grid"), "dims": _("from its dimensions"),
+                       "volume": _("APPROXIMATE, from its volume")}[d["source"]]
+                w, h, l = d["dims"]
+                leaf.setToolTip(0, f"{d['name']}\n{w}×{h}×{l} cells (W×H×L), {src}")
+                node.addChild(leaf)
+            if isinstance(parent, QTreeWidget):
+                parent.addTopLevelItem(node)
+            else:
+                parent.addChild(node)
+            node.setExpanded(bool(q))
+            return node
+
+        comp = None
+        for key, label in ITEM_CATEGORIES:
+            if key in COMPONENT_CATEGORIES:
+                if comp is None:
+                    n = sum(len(by_cat.get(k, [])) for k in COMPONENT_CATEGORIES)
+                    comp = QTreeWidgetItem([f"{_('Components')} ({n})", ""])
+                    comp.setFlags(comp.flags() & ~Qt.ItemIsSelectable)
+                    tree.addTopLevelItem(comp)
+                    comp.setExpanded(bool(q))
+                add_cat(comp, key, _(label))
+            else:
+                add_cat(tree, key, _(label))
+        tree.blockSignals(False)
+        shown = sum(len(v) for v in by_cat.values())
+        self._items_note.setText(
+            _("{n} items. Click one, then the grid.").format(n=shown) if shown
+            else _("No items match."))
+
+    def _on_item_row(self, node, _col=0) -> None:
+        key = node.data(0, Qt.UserRole) if node is not None else None
+        if not key:
+            if node is not None:
+                node.setExpanded(not node.isExpanded())
+            return
+        self._set_place_item(key)
+
+    def _item_def(self, key: str) -> dict:
+        return self._renderer._item_defs.get(key) or {"key": key, "name": key,
+                                                       "category": None,
+                                                       "dims": (1, 1, 1)}
+
+    def _set_place_item(self, key: str | None) -> None:
+        """Arm (or disarm) placing one catalogue item, like a size button."""
+        if key is None:
+            self._set_place_size(None)
+            return
+        if self._mode != "manual":
+            self._set_mode("manual")
+        self._set_place_size(None)          # unchecks the size buttons
+        self._place_item = key
+        cur = self._items_tree.currentItem()     # keep the armed row highlighted
+        if cur is not None and cur.data(0, Qt.UserRole) == key:
+            self._items_tree.blockSignals(True)
+            cur.setSelected(True)
+            self._items_tree.blockSignals(False)
+        if self._selected_commodity is not None:
+            self._clear_brush()
+        self._view.set_brush_cursor(QCursor(Qt.CrossCursor))
+        self._view.setFocus(Qt.OtherFocusReason)
+        d = self._item_def(key)
+        w, h, l = d["dims"]
+        self._status_lbl.setText(
+            _("Placing {name} ({w}×{h}×{l}): click the grid  ·  R rotate"
+              "  ·  Esc done").format(name=d["name"], w=w, h=h, l=l))
+
+    def _placing(self) -> bool:
+        return self._place_size is not None or self._place_item is not None
+
+    def _item_warnings(self) -> dict[tuple, list[str]]:
+        """Warnings for every placed item against the current scene."""
+        items = list(self._renderer._items)
+        if not items or not self._slots:
+            return {}
+        containers = (list(self._renderer._manual_boxes)
+                      if self._renderer._manual_boxes is not None
+                      else list(self._renderer._last_boxes))
+        ctx = PlacementContext(self._grids_world(), containers + items,
+                               union=self._has_layout)
+        out = {}
+        for i, b in enumerate(items):
+            out[b] = ctx.item_warnings(b[:3], b[3:6], skip=len(containers) + i)
+        return out
+
+    def _update_items_summary(self) -> None:
+        n = len(self._renderer._items)
+        flagged = sum(1 for b in self._renderer._items if self._renderer._item_flags.get(b))
+        text = _("Items: {n}").format(n=n)
+        if flagged:
+            text += "  ⚠ " + _("{k} flagged").format(k=flagged)
+        self._items_summary_lbl.setText(text)
+        self._items_summary_lbl.setStyleSheet(
+            f"color: {ITEM_WARN if flagged else FG_DIM}; font-family: Consolas; "
+            f"font-size: 8pt; background: transparent;")
+
+    def _clear_items(self) -> None:
+        if not self._renderer._items:
+            return
+        self._push_undo()
+        for b in self._renderer._items:
+            self._renderer._assignments.pop((b[0], b[1], b[2], b[6]), None)
+        self._renderer._items = []
+        self._render_grid()
+        self._update_assignment_summary()
+        self._status_lbl.setText(_("Items cleared  ·  Ctrl+Z to undo"))
+
+    def _items_from_payload(self, raw) -> list[tuple]:
+        """Parse a saved plan's "items" list (absent in older plans -> [])."""
+        out = []
+        if not isinstance(raw, list):
+            return out
+        for it in raw:
+            try:
+                key = str(it["key"])
+                x, y, z = (int(v) for v in it["pos"])
+                w, h, l = (int(v) for v in it["dims"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not key or min(w, h, l) < 1:
+                continue
+            if key not in self._renderer._item_defs:
+                # Unknown here (no item data yet): keep what the plan says.
+                self._renderer._item_defs[key] = {
+                    "key": key, "name": str(it.get("name") or key),
+                    "category": it.get("category"), "size": 0,
+                    "dims": (w, h, l), "source": "plan", "approx": False,
+                    "label": item_catalog.abbrev(str(it.get("name") or key)),
+                }
+            out.append((x, y, z, w, h, l, key))
+        return out
 
     # ── Data ───────────────────────────────────────────────────────────────────
 
@@ -2259,6 +2732,7 @@ class CargoApp(SCWindow):
         self._drop_manual_layout()
         # Clear planning mode assignments and brush for new ship
         self._renderer._assignments.clear()
+        self._renderer._items = []
         self._commodity_visibility.clear()
         self._selected_commodity = None
         self._view.clear_brush_cursor()
@@ -2378,7 +2852,7 @@ class CargoApp(SCWindow):
     def _on_commodity_selected(self, name: str) -> None:
         if not name:
             return
-        if self._place_size is not None:
+        if self._placing():
             self._set_place_size(None)
         self._selected_commodity = name
         color = commodity_color(name)
@@ -2404,7 +2878,7 @@ class CargoApp(SCWindow):
 
     def _on_box_clicked(self, group: _CargoBoxGroup) -> None:
         """Handle a box click: stack onto it (place tool) or paint it (brush)."""
-        if (self._mode == "manual" and self._place_size is not None
+        if (self._mode == "manual" and self._placing()
                 and self._selected_commodity is None):
             box = tuple(group.box_data)
             # Deferred: placing redraws, deleting the item whose handler runs.
@@ -2416,9 +2890,7 @@ class CargoApp(SCWindow):
                 del self._renderer._assignments[group.pos_key]
                 group.commodity = None
                 # Restore original color
-                size = group.box_data[6]
-                base = CONT_COL.get(size, "#888888")
-                group.recolor(base)
+                group.recolor(self._renderer.base_color_for(group))
                 self._update_assignment_summary()
                 self._apply_visibility_filter()
             return
@@ -2497,14 +2969,20 @@ class CargoApp(SCWindow):
         group = d["group"]
         box = tuple(group.box_data)
         boxes = list(self._renderer._last_boxes)
+        items = list(self._renderer._items)
+        item = is_item(box)
         try:
-            index = boxes.index(box)
+            index = items.index(box) if item else boxes.index(box)
         except ValueError:
             return False
-        others = boxes[:index] + boxes[index + 1:]
+        if item:
+            others = boxes + items[:index] + items[index + 1:]
+        else:
+            others = boxes[:index] + boxes[index + 1:] + items
         x, y, z, w, h, l, size = box
         d.update({
             "active": True, "index": index, "boxes": boxes, "orig": box,
+            "item": item, "items": items,
             "dims": (w, h, l), "size": size,
             "centre0": (x + w / 2.0, z + l / 2.0),
             "press_world": self._renderer.unproject(d["press_scene"].x(),
@@ -2529,13 +3007,26 @@ class CargoApp(SCWindow):
         cx = d["centre0"][0] + cur[0] - d["press_world"][0]
         cz = d["centre0"][1] + cur[1] - d["press_world"][1]
         w, h, l = d["dims"]
+        if d.get("item"):
+            # Items always drop; a broken rule is a warning, shown amber.
+            pos, warns = d["ctx"].snap_item((w, h, l, d["size"]),
+                                            (cx - w / 2.0, cz - l / 2.0))
+            reason = "; ".join(warns) if warns else OK
+            d["result"] = (pos, True, reason)
+            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, True,
+                                      warn=bool(warns))
+            self._status_lbl.setText(
+                (_("Drop here") if not warns
+                 else "⚠ " + _("Drops anyway: ") + _(reason))
+                + "  ·  R / right-click rotate  ·  Esc cancel")
+            return
         pos, valid, reason = d["ctx"].snap((w, h, l, d["size"]),
                                            (cx - w / 2.0, cz - l / 2.0))
         d["result"] = (pos, valid, reason)
         self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid)
         self._status_lbl.setText(
             (_("Drop here") if valid else _("Can't drop: ") + _(reason))
-            + "  \u00b7  R / right-click rotate  \u00b7  Esc cancel")
+            + "  ·  R / right-click rotate  ·  Esc cancel")
 
     def _drag_rotate(self) -> None:
         d = self._drag
@@ -2587,7 +3078,12 @@ class CargoApp(SCWindow):
             return
         # Deferred: the redraw deletes the box item whose release handler is
         # still on the stack.
-        boxes, index, dims = d["boxes"], d["index"], d["dims"]
+        index, dims = d["index"], d["dims"]
+        if d.get("item"):
+            items = d["items"]
+            QTimer.singleShot(0, lambda: self._apply_item_move(items, index, pos, dims, reason))
+            return
+        boxes = d["boxes"]
         QTimer.singleShot(0, lambda: self._apply_move(boxes, index, pos, dims))
 
     def _drag_update_from(self, d: dict) -> None:
@@ -2601,10 +3097,7 @@ class CargoApp(SCWindow):
     def _apply_move(self, boxes, index, pos, dims) -> None:
         """Commit a legal move: undo entry, commodity follows the box, redraw."""
         old = boxes[index]
-        self._move_undo.append((
-            None if self._renderer._manual_boxes is None else list(self._renderer._manual_boxes),
-            dict(self._renderer._assignments),
-        ))
+        self._push_undo()
         new_boxes = move_box(boxes, index, pos, dims)
         old_key = (old[0], old[1], old[2], old[6])
         new_key = (pos[0], pos[1], pos[2], old[6])
@@ -2615,15 +3108,36 @@ class CargoApp(SCWindow):
         self._render_grid()
         self._update_assignment_summary()
         self._status_lbl.setText(
-            _("Moved {n} SCU box  \u00b7  Ctrl+Z to undo").format(n=old[6]))
+            _("Moved {n} SCU box  ·  Ctrl+Z to undo").format(n=old[6]))
+
+    def _apply_item_move(self, items, index, pos, dims, reason=OK) -> None:
+        """Commit an item move (always allowed): undo entry, paint follows."""
+        old = items[index]
+        self._push_undo()
+        new_items = move_box(items, index, pos, dims)
+        old_key = (old[0], old[1], old[2], old[6])
+        commodity = self._renderer._assignments.pop(old_key, None)
+        if commodity:
+            self._renderer._assignments[(pos[0], pos[1], pos[2], old[6])] = commodity
+        self._renderer._items = new_items
+        self._render_grid()
+        self._update_assignment_summary()
+        name = self._item_def(old[6])["name"]
+        self._status_lbl.setText(
+            (_("Moved {name}").format(name=name) if reason == OK
+             else "⚠ " + _("Moved {name}: ").format(name=name) + _(reason))
+            + "  ·  Ctrl+Z to undo")
 
     def _undo_move(self) -> None:
         if self._drag and self._drag.get("active"):
             return
         if not self._move_undo:
             return
-        manual, assignments = self._move_undo.pop()
+        entry = self._move_undo.pop()
+        manual, assignments = entry[0], entry[1]
         self._renderer._manual_boxes = manual
+        if len(entry) > 2:
+            self._renderer._items = list(entry[2])
         self._renderer._assignments.clear()
         self._renderer._assignments.update(assignments)
         if self._mode == "manual" and manual is not None:
@@ -2697,6 +3211,12 @@ class CargoApp(SCWindow):
 
     def _set_place_size(self, size: int | None) -> None:
         self._place_size = size
+        if self._place_item is not None:
+            # A size button (or Esc / done) ends placing an item too.
+            self._place_item = None
+            self._items_tree.blockSignals(True)
+            self._items_tree.clearSelection()
+            self._items_tree.blockSignals(False)
         for s, b in self._place_btns.items():
             b.blockSignals(True)
             b.setChecked(s == size)
@@ -2746,12 +3266,16 @@ class CargoApp(SCWindow):
 
     def _place_target(self, scene_pos, over_box=None):
         """Where the chosen size lands for this pointer: (pos, dims, valid, reason) or None."""
-        if (self._place_size is None or self._mode != "manual"
+        if (not self._placing() or self._mode != "manual"
                 or not self._current_ship or not self._slots):
             return None
         if self._renderer._manual_boxes is None:
             self._renderer._manual_boxes = list(self._renderer._last_boxes)
-        w, h, l = CONTAINER_DIMS[self._place_size]
+        item = self._place_item
+        if item is not None:
+            w, h, l = self._item_def(item)["dims"]
+        else:
+            w, h, l = CONTAINER_DIMS[self._place_size]
         if self._place_rot:
             w, h, l = rotate_yaw((w, h, l))
         grids = self._grids_world()
@@ -2777,32 +3301,49 @@ class CargoApp(SCWindow):
             if hit is None:
                 return None
             cx, cz = hit
-        ctx = PlacementContext(grids, list(self._renderer._manual_boxes),
+        # Items are in the way of (and a magnet for) containers and items alike.
+        ctx = PlacementContext(grids, list(self._renderer._manual_boxes)
+                               + list(self._renderer._items),
                                union=self._has_layout)
+        if item is not None:
+            # An item always lands; what it breaks comes back as the reason.
+            stack_y = over_box[1] + over_box[4] if over_box is not None else None
+            pos, warns = ctx.snap_item((w, h, l, item), (cx - w / 2.0, cz - l / 2.0),
+                                       y=stack_y)
+            return pos, (w, h, l), True, "; ".join(warns) if warns else OK
         pos, valid, reason = ctx.snap((w, h, l, self._place_size),
                                       (cx - w / 2.0, cz - l / 2.0))
         return pos, (w, h, l), valid, reason
 
     def _on_view_hover(self, scene_pos) -> None:
-        if self._drag or self._place_size is None:
+        if self._drag or not self._placing():
             return
         t = self._place_target(scene_pos)
         if t is None:
             self._renderer.clear_ghost()
             return
         pos, (w, h, l), valid, reason = t
+        if self._place_item is not None:
+            name = self._item_def(self._place_item)["name"]
+            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, True,
+                                      warn=reason != OK)
+            self._status_lbl.setText(
+                (_("Click to place {name}").format(name=name) if reason == OK
+                 else "⚠ " + _("Places anyway: ") + _(reason))
+                + "  ·  R rotate  ·  Esc done")
+            return
         self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid)
         self._status_lbl.setText(
             (_("Click to place {n} SCU").format(n=self._place_size) if valid
              else _("Can't place: ") + _(reason))
-            + "  \u00b7  R rotate  \u00b7  Esc done")
+            + "  ·  R rotate  ·  Esc done")
 
     def _on_view_leave(self) -> None:
-        if not self._drag and self._place_size is not None:
+        if not self._drag and self._placing():
             self._renderer.clear_ghost()
 
     def _on_view_empty_click(self, scene_pos) -> None:
-        if self._drag or self._place_size is None:
+        if self._drag or not self._placing():
             return
         QTimer.singleShot(0, lambda: self._place_at(scene_pos))
 
@@ -2810,6 +3351,7 @@ class CargoApp(SCWindow):
         self._move_undo.append((
             None if self._renderer._manual_boxes is None else list(self._renderer._manual_boxes),
             dict(self._renderer._assignments),
+            list(self._renderer._items),
         ))
 
     def _after_manual_edit(self, msg: str) -> None:
@@ -2824,6 +3366,17 @@ class CargoApp(SCWindow):
         if t is None:
             return False
         pos, (w, h, l), valid, reason = t
+        if self._place_item is not None:
+            key = self._place_item
+            self._push_undo()
+            self._renderer._items = list(self._renderer._items) + [
+                (pos[0], pos[1], pos[2], w, h, l, key)]
+            name = self._item_def(key)["name"]
+            self._after_manual_edit(
+                (_("Placed {name}").format(name=name) if reason == OK
+                 else "⚠ " + _("Placed {name}: ").format(name=name) + _(reason))
+                + "  ·  Ctrl+Z to undo")
+            return True
         if not valid:
             self._status_lbl.setText(_("Can't place: ") + _(reason))
             return True
@@ -2831,10 +3384,22 @@ class CargoApp(SCWindow):
         self._renderer._manual_boxes = list(self._renderer._manual_boxes) + [
             (pos[0], pos[1], pos[2], w, h, l, self._place_size)]
         self._after_manual_edit(
-            _("Placed {n} SCU  \u00b7  Ctrl+Z to undo").format(n=self._place_size))
+            _("Placed {n} SCU  ·  Ctrl+Z to undo").format(n=self._place_size))
         return True
 
     def _remove_box(self, box: tuple) -> None:
+        if is_item(box):
+            items = list(self._renderer._items)
+            if box not in items:
+                return
+            items.remove(box)
+            self._push_undo()
+            self._renderer._assignments.pop((box[0], box[1], box[2], box[6]), None)
+            self._renderer._items = items
+            self._after_manual_edit(
+                _("Removed {name}  ·  Ctrl+Z to undo").format(
+                    name=self._item_def(box[6])["name"]))
+            return
         boxes = list(self._renderer._manual_boxes or [])
         if box not in boxes:
             return
@@ -2848,7 +3413,7 @@ class CargoApp(SCWindow):
         self._renderer._assignments.pop((x, y, z, size), None)
         self._renderer._manual_boxes = boxes
         self._after_manual_edit(
-            _("Removed {n} SCU  \u00b7  Ctrl+Z to undo").format(n=size))
+            _("Removed {n} SCU  ·  Ctrl+Z to undo").format(n=size))
 
     def _view_right_click(self, scene_pos) -> bool:
         if self._drag_right_click():
@@ -2867,7 +3432,7 @@ class CargoApp(SCWindow):
     def _view_key(self, event) -> bool:
         if self._drag_key(event):
             return True
-        if self._place_size is None:
+        if not self._placing():
             return False
         if event.key() == Qt.Key_Escape:
             self._set_place_size(None)
@@ -2975,14 +3540,25 @@ class CargoApp(SCWindow):
     def _render_grid(self) -> None:
         vw = max(self._view.viewport().width(), 400)
         vh = max(self._view.viewport().height(), 300)
-        self._renderer.render(
-            self._slots, self._bounds, self._slot_assignment,
-            self._has_layout, self._current_ship,
-            lambda text: self._grid_info_lbl.setText(text),
-            view_width=vw, view_height=vh,
-        )
+        self._renderer._item_flags = self._item_warnings()
+        for _pass in range(2):
+            self._renderer.render(
+                self._slots, self._bounds, self._slot_assignment,
+                self._has_layout, self._current_ship,
+                lambda text: self._grid_info_lbl.setText(text),
+                view_width=vw, view_height=vh,
+            )
+            # Auto mode: the packer's boxes exist only after a render, so the
+            # item warnings are re-checked against them once.
+            if not self._renderer._items or self._renderer._manual_boxes is not None:
+                break
+            flags = self._item_warnings()
+            if flags == self._renderer._item_flags:
+                break
+            self._renderer._item_flags = flags
         # Re-apply visibility filter after re-render
         self._apply_visibility_filter()
+        self._update_items_summary()
 
     # ── Container calc ─────────────────────────────────────────────────────────
 
@@ -3178,6 +3754,17 @@ class CargoApp(SCWindow):
                 {"scu": b[6], "pos": [b[0], b[1], b[2]], "dims": [b[3], b[4], b[5]]}
                 for b in self._renderer._manual_boxes
             ]
+        if self._renderer._items:
+            # Items tab: a separate list, so older builds (and "counts") never
+            # see them. name/category travel along for a machine without the
+            # item data.
+            items = []
+            for b in self._renderer._items:
+                d = self._item_def(b[6])
+                items.append({"key": b[6], "name": d.get("name", b[6]),
+                              "category": d.get("category"),
+                              "pos": [b[0], b[1], b[2]], "dims": [b[3], b[4], b[5]]})
+            payload["items"] = items
         return payload
 
     def _load_loadout(self) -> None:
@@ -3240,6 +3827,7 @@ class CargoApp(SCWindow):
         if boxes is not None:
             self._counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
             self._renderer._manual_boxes = boxes
+        self._renderer._items = self._items_from_payload(payload.get("items"))
         self._update_fill()
         self._freeze_if_manual()
         self._update_assignment_summary()
