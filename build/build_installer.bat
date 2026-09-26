@@ -141,13 +141,21 @@ if !errorlevel! neq 0 (
 :: only mode (much slower + less accurate). Past builds shipped
 :: without scipy and the failure mode was invisible to end users
 :: (CNN voters silently no-op'd via try/except).
-echo  [*] Installing PySide6, requests, pynput, mss, pytesseract, Pillow, scipy, onnxruntime, numpy...
+:: piper-tts + sounddevice: SuitMk2's two local voices (core\speech.py) and push-to-talk
+:: capture (core\voice_in\ears.py). Both are lazy imports behind try/except, so the
+:: import smoke test in Step 7e CANNOT see them missing - they are checked by
+:: file existence in Step 7c instead. piper-tts reuses the onnxruntime above;
+:: its own wheel is ~24 MB (bundled espeak-ng data). sounddevice is <1 MB.
+:: NOT shipped, deliberately: faster-whisper (~140 MB of ctranslate2 + av/ffmpeg +
+:: tokenizers, plus a ~480 MB model fetched on first use) and pygame-ce (joystick
+:: push-to-talk). SuitMk2 degrades without them: ears report the missing module.
+echo  [*] Installing PySide6, requests, pynput, mss, pytesseract, Pillow, scipy, onnxruntime, numpy, piper-tts, sounddevice...
 :: Each package spec is quoted so cmd doesn't parse the `>=` as a
 :: stdout redirect (which created stray zero-byte files like
 :: build\1.15.0, build\1.24.0, build\42.0.0 from earlier builds —
 :: harmless cosmetic cruft but noise in the build dir).  Fixed in
 :: the v2.2.10 audit pass.
-"%STAGE%\python\python.exe" -m pip install "PySide6>=6.5.0" "requests>=2.28.0" "pynput>=1.7.6" "mss>=9.0.0" "pytesseract>=0.3.10" "Pillow>=10.0.0" "cryptography>=42.0.0" "onnxruntime>=1.17.0" "numpy>=1.24.0" "scipy>=1.11.0" "onnx>=1.15.0" --no-warn-script-location --quiet
+"%STAGE%\python\python.exe" -m pip install "PySide6>=6.5.0" "requests>=2.28.0" "pynput>=1.7.6" "mss>=9.0.0" "pytesseract>=0.3.10" "Pillow>=10.0.0" "cryptography>=42.0.0" "onnxruntime>=1.17.0" "numpy>=1.24.0" "scipy>=1.11.0" "onnx>=1.15.0" "piper-tts>=1.4.0" "sounddevice>=0.5.0" --no-warn-script-location --quiet
 if !errorlevel! neq 0 (
     echo  [!] Dependency installation failed.
     goto :fail
@@ -286,7 +294,7 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
 
 :: tools/ — copy each tool, then prune non-runtime files
 echo  [*] Staging tools...
-for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator) do (
+for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2) do (
     if exist "%ROOT%\tools\%%T" (
         xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
         :: Remove cache, log, and dev files
@@ -294,6 +302,7 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator) do (
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
         del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
         del /q "%STAGE%\tools\%%T\requirements.txt" 2>nul
+        del /q "%STAGE%\tools\%%T\nul.lock" 2>nul
         :: Remove debug screenshots from scanner output
         del /q "%STAGE%\tools\%%T\debug_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\_debug_*.png" 2>nul
@@ -323,6 +332,61 @@ if exist "%STAGE%\tools\Mining_Signals\training_data" (
     echo  [*] Removing training_data/ from staging (dev-only, ~50-500 MB)
     rmdir /s /q "%STAGE%\tools\Mining_Signals\training_data"
 )
+:: SuitMk2: drop dev checkpoint copies (*.bak_*) that the dev tree accumulates.
+if exist "%STAGE%\tools\SuitMk2" del /s /q "%STAGE%\tools\SuitMk2\*.bak_*" >nul 2>nul
+:: SuitMk2: build-time-only helper (needs numpy + llama.cpp gguf-py); never ship it.
+if exist "%STAGE%\tools\SuitMk2\core\build_character_delta.py" del /q "%STAGE%\tools\SuitMk2\core\build_character_delta.py"
+
+:: SuitMk2 character brains: two ~164 MB tensor DELTAS (models\<name>.delta.gguf + manifest.json), NOT full
+:: models and NOT LoRA adapters (Ollama 0.34 refuses adapters). At first run the tool's Setup panel pulls the
+:: stock base (qwen2.5:1.5b, ~1 GB) through the local Ollama API and splices each delta in (core\model_provision.py).
+:: Built by core\build_character_delta.py from the trained LoRAs. Override the source with SUITMK2_MODELS_SRC.
+:: Step 7c fails the build if a delta is absent, unless SUITMK2_ALLOW_NO_MODELS=1.
+if not defined SUITMK2_MODELS_SRC set "SUITMK2_MODELS_SRC=%USERPROFILE%\Projects\elah-audio\companion_design\toolbox_port\SuitMk2\models"
+if exist "%STAGE%\tools\SuitMk2" (
+    echo  [*] Staging SuitMk2 character deltas from !SUITMK2_MODELS_SRC!
+    rem Replace ONLY the deltas and their manifest. models\ also holds yamnet\ (sound_classifier.py's combat-sound
+    rem model); an rmdir here shipped every build without it (caught 2026-09-24 before the patch was applied).
+    if exist "%STAGE%\tools\SuitMk2\models\*.delta.gguf" del /q "%STAGE%\tools\SuitMk2\models\*.delta.gguf"
+    if exist "%STAGE%\tools\SuitMk2\models\manifest.json" del /q "%STAGE%\tools\SuitMk2\models\manifest.json"
+    mkdir "%STAGE%\tools\SuitMk2\models" 2>nul
+    for %%M in (elah montaigne) do (
+        if exist "!SUITMK2_MODELS_SRC!\%%M.delta.gguf" (
+            copy /Y "!SUITMK2_MODELS_SRC!\%%M.delta.gguf" "%STAGE%\tools\SuitMk2\models\" >nul
+            echo  [OK] SuitMk2 character delta staged: %%M
+        ) else (
+            echo  [WARN] SuitMk2 character delta not found in source: %%M.delta.gguf
+        )
+    )
+    if exist "!SUITMK2_MODELS_SRC!\manifest.json" copy /Y "!SUITMK2_MODELS_SRC!\manifest.json" "%STAGE%\tools\SuitMk2\models\" >nul
+)
+
+:: SuitMk2 voices: the two fine-tuned Piper voices (~63 MB each) are NOT in git.
+:: They are copied from SUITMK2_VOICES_SRC into tools\SuitMk2\voices\ at build
+:: time. Override the source with:  set SUITMK2_VOICES_SRC=D:\somewhere\voices
+:: Only <name>.onnx + <name>.onnx.json are copied - never the compare .ogg files or
+:: the checks\ folder that live beside them in the voice lab. Step 7c fails the
+:: build if either voice is absent, unless SUITMK2_ALLOW_STOCK_VOICES=1, because
+:: without them the tool silently falls back to stock voices downloaded at runtime.
+:: See tools\SuitMk2\voices\README.md.
+if not defined SUITMK2_VOICES_SRC set "SUITMK2_VOICES_SRC=%USERPROFILE%\Projects\elah-audio\voice_lab\piper_voices"
+if exist "%STAGE%\tools\SuitMk2" (
+    echo  [*] Staging SuitMk2 voices from !SUITMK2_VOICES_SRC!
+    mkdir "%STAGE%\tools\SuitMk2\voices" 2>nul
+    for %%V in (elah montaigne) do (
+        set "VOK=1"
+        if not exist "!SUITMK2_VOICES_SRC!\%%V.onnx" set "VOK=0"
+        if not exist "!SUITMK2_VOICES_SRC!\%%V.onnx.json" set "VOK=0"
+        if "!VOK!"=="1" (
+            copy /Y "!SUITMK2_VOICES_SRC!\%%V.onnx" "%STAGE%\tools\SuitMk2\voices\" >nul
+            copy /Y "!SUITMK2_VOICES_SRC!\%%V.onnx.json" "%STAGE%\tools\SuitMk2\voices\" >nul
+            echo  [OK] SuitMk2 voice staged: %%V
+        ) else (
+            echo  [WARN] SuitMk2 voice not found in source: %%V.onnx + %%V.onnx.json
+        )
+    )
+)
+
 :: Recreate an empty training_data/ so training_collector.py can
 :: write to it if the user ever enables harvest.
 mkdir "%STAGE%\tools\Mining_Signals\training_data" 2>nul
@@ -754,6 +818,54 @@ findstr /I /C:"Users\\" /C:"Users/" "%STAGE%\tools\Mining_Signals\mining_signals
 if !errorlevel!==0 (
     echo  [!] POLLUTED: mining_signals_config.json contains a home-directory path
     set "VALIDATION_OK=0"
+)
+
+:: SuitMk2 runtime deps + voices + privacy. The Step 7e import smoke test only
+:: imports the entry script, and every audio import in SuitMk2 is lazy, so a
+:: missing piper/sounddevice would pass it and ship a mute tool. Check by file.
+if exist "%STAGE%\tools\SuitMk2" (
+    if not exist "%STAGE%\python\Lib\site-packages\piper" (
+        echo  [FAIL] MISSING: piper-tts pip package - SuitMk2 speech is silent
+        set "VALIDATION_OK=0"
+    )
+    if not exist "%STAGE%\python\Lib\site-packages\sounddevice.py" (
+        echo  [FAIL] MISSING: sounddevice pip package - SuitMk2 playback and push-to-talk broken
+        set "VALIDATION_OK=0"
+    )
+    for %%M in (elah montaigne) do (
+        if not exist "%STAGE%\tools\SuitMk2\models\%%M.delta.gguf" (
+            if "!SUITMK2_ALLOW_NO_MODELS!"=="1" (
+                echo  [WARN] SuitMk2 ships WITHOUT the %%M character delta - that character stays silent
+            ) else (
+                echo  [FAIL] MISSING: tools\SuitMk2\models\%%M.delta.gguf - set SUITMK2_MODELS_SRC, or SUITMK2_ALLOW_NO_MODELS=1
+                set "VALIDATION_OK=0"
+            )
+        )
+    )
+    rem A full model must never ride along (1-2 GB each): nothing in models\ may exceed 400 MB.
+    for %%F in ("%STAGE%\tools\SuitMk2\models\*") do (
+        if %%~zF GTR 400000000 (
+            echo  [FAIL] OVERSIZED: tools\SuitMk2\models\%%~nxF is %%~zF bytes - ship deltas, not full models
+            set "VALIDATION_OK=0"
+        )
+    )
+    for %%V in (elah montaigne) do (
+        if not exist "%STAGE%\tools\SuitMk2\voices\%%V.onnx" (
+            if "!SUITMK2_ALLOW_STOCK_VOICES!"=="1" (
+                echo  [WARN] SuitMk2 ships WITHOUT the trained %%V voice - stock voice at runtime
+            ) else (
+                echo  [FAIL] MISSING: tools\SuitMk2\voices\%%V.onnx - set SUITMK2_VOICES_SRC, or SUITMK2_ALLOW_STOCK_VOICES=1
+                set "VALIDATION_OK=0"
+            )
+        )
+    )
+    rem sanitize_staging.py only scrubs tools\Mining_Signals, so SuitMk2 gets its own
+    rem fail-closed home-path check. core\settings.py DEFAULTS carried dev paths.
+    findstr /S /I /M /C:"Users\\" /C:"Users/" "%STAGE%\tools\SuitMk2\*.py" "%STAGE%\tools\SuitMk2\*.json" >nul 2>&1
+    if !errorlevel!==0 (
+        echo  [FAIL] POLLUTED: a SuitMk2 .py/.json contains a home-directory path - fix core\settings.py DEFAULTS
+        set "VALIDATION_OK=0"
+    )
 )
 
 :: Smoke test: catch the config-null-default bug class. The shipped
