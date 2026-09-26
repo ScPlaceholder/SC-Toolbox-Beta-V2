@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 import onnx
@@ -45,8 +46,17 @@ def main(root: str) -> int:
     if not os.path.isdir(root):
         print(f"[!] strip_onnx_metadata: root does not exist: {root}", file=sys.stderr)
         return 1
-    count = 0
-    for dirpath, _, files in os.walk(root):
+    # Backup folders are deleted by sanitize_staging.py (same pattern as its BACKUP_DIR_RE), so
+    # stripping them is wasted work. A stale one (_bak_pretrain: an external-data .onnx whose .data
+    # onnx.load cannot read) made every 2.4.0 build print "ONNX metadata strip failed - installer
+    # may leak username", a false alarm: NTFS lists _bak_* AFTER letter/digit folders (it compares
+    # uppercased, and '_' > 'Z'), so the live models had already been stripped (checked: 0 of 24
+    # shipped .onnx carry torch metadata). A warning that always fires trains everyone to ignore it.
+    # Now: skip backups, report EVERY failure (not just the first), fail only if a real one fails.
+    backup = re.compile(r"(^_bak_|^models_bak_|^_bak$)", re.I)
+    count, failed = 0, []
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not backup.search(d)]
         for fn in files:
             if fn.endswith(".onnx"):
                 p = os.path.join(dirpath, fn)
@@ -55,7 +65,10 @@ def main(root: str) -> int:
                     count += 1
                 except Exception as e:
                     print(f"[!] strip failed for {p}: {e}", file=sys.stderr)
-                    return 2
+                    failed.append(p)
+    if failed:
+        print(f"[!] stripped {count}, FAILED {len(failed)} ONNX file(s) under {root}", file=sys.stderr)
+        return 2
     print(f"[OK] stripped metadata from {count} ONNX file(s) under {root}")
     return 0
 
