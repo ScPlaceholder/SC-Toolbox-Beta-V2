@@ -705,6 +705,48 @@ class SettingsPopup(QWidget):
         tv_lay.addWidget(self._voice_combo)
         c_lay.addWidget(tv_row)
 
+        # ── Microphone: which mic the ears of the Star Map, Assistant and SuitMk2 listen to (J, 2026-09-26:
+        #    "nothing could hear me", headset mic). Stored by name; "Windows default" follows Windows. ──
+        mic_row = QWidget()
+        mic_row.setFixedHeight(32)
+        mic_row.setStyleSheet("background: transparent;")
+        mic_lay = QHBoxLayout(mic_row)
+        mic_lay.setSpacing(8)
+        mic_lay.setContentsMargins(0, 0, 0, 0)
+        mic_lbl = QLabel(_t("Microphone"))
+        mic_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        mic_lay.addWidget(mic_lbl)
+        mic_desc = QLabel(_t("The mic the tools listen to"))
+        mic_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        mic_lay.addWidget(mic_desc, stretch=1)
+        self._mic_combo = QComboBox()
+        self._mic_combo.setStyleSheet(_COMBO_QSS)
+        self._mic_combo.setFixedWidth(220)
+        self._mic_combo.setFixedHeight(24)
+        try:
+            from shared import mic as _mic
+            self._mic_combo.addItem(_t(_mic.DEFAULT_LABEL), "")
+            for name in _mic.list_inputs(refresh=True):
+                self._mic_combo.addItem(name, name)
+            chosen = _mic.get_choice()
+            if chosen and self._mic_combo.findData(chosen) < 0:
+                self._mic_combo.addItem(chosen + "  " + _t("(not connected)"), chosen)
+            i = self._mic_combo.findData(chosen)
+            self._mic_combo.setCurrentIndex(i if i >= 0 else 0)
+            self._mic_combo.currentIndexChanged.connect(
+                lambda _i: _mic.set_choice(self._mic_combo.currentData() or ""))
+        except Exception:
+            log.exception("microphone setting unavailable")
+            self._mic_combo.setEnabled(False)
+        mic_lay.addWidget(self._mic_combo)
+        c_lay.addWidget(mic_row)
+
         # ── Auto-hide launcher ────────────────────────────────────────────
         hide_sep = QFrame()
         hide_sep.setFixedHeight(1)

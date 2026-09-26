@@ -148,10 +148,23 @@ class EarsController(QObject):
         self._quiet_ms = 0
         self._started = time.monotonic()
         try:
+            # The player's chosen mic (launcher Settings > Microphone), else the Windows default.
+            try:
+                from shared.mic import stream_device
+                _dev = stream_device(refresh=False)
+            except Exception:
+                _dev = None
             self._stream = sd.InputStream(
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
-                blocksize=1600, callback=self._audio_cb)
+                blocksize=1600, callback=self._audio_cb, device=_dev)
             self._stream.start()
+            try:
+                import logging as _logging
+                _logging.getLogger(__name__).info(
+                    "ears: listening on input %r", sd.query_devices(
+                        _dev if _dev is not None else sd.default.device[0])["name"])
+            except Exception:
+                pass
         except Exception as exc:
             self.statusChanged.emit("mic error: %s" % exc)
             self._stream = None
