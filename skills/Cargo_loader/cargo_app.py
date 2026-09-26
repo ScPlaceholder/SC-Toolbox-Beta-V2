@@ -25,14 +25,14 @@ import time
 import requests
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QPoint, QPointF, QUrl
-from PySide6.QtGui import (QColor, QCursor, QPainter, QPixmap, QPolygonF, QFont, QPen, QBrush,
-                           QKeySequence, QShortcut, QDesktopServices)
+from PySide6.QtGui import (QColor, QCursor, QPainter, QPainterPath, QPixmap, QPolygonF, QFont,
+                           QPen, QBrush, QKeySequence, QShortcut, QDesktopServices)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QSizePolicy, QSpinBox, QTabWidget,
     QGraphicsView, QGraphicsScene, QGraphicsPolygonItem, QGraphicsTextItem,
     QGraphicsItemGroup, QDialog, QFileDialog,
-    QApplication, QLineEdit, QTreeWidget, QTreeWidgetItem, QHeaderView,
+    QApplication, QLineEdit, QTreeWidget, QTreeWidgetItem, QHeaderView, QSlider,
 )
 
 # Bootstrap project root and skill directory
@@ -74,6 +74,10 @@ from crate_ui import CratePanel, CrateWindow
 # Personal crates are items of their own category (not an Items-tree category:
 # they have their own row of buttons and a tab each).
 ITEM_COLORS = {**ITEM_COLORS, "crate": crate_items.CRATE_COLOR}
+
+# Hover highlight: outline colour and how far the fill moves towards white.
+HOVER_EDGE = "#ffffff"
+HOVER_LIGHTEN = 0.28
 
 from cargo_common import (
     CONTAINER_DIMS as LEGACY_CONTAINER_DIMS,
@@ -594,6 +598,9 @@ class _BrushView(QGraphicsView):
         self.hover_handler = None
         self.empty_click_handler = None
         self.leave_handler = None
+        # Alt+left-click (set by CargoApp): hide the boxes resting on the box
+        # under the pointer. Returns True if it consumed the click.
+        self.alt_click_handler = None
         self._press_at = None
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMouseTracking(True)
@@ -625,6 +632,12 @@ class _BrushView(QGraphicsView):
     def mousePressEvent(self, event):
         if (event.button() == Qt.RightButton and self.drag_right_click_handler
                 and self.drag_right_click_handler(self._scene_at(event))):
+            event.accept()
+            return
+        if (event.button() == Qt.LeftButton
+                and event.modifiers() & Qt.AltModifier
+                and self.alt_click_handler is not None
+                and self.alt_click_handler(self._scene_at(event))):
             event.accept()
             return
         self._press_at = event.position() if event.button() == Qt.LeftButton else None
@@ -682,6 +695,9 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         # Items: their own outline pen, and the warnings that tint them amber
         self.item_pen: QPen | None = None
         self.warnings: list[str] = []
+        # Hover highlight (view only): lighter fill + bright outline.
+        self.highlighted: bool = False
+        self._shape_cache = None
         self.setAcceptedMouseButtons(Qt.LeftButton)
 
     def set_click_callback(self, cb) -> None:
@@ -689,7 +705,13 @@ class _CargoBoxGroup(QGraphicsItemGroup):
 
     def add_face(self, item: QGraphicsPolygonItem) -> None:
         self._face_items.append(item)
+        self._shape_cache = None
         self.addToGroup(item)
+
+    def set_highlight(self, on: bool, base_color: str) -> None:
+        """Hover highlight on/off; *base_color* is the box's normal colour."""
+        self.highlighted = bool(on)
+        self.recolor(base_color)
 
     def set_label(self, item: QGraphicsTextItem) -> None:
         self._label_item = item
@@ -699,27 +721,47 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         """Recolor the three faces using the given base color."""
         if self.warnings:
             base_color = _mix(base_color, ITEM_WARN, 0.55)
+        if self.highlighted:
+            base_color = _mix(base_color, "#ffffff", HOVER_LIGHTEN)
         colors = [
             shade(base_color, 0.50),  # wallB (darker)
             shade(base_color, 0.72),  # wallA (lighter)
             base_color,               # top
         ]
         edge = shade(base_color, 0.32)
+        if self.highlighted:
+            pen = QPen(QColor(HOVER_EDGE), 2)
+            pen.setCosmetic(True)
+        elif self.item_pen is not None:
+            pen = QPen(self.item_pen)
+        else:
+            pen = QPen(QColor(edge), 1)
         for i, face in enumerate(self._face_items):
             if i < len(colors):
                 face.setBrush(QBrush(QColor(colors[i])))
-                face.setPen(QPen(self.item_pen) if self.item_pen is not None
-                            else QPen(QColor(edge), 1))
+                face.setPen(pen)
         if self._label_item and self.item_pen is None:
             c_lft = colors[0] if colors else base_color
             self._label_item.setDefaultTextColor(QColor(label_color(c_lft)))
 
     def shape(self):
-        """Return the full bounding rect as hit area so any click on the box fires."""
-        from PySide6.QtGui import QPainterPath
-        path = QPainterPath()
-        path.addRect(self.childrenBoundingRect())
-        return path
+        """Hit area = the box's drawn silhouette (its three faces together).
+
+        It used to be the bounding rectangle, so a box drawn in front took
+        clicks (and would take the hover) on the empty corners of that
+        rectangle, over the box actually visible behind it."""
+        if self._shape_cache is None:
+            path = QPainterPath()
+            path.setFillRule(Qt.WindingFill)
+            for face in self._face_items:
+                path.addPolygon(self.mapFromItem(face, face.polygon()))
+                path.closeSubpath()
+            if self._face_items:
+                path = path.simplified()
+            else:
+                path.addRect(self.childrenBoundingRect())
+            self._shape_cache = path
+        return self._shape_cache
 
     def set_drag_owner(self, owner) -> None:
         self._drag_owner = owner
@@ -794,6 +836,13 @@ class CargoRenderer:
         self._last_items: list[tuple] = []
         self._item_defs: dict[str, dict] = {}
         self._item_flags: dict[tuple, list[str]] = {}
+        # View-only state (never saved, never counted, no placement rule sees
+        # it): the hovered box, boxes peeled off a stack, and a height cap.
+        self._hover: _CargoBoxGroup | None = None
+        self._hover_key: tuple | None = None
+        self._peeled: set[tuple] = set()
+        self._layer_cap: int | None = None       # show boxes whose base y < cap
+        self._levels: int = 1                    # height of the view, in cells
 
     def item_base_color(self, key: str) -> str:
         cat = (self._item_defs.get(key) or {}).get("category")
@@ -808,6 +857,90 @@ class CargoRenderer:
 
     def set_rotation(self, rotation: int) -> None:
         self._rotation = rotation % 4
+
+    # ── Hover highlight + hidden boxes (view only) ───────────────────────────
+
+    def color_for(self, group) -> str:
+        """The colour a drawn box shows right now (paint wins over base)."""
+        c = self._assignments.get(group.pos_key)
+        return commodity_color(c) if c else self.base_color_for(group)
+
+    def set_hover(self, group) -> bool:
+        """Highlight *group* (None = nothing). Restyles only the old and the
+        new box. Returns True if the hovered box changed."""
+        old = self._hover
+        if group is old:
+            return False
+        self._hover = None
+        if old is not None:
+            try:
+                old.set_highlight(False, self.color_for(old))
+            except RuntimeError:          # its scene item is already gone
+                pass
+        if group is not None:
+            group.set_highlight(True, self.color_for(group))
+            self._hover = group
+        self._hover_key = tuple(group.box_data) if group is not None else None
+        return True
+
+    def is_hidden(self, box) -> bool:
+        box = tuple(box)
+        return box in self._peeled or (
+            self._layer_cap is not None and box[1] >= self._layer_cap)
+
+    def apply_hidden(self) -> int:
+        """Show/hide the drawn boxes; returns how many are hidden."""
+        n = 0
+        for g in self._box_groups:
+            hide = self.is_hidden(g.box_data)
+            g.setVisible(not hide)
+            n += hide
+        if self._hover is not None and not self._hover.isVisible():
+            self.set_hover(None)
+        return n
+
+    def hidden_count(self) -> int:
+        return sum(1 for g in self._box_groups if not g.isVisible())
+
+    def boxes_above(self, box) -> list[tuple]:
+        """Every box (container, item, crate) whose footprint overlaps *box*
+        and whose base is higher."""
+        x, y, z, w, _h, l, _k = box
+        box = tuple(box)
+        return [tuple(o) for o in list(self._last_boxes) + list(self._last_items)
+                if tuple(o) != box and o[1] > y
+                and o[0] < x + w and x < o[0] + o[3]
+                and o[2] < z + l and z < o[2] + o[5]]
+
+    def peel(self, box) -> list[tuple]:
+        """Hide the boxes resting above *box*; returns the ones newly hidden."""
+        above = [o for o in self.boxes_above(box) if not self.is_hidden(o)]
+        self._peeled.update(above)
+        self.apply_hidden()
+        return above
+
+    def set_layer_cap(self, cap: int | None) -> int:
+        self._layer_cap = None if cap is None or cap >= self._levels else int(cap)
+        return self.apply_hidden()
+
+    def show_all(self) -> None:
+        self._peeled.clear()
+        self._layer_cap = None
+        self.apply_hidden()
+
+    def reveal_under(self, box) -> bool:
+        """A box was just put down at *box*: show the hidden boxes it rests
+        on (footprint overlap, lower base), and drop the height cap if the new
+        box would sit above it. Returns True if anything was shown again."""
+        x, y, z, w, _h, l, _k = box
+        under = {p for p in self._peeled
+                 if p[1] < y and p[0] < x + w and x < p[0] + p[3]
+                 and p[2] < z + l and z < p[2] + p[5]}
+        self._peeled -= under
+        capped = self._layer_cap is not None and y >= self._layer_cap
+        if capped:
+            self._layer_cap = None
+        return bool(under) or capped
 
     def rotate_cw(self) -> None:
         self._rotation = (self._rotation + 1) % 4
@@ -876,6 +1009,7 @@ class CargoRenderer:
     def render(self, slots, bounds, slot_assignment, has_layout, current_ship,
                grid_info_callback, view_width=800, view_height=600) -> None:
         self._scene.clear()
+        self._hover = None                 # its item was just deleted
         self._ghost = None
         self._box_groups = []
         self._last_boxes = []
@@ -936,6 +1070,21 @@ class CargoRenderer:
                 self._draw_item(wx, wy, wz, dw, dh, dl, size, pt, cell, idx)
             else:
                 self._draw_box(wx, wy, wz, dw, dh, dl, size, pt, cell, idx)
+
+        # Hidden boxes: forget ones that no longer exist, hide the rest, and
+        # keep the hover on the same box if it is still there and visible.
+        top = max((b[1] + b[4] for b in all_boxes), default=0)
+        self._levels = max(1, int(-(-max(max_h, top) // 1)))
+        if self._layer_cap is not None and self._layer_cap >= self._levels:
+            self._layer_cap = None
+        self._peeled &= set(self._last_boxes) | set(self._last_items)
+        self.apply_hidden()
+        key, self._hover_key = self._hover_key, None
+        if key is not None:
+            g = next((g for g in self._box_groups
+                      if tuple(g.box_data) == key and g.isVisible()), None)
+            if g is not None:
+                self.set_hover(g)
 
         # Prune assignments for positions that no longer exist
         live_keys = {g.pos_key for g in self._box_groups}
@@ -1696,6 +1845,11 @@ class CargoApp(SCWindow):
         self._selected_commodity: str | None = None
         self._commodity_visibility: dict[str, bool] = {}
 
+        # Hover highlight: the status text it replaced (restored on leave)
+        # and the text it put there.
+        self._hover_status: str | None = None
+        self._hover_shown: str = ""
+
         # Drag-and-drop state
         self._drag: dict | None = None
         self._move_undo: list[tuple] = []   # (manual_boxes_before, assignments_before)
@@ -1877,6 +2031,62 @@ class CargoApp(SCWindow):
         tb_lay.addWidget(self._grid_info_lbl)
         iso_lay.addWidget(tb)
 
+        # See-into-the-stack bar: Alt+click hint, height slider, and the
+        # "N boxes hidden · Show all" indicator. View only; nothing here is
+        # saved or counted.
+        vb = QWidget(iso_container)
+        vb.setFixedHeight(24)
+        vb.setStyleSheet(f"background-color: {BG2};")
+        vb_lay = QHBoxLayout(vb)
+        vb_lay.setContentsMargins(8, 0, 8, 0)
+        vb_lay.setSpacing(6)
+        _vb_lbl = (f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt;"
+                   f" background: transparent;")
+        peel_hint = QLabel(_("Alt+click a box: hide what is on top"), vb)
+        peel_hint.setStyleSheet(_vb_lbl)
+        vb_lay.addWidget(peel_hint)
+        vb_lay.addStretch(1)
+        self._layer_lbl = QLabel(_("All layers"), vb)
+        self._layer_lbl.setStyleSheet(_vb_lbl)
+        self._layer_lbl.setFixedWidth(118)
+        self._layer_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        vb_lay.addWidget(self._layer_lbl)
+        self._layer_slider = QSlider(Qt.Horizontal, vb)
+        self._layer_slider.setFixedWidth(110)
+        self._layer_slider.setRange(1, 1)
+        self._layer_slider.setPageStep(1)
+        self._layer_slider.setToolTip(_("Show boxes up to this height"))
+        self._layer_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{ height: 4px; background: {BG3}; }}
+            QSlider::sub-page:horizontal {{ background: {ACCENT}; }}
+            QSlider::handle:horizontal {{
+                background: {ACCENT}; width: 10px; margin: -5px 0;
+            }}
+        """)
+        self._layer_slider.valueChanged.connect(self._on_layer_slider)
+        vb_lay.addWidget(self._layer_slider)
+        vb_lay.addSpacing(8)
+        self._hidden_lbl = QLabel("", vb)
+        self._hidden_lbl.setStyleSheet(
+            f"color: {ACCENT}; font-family: Consolas; font-size: 8pt;"
+            f" font-weight: bold; background: transparent;")
+        self._hidden_lbl.setVisible(False)
+        vb_lay.addWidget(self._hidden_lbl)
+        self._show_all_btn = QPushButton(_("Show all"), vb)
+        self._show_all_btn.setCursor(Qt.PointingHandCursor)
+        self._show_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {BG3}; color: {FG};
+                font-family: Consolas; font-size: 8pt;
+                border: 1px solid {ACCENT}; padding: 1px 8px;
+            }}
+            QPushButton:hover {{ background-color: {BORDER}; }}
+        """)
+        self._show_all_btn.clicked.connect(self._show_all)
+        self._show_all_btn.setVisible(False)
+        vb_lay.addWidget(self._show_all_btn)
+        iso_lay.addWidget(vb)
+
         # Iso view body: graphics view + planning panel
         iso_body = QWidget(iso_container)
         iso_body_lay = QHBoxLayout(iso_body)
@@ -1954,6 +2164,7 @@ class CargoApp(SCWindow):
         self._view.hover_handler = self._on_view_hover
         self._view.empty_click_handler = self._on_view_empty_click
         self._view.leave_handler = self._on_view_leave
+        self._view.alt_click_handler = self._view_alt_click
         self._undo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self)
         self._undo_shortcut.activated.connect(self._undo_move)
         self._refresh_mode_ui()
@@ -3195,6 +3406,8 @@ class CargoApp(SCWindow):
         # Clear planning mode assignments and brush for new ship
         self._renderer._assignments.clear()
         self._renderer._items = []
+        self._set_hover(None)
+        self._renderer.show_all()
         self._crates = {}
         self._crate_next = 1
         self._commodity_visibility.clear()
@@ -3254,11 +3467,13 @@ class CargoApp(SCWindow):
     # ── Rotation ──────────────────────────────────────────────────────────────
 
     def _rotate_cw(self) -> None:
+        self._set_hover(None)
         self._renderer.rotate_cw()
         self._update_iso_info_label()
         self._render_grid()
 
     def _rotate_ccw(self) -> None:
+        self._set_hover(None)
         self._renderer.rotate_ccw()
         self._update_iso_info_label()
         self._render_grid()
@@ -3318,6 +3533,7 @@ class CargoApp(SCWindow):
             return
         if self._placing():
             self._set_place_size(None)
+        self._set_hover(None)
         self._selected_commodity = name
         color = commodity_color(name)
         self._brush_swatch.setStyleSheet(
@@ -3573,6 +3789,7 @@ class CargoApp(SCWindow):
         if commodity:
             self._renderer._assignments[new_key] = commodity
         self._renderer._manual_boxes = new_boxes
+        self._renderer.reveal_under((pos[0], pos[1], pos[2], *dims, old[6]))
         self._render_grid()
         self._update_assignment_summary()
         self._status_lbl.setText(
@@ -3588,6 +3805,7 @@ class CargoApp(SCWindow):
         if commodity:
             self._renderer._assignments[(pos[0], pos[1], pos[2], old[6])] = commodity
         self._renderer._items = new_items
+        self._renderer.reveal_under((pos[0], pos[1], pos[2], *dims, old[6]))
         self._render_grid()
         self._update_assignment_summary()
         name = self._item_def(old[6])["name"]
@@ -3678,6 +3896,7 @@ class CargoApp(SCWindow):
         self._set_place_size(size)
 
     def _set_place_size(self, size: int | None) -> None:
+        self._set_hover(None)
         self._place_size = size
         if self._place_item is not None:
             # A size button (or Esc / done) ends placing an item too.
@@ -3787,9 +4006,113 @@ class CargoApp(SCWindow):
                                       (cx - w / 2.0, cz - l / 2.0))
         return pos, (w, h, l), valid, reason
 
-    def _on_view_hover(self, scene_pos) -> None:
-        if self._drag or not self._placing():
+    # ── Hover highlight + see into the stack (view only) ─────────────────────
+    #
+    # J, 2026-09-26: "Can we have highlight on hover and the option to click
+    # and hide boxes on top for cargo loader". With no place/paint tool armed
+    # the box under the pointer lights up and the status line names it.
+    # Alt+click a box hides every box resting above it; the height slider
+    # hides everything whose base is at or above N; "Show all" undoes both.
+    # Hidden boxes stay in the plan, the counts, save/load and every
+    # placement rule; they just are not drawn, hovered or clicked.
+
+    def _box_name(self, group) -> str:
+        key = group.box_data[6]
+        if isinstance(key, str):
+            return self._item_def(key)["name"]
+        return _("{n} SCU container").format(n=key)
+
+    def _hover_text(self, group) -> str:
+        text = self._box_name(group)
+        c = self._renderer._assignments.get(group.pos_key)
+        if c:
+            text += "  ·  " + c
+        above = [o for o in self._renderer.boxes_above(group.box_data)
+                 if not self._renderer.is_hidden(o)]
+        if above:
+            text += "  ·  " + _("Alt+click hides the {n} above").format(n=len(above))
+        return text
+
+    def _set_hover(self, group) -> None:
+        """Highlight *group* (None = none) and name it in the status line;
+        the status it replaced comes back when the hover ends."""
+        changed = self._renderer.set_hover(group)
+        if group is None:
+            if (self._hover_status is not None
+                    and self._status_lbl.text() == self._hover_shown):
+                self._status_lbl.setText(self._hover_status)
+            self._hover_status = None
             return
+        if not changed:
+            return
+        cur = self._status_lbl.text()
+        if self._hover_status is None or cur != self._hover_shown:
+            self._hover_status = cur
+        self._hover_shown = self._hover_text(group)
+        self._status_lbl.setText(self._hover_shown)
+
+    def _view_alt_click(self, scene_pos) -> bool:
+        """Alt+click: hide the boxes resting on the clicked one."""
+        if self._drag:
+            return False
+        g = self._box_group_at(scene_pos)
+        if g is None:
+            return False
+        box, name = tuple(g.box_data), self._box_name(g)
+        self._set_hover(None)
+        hidden = self._renderer.peel(box)
+        self._refresh_hidden_ui()
+        if hidden:
+            self._status_lbl.setText(
+                _("Hid {n} above {name}  ·  Show all brings them back").format(
+                    n=len(hidden), name=name))
+        else:
+            self._status_lbl.setText(_("Nothing on top of {name}").format(name=name))
+        if self._placing():
+            self._on_view_hover(scene_pos)
+        return True
+
+    def _on_layer_slider(self, value: int) -> None:
+        self._set_hover(None)
+        self._renderer.set_layer_cap(value)
+        self._refresh_hidden_ui()
+
+    def _show_all(self) -> None:
+        self._set_hover(None)
+        self._renderer.show_all()
+        self._refresh_hidden_ui()
+        self._status_lbl.setText(_("Showing every box"))
+
+    def _refresh_hidden_ui(self) -> None:
+        """Slider range/position, its label, and the hidden-count indicator."""
+        r = self._renderer
+        levels = max(1, r._levels)
+        cap = r._layer_cap
+        self._layer_slider.blockSignals(True)
+        self._layer_slider.setRange(1, levels)
+        self._layer_slider.setValue(levels if cap is None else cap)
+        self._layer_slider.blockSignals(False)
+        self._layer_slider.setEnabled(levels > 1 and bool(self._current_ship))
+        self._layer_lbl.setText(
+            _("All layers") if cap is None
+            else _("Up to layer {n}/{m}").format(n=cap, m=levels))
+        n = r.hidden_count()
+        active = n > 0 or cap is not None or bool(r._peeled)
+        self._hidden_lbl.setText(
+            (_("1 box hidden") if n == 1
+             else _("{n} boxes hidden").format(n=n)) + "  ·")
+        self._hidden_lbl.setVisible(active)
+        self._show_all_btn.setVisible(active)
+
+    def _on_view_hover(self, scene_pos) -> None:
+        if self._drag:
+            return
+        if not self._placing():
+            # Hover highlight is for looking; a paint brush has its own cursor.
+            self._set_hover(None if self._selected_commodity is not None
+                            else self._box_group_at(scene_pos))
+            return
+        self._set_hover(None)
         t = self._place_target(scene_pos)
         if t is None:
             self._renderer.clear_ghost()
@@ -3811,6 +4134,8 @@ class CargoApp(SCWindow):
             + "  ·  R rotate  ·  Esc done")
 
     def _on_view_leave(self) -> None:
+        if not self._drag:
+            self._set_hover(None)
         if not self._drag and self._placing():
             self._renderer.clear_ghost()
 
@@ -3843,22 +4168,27 @@ class CargoApp(SCWindow):
             self._push_undo()
             if self._item_def(key).get("category") == "crate":
                 key = self._new_crate(key)
-            self._renderer._items = list(self._renderer._items) + [
-                (pos[0], pos[1], pos[2], w, h, l, key)]
+            new = (pos[0], pos[1], pos[2], w, h, l, key)
+            self._renderer._items = list(self._renderer._items) + [new]
+            shown = self._renderer.reveal_under(new)
             name = self._item_def(key)["name"]
             self._after_manual_edit(
                 (_("Placed {name}").format(name=name) if reason == OK
                  else "⚠ " + _("Placed {name}: ").format(name=name) + _(reason))
+                + ("  ·  " + _("hidden boxes under it shown") if shown else "")
                 + "  ·  Ctrl+Z to undo")
             return True
         if not valid:
             self._status_lbl.setText(_("Can't place: ") + _(reason))
             return True
         self._push_undo()
-        self._renderer._manual_boxes = list(self._renderer._manual_boxes) + [
-            (pos[0], pos[1], pos[2], w, h, l, self._place_size)]
+        new = (pos[0], pos[1], pos[2], w, h, l, self._place_size)
+        self._renderer._manual_boxes = list(self._renderer._manual_boxes) + [new]
+        shown = self._renderer.reveal_under(new)
         self._after_manual_edit(
-            _("Placed {n} SCU  ·  Ctrl+Z to undo").format(n=self._place_size))
+            _("Placed {n} SCU").format(n=self._place_size)
+            + ("  ·  " + _("hidden boxes under it shown") if shown else "")
+            + "  ·  Ctrl+Z to undo")
         return True
 
     def _remove_box(self, box: tuple) -> None:
@@ -3879,9 +4209,13 @@ class CargoApp(SCWindow):
             return
         boxes.remove(box)
         x, y, z, w, h, l, size = box
-        if any(o[1] == y + h and o[0] < x + w and x < o[0] + o[3]
-               and o[2] < z + l and z < o[2] + o[5] for o in boxes):
-            self._status_lbl.setText(_("Take the box on top off first"))
+        on_top = [o for o in boxes if o[1] == y + h and o[0] < x + w and x < o[0] + o[3]
+                  and o[2] < z + l and z < o[2] + o[5]]
+        if on_top:
+            self._status_lbl.setText(
+                _("Take the box on top off first (it is hidden: Show all)")
+                if any(self._renderer.is_hidden(o) for o in on_top)
+                else _("Take the box on top off first"))
             return
         self._push_undo()
         self._renderer._assignments.pop((x, y, z, size), None)
@@ -4034,6 +4368,7 @@ class CargoApp(SCWindow):
         self._apply_visibility_filter()
         self._update_items_summary()
         self._sync_crate_tabs()
+        self._refresh_hidden_ui()
 
     # ── Container calc ─────────────────────────────────────────────────────────
 
