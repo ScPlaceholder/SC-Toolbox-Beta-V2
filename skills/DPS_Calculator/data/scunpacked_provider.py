@@ -419,7 +419,13 @@ def _weapon(it: dict, core: dict) -> dict:
         "alpha": core.get("alpha") or 0.0,
         "rps": rpm / 60.0,
         "dps_raw": dps_raw,
+        # ⚠ The `or 0.0` is KEPT DELIBERATELY so this field stays numeric for the picker's
+        #   formatter and Qt's column sort — a None here would be a type change through the
+        #   whole UI. But 0.0 means UNKNOWN for the five beams, not "no sustained damage",
+        #   so `dps_sus_known` travels beside it and the aggregator must consult it rather
+        #   than adding this zero into a total. See shared.scunpacked.weapon_stats.
         "dps_sus": core.get("dps_sus") or 0.0,
+        "dps_sus_known": bool(core.get("dps_sus_known", True)),
         "ammo": int(_num(w.get("Capacity")) or _num(cap.get("MaxAmmoLoad")) or 0),
         "speed": _num(ammo.get("Speed")) or 0.0,
         "range": _num(ammo.get("Range")) or 0.0,

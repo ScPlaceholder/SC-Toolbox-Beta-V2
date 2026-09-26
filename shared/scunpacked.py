@@ -319,6 +319,22 @@ def weapon_stats(item: dict) -> Optional[dict]:
         "rpm": rpm,
         "dps_raw": round(burst, 2),
         "dps_sus": None if sus is None else round(sus, 2),
+        # ⛔ 2026-09-26. `dps_sus is None` means UNKNOWN, and a caller that turns it into
+        #   0.0 states that the weapon does no sustained damage. Five BEAMS land here
+        #   (Aegis Tiburon's locked 18,000 DPS beam, the Vanduul Mauler's two, the
+        #   Exodus-10, the S12 TSG) because the datamine publishes no `Damage.Sustained`
+        #   for a beam.
+        # ★ AND THE OBVIOUS REPAIR IS WRONG: it is tempting to set sustained = burst on the
+        #   grounds that a beam fires continuously and has no Heat or Capacitor block. It
+        #   DOES have a limiter — a `Consumption` block, e.g. the Tiburon's pool 10,200 at
+        #   43 per bullet regenerating 1,700/s. So burst would OVERSTATE it.
+        #   And it cannot be derated either: a beam mode carries no RoundsPerMinute, no
+        #   AmmoPerShot, and DamagePerShot 0, so `CostPerBullet` cannot be turned into a
+        #   cost per SECOND. The sustained figure is genuinely not derivable from this
+        #   build, which is why this stays None and gets a flag rather than a guess.
+        # ⇒ Consumers: show "unknown", and NEVER add it into a total as zero. `dps_sus_known`
+        #   exists so a caller can tell "unknown" from a real zero without type-checking.
+        "dps_sus_known": sus is not None,
         "alpha": None if alpha is None else round(alpha, 2),
         "src_burst": _f(dmg.get("Burst")),
         "pellets": max(1, pellets),

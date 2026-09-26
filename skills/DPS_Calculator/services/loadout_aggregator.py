@@ -60,6 +60,18 @@ def compute_footer_totals(selections: dict,
 
     tot_raw = tot_sus = tot_alp = 0.0
     gun_count = 0
+    # ⛔ 2026-09-26: guns whose SUSTAINED dps is unknown are counted here and NOT summed as
+    #   zero. Five beams have no published Sustained and cannot have one derived (see
+    #   shared.scunpacked.weapon_stats). Adding their 0.0 silently understated the total:
+    #   the AEGIS TIBURON, whose stock weapon is locked to an 18,000 DPS beam, reported
+    #   18,000 burst and ZERO sustained, and `app.py` feeds this same total into the TTK
+    #   panel as attacker DPS — so time-to-kill was computed with the beam contributing
+    #   nothing at all. The Vanduul Mauler lost 30,000 the same way.
+    # ★ An absence added into a sum becomes a measurement. The total is now reported with
+    #   `sus_unknown` so a caller can say "at least X" instead of presenting a floor as a
+    #   figure. Deliberately NOT substituting burst: these beams have a real Consumption
+    #   limiter, so burst would overstate them.
+    sus_unknown = 0
     for sid, nm in selections.get("weapons", {}).items():
         if not nm:
             continue
@@ -69,7 +81,10 @@ def compute_footer_totals(selections: dict,
             cm = _craft_mult(s.get("local_name", ""))
             tot_raw += s["dps_raw"] * n * cm
             # Use precomputed dps_sus (ratio=1.0) to match Erkul's display value.
-            tot_sus += s["dps_sus"] * n * cm
+            if s.get("dps_sus_known", True):
+                tot_sus += s["dps_sus"] * n * cm
+            else:
+                sus_unknown += n
             tot_alp += s["alpha"]  * n * cm
             gun_count += n
 
@@ -141,6 +156,10 @@ def compute_footer_totals(selections: dict,
     return {
         "dps_raw": tot_raw,
         "dps_sus": tot_sus,
+        # >0 means dps_sus is a FLOOR, not the figure: that many guns have an unknown
+        # sustained value and were excluded rather than added as zero. A caller showing
+        # the total should say "at least" when this is non-zero.
+        "sus_unknown": sus_unknown,
         "alpha": tot_alp,
         "missile_dmg": miss_dmg,
         "shield_hp": tot_hp,
