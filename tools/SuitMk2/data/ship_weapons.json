@@ -1,74 +1,60 @@
 {
- "source": "Erkul catalog 4.10.1-LIVE.12660092",
- "source_detail": "stats: catalog.erkul.games/LIVE via erkul_catalog.py + erkul_dps.weapon_metrics (burst DPS); manufacturers: UEX market cache by name, Erkul as fallback",
+ "source": "StarCitizenWiki/scunpacked-data 4.10.1-LIVE.12660092",
+ "source_detail": "stats: StarCitizenWiki/scunpacked-data ship-items.json, build 4.10.1-LIVE.12660092, commit e96132078ae6a1a5f62a183fb1523dc006dcfddb (burst DPS = damage per shot x rate; sustain = scunpacked Damage.Sustained); manufacturers: UEX market cache by name, scunpacked as fallback",
+ "credit": "Ship weapon data: StarCitizenWiki/scunpacked-data. Stat model lineage: erkul.games. Star Citizen content (c) Cloud Imperium Games; not affiliated.",
  "data_version": "4.10.1-LIVE.12660092",
- "built": "2026-09-23",
+ "built": "2026-09-25",
  "rounding": "dps and damage to whole numbers; alpha to whole numbers, one decimal under 10",
  "counts": {
-  "weapons": 178,
-  "uex_names_not_in_erkul": 88
+  "weapons": 179,
+  "uex_names_not_in_source": 87
  },
  "notes": {
   "duplicates": [
-   "WRATH Cannon (vncl_plasmacannon_s5): stats differ, kept vncl_gen2_plasmacannon_s5"
-  ],
-  "manufacturer_from_uex_over_erkul": [
-   "DR Model-XJ1 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
-   "DR Model-XJ2 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
-   "DR Model-XJ3 Repeater: Erkul 'PH Associated Science and Development' -> UEX 'Associated Sciences and Development'",
-   "NN-13 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "NN-14 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "NN-15 Cannon: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "NDB-26 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "NDB-28 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "NDB-30 Repeater: Erkul 'Aegis Dynamics' -> UEX 'MaxOx'",
-   "Salvation Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
-   "Absolution Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
-   "Condemnation Distortion Scattergun: Erkul 'Aegis Dynamics' -> UEX 'Preacher Armament'",
-   "Spark I Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Tempest II Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Ignite II Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Arrester III Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Thunderbolt III Missile: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Thunderball Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Stormburst Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'",
-   "Colossus Bomb: Erkul 'Aegis Dynamics' -> UEX 'FireStorm Kinetics'"
+   "M9A Cannon (BEHR_LaserCannon_S8): stats differ, kept behr_lasercannon_s7",
+   "M9A Cannon (BEHR_LaserCannon_S9): stats differ, kept behr_lasercannon_s7",
+   "CF-227 Badger Repeater (KLWE_LaserRepeater_PDC_S2): stats differ, kept klwe_laserrepeater_s2",
+   "WRATH Cannon (VNCL_Gen2_PlasmaCannon_S5): stats differ, kept vncl_plasmacannon_s5",
+   "M9A Cannon (BEHR_LaserCannon_S7_Idris_M): stats differ, kept behr_lasercannon_s7",
+   "Revenant Gatling (ANVL_BallisticGatling_Bespoke): stats differ, kept apar_ballisticgatling_s4",
+   "PyroBurst Scattergun (AMRS_AAgun_CC_S3): stats differ, kept amrs_scattergun_s3",
+   "Tempest II Missile (MISL_S02_CS_FSKI_Tempest_CitCon): stats differ, kept misl_s02_cs_fski_tempest"
   ],
   "renamed": [
+   "'WEAK' Repeater -> WEAK Repeater",
+   "'WASP' Repeater -> WASP Repeater",
+   "'WHIP' Cannon -> WHIP Cannon",
+   "'WARLORD' Cannon -> WARLORD Cannon",
+   "'WRATH' Cannon -> WRATH Cannon",
+   "'WAR' Cannon -> WAR Cannon",
+   "SW16BR1 “Buzzsaw” Repeater -> SW16BR1 Buzzsaw Repeater",
+   "SW16BR2 “Sawbuck” Repeater -> SW16BR2 Sawbuck Repeater",
+   "SW16BR3 “Shredder” Repeater -> SW16BR3 Shredder Repeater",
+   "'WRATH' Cannon -> WRATH Cannon",
+   "CF-117 Bulldog \"Hazard-Zone\" Repeater -> CF-117 Bulldog Hazard-Zone Repeater",
+   "CF-227 Badger \"Hazard-Zone\" Repeater -> CF-227 Badger Hazard-Zone Repeater",
+   "CF-337 Panther \"Hazard-Zone\" Repeater -> CF-337 Panther Hazard-Zone Repeater",
    "Hellion Scattergun -> Hellion Scattergun",
    "Singe Cannon (S1) -> Singe Cannon S1",
    "Singe Cannon (S2) -> Singe Cannon S2",
    "Singe Cannon (S3) -> Singe Cannon S3",
-   "MRX \"Torrent\" -> MRX Torrent",
-   "SW16BR1 “Buzzsaw” Repeater -> SW16BR1 Buzzsaw Repeater",
-   "SW16BR2 “Sawbuck” Repeater -> SW16BR2 Sawbuck Repeater",
-   "SW16BR3 “Shredder” Repeater -> SW16BR3 Shredder Repeater",
-   "M2C \"Swarm\" -> M2C Swarm",
-   "CF-117 Bulldog \"Hazard-Zone\" Repeater -> CF-117 Bulldog Hazard-Zone Repeater",
-   "CF-227 Badger \"Hazard-Zone\" Repeater -> CF-227 Badger Hazard-Zone Repeater",
-   "CF-337 Panther \"Hazard-Zone\" Repeater -> CF-337 Panther Hazard-Zone Repeater",
    "Yeng’tu Repeater -> Yeng'tu Repeater",
-   "'WRATH' Cannon -> WRATH Cannon",
-   "'WEAK' Repeater -> WEAK Repeater",
-   "'WASP' Repeater -> WASP Repeater",
-   "'WAR' Cannon -> WAR Cannon",
-   "'WHIP' Cannon -> WHIP Cannon",
-   "'WARLORD' Cannon -> WARLORD Cannon",
-   "'WRATH' Cannon -> WRATH Cannon",
+   "M2C \"Swarm\" -> M2C Swarm",
+   "MRX \"Torrent\" -> MRX Torrent",
    "'Arrow' I Missile -> Arrow I Missile",
-   "'Bullet' II Missile -> Bullet II Missile",
    "'Chaos' III Missile -> Chaos III Missile",
-   "'Dragon' IV Missile -> Dragon IV Missile",
+   "'Bullet' II Missile -> Bullet II Missile",
+   "VT-T10 \"Veritas\" Torpedo -> VT-T10 Veritas Torpedo",
    "EX-T10-CS \"Executor\" Torpedo -> EX-T10-CS Executor Torpedo",
    "EX-T10-EM \"Executor\" Torpedo -> EX-T10-EM Executor Torpedo",
    "EX-T10-IR \"Executor\" Torpedo -> EX-T10-IR Executor Torpedo",
-   "VT-T10 \"Veritas\" Torpedo -> VT-T10 Veritas Torpedo",
    "EX-T12-CS \"Executor\" Torpedo -> EX-T12-CS Executor Torpedo",
    "EX-T12-EM \"Executor\" Torpedo -> EX-T12-EM Executor Torpedo",
-   "EX-T12-IR \"Executor\" Torpedo -> EX-T12-IR Executor Torpedo"
+   "EX-T12-IR \"Executor\" Torpedo -> EX-T12-IR Executor Torpedo",
+   "'Dragon' IV Missile -> Dragon IV Missile"
   ],
-  "sustain_rejected": [
-   "Deathroll S2 Gatling: heat sustain 7.62 outside 0.2x..1x of burst 373.33"
+  "fire_rate_seconds_not_rpm": [
+   "Slayer Cannon: RoundsPerMinute 12 read as a 12 s interval"
   ]
  },
  "weapons": [
@@ -85,7 +71,7 @@
    "pellet_count": 1,
    "dps": 243,
    "dps_sustain": 129,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 97,
    "damage_types": [
     "energy"
@@ -105,7 +91,7 @@
    "pellet_count": 1,
    "dps": 364,
    "dps_sustain": 194,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 146,
    "damage_types": [
     "energy"
@@ -125,7 +111,7 @@
    "pellet_count": 1,
    "dps": 547,
    "dps_sustain": 290,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 219,
    "damage_types": [
     "energy"
@@ -145,7 +131,7 @@
    "pellet_count": 1,
    "dps": 820,
    "dps_sustain": 435,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 328,
    "damage_types": [
     "energy"
@@ -165,7 +151,7 @@
    "pellet_count": 1,
    "dps": 1230,
    "dps_sustain": 653,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 492,
    "damage_types": [
     "energy"
@@ -185,7 +171,7 @@
    "pellet_count": 1,
    "dps": 1846,
    "dps_sustain": 980,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 738,
    "damage_types": [
     "energy"
@@ -205,7 +191,7 @@
    "pellet_count": 8,
    "dps": 462,
    "dps_sustain": 426,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 396,
    "damage_types": [
     "energy"
@@ -225,7 +211,7 @@
    "pellet_count": 1,
    "dps": 314,
    "dps_sustain": 128,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 17,
    "damage_types": [
     "energy"
@@ -245,7 +231,7 @@
    "pellet_count": 1,
    "dps": 512,
    "dps_sustain": 264,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 41,
    "damage_types": [
     "energy"
@@ -265,7 +251,7 @@
    "pellet_count": 1,
    "dps": 1266,
    "dps_sustain": 875,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 63,
    "damage_types": [
     "physical"
@@ -285,7 +271,7 @@
    "pellet_count": 1,
    "dps": 2848,
    "dps_sustain": 1702,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 142,
    "damage_types": [
     "physical"
@@ -295,6 +281,26 @@
   {
    "name": "Havoc Scattergun",
    "class_name": "apar_ballisticscattergun_s1",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 1,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 374,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 374,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 900
+  },
+  {
+   "name": "Havoc Scattergun Sharkmouth Edition",
+   "class_name": "apar_ballisticscattergun_s1_shark",
    "manufacturer": "Apocalypse Arms",
    "manufacturer_source": "uex",
    "family": "gun",
@@ -333,8 +339,48 @@
    "speed": 897
   },
   {
+   "name": "Hellion Scattergun Sharkmouth Edition",
+   "class_name": "apar_ballisticscattergun_s2_shark",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 2,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 560,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 560,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 897
+  },
+  {
    "name": "Predator Scattergun",
    "class_name": "apar_ballisticscattergun_s3",
+   "manufacturer": "Apocalypse Arms",
+   "manufacturer_source": "uex",
+   "family": "gun",
+   "category": "ballistic scattergun",
+   "size": 3,
+   "fire_kind": "single",
+   "fire_rate_hz": 1.0,
+   "pellet_count": 8,
+   "dps": 840,
+   "dps_sustain": null,
+   "sustain_model": null,
+   "alpha": 840,
+   "damage_types": [
+    "physical"
+   ],
+   "speed": 888
+  },
+  {
+   "name": "Predator Scattergun Sharkmouth Edition",
+   "class_name": "apar_ballisticscattergun_s3_shark",
    "manufacturer": "Apocalypse Arms",
    "manufacturer_source": "uex",
    "family": "gun",
@@ -361,9 +407,9 @@
    "category": "mass driver cannon",
    "size": 2,
    "fire_kind": "charged",
-   "fire_rate_hz": 0.5,
+   "fire_rate_hz": 0.4,
    "pellet_count": 1,
-   "dps": 262,
+   "dps": 210,
    "dps_sustain": null,
    "sustain_model": null,
    "alpha": 525,
@@ -385,7 +431,7 @@
    "pellet_count": 1,
    "dps": 171,
    "dps_sustain": 113,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 26,
    "damage_types": [
     "distortion"
@@ -405,7 +451,7 @@
    "pellet_count": 1,
    "dps": 257,
    "dps_sustain": 170,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 38,
    "damage_types": [
     "distortion"
@@ -425,10 +471,9 @@
    "pellet_count": 1,
    "dps": 386,
    "dps_sustain": 255,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 58,
    "damage_types": [
-    "energy",
     "distortion"
    ],
    "speed": 1332
@@ -437,16 +482,16 @@
    "name": "Singe Cannon S1",
    "class_name": "banu_tachyoncannon_s1",
    "manufacturer": "Banu Souli",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "tachyon cannon",
    "size": 1,
    "fire_kind": "charged",
-   "fire_rate_hz": 1.5,
+   "fire_rate_hz": 1.0,
    "pellet_count": 1,
-   "dps": 304,
-   "dps_sustain": 190,
-   "sustain_model": "pool",
+   "dps": 202,
+   "dps_sustain": 145,
+   "sustain_model": "scunpacked",
    "alpha": 202,
    "damage_types": [
     "energy"
@@ -457,16 +502,16 @@
    "name": "Singe Cannon S2",
    "class_name": "banu_tachyoncannon_s2",
    "manufacturer": "Banu Souli",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "tachyon cannon",
    "size": 2,
    "fire_kind": "charged",
-   "fire_rate_hz": 1.5,
+   "fire_rate_hz": 0.57,
    "pellet_count": 1,
-   "dps": 709,
-   "dps_sustain": 442,
-   "sustain_model": "pool",
+   "dps": 270,
+   "dps_sustain": 220,
+   "sustain_model": "scunpacked",
    "alpha": 472,
    "damage_types": [
     "energy"
@@ -477,16 +522,16 @@
    "name": "Singe Cannon S3",
    "class_name": "banu_tachyoncannon_s3",
    "manufacturer": "Banu Souli",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "tachyon cannon",
    "size": 3,
    "fire_kind": "charged",
-   "fire_rate_hz": 1.5,
+   "fire_rate_hz": 0.4,
    "pellet_count": 1,
-   "dps": 1519,
-   "dps_sustain": 944,
-   "sustain_model": "pool",
+   "dps": 405,
+   "dps_sustain": 348,
+   "sustain_model": "scunpacked",
    "alpha": 1012,
    "damage_types": [
     "energy"
@@ -506,7 +551,7 @@
    "pellet_count": 1,
    "dps": 405,
    "dps_sustain": 270,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 162,
    "damage_types": [
     "physical"
@@ -525,8 +570,8 @@
    "fire_rate_hz": 0.83,
    "pellet_count": 1,
    "dps": 812,
-   "dps_sustain": 737,
-   "sustain_model": "heat",
+   "dps_sustain": 567,
+   "sustain_model": "scunpacked",
    "alpha": 975,
    "damage_types": [
     "physical"
@@ -537,7 +582,7 @@
    "name": "C-07T Cannon",
    "class_name": "behr_ballisticcannon_s7_tiburon",
    "manufacturer": "Behring Applied Technology",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "ballistic cannon",
    "size": 7,
@@ -545,8 +590,8 @@
    "fire_rate_hz": 0.58,
    "pellet_count": 1,
    "dps": 2683,
-   "dps_sustain": 2683,
-   "sustain_model": "heat(no-overheat)",
+   "dps_sustain": 2077,
+   "sustain_model": "scunpacked",
    "alpha": 4600,
    "damage_types": [
     "physical"
@@ -565,8 +610,8 @@
    "fire_rate_hz": 0.83,
    "pellet_count": 1,
    "dps": 3333,
-   "dps_sustain": 2857,
-   "sustain_model": "heat",
+   "dps_sustain": 2353,
+   "sustain_model": "scunpacked",
    "alpha": 4000,
    "damage_types": [
     "physical"
@@ -586,7 +631,7 @@
    "pellet_count": 1,
    "dps": 360,
    "dps_sustain": 285,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 18,
    "damage_types": [
     "physical"
@@ -606,7 +651,7 @@
    "pellet_count": 1,
    "dps": 1266,
    "dps_sustain": 1082,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 84,
    "damage_types": [
     "physical"
@@ -626,7 +671,7 @@
    "pellet_count": 1,
    "dps": 922,
    "dps_sustain": 566,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 53,
    "damage_types": [
     "physical"
@@ -646,7 +691,7 @@
    "pellet_count": 1,
    "dps": 1538,
    "dps_sustain": 1274,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 102,
    "damage_types": [
     "physical"
@@ -666,7 +711,7 @@
    "pellet_count": 1,
    "dps": 3250,
    "dps_sustain": 2407,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 162,
    "damage_types": [
     "physical"
@@ -686,7 +731,7 @@
    "pellet_count": 1,
    "dps": 2848,
    "dps_sustain": 2268,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 190,
    "damage_types": [
     "physical"
@@ -706,7 +751,7 @@
    "pellet_count": 1,
    "dps": 4320,
    "dps_sustain": 3685,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 540,
    "damage_types": [
     "physical"
@@ -725,8 +770,8 @@
    "fire_rate_hz": 8.33,
    "pellet_count": 1,
    "dps": 150,
-   "dps_sustain": 139,
-   "sustain_model": "heat",
+   "dps_sustain": 138,
+   "sustain_model": "scunpacked",
    "alpha": 18,
    "damage_types": [
     "physical"
@@ -746,7 +791,7 @@
    "pellet_count": 1,
    "dps": 450,
    "dps_sustain": 410,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 54,
    "damage_types": [
     "physical"
@@ -766,7 +811,7 @@
    "pellet_count": 1,
    "dps": 200,
    "dps_sustain": 182,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 24,
    "damage_types": [
     "physical"
@@ -786,7 +831,7 @@
    "pellet_count": 1,
    "dps": 375,
    "dps_sustain": 336,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 45,
    "damage_types": [
     "physical"
@@ -806,7 +851,7 @@
    "pellet_count": 1,
    "dps": 202,
    "dps_sustain": 103,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 81,
    "damage_types": [
     "distortion"
@@ -826,7 +871,7 @@
    "pellet_count": 1,
    "dps": 225,
    "dps_sustain": 140,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 27,
    "damage_types": [
     "distortion"
@@ -846,7 +891,7 @@
    "pellet_count": 1,
    "dps": 304,
    "dps_sustain": 189,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 182,
    "damage_types": [
     "energy"
@@ -866,7 +911,7 @@
    "pellet_count": 1,
    "dps": 456,
    "dps_sustain": 284,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 273,
    "damage_types": [
     "energy"
@@ -886,7 +931,7 @@
    "pellet_count": 1,
    "dps": 455,
    "dps_sustain": 275,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 273,
    "damage_types": [
     "energy"
@@ -906,7 +951,7 @@
    "pellet_count": 1,
    "dps": 684,
    "dps_sustain": 416,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 410,
    "damage_types": [
     "energy"
@@ -926,7 +971,7 @@
    "pellet_count": 1,
    "dps": 1025,
    "dps_sustain": 622,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 615,
    "damage_types": [
     "energy"
@@ -946,7 +991,7 @@
    "pellet_count": 1,
    "dps": 1536,
    "dps_sustain": 929,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 922,
    "damage_types": [
     "energy"
@@ -965,8 +1010,8 @@
    "fire_rate_hz": 1.67,
    "pellet_count": 1,
    "dps": 2306,
-   "dps_sustain": 1391,
-   "sustain_model": "pool",
+   "dps_sustain": 1390,
+   "sustain_model": "scunpacked",
    "alpha": 1383,
    "damage_types": [
     "energy"
@@ -986,7 +1031,7 @@
    "pellet_count": 1,
    "dps": 3460,
    "dps_sustain": 2080,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 2076,
    "damage_types": [
     "energy"
@@ -1006,52 +1051,12 @@
    "pellet_count": 1,
    "dps": 4721,
    "dps_sustain": 3429,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 5150,
    "damage_types": [
     "energy"
    ],
    "speed": 1048
-  },
-  {
-   "name": "M10A Cannon",
-   "class_name": "behr_lasercannon_s8",
-   "manufacturer": "Behring Applied Technology",
-   "manufacturer_source": "erkul",
-   "family": "gun",
-   "category": "laser cannon",
-   "size": 8,
-   "fire_kind": "single",
-   "fire_rate_hz": 1.67,
-   "pellet_count": 1,
-   "dps": 5189,
-   "dps_sustain": 3109,
-   "sustain_model": "pool",
-   "alpha": 3114,
-   "damage_types": [
-    "energy"
-   ],
-   "speed": 1016
-  },
-  {
-   "name": "M11A Cannon",
-   "class_name": "behr_lasercannon_s9",
-   "manufacturer": "Behring Applied Technology",
-   "manufacturer_source": "erkul",
-   "family": "gun",
-   "category": "laser cannon",
-   "size": 9,
-   "fire_kind": "single",
-   "fire_rate_hz": 1.67,
-   "pellet_count": 1,
-   "dps": 7784,
-   "dps_sustain": 4648,
-   "sustain_model": "pool",
-   "alpha": 4670,
-   "damage_types": [
-    "energy"
-   ],
-   "speed": 992
   },
   {
    "name": "M2C Swarm",
@@ -1066,7 +1071,7 @@
    "pellet_count": 1,
    "dps": 167,
    "dps_sustain": 74,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 10,
    "damage_types": [
     "energy"
@@ -1086,7 +1091,7 @@
    "pellet_count": 1,
    "dps": 582,
    "dps_sustain": 402,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 100,
    "damage_types": [
     "energy"
@@ -1271,7 +1276,7 @@
    "pellet_count": 1,
    "dps": 200,
    "dps_sustain": 158,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 120,
    "damage_types": [
     "physical"
@@ -1291,7 +1296,7 @@
    "pellet_count": 1,
    "dps": 233,
    "dps_sustain": 182,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 140,
    "damage_types": [
     "physical"
@@ -1311,7 +1316,7 @@
    "pellet_count": 1,
    "dps": 376,
    "dps_sustain": 287,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 225,
    "damage_types": [
     "physical"
@@ -1331,7 +1336,7 @@
    "pellet_count": 1,
    "dps": 1017,
    "dps_sustain": 763,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 610,
    "damage_types": [
     "physical"
@@ -1351,7 +1356,7 @@
    "pellet_count": 1,
    "dps": 1583,
    "dps_sustain": 1165,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 950,
    "damage_types": [
     "physical"
@@ -1371,7 +1376,7 @@
    "pellet_count": 1,
    "dps": 2562,
    "dps_sustain": 1846,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 1537,
    "damage_types": [
     "physical"
@@ -1391,7 +1396,7 @@
    "pellet_count": 1,
    "dps": 205,
    "dps_sustain": 79,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 49,
    "damage_types": [
     "energy"
@@ -1411,7 +1416,7 @@
    "pellet_count": 1,
    "dps": 308,
    "dps_sustain": 119,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 74,
    "damage_types": [
     "energy"
@@ -1431,7 +1436,7 @@
    "pellet_count": 1,
    "dps": 462,
    "dps_sustain": 177,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 111,
    "damage_types": [
     "energy"
@@ -1451,7 +1456,7 @@
    "pellet_count": 1,
    "dps": 693,
    "dps_sustain": 264,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 166,
    "damage_types": [
     "energy"
@@ -1471,7 +1476,7 @@
    "pellet_count": 1,
    "dps": 1036,
    "dps_sustain": 393,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 249,
    "damage_types": [
     "energy"
@@ -1491,7 +1496,7 @@
    "pellet_count": 1,
    "dps": 1559,
    "dps_sustain": 589,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 374,
    "damage_types": [
     "energy"
@@ -1634,7 +1639,7 @@
    "pellet_count": 1,
    "dps": 202,
    "dps_sustain": 156,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 61,
    "damage_types": [
     "physical"
@@ -1654,7 +1659,7 @@
    "pellet_count": 1,
    "dps": 304,
    "dps_sustain": 230,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 91,
    "damage_types": [
     "physical"
@@ -1674,7 +1679,7 @@
    "pellet_count": 1,
    "dps": 455,
    "dps_sustain": 338,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 137,
    "damage_types": [
     "physical"
@@ -1694,7 +1699,7 @@
    "pellet_count": 1,
    "dps": 202,
    "dps_sustain": 169,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 7.6,
    "damage_types": [
     "physical"
@@ -1714,7 +1719,7 @@
    "pellet_count": 1,
    "dps": 339,
    "dps_sustain": 277,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 13,
    "damage_types": [
     "physical"
@@ -1734,7 +1739,7 @@
    "pellet_count": 1,
    "dps": 853,
    "dps_sustain": 629,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 32,
    "damage_types": [
     "physical"
@@ -1745,7 +1750,7 @@
    "name": "Deathroll S2 Gatling",
    "class_name": "glsn_ballisticgatling_s2",
    "manufacturer": "Grey's Market",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "ballistic gatling",
    "size": 2,
@@ -1753,8 +1758,8 @@
    "fire_rate_hz": 26.67,
    "pellet_count": 1,
    "dps": 373,
-   "dps_sustain": null,
-   "sustain_model": null,
+   "dps_sustain": 252,
+   "sustain_model": "scunpacked",
    "alpha": 14,
    "damage_types": [
     "physical"
@@ -1774,7 +1779,7 @@
    "pellet_count": 1,
    "dps": 953,
    "dps_sustain": 615,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 52,
    "damage_types": [
     "physical"
@@ -1785,7 +1790,7 @@
    "name": "Snapper S2 Repeater",
    "class_name": "glsn_laserrepeater_s2",
    "manufacturer": "Grey's Market",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 2,
@@ -1794,7 +1799,7 @@
    "pellet_count": 1,
    "dps": 350,
    "dps_sustain": 209,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 28,
    "damage_types": [
     "energy"
@@ -1814,7 +1819,7 @@
    "pellet_count": 1,
    "dps": 494,
    "dps_sustain": 263,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 40,
    "damage_types": [
     "energy"
@@ -1825,7 +1830,7 @@
    "name": "Slayer Cannon",
    "class_name": "hrst_nova_ballisticcannon_s5",
    "manufacturer": "Hurston Dynamics",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "ballistic cannon",
    "size": 5,
@@ -1865,7 +1870,7 @@
    "name": "Supremacy-10T Laser Beam",
    "class_name": "hrst_laserbeam_tiburon",
    "manufacturer": "Hurston Dynamics",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser beam",
    "size": 10,
@@ -1873,8 +1878,8 @@
    "fire_rate_hz": null,
    "pellet_count": 1,
    "dps": 18000,
-   "dps_sustain": 8090,
-   "sustain_model": "beam-heat",
+   "dps_sustain": null,
+   "sustain_model": null,
    "alpha": null,
    "damage_types": [
     "energy"
@@ -1894,7 +1899,7 @@
    "pellet_count": 1,
    "dps": 210,
    "dps_sustain": 146,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 36,
    "damage_types": [
     "energy"
@@ -1914,7 +1919,7 @@
    "pellet_count": 1,
    "dps": 198,
    "dps_sustain": 138,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 34,
    "damage_types": [
     "energy"
@@ -1933,8 +1938,8 @@
    "fire_rate_hz": 5.83,
    "pellet_count": 1,
    "dps": 344,
-   "dps_sustain": 239,
-   "sustain_model": "pool",
+   "dps_sustain": 238,
+   "sustain_model": "scunpacked",
    "alpha": 59,
    "damage_types": [
     "energy"
@@ -1954,7 +1959,7 @@
    "pellet_count": 1,
    "dps": 321,
    "dps_sustain": 222,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 55,
    "damage_types": [
     "energy"
@@ -1974,7 +1979,7 @@
    "pellet_count": 1,
    "dps": 537,
    "dps_sustain": 371,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 92,
    "damage_types": [
     "energy"
@@ -1994,7 +1999,7 @@
    "pellet_count": 1,
    "dps": 502,
    "dps_sustain": 347,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 86,
    "damage_types": [
     "energy"
@@ -2014,7 +2019,7 @@
    "pellet_count": 1,
    "dps": 2042,
    "dps_sustain": 1407,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 350,
    "damage_types": [
     "energy"
@@ -2034,7 +2039,7 @@
    "pellet_count": 1,
    "dps": 583,
    "dps_sustain": 403,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 100,
    "damage_types": [
     "energy"
@@ -2054,7 +2059,7 @@
    "pellet_count": 1,
    "dps": 875,
    "dps_sustain": 603,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 150,
    "damage_types": [
     "energy"
@@ -2074,7 +2079,7 @@
    "pellet_count": 1,
    "dps": 2948,
    "dps_sustain": 2027,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 505,
    "damage_types": [
     "energy"
@@ -2093,8 +2098,8 @@
    "fire_rate_hz": 0.83,
    "pellet_count": 8,
    "dps": 420,
-   "dps_sustain": 397,
-   "sustain_model": "pool",
+   "dps_sustain": 396,
+   "sustain_model": "scunpacked",
    "alpha": 504,
    "damage_types": [
     "energy"
@@ -2114,7 +2119,7 @@
    "pellet_count": 8,
    "dps": 660,
    "dps_sustain": 623,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 792,
    "damage_types": [
     "energy"
@@ -2134,7 +2139,7 @@
    "pellet_count": 8,
    "dps": 930,
    "dps_sustain": 878,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 1116,
    "damage_types": [
     "energy"
@@ -2154,7 +2159,7 @@
    "pellet_count": 1,
    "dps": 135,
    "dps_sustain": 81,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 81,
    "damage_types": [
     "distortion"
@@ -2174,10 +2179,9 @@
    "pellet_count": 1,
    "dps": 202,
    "dps_sustain": 121,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 122,
    "damage_types": [
-    "energy",
     "distortion"
    ],
    "speed": 1076
@@ -2195,7 +2199,7 @@
    "pellet_count": 1,
    "dps": 304,
    "dps_sustain": 182,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 183,
    "damage_types": [
     "distortion"
@@ -2206,7 +2210,7 @@
    "name": "CF-117 Bulldog Hazard-Zone Repeater",
    "class_name": "klwe_laserrepeater_s1_mr01",
    "manufacturer": "Klaus and Werner",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 1,
@@ -2215,7 +2219,7 @@
    "pellet_count": 1,
    "dps": 219,
    "dps_sustain": 112,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 17,
    "damage_types": [
     "energy"
@@ -2235,7 +2239,7 @@
    "pellet_count": 1,
    "dps": 219,
    "dps_sustain": 112,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 17,
    "damage_types": [
     "energy"
@@ -2246,7 +2250,7 @@
    "name": "CF-227 Badger Hazard-Zone Repeater",
    "class_name": "klwe_laserrepeater_s2_mr01",
    "manufacturer": "Klaus and Werner",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 2,
@@ -2255,7 +2259,7 @@
    "pellet_count": 1,
    "dps": 328,
    "dps_sustain": 167,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 26,
    "damage_types": [
     "energy"
@@ -2275,7 +2279,7 @@
    "pellet_count": 1,
    "dps": 328,
    "dps_sustain": 167,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 26,
    "damage_types": [
     "energy"
@@ -2286,7 +2290,7 @@
    "name": "CF-337 Panther Hazard-Zone Repeater",
    "class_name": "klwe_laserrepeater_s3_mr01",
    "manufacturer": "Klaus and Werner",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 3,
@@ -2295,7 +2299,7 @@
    "pellet_count": 1,
    "dps": 546,
    "dps_sustain": 279,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 44,
    "damage_types": [
     "energy"
@@ -2315,7 +2319,7 @@
    "pellet_count": 1,
    "dps": 546,
    "dps_sustain": 279,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 44,
    "damage_types": [
     "energy"
@@ -2335,7 +2339,7 @@
    "pellet_count": 1,
    "dps": 818,
    "dps_sustain": 414,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 65,
    "damage_types": [
     "energy"
@@ -2355,7 +2359,7 @@
    "pellet_count": 1,
    "dps": 1227,
    "dps_sustain": 620,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 98,
    "damage_types": [
     "energy"
@@ -2374,8 +2378,8 @@
    "fire_rate_hz": 12.5,
    "pellet_count": 1,
    "dps": 1842,
-   "dps_sustain": 927,
-   "sustain_model": "pool",
+   "dps_sustain": 926,
+   "sustain_model": "scunpacked",
    "alpha": 147,
    "damage_types": [
     "energy"
@@ -2391,9 +2395,9 @@
    "category": "mass driver cannon",
    "size": 1,
    "fire_kind": "charged",
-   "fire_rate_hz": 0.5,
+   "fire_rate_hz": 1.0,
    "pellet_count": 1,
-   "dps": 112,
+   "dps": 225,
    "dps_sustain": null,
    "sustain_model": null,
    "alpha": 225,
@@ -2411,9 +2415,9 @@
    "category": "mass driver cannon",
    "size": 2,
    "fire_kind": "charged",
-   "fire_rate_hz": 0.5,
+   "fire_rate_hz": 0.67,
    "pellet_count": 1,
-   "dps": 262,
+   "dps": 350,
    "dps_sustain": null,
    "sustain_model": null,
    "alpha": 525,
@@ -2431,9 +2435,9 @@
    "category": "mass driver cannon",
    "size": 3,
    "fire_kind": "charged",
-   "fire_rate_hz": 0.5,
+   "fire_rate_hz": 0.4,
    "pellet_count": 1,
-   "dps": 562,
+   "dps": 450,
    "dps_sustain": null,
    "sustain_model": null,
    "alpha": 1125,
@@ -2451,11 +2455,11 @@
    "category": "mass driver cannon",
    "size": 10,
    "fire_kind": "charged",
-   "fire_rate_hz": 0.1,
+   "fire_rate_hz": 0.03,
    "pellet_count": 1,
-   "dps": 28832,
-   "dps_sustain": 28832,
-   "sustain_model": "heat(per-shot overheat)",
+   "dps": 9611,
+   "dps_sustain": 8871,
+   "sustain_model": "scunpacked",
    "alpha": 288320,
    "damage_types": [
     "physical"
@@ -2475,7 +2479,7 @@
    "pellet_count": 1,
    "dps": 202,
    "dps_sustain": 145,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 49,
    "damage_types": [
     "physical"
@@ -2495,7 +2499,7 @@
    "pellet_count": 1,
    "dps": 304,
    "dps_sustain": 213,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 73,
    "damage_types": [
     "physical"
@@ -2515,7 +2519,7 @@
    "pellet_count": 1,
    "dps": 455,
    "dps_sustain": 312,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 109,
    "damage_types": [
     "physical"
@@ -2535,7 +2539,7 @@
    "pellet_count": 1,
    "dps": 205,
    "dps_sustain": 77,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 49,
    "damage_types": [
     "energy"
@@ -2555,7 +2559,7 @@
    "pellet_count": 1,
    "dps": 308,
    "dps_sustain": 116,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 74,
    "damage_types": [
     "energy"
@@ -2575,7 +2579,7 @@
    "pellet_count": 1,
    "dps": 462,
    "dps_sustain": 172,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 111,
    "damage_types": [
     "energy"
@@ -2595,7 +2599,7 @@
    "pellet_count": 1,
    "dps": 450,
    "dps_sustain": 379,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 22,
    "damage_types": [
     "physical"
@@ -2615,7 +2619,7 @@
    "pellet_count": 1,
    "dps": 998,
    "dps_sustain": 538,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 63,
    "damage_types": [
     "physical"
@@ -2635,7 +2639,7 @@
    "pellet_count": 1,
    "dps": 547,
    "dps_sustain": 272,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 219,
    "damage_types": [
     "energy"
@@ -2646,7 +2650,7 @@
    "name": "Whiptail STR-E2 Repeater",
    "class_name": "krig_laserrepeater_bespoke_s2",
    "manufacturer": "Kruger Intergalactic",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 2,
@@ -2655,7 +2659,7 @@
    "pellet_count": 1,
    "dps": 90,
    "dps_sustain": 74,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 30,
    "damage_types": [
     "energy"
@@ -2675,7 +2679,7 @@
    "pellet_count": 1,
    "dps": 1062,
    "dps_sustain": 567,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 85,
    "damage_types": [
     "energy"
@@ -2695,7 +2699,7 @@
    "pellet_count": 1,
    "dps": 253,
    "dps_sustain": 134,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 101,
    "damage_types": [
     "energy"
@@ -2715,7 +2719,7 @@
    "pellet_count": 1,
    "dps": 382,
    "dps_sustain": 204,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 153,
    "damage_types": [
     "energy"
@@ -2734,8 +2738,8 @@
    "fire_rate_hz": 2.5,
    "pellet_count": 1,
    "dps": 552,
-   "dps_sustain": 295,
-   "sustain_model": "pool",
+   "dps_sustain": 294,
+   "sustain_model": "scunpacked",
    "alpha": 221,
    "damage_types": [
     "energy"
@@ -2755,7 +2759,7 @@
    "pellet_count": 1,
    "dps": 316,
    "dps_sustain": 193,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 38,
    "damage_types": [
     "energy"
@@ -2775,7 +2779,7 @@
    "pellet_count": 1,
    "dps": 475,
    "dps_sustain": 289,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 57,
    "damage_types": [
     "energy"
@@ -2795,7 +2799,7 @@
    "pellet_count": 1,
    "dps": 712,
    "dps_sustain": 433,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 86,
    "damage_types": [
     "energy"
@@ -2845,7 +2849,7 @@
    "pellet_count": 8,
    "dps": 480,
    "dps_sustain": 448,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 480,
    "damage_types": [
     "distortion"
@@ -2865,7 +2869,7 @@
    "pellet_count": 8,
    "dps": 720,
    "dps_sustain": 672,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 720,
    "damage_types": [
     "distortion"
@@ -2885,7 +2889,7 @@
    "pellet_count": 8,
    "dps": 1040,
    "dps_sustain": 970,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 1040,
    "damage_types": [
     "distortion"
@@ -2905,7 +2909,7 @@
    "pellet_count": 1,
    "dps": 1333,
    "dps_sustain": 1006,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 1600,
    "damage_types": [
     "physical"
@@ -2924,8 +2928,8 @@
    "fire_rate_hz": 0.83,
    "pellet_count": 1,
    "dps": 2833,
-   "dps_sustain": 2452,
-   "sustain_model": "heat",
+   "dps_sustain": 2318,
+   "sustain_model": "scunpacked",
    "alpha": 3400,
    "damage_types": [
     "physical"
@@ -2945,7 +2949,7 @@
    "pellet_count": 1,
    "dps": 4500,
    "dps_sustain": 3291,
-   "sustain_model": "heat",
+   "sustain_model": "scunpacked",
    "alpha": 5400,
    "damage_types": [
     "physical"
@@ -2956,7 +2960,7 @@
    "name": "Echion Repeater",
    "class_name": "rsi_meteor_laserrepeater_s5",
    "manufacturer": "Roberts Space Industries",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "gun",
    "category": "laser repeater",
    "size": 5,
@@ -2965,7 +2969,7 @@
    "pellet_count": 1,
    "dps": 1267,
    "dps_sustain": 1242,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 95,
    "damage_types": [
     "energy"
@@ -3036,7 +3040,7 @@
    "name": "Scimitar V Missile",
    "class_name": "misl_s05_em_taln_scimitar",
    "manufacturer": "Talon Weapons Systems",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "missile",
    "category": "missile",
    "size": 5,
@@ -3081,7 +3085,7 @@
    "name": "Hellion VII Missile",
    "class_name": "misl_s07_ir_taln_hellion",
    "manufacturer": "Talon Weapons Systems",
-   "manufacturer_source": "erkul",
+   "manufacturer_source": "scunpacked",
    "family": "missile",
    "category": "missile",
    "size": 7,
@@ -3270,7 +3274,7 @@
    "pellet_count": 1,
    "dps": 292,
    "dps_sustain": 87,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 50,
    "damage_types": [
     "energy"
@@ -3290,7 +3294,7 @@
    "pellet_count": 1,
    "dps": 520,
    "dps_sustain": 153,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 89,
    "damage_types": [
     "energy"
@@ -3310,7 +3314,7 @@
    "pellet_count": 1,
    "dps": 1890,
    "dps_sustain": 869,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 567,
    "damage_types": [
     "energy"
@@ -3330,7 +3334,7 @@
    "pellet_count": 1,
    "dps": 455,
    "dps_sustain": 284,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 273,
    "damage_types": [
     "energy"
@@ -3350,7 +3354,7 @@
    "pellet_count": 1,
    "dps": 878,
    "dps_sustain": 500,
-   "sustain_model": "pool",
+   "sustain_model": "scunpacked",
    "alpha": 526,
    "damage_types": [
     "energy"
@@ -3359,7 +3363,7 @@
   },
   {
    "name": "WRATH Cannon",
-   "class_name": "vncl_gen2_plasmacannon_s5",
+   "class_name": "vncl_plasmacannon_s5",
    "manufacturer": "Vanduul Clans",
    "manufacturer_source": "uex",
    "family": "gun",
@@ -3368,10 +3372,10 @@
    "fire_kind": "single",
    "fire_rate_hz": 0.83,
    "pellet_count": 1,
-   "dps": 810,
-   "dps_sustain": 588,
-   "sustain_model": "pool",
-   "alpha": 972,
+   "dps": 808,
+   "dps_sustain": 587,
+   "sustain_model": "scunpacked",
+   "alpha": 970,
    "damage_types": [
     "energy"
    ],
