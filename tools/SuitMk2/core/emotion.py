@@ -65,6 +65,9 @@ HOOKS = {
     "exited_monitored_space":  {"elah": [("fear", 0.15)], "montaigne": [("fear", 0.25)]},
     "pilot_spoke":             {"elah": [("warmth", 0.3)], "montaigne": [("warmth", 0.35)]},
     "scene_notable":           {"elah": [("curiosity", 0.25)], "montaigne": [("curiosity", 0.3)]},
+    # bdl_tracker.py (an ESTIMATE from med pen use): too many stims worries the suit; the load coming down relieves it
+    "bdl_warning":             {"elah": [("fear", 0.3)], "montaigne": [("fear", 0.1)]},
+    "bdl_clear":               {"elah": [("relief", 0.3)]},
 }
 # Follow-up lines that are still ABOUT an event (ambient_spec scenarios), so appraisal() can find their feeling.
 EVENT_OF_SCENARIO = {"injury_followup": "injury", "regen_followup": "player_respawned",
@@ -184,7 +187,11 @@ class CompanionAffect:
             amt = float(data.get("amount") or 0)
             scale = max(0.3, min(2.0, math.log10(max(amt, 1.0)) / 3.3))
         if event_type == "injury":
-            scale = {1: 1.0, 2: 1.6, 3: 2.4}.get(int(data.get("tier") or 1), 1.0)
+            # SC counts injury tiers DOWN: Tier 1 is the worst ("get to a med bed"), Tier 3 the mildest.
+            # This was reversed until 2026-09-25 (J: "reversed ... happened by accident").
+            scale = {1: 2.4, 2: 1.6, 3: 1.0}.get(int(data.get("tier") or 3), 1.0)
+        # contract_history.py: finishing the pilot's specialty (or a first of a new kind) is felt a little more.
+        scale *= max(0.5, min(2.0, float(data.get("affect_scale") or 1.0)))
         if event_type == "location_change":
             place = data.get("location_name") or data.get("location")
             if place and place not in self._seen_places and not data.get("is_return_visit"):
@@ -404,6 +411,10 @@ def _selftest() -> int:
         p.write_text("{not json", encoding="utf-8")
         case("a corrupt mood file starts calm, never crashes", CompanionAffect(path=p, now=lambda: clock[0])
              .dominant("elah") == (None, 0.0))
+    t1 = CompanionAffect(now=lambda: clock[0], stance_text=False); t1.feed("injury", {"tier": 1})
+    t3 = CompanionAffect(now=lambda: clock[0], stance_text=False); t3.feed("injury", {"tier": 3})
+    case("a Tier 1 injury (SC's worst) frightens more than a Tier 3 (mildest)",
+         t1.levels["elah"]["fear"] > t3.levels["elah"]["fear"] > 0)
     case("every hook names only known speakers and emotions",
          all(s in SPEAKERS and all(e in EMOTIONS for e, _ in mv) for h in HOOKS.values() for s, mv in h.items()))
     case("every emotion has a stance for both speakers", all(set(STANCE[s]) == set(EMOTIONS) for s in SPEAKERS))

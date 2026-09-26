@@ -55,6 +55,17 @@ DEFAULTS = {
     # "fun facts off") or the window's checkbox; either one saves here.
     "dev_facts": False,
     "dev_facts_max_per_hour": 2,
+    # April-spec ideas, built 2026-09-25 (J: "You can work through those"). Each is a small optional feature with its
+    # own module and --selftest; every line it adds still goes through the speak gate, pacing and grounding.
+    "npc_faction_names": True,        # NPC entity codes in the log -> "Nine Tails pirates" in fight/death lines
+    "refinery_tracker": True,         # finished refinery orders remembered across sessions; reminder on arrival there
+    "bdl_tracker": True,              # ESTIMATED blood drug level from med pen use -> a hedged "that's a lot of stims"
+    "manufacturer_flavour": True,     # all 19 ship makers: brochure facts Montaigne quotes, both characters' takes,
+                                      # and a per-maker lean on the boarding line (data/manufacturer_lore.json)
+    "place_flavour": True,            # Elah's one-line impression of 35 places, April lines re-checked against
+                                      # current data (data/place_flavour.json); only supported claims survive
+    "contract_history": True,         # contract TYPES remembered across sessions: milestones in the completion line,
+                                      # a little more pride finishing the pilot's specialty (contract_history.py)
 }
 
 

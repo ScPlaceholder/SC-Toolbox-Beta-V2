@@ -1,0 +1,3936 @@
+{
+ "version": 1,
+ "built": "2026-09-25",
+ "source": "github.com/ScPlaceholder/sc-dev-history@corpus",
+ "attribution": "Unofficial fan transcripts. Star Citizen content (c) Cloud Imperium Games; not affiliated. Source: github.com/ScPlaceholder/sc-dev-history",
+ "method": "Excerpts are verbatim transcript windows (whisper timestamps removed) or comm-link summaries. Each fact was rewritten by a small local model and kept only if every number and name is in the excerpt or the metadata (dev_facts.fact_problems + grounding gate), then read by a human beside its excerpt (tools/dev_fact_curation.json).",
+ "counts": {
+  "ship": 136,
+  "activity": 30,
+  "place": 47
+ },
+ "facts": [
+  {
+   "id": "43d86f7edf",
+   "fact": "The Aurora got cargo pods that are effectively like invisible cargo storage, so players can still buy and sell out of them.",
+   "excerpt": "three-point-nine right so 43.0 at the very least what options do the Aurora if any have you will have cargo pods that are effectively like invisible cargo storage so you can still buy and sell out of them out of",
+   "title": "Star Citizen: Subscriber's Town Hall - Cargo & Shopping",
+   "date": "2017-11-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=iS27ZLZDhO8",
+   "doc": "iS27ZLZDhO8",
+   "path": "transcripts/captions/iS27ZLZDhO8.txt",
+   "at_word": 10002,
+   "topics": [
+    "cargo",
+    "aurora"
+   ],
+   "topic_kind": "activity",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "da240b5b01",
+   "fact": "With 3.11 came the first step in what cargo decks will eventually be: cargo storage areas added to the exterior of the space stations.",
+   "excerpt": "life even when there's none or not much. So with 3.11 we've taken our first step in what our cargo decks will eventually be. The exterior of the space stations we've added cargo storage areas so that's it helps flush",
+   "title": "Inside Star Citizen: Cargo Embargo No Largo | Summer 2020",
+   "date": "2020-09-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=sqibthjBwVY",
+   "doc": "sqibthjBwVY",
+   "path": "transcripts/captions/sqibthjBwVY.txt",
+   "at_word": 377,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "49b59957d9",
+   "fact": "Previously, cargo grids were really just some data and a persistent representation, and the developers were changing that.",
+   "excerpt": "is 100 yeah on the technical side if i could just like kind of clarify a little bit previously cargo instead of cargo grids were really just some data and some persistent representation and we're changing it to be represented",
+   "title": "Star Citizen Live: US PU Feature Team",
+   "date": "2021-08-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=UjmgIl-fYkc",
+   "doc": "UjmgIl-fYkc",
+   "path": "transcripts/captions/UjmgIl-fYkc.txt",
+   "at_word": 1369,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b2bbdc5c0f",
+   "fact": "It was unfortunate that players could lose 40 to 50 percent of their cargo, so the developers decided to try an interim solution.",
+   "excerpt": "how it was unfortunate that we even have to allow players to lose 40 to 50 percent of the cargo and we talked and decided that we would try to come up with an interim Solution on our path to",
+   "title": "Inside Star Citizen: The Cargo Show | Fall 2022",
+   "date": "2022-12-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=pSsWaTw4n8s",
+   "doc": "pSsWaTw4n8s",
+   "path": "transcripts/captions/pSsWaTw4n8s.txt",
+   "at_word": 852,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a75f9cce97",
+   "fact": "When a ship is destroyed, a variable amount of its cargo is destroyed too, anywhere from zero to ninety percent.",
+   "excerpt": "still want to have some of that explosive destruction so there's a certain amount of variable amount of that cargo that is destroyed on ship destruction actually giving you back somewhere it's actually zero to ninety percent uh but that's",
+   "title": "Inside Star Citizen: The Cargo Show | Fall 2022",
+   "date": "2022-12-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=pSsWaTw4n8s",
+   "doc": "pSsWaTw4n8s",
+   "path": "transcripts/captions/pSsWaTw4n8s.txt",
+   "at_word": 545,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "45031c4740",
+   "fact": "The player controls the freight elevator through a kiosk, because it has to coordinate between three different doors.",
+   "excerpt": "order to call things up from your inventory or to put things into your inventory the player controls the freight elevator through the freight elevator kiosk because we have to coordinate between three different doors the kiosk is what determines",
+   "title": "Inside Star Citizen: Design Brief: Cargo Career, Part II",
+   "date": "2023-10-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=D51OYxWHZaI",
+   "doc": "D51OYxWHZaI",
+   "path": "transcripts/captions/D51OYxWHZaI.txt",
+   "at_word": 1162,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e58683ab48",
+   "fact": "A developer described the cargo decks as about 15 pounds of useless stuff in a 5 pound sack.",
+   "excerpt": "for them in the future um but we yes we do want them to be more integrated no no cargo decks are about 15 pounds of useless stuffed in a 5 pound sack Chad I can't see his face if",
+   "title": "Star Citizen Live Q&A:  Hangars and Cargo",
+   "date": "2024-04-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=YVKJUBs0UY8",
+   "doc": "YVKJUBs0UY8",
+   "path": "transcripts/captions/YVKJUBs0UY8.txt",
+   "at_word": 12243,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e22bc14186",
+   "fact": "The next step up into Drake Caterpillar territory is roughly an eight to ten times jump in cargo capacity, and the Iron Clad sits between.",
+   "excerpt": "The next step up from there really is sort of into drake caterpillar territory. So you're doing roughly an eight to ten times jump in cargo capacity. From there the iron clad sits nicely between those smaller ships and the",
+   "title": "Inside Star Citizen: Ironclad is Rad",
+   "date": "2024-05-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=j9d8GXMtHOs",
+   "doc": "j9d8GXMtHOs",
+   "path": "transcripts/whisper/j9d8GXMtHOs.txt",
+   "at_word": 1556,
+   "topics": [
+    "cargo",
+    "caterpillar"
+   ],
+   "topic_kind": "activity",
+   "score": 8.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "55c4986527",
+   "fact": "Hauling missions got about a 50% bump, and the multi-three and multi-four hauling missions were up in the hundreds per hour.",
+   "excerpt": "now and so they're getting a bump. They're getting about a 50% bump and the multi-three and the multi-four hauling missions, they're like up in the hundreds per hour. The illegal missions like Elliot was saying because they are additionally",
+   "title": "Star Citizen Live Q&A: Making Missions II-2",
+   "date": "2024-07-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=82EN1QQtDTQ",
+   "doc": "82EN1QQtDTQ",
+   "path": "transcripts/whisper/82EN1QQtDTQ.txt",
+   "at_word": 7851,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "cd68610caf",
+   "fact": "Delivery missions bridge the gap between courier and hauling, starting at one box and going up to a total of six boxes.",
+   "excerpt": "box you walk around with. So that's courier. Then delivery is how we bridge the gap between courier to hauling. So delivery will start one SU box and it will go up to a total of six boxes of one",
+   "title": "Star Citizen Live | Q&A Industrial Gameplay",
+   "date": "2026-02-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=is7CtiqXrt8",
+   "doc": "is7CtiqXrt8",
+   "path": "transcripts/whisper/is7CtiqXrt8.txt",
+   "at_word": 5837,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "cf5b5ecd77",
+   "fact": "When it was first announced, the Hull A was promised to land with its full capacity of cargo, but over time the cargo system and ship design changed.",
+   "excerpt": "you. When it was first announced, it was promised to be able to land with its full capacity of cargo. However, over time, the cargo system changed, the design of ships have changed. When you look at the hull A",
+   "title": "Star Citizen | Behind the Ships: MISC Hull B",
+   "date": "2026-04-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=JWEbWUewco0",
+   "doc": "JWEbWUewco0",
+   "path": "transcripts/whisper/JWEbWUewco0.txt",
+   "at_word": 475,
+   "topics": [
+    "cargo",
+    "hull"
+   ],
+   "topic_kind": "activity",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8a887da9f1",
+   "fact": "Tractor beams on the ship attach and detach cargo, rather than threading the larger containers through restricted doorways at the back.",
+   "excerpt": "You can simply rock up to a location and then use the tractor beams on the ship to attach and detach cargo. Rather than having to thread these larger, especially the 32 SEU containers, through restricted doorways at the back",
+   "title": "Star Citizen | Behind the Ships: MISC Hull B",
+   "date": "2026-04-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=JWEbWUewco0",
+   "doc": "JWEbWUewco0",
+   "path": "transcripts/whisper/JWEbWUewco0.txt",
+   "at_word": 396,
+   "topics": [
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "164a1550f7",
+   "fact": "In Alpha 3.2, mining was limited exclusively to the MISC Prospector, down on the surface of the moons.",
+   "excerpt": "0 implementation I've been saying to 0 quite a lot that's coming in alpha 3.2 it's going to the mining is going to be limited exclusively to the misc prospector and down on the surface of Crusaders moons now for",
+   "title": "Star Citizen: Reverse the Verse LIVE - Ships of Alpha 3.2",
+   "date": "2018-06-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=-LRmL_EjjZg",
+   "doc": "-LRmL_EjjZg",
+   "path": "transcripts/captions/-LRmL_EjjZg.txt",
+   "at_word": 9165,
+   "topics": [
+    "mining",
+    "prospector"
+   ],
+   "topic_kind": "activity",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "2228ee597b",
+   "fact": "Out of 5,000 rocks, a slower miner might get a hundred if a bigger fleet is strip mining everything.",
+   "excerpt": "of five thousand rocks might get a hundred because you're faster you have a bigger fleets and you're strip mining everything it depends and we also have to look into ways of protecting yourself against this type of thing because",
+   "title": "Star Citizen: Calling All Devs - Mr. Steal Yo Data",
+   "date": "2018-09-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=op7tLkJaTN4",
+   "doc": "op7tLkJaTN4",
+   "path": "transcripts/captions/op7tLkJaTN4.txt",
+   "at_word": 1218,
+   "topics": [
+    "mining"
+   ],
+   "topic_kind": "activity",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "0ed61a9340",
+   "fact": "One mining consumable doubles the power of the laser for 20 seconds, but only so many can be equipped.",
+   "excerpt": "or doubles the power of your laser for 20 seconds. So you you're able to temporarily boost your your mining capabilities using these consumables. The problem is you can only have these many equipped and you have to choose which",
+   "title": "Star Citizen Live: Alpha 3.7 Roundup",
+   "date": "2019-10-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=CR4Za6dT8Ng",
+   "doc": "CR4Za6dT8Ng",
+   "path": "transcripts/captions/CR4Za6dT8Ng.txt",
+   "at_word": 5780,
+   "topics": [
+    "mining"
+   ],
+   "topic_kind": "activity",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "44e7319a06",
+   "fact": "In 3.7, the game introduced FPS mining, personal commodity inventory and backpacks to expand personal inventory.",
+   "excerpt": "able to to prioritize that just yet. So. Uh Dan, from the from the chat here, 3.7 introduced FPS mining, introduced personal commodity inventory, introduced backpacks for instance that would expand our our personal inventory. But right now they're attached",
+   "title": "Star Citizen Live: Alpha 3.7 Roundup",
+   "date": "2019-10-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=CR4Za6dT8Ng",
+   "doc": "CR4Za6dT8Ng",
+   "path": "transcripts/captions/CR4Za6dT8Ng.txt",
+   "at_word": 4898,
+   "topics": [
+    "mining"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "0804a67e6f",
+   "fact": "The developers created five new mining laser heads for the existing Prospector.",
+   "excerpt": "our developers the opportunity to expand upon the work already delivered with the addition of both the size to mining laser and the creation of five new mining laser heads for the existing prospector the team here has been exploring",
+   "title": "Inside Star Citizen: School of Rock | Fall 2019",
+   "date": "2019-12-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=8T_x36KbyFo",
+   "doc": "8T_x36KbyFo",
+   "path": "transcripts/captions/8T_x36KbyFo.txt",
+   "at_word": 583,
+   "topics": [
+    "mining",
+    "prospector"
+   ],
+   "topic_kind": "activity",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "27c572957a",
+   "fact": "On the cooperative mining ship, each seat gets control over its own consumables, and a Helix laser has three.",
+   "excerpt": "that is a cooperative type of gameplay ship we are giving each seat control over its own consumables each mining laser can equip consumable it is based on what's equipped there if it's a helix you'll have three we consumable",
+   "title": "Inside Star Citizen: Dropship Delight | Winter 2020",
+   "date": "2020-03-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=7eVf4bzL82Y",
+   "doc": "7eVf4bzL82Y",
+   "path": "transcripts/captions/7eVf4bzL82Y.txt",
+   "at_word": 549,
+   "topics": [
+    "mining"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "397bbfca57",
+   "fact": "With three friends, a MOLE is a better pick than three Prospectors, for an easier mining experience.",
+   "excerpt": "friends or three friends you better pick your mole over the three Prospectors because you will have an easier mining experience picking them more and there's one more thing that ties in with the difficulty or increase of difficulty that",
+   "title": "Inside Star Citizen: This Life of Mine",
+   "date": "2023-03-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=gUI7xL88uVg",
+   "doc": "gUI7xL88uVg",
+   "path": "transcripts/captions/gUI7xL88uVg.txt",
+   "at_word": 1619,
+   "topics": [
+    "mining",
+    "mole"
+   ],
+   "topic_kind": "activity",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "be3c63b9b8",
+   "fact": "A full scale mining operation could be 20 Prospectors, five refinery ships, three haulers and an escort for all of them.",
+   "excerpt": "three people and or you can run it on a full scale where you have whatever 20 Prospectors five Refinery ships three haulers escort for all of them it's all that thing once that ecosystem system starts start starts going",
+   "title": "Star Citizen Live: Mining, Salvage, Tractors, OH MY!",
+   "date": "2023-05-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=RfUvFVXJOwE",
+   "doc": "RfUvFVXJOwE",
+   "path": "transcripts/captions/RfUvFVXJOwE.txt",
+   "at_word": 2976,
+   "topics": [
+    "mining",
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5e994d8bb1",
+   "fact": "T0, T1 is a Star Citizen meme, as mining, cargo and salvage continue to iterate year after year.",
+   "excerpt": "It's always a bit of a Star Citizen meme and there are many Star Citizen memes. This is T0, T1. We have seen mining and cargo and salvage as these industrial gameplay loops continue to iterate year after year after",
+   "title": "Star Citizen Live | Q&A Industrial Gameplay",
+   "date": "2026-02-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=is7CtiqXrt8",
+   "doc": "is7CtiqXrt8",
+   "path": "transcripts/whisper/is7CtiqXrt8.txt",
+   "at_word": 1280,
+   "topics": [
+    "mining",
+    "salvage",
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9439f798c9",
+   "fact": "A quantum drive trip could quite easily last a few minutes, 5 or 10, and the developers did not want players to be bored.",
+   "excerpt": "out for some reason or there’ll be something in the way but you could quite easily be in quantum drive for a few minutes, 5 minutes or whatever, 10 minutes and part of we don’t want you to be bored",
+   "title": "Star Citizen: 10 for the Chairman - Professions in Alpha 3.0",
+   "date": "2017-03-14",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Uhra2SETLNs",
+   "doc": "Uhra2SETLNs",
+   "path": "transcripts/captions/Uhra2SETLNs.txt",
+   "at_word": 3595,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9d0677659b",
+   "fact": "Six cardinal quantum travel points around a planet or moon let a player travel all the way around it.",
+   "excerpt": "they're not around a planet or moon for RVs we have to place me six cardinal points at quantum travel points that allow you to travel all the way around so if you came in on one side and needed",
+   "title": "Star Citizen: Around the Verse - Manned Turret Makeover",
+   "date": "2017-10-06",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=CTynrGcUI6Q",
+   "doc": "CTynrGcUI6Q",
+   "path": "transcripts/captions/CTynrGcUI6Q.txt",
+   "at_word": 2633,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1f07f55954",
+   "fact": "The quantum drive has five phases, and the first, the initial ramp, was described as going from zero to the 88 mph.",
+   "excerpt": "adapt that into programming into different parts. And how we did that was there's actually five phases of quantum drive. There's the initial ramp, which is um you're going from zero to the 88 mph. We're actually going to replace",
+   "title": "Star Citizen: Around the Verse - The Evolution of Quantum Travel",
+   "date": "2017-11-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=FNv8yyqmd-Y",
+   "doc": "FNv8yyqmd-Y",
+   "path": "transcripts/captions/FNv8yyqmd-Y.txt",
+   "at_word": 4737,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f205a7641d",
+   "fact": "Bigger ships may not be faster, but they are better at extended quantum travel.",
+   "excerpt": "bigger ships are much they may not be faster but they're better at extended travel right so extended quantum travel and and and and that's unlike this would be a reason for instance like okay I've got a Idris and",
+   "title": "Star Citizen: Reverse the Verse LIVE - All About Alpha 3.5",
+   "date": "2019-03-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=BXNGpg6ZfD0",
+   "doc": "BXNGpg6ZfD0",
+   "path": "transcripts/captions/BXNGpg6ZfD0.txt",
+   "at_word": 2319,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9e17d44e7e",
+   "fact": "The quantum drive does fourth order motion, handling velocity, acceleration and jerk, the rate at which acceleration changes.",
+   "excerpt": "then the back end is like a smooth interpolation but there was a problem with that because our quantum drive does was it fourth order motion where it does velocity acceleration and jerk yes the rate at which acceleration change",
+   "title": "Star Citizen Live: Mantis and Quantum Enforcement",
+   "date": "2019-10-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=KGGIZFl2-mw",
+   "doc": "KGGIZFl2-mw",
+   "path": "transcripts/captions/KGGIZFl2-mw.txt",
+   "at_word": 4486,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "ed8d7945b2",
+   "fact": "The navigation speeds span from SCM all the way up to essentially a tenth of quantum travel speed.",
+   "excerpt": "SCM or top speed of our current nav mode, all the way up to essentially a tenth of quantum travel speed. You have this spectrum of speeds that allow you to navigate the large spaces in our game, but also",
+   "title": "Star Citizen: The IAE Show Episode 3",
+   "date": "2024-11-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=c4cb33xM9ts",
+   "doc": "c4cb33xM9ts",
+   "path": "transcripts/whisper/c4cb33xM9ts.txt",
+   "at_word": 916,
+   "topics": [
+    "quantum"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "7fd98597e7",
+   "fact": "Alpha 3.1 brought the big industrial salvage ship, with a reinforced cargo bay, long-range jump drive, tractor beams, unmanned drones and flood lights.",
+   "excerpt": "two updates on ships making their way to star citizen in the upcoming alpha 3.1 it's the big industrial salvage ship that could with a reinforced cargo bay long-range jump drive tractor beams unmanned drones flood lights and more let's",
+   "title": "Star Citizen: Around the Verse - Reclamation Now",
+   "date": "2018-03-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=WCnYoFNtqnY",
+   "doc": "WCnYoFNtqnY",
+   "path": "transcripts/captions/WCnYoFNtqnY.txt",
+   "at_word": 337,
+   "topics": [
+    "salvage",
+    "cargo"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f9d91dcd94",
+   "fact": "On the Reclaimer, the two people in the salvage turrets blast away at the hull to strip it off, with a big front light to see by.",
+   "excerpt": "big front light to the reclaimer so you can see what you're doing and the two people in the Salvage turrets will start blasting away at the hull to strip It Off as that happens you're Gathering what we call",
+   "title": "Inside Star Citizen: Vulture Venture | Summer 2022",
+   "date": "2022-10-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=DFSvBqSlt9k",
+   "doc": "DFSvBqSlt9k",
+   "path": "transcripts/captions/DFSvBqSlt9k.txt",
+   "at_word": 340,
+   "topics": [
+    "salvage",
+    "reclaimer"
+   ],
+   "topic_kind": "activity",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "aa69553e19",
+   "fact": "Before, a destroyed ship could never be 100 percent salvaged, because certain panels could not be salvaged.",
+   "excerpt": "look fine when you'd blown this thing up but then it was meaning that you could never like 100 Salvage this because you couldn't Salvage like certain panels and obviously it just looks a bit weird that you know you'd",
+   "title": "Star Citizen Live: Invictus All-Vehicles Roundtable",
+   "date": "2023-06-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=LSM8kao5Q6k",
+   "doc": "LSM8kao5Q6k",
+   "path": "transcripts/captions/LSM8kao5Q6k.txt",
+   "at_word": 10608,
+   "topics": [
+    "salvage"
+   ],
+   "topic_kind": "activity",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "283fa09151",
+   "fact": "A 400 player party in one of the bars on New Babbage ran on a server whose performance was actually very, very decent.",
+   "excerpt": "that should be a problem. But there was a 400 player party in one of the bars on New Babbage, and we looked at the server performance through that, and it was actually very, very decent. So we expected the",
+   "title": "Star Citizen Live | Tech Talk with Benoit Beausejour",
+   "date": "2026-02-05",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=k1bXLQ5U-w8",
+   "doc": "k1bXLQ5U-w8",
+   "path": "transcripts/whisper/k1bXLQ5U-w8.txt",
+   "at_word": 1449,
+   "topics": [
+    "babbage"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "861b20f548",
+   "fact": "Crusader itself, as a gas giant, was a much bigger challenge from the technical point of view than the forests.",
+   "excerpt": "flavor pass and layout pass forests and so we have that the bigger challenge the much much bigger challenges Crusader itself as a gas giant it is very challenging from the technical point of view to get a gas giant",
+   "title": "Star Citizen: Calling All Devs - Crusader, Hurston and More",
+   "date": "2018-04-30",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=z9YAIne5cL4",
+   "doc": "z9YAIne5cL4",
+   "path": "transcripts/captions/z9YAIne5cL4.txt",
+   "at_word": 380,
+   "topics": [
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "73adbff10e",
+   "fact": "In 2863, CEO Kelly Kaplan convinced Crusader to purchase one of these worlds, and that is how the planet became known as Crusader.",
+   "excerpt": "and protective gear. They could have them in breathable environment. And so in 2863, Kelly Kaplan, the CEO, convinced Crusader to purchase one of these worlds. And that's how the planet became known as Crusader. So when Crusader bought the",
+   "title": "Inside Star Citizen: Armor Bearer | Spring 2021",
+   "date": "2021-04-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=X51Nth7rRrQ",
+   "doc": "X51Nth7rRrQ",
+   "path": "transcripts/captions/X51Nth7rRrQ.txt",
+   "at_word": 1582,
+   "topics": [
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4eee1645a2",
+   "fact": "The radius of Crusader is about 7,500 kilometers, which makes a gas giant's scale the hardest part.",
+   "excerpt": "something like the gas giant instantly the scales uh the hardest part and for example like the radius of crusader is um i think it's about seven seven thousand five hundred kilometers radius right uh and for example like stanton",
+   "title": "Star Citizen Live: All About Alpha 3.14",
+   "date": "2021-07-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=olnPAFQ314g",
+   "doc": "olnPAFQ314g",
+   "path": "transcripts/captions/olnPAFQ314g.txt",
+   "at_word": 3041,
+   "topics": [
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "366380a9a5",
+   "fact": "The repair bill for calling a Crucible to fix an M50 crashed on Daymar is one nobody wants to pay.",
+   "excerpt": "ships, yeah. It's going to take its toll if you've called out repair for your M50 that's crashed on Daymar or something like that, you probably don't want to pay the repair bill for a Crucible to come and do",
+   "title": "Star Citizen: Reverse the Verse LIVE - Refueling, Repairing & Rearming",
+   "date": "2018-02-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=qwOih2JMvIo",
+   "doc": "qwOih2JMvIo",
+   "path": "transcripts/captions/qwOih2JMvIo.txt",
+   "at_word": 5147,
+   "topics": [
+    "daymar"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c7c17b29a9",
+   "fact": "The names of Crusader's moons, Cellin, Daymar and Yela, were inspired by a 25th century children's tale.",
+   "excerpt": "In this 25th century children’s tale that inspired the names of Crusader’s moons, Cellin, Daymar, and Yela lose their gift en route to grandmother’s and go on an adventure to get her a new one.",
+   "title": "A Gift for Baba (Part 1)",
+   "date": "2021-04-14",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18080-A-Gift-For-Baba-Part-1",
+   "doc": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18080-A-Gift-For-Baba-Part-1",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "daymar",
+    "yela",
+    "cellin",
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 3.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c046479457",
+   "fact": "In the children's story, Cellin, Daymar and Yela board the wrong ship and must convince its hostile captain to change course to Baba's.",
+   "excerpt": "After boarding the wrong ship, Cellin, Daymar, and Yela must find a way to convince the hostile captain to change course so they can make it safely to Baba’s.",
+   "title": "A Gift for Baba (Part 2)",
+   "date": "2021-05-12",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18116-A-Gift-For-Baba-Part-2",
+   "doc": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18116-A-Gift-For-Baba-Part-2",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "daymar",
+    "yela",
+    "cellin"
+   ],
+   "topic_kind": "place",
+   "score": 3.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1874411911",
+   "fact": "In the children's tale, after a successful mutiny, Cellin, Daymar and Yela control the ship but have no idea how to fly it back to Sol.",
+   "excerpt": "Following their successful mutiny, Cellin, Daymar and Yela have control of the ship but no idea how to fly it back to Sol. But an encounter with a Banu trade might just change their luck.",
+   "title": "A Gift for Baba (Part 3)",
+   "date": "2021-06-09",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18184-A-Gift-For-Baba-Part-3",
+   "doc": "https://robertsspaceindustries.com/comm-link/serialized-fiction/18184-A-Gift-For-Baba-Part-3",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "daymar",
+    "yela",
+    "cellin"
+   ],
+   "topic_kind": "place",
+   "score": 3.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "ec0bc1e42d",
+   "fact": "Admiral Pavlina Marlin sent a Javelin to stop an unauthorized mining operation on Daymar, and never expected the fate that awaited it.",
+   "excerpt": "When ambitious Admiral Pavlina Marlin sent a Javelin to stop an unauthorized mining operation on Daymar, she never expected the fate that awaited it.",
+   "title": "The Fate of the UEES Flyssa",
+   "date": "2021-06-23",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/spectrum-dispatch/18203-The-Fate-Of-The-UEES-Flyssa",
+   "doc": "https://robertsspaceindustries.com/comm-link/spectrum-dispatch/18203-The-Fate-Of-The-UEES-Flyssa",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "daymar",
+    "javelin",
+    "mining"
+   ],
+   "topic_kind": "place",
+   "score": 3.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "422086e502",
+   "fact": "It took six very hard years to go from the Daymar rally to esports, and a live tournament at Citizen Con for the first time.",
+   "excerpt": "a live tournament experience to Citizen KH we're very excited it's been six very hard years years from the Daymar rally to Esports to actually come for the first time at the citizen con and put together a live tournament",
+   "title": "Inside Star Citizen: Inside CitizenCon",
+   "date": "2023-11-13",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=6yjkvZDgeMc",
+   "doc": "6yjkvZDgeMc",
+   "path": "transcripts/captions/6yjkvZDgeMc.txt",
+   "at_word": 1316,
+   "topics": [
+    "daymar"
+   ],
+   "topic_kind": "place",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c41e1a65ce",
+   "fact": "Alongside the Gamescom demo in August, 2.5 went Live, releasing the Grim HEX outlaw station.",
+   "excerpt": "It should come as no surprise that August was a very busy month. Teams all around the world were hard at work on the Gamescom demo, which showcased staggeringly new tech from a variety of disciplines. Meanwhile, we also pushed 2.5 Live, releasing the Grim HEX outlaw station, Argo and Reliant Kore ou",
+   "title": "Monthly Studio Report: August 2016",
+   "date": "2016-09-09",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/transmission/15506-Monthly-Studio-Report-August-2016",
+   "doc": "https://robertsspaceindustries.com/comm-link/transmission/15506-Monthly-Studio-Report-August-2016",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "grimhex"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b53d4e9bae",
+   "fact": "A smaller red sphere around Grim Hex is the music area that triggers a cinematic cue as ships enter the location.",
+   "excerpt": "the smaller red sphere is the music area which triggers the cinematic cue for grim ax B it grim hex one or two so as you enter that location you should be welcomed with one of the cinematic cues with",
+   "title": "Star Citizen: Around the Verse - The Sounds of Science",
+   "date": "2018-03-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=nMnLByr06IY",
+   "doc": "nMnLByr06IY",
+   "path": "transcripts/captions/nMnLByr06IY.txt",
+   "at_word": 3489,
+   "topics": [
+    "grimhex"
+   ],
+   "topic_kind": "place",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "14dfd50c83",
+   "fact": "In Grim Hex, a Nine Tails security person might not care, but they will care if someone pulls out a gun.",
+   "excerpt": "probably arrest them and then probably arrest your family and then your cousins and your friends. But in Grim Hex, you know, a Nine Tails security person might not care. But they will care if you pull out a gun",
+   "title": "Star Citizen Live: Regeneration Elaboration",
+   "date": "2021-10-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=82UBIl_xACE",
+   "doc": "82UBIl_xACE",
+   "path": "transcripts/captions/82UBIl_xACE.txt",
+   "at_word": 8153,
+   "topics": [
+    "grimhex"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "de1a792fac",
+   "fact": "The Nine Tails went from a highly effective and elusive strike team to a Stanton-based force in control of Grim HEX.",
+   "excerpt": "Many mysteries surround the Nine Tails, including why they transitioned from being a highly effective and elusive strike team into a Stanton-based force in control of Grim HEX.",
+   "title": "Portfolio: Nine Tails",
+   "date": "2022-07-12",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/spectrum-dispatch/18768-Portfolio-Nine-Tails",
+   "doc": "https://robertsspaceindustries.com/comm-link/spectrum-dispatch/18768-Portfolio-Nine-Tails",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "grimhex",
+    "stanton"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "39cd66fe00",
+   "fact": "Hurston could not be delivered without object container streaming, unless everybody had 32 gigs on their machines.",
+   "excerpt": "is a must half of that patch it is must have so we will not be able to deliver Hurston and the content with our object container streaming because there's no one unless everybody's got 32 gigs on their machines",
+   "title": "Star Citizen: Reverse the Verse LIVE - Chris Roberts on Development",
+   "date": "2018-06-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AMPTD3Dr4gE",
+   "doc": "AMPTD3Dr4gE",
+   "path": "transcripts/captions/AMPTD3Dr4gE.txt",
+   "at_word": 5814,
+   "topics": [
+    "hurston"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1231b6bd0a",
+   "fact": "The four moons around Hurston utilize some of the biomes made for the current three moons, plus some new stuff.",
+   "excerpt": "once we have a whole set of biomes so like for instance the four moons that we're doing around Hurston utilize some of the biomes that we've done for our current three moons right and we've created some new stuff",
+   "title": "Star Citizen: Reverse the Verse LIVE - Chris Roberts on Development",
+   "date": "2018-06-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AMPTD3Dr4gE",
+   "doc": "AMPTD3Dr4gE",
+   "path": "transcripts/captions/AMPTD3Dr4gE.txt",
+   "at_word": 7535,
+   "topics": [
+    "hurston"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "fea11e6cc0",
+   "fact": "Hurston was going to be the Stanton system's first explorable planet, with two art teams locking in its environment.",
+   "excerpt": "Habs the props team has tasked with giving these hangers personality as well as visual and narrative consistency while Hurston will be the stanton system first explorable planet the environment two art teams are also busy locking in the design",
+   "title": "Star Citizen: Around the Verse - Rebel Yela",
+   "date": "2018-07-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=MEe23AhAt_o",
+   "doc": "MEe23AhAt_o",
+   "path": "transcripts/captions/MEe23AhAt_o.txt",
+   "at_word": 1107,
+   "topics": [
+    "hurston",
+    "stanton"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9b9835b106",
+   "fact": "In 2865, Hurston Dynamics purchased a planet in the Stanton system and was careful not to build its capital on the resource intense areas it bought the planet for.",
+   "excerpt": "in 2865 Hurston Dynamics purchased a planet in the Stanton system and began the process of looking for their Capital being careful not to build on the resource intense areas they bought the planet for in the first place because",
+   "title": "Inside Star Citizen: Morville Lorville",
+   "date": "2023-05-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=oFS4xI8fGC4",
+   "doc": "oFS4xI8fGC4",
+   "path": "transcripts/captions/oFS4xI8fGC4.txt",
+   "at_word": 0,
+   "topics": [
+    "hurston",
+    "stanton"
+   ],
+   "topic_kind": "place",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "cf94c8c0c7",
+   "fact": "The city was taking its next major step toward becoming the thriving brutalist cityscape old Solomon Hurston would be proud of.",
+   "excerpt": "upcoming off of 319 it's taking its next major step forward towards becoming the thriving brutalist cityscape old Solomon Hurston would be proud of foreign loreville to somebody who's never seen it lots of crazy stuff happened there [Music] um",
+   "title": "Inside Star Citizen: Morville Lorville",
+   "date": "2023-05-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=oFS4xI8fGC4",
+   "doc": "oFS4xI8fGC4",
+   "path": "transcripts/captions/oFS4xI8fGC4.txt",
+   "at_word": 173,
+   "topics": [
+    "hurston"
+   ],
+   "topic_kind": "place",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4dce8a88d3",
+   "fact": "The Klescher Rehabilitation Facility, coming online in Alpha 3.9, got a functional boxing ring.",
+   "excerpt": "this month's sprint report. Let's get to it. Let's begin with a follow-up to last week's look at the Klescher Rehabilitation Facility coming online in Alpha 3.9 with these images of a functional boxing ring that's been completed by the",
+   "title": "Inside Star Citizen: The Vehicle Experience | Winter 2020",
+   "date": "2020-02-13",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ymcaL5Su5Hk",
+   "doc": "ymcaL5Su5Hk",
+   "path": "transcripts/captions/ymcaL5Su5Hk.txt",
+   "at_word": 1374,
+   "topics": [
+    "klescher"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5e466c6a6a",
+   "fact": "Internal auto tests have an automated player walk around a busy area such as Levski, or spawn into a ship alongside 30 AI ships.",
+   "excerpt": "internal tests would be something like having a automated player walk around a busy area the games such as Levski or it could be have the player spawn in into a ship alongside 30 AI ships and these auto tests",
+   "title": "Star Citizen: Around the Verse - Performance and Optimization",
+   "date": "2018-03-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=EU0sMZbhqoU",
+   "doc": "EU0sMZbhqoU",
+   "path": "transcripts/captions/EU0sMZbhqoU.txt",
+   "at_word": 7398,
+   "topics": [
+    "levski"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "77a766c705",
+   "fact": "Levski was the first true landing zone built in the new fashion.",
+   "excerpt": "separate area 18 and we've added our first true landing zone in in the new fashion which was uh levski on on nick's i know not a lot of folks who were did anybody work on left see what what",
+   "title": "Star Citizen Live: Landing Zone Content Team",
+   "date": "2021-02-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=YGVUo1Mj0dg",
+   "doc": "YGVUo1Mj0dg",
+   "path": "transcripts/captions/YGVUo1Mj0dg.txt",
+   "at_word": 1382,
+   "topics": [
+    "levski"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d56c3fef0d",
+   "fact": "The remaining flagship landing zones for the Stanton system were Area 18 and Lorville first, followed by Orison.",
+   "excerpt": "the remaining Flagship Landing zones for the Stanton system the first ones on that list are Area 18 and lorville followed by orison and new babage the engine team worked on consistent capturing of both atmosphere and sky in Cube",
+   "title": "Star Citizen: Around the Verse - Building Solar Systems & Nox Preview",
+   "date": "2017-06-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=STwVI6_xWqc",
+   "doc": "STwVI6_xWqc",
+   "path": "transcripts/captions/STwVI6_xWqc.txt",
+   "at_word": 332,
+   "topics": [
+    "lorville",
+    "stanton",
+    "orison"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9775050fe2",
+   "fact": "When Lorville was built, a developer sat down and said 42 ship hangars, based on a little common sense rather than server caps.",
+   "excerpt": "ship hangers for a landing zone is it based on server caps or something else well when we built lorville i sat down and i said 42 and that was what we did it is based on little common sense",
+   "title": "Star Citizen Live: Landing Zone Content Team",
+   "date": "2021-02-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=YGVUo1Mj0dg",
+   "doc": "YGVUo1Mj0dg",
+   "path": "transcripts/captions/YGVUo1Mj0dg.txt",
+   "at_word": 11556,
+   "topics": [
+    "lorville"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "05845b9c7b",
+   "fact": "The plan was 35 outposts, 10 on Microtech, 10 on Hurston and between one to six on various moons.",
+   "excerpt": "now we're time's not by seven so when 318 rolls out they should be 35 Darling outposts 10 on Microtech 10 on Hurston and between one to six on various different moons throughout the standard system well the players can",
+   "title": "Inside Star Citizen: Race Chase | Fall 2022",
+   "date": "2022-12-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=FHmx_YU3kB0",
+   "doc": "FHmx_YU3kB0",
+   "path": "transcripts/captions/FHmx_YU3kB0.txt",
+   "at_word": 560,
+   "topics": [
+    "microtech",
+    "hurston"
+   ],
+   "topic_kind": "place",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e1af2f5695",
+   "fact": "After Nyx, the next planet was going to be Hurston, and following that would likely be Crusader.",
+   "excerpt": "I can kind of mentioned on the website two or three months back which is the next planet after Nyx is going to be Hurston. That one was already starting to move fairly quickly. Following that will likely be Crusader",
+   "title": "Around the Verse: Episode 2.10",
+   "date": "2015-12-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=o0s3GMSfDko",
+   "doc": "o0s3GMSfDko",
+   "path": "transcripts/captions/o0s3GMSfDko.txt",
+   "at_word": 3842,
+   "topics": [
+    "nyx",
+    "hurston",
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "90a2db4208",
+   "fact": "The developers planned Nyx for 2.7, and said ArcCorp would not be in with 2.7.",
+   "excerpt": "actually quite hard at work doing that so I think that’s what you will be seeing, you’ll basically see Nyx with 2.7 and then we’ll carry on to expand beyond We won't have ArcCorp in with 2.7, but not too",
+   "title": "Star Citizen: 10 for the Chairman - Episode 85",
+   "date": "2016-06-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9IubH4hHIFw",
+   "doc": "9IubH4hHIFw",
+   "path": "transcripts/captions/9IubH4hHIFw.txt",
+   "at_word": 3597,
+   "topics": [
+    "nyx",
+    "arccorp"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d9b3ef62bf",
+   "fact": "Nyx has two asteroid belts, the Glaciem Ring between Nyx II and Nyx III, and the Keeger Belt.",
+   "excerpt": "the most important aspect of this system are these asteroid belts, you have two, there is this one between Nyx II and Nyx III called the Glaciem Ring and then you have the Keeger Belt which is way, sort of",
+   "title": "Star Citizen: Loremaker's Guide to the Galaxy - Nyx System",
+   "date": "2016-09-14",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=7228YpyBKG4",
+   "doc": "7228YpyBKG4",
+   "path": "transcripts/captions/7228YpyBKG4.txt",
+   "at_word": 1036,
+   "topics": [
+    "nyx"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "60f4222876",
+   "fact": "A developer described Nyx as a homeless person sleeping on Stan's couch for a while.",
+   "excerpt": "Universe in the upcoming Alpha 4.0 is the Pyro system but uh this question is about the Nick about NYX which we which we had as a sort of a homeless person sleeping on Stan's couch for for a while",
+   "title": "Star Citizen Live: Narrative Team Q&A",
+   "date": "2022-10-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=LlnDZfMOClU",
+   "doc": "LlnDZfMOClU",
+   "path": "transcripts/captions/LlnDZfMOClU.txt",
+   "at_word": 6943,
+   "topics": [
+    "nyx"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8e6d9e2b75",
+   "fact": "In 2.0, Port Olisar was the space station players started on.",
+   "excerpt": "still change the loadouts on your ships; and from the hangar you can access ArcCorp; you can access Port Olisar, which is the space station which you start on in 2.0; or you can go into the Simpod and access",
+   "title": "10 for the Chairman: Episode 69",
+   "date": "2015-11-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AiTY_K7bDys",
+   "doc": "AiTY_K7bDys",
+   "path": "transcripts/captions/AiTY_K7bDys.txt",
+   "at_word": 3417,
+   "topics": [
+    "olisar"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "ceec32de56",
+   "fact": "The server limit at the time was 24 players, with different servers managing a certain group of players.",
+   "excerpt": "based and then the different servers manage a certain group of players and if someone, say, travels from Port Olisar to Port Kareah and we’ve got more than the limit that one server can happen, say, right now 24 we",
+   "title": "10 for the Chairman: Episode 81",
+   "date": "2016-04-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=n6g-ECx-7xw",
+   "doc": "n6g-ECx-7xw",
+   "path": "transcripts/captions/n6g-ECx-7xw.txt",
+   "at_word": 3303,
+   "topics": [
+    "olisar"
+   ],
+   "topic_kind": "place",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6fde44e8cb",
+   "fact": "Port Olisar has 64 sleeping habitations, arranged between 4 groups of 16.",
+   "excerpt": "than 24 players in any single instance, we will also open up some of the other spokes on Port Olisar, and there are actually 64 sleeping habitations in Port Olisar and basically arranged between 4 groups of 16 and 4",
+   "title": "10 for the Chairman: Episode 81",
+   "date": "2016-04-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=n6g-ECx-7xw",
+   "doc": "n6g-ECx-7xw",
+   "path": "transcripts/captions/n6g-ECx-7xw.txt",
+   "at_word": 3116,
+   "topics": [
+    "olisar"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "671d9f2a11",
+   "fact": "The 2.5 release had two factions, with the outlaw base and Port Olisar as the two main spawning places.",
+   "excerpt": "like we’re going to have two factions in the 2.5 release which is the outlaw base and then Port Olisar will be the two main spawning places. And we’re going to start to build that up and there’s some extra",
+   "title": "Star Citizen: 10 for the Chairman - Episode 85",
+   "date": "2016-06-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9IubH4hHIFw",
+   "doc": "9IubH4hHIFw",
+   "path": "transcripts/captions/9IubH4hHIFw.txt",
+   "at_word": 2838,
+   "topics": [
+    "olisar"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3f53c28379",
+   "fact": "The GrimHEX airlocks were made to sound a little clunkier, because GrimHex is less well looked after than Olisar.",
+   "excerpt": "made them sound a little bit clunkier because GrimHex I suppose is a little less well looked after than Olisar then also every sort of one in three or four times that you go through the airlock, you get this",
+   "title": "Star Citizen: Around the Verse - Episode 100 Celebration, Part II",
+   "date": "2016-07-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=tpalZlE4FC8",
+   "doc": "tpalZlE4FC8",
+   "path": "transcripts/captions/tpalZlE4FC8.txt",
+   "at_word": 3326,
+   "topics": [
+    "olisar",
+    "grimhex"
+   ],
+   "topic_kind": "place",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "addfa91a69",
+   "fact": "The ore would be transported back to Crusader, because the shipyards on Orison would be making ship components with titanium.",
+   "excerpt": "It might be used in all sorts of tools. It will also be transported back to Crusader from Crew L1, because for example, the shipyards on Orison, they'll be making ship components with titanium, or be using it maybe for",
+   "title": "Star Citizen Live: Making Missions II",
+   "date": "2024-06-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=KR8sSsMfsCQ",
+   "doc": "KR8sSsMfsCQ",
+   "path": "transcripts/whisper/KR8sSsMfsCQ.txt",
+   "at_word": 2035,
+   "topics": [
+    "orison",
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6297554a9f",
+   "fact": "The Dying Star map in Arena is based on the center star of Pyro.",
+   "excerpt": "pyro3 and had to cobble together a life for themselves slowly over time exposed to the solar flares of pyro sun you might be familiar with the dying star map from arena command it's based on pyro's center star there",
+   "title": "Star Citizen Live Gamedev: Gangs of Pyro Concepts",
+   "date": "2021-09-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=OFcdYwWy3JI",
+   "doc": "OFcdYwWy3JI",
+   "path": "transcripts/captions/OFcdYwWy3JI.txt",
+   "at_word": 791,
+   "topics": [
+    "pyro"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b6d939c6c7",
+   "fact": "Pyro was really just shown as a snapshot, only Pyro 1, 2 and 3, and not all of the content or features.",
+   "excerpt": "was really just a snapshot of where we're at in the process we didn't want to release all of pyro so it was really just pyro 1 2 and three we didn't have all of the content or features but",
+   "title": "Inside Star Citizen: To Play in Pyro",
+   "date": "2023-12-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=U69FlhL3MDM",
+   "doc": "U69FlhL3MDM",
+   "path": "transcripts/captions/U69FlhL3MDM.txt",
+   "at_word": 223,
+   "topics": [
+    "pyro"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d2857f9282",
+   "fact": "Pyro has 12 space stations, and one of them is the jump point station where ships arrive coming from Stanton.",
+   "excerpt": "to overcome and explore for its rewards. Let's find out more. So let's start with space stations. So in Pyro we have 12 space stations. One of them is the jump point station that you arrive at coming from Stanton.",
+   "title": "Inside Star Citizen: Alpha 4.0 - What We Do In Space",
+   "date": "2024-08-01",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=NKzsE0LYvuM",
+   "doc": "NKzsE0LYvuM",
+   "path": "transcripts/whisper/NKzsE0LYvuM.txt",
+   "at_word": 231,
+   "topics": [
+    "pyro",
+    "stanton"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d4cdb9fd2c",
+   "fact": "Pyro 5 is a gas giant, and the Pyro star system is so much larger than Stanton that getting from Pyro 3 to Pyro 6 needs a midway drop-off.",
+   "excerpt": "5. Pyro 5 is a gas giant and yet you need to have a midway drop-off to get from Pyro 3 over to Pyro 6 on the far side because Pyro's star system is far larger than Stanton. Gordon Riviera",
+   "title": "Inside Star Citizen: Alpha 4.0 - Social Behavior",
+   "date": "2024-08-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Yg1Tvz5gCnM",
+   "doc": "Yg1Tvz5gCnM",
+   "path": "transcripts/whisper/Yg1Tvz5gCnM.txt",
+   "at_word": 1780,
+   "topics": [
+    "pyro",
+    "stanton"
+   ],
+   "topic_kind": "place",
+   "score": 10.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6e7978098c",
+   "fact": "The composer for Pyro 4 played the synth freely, without any tempo, and loved the results.",
+   "excerpt": "And I try to do it just freely without any tempo. Just me playing the synth. I love the results. I want people when they go to Pyro 4 for the first time. I want people to feel that it's",
+   "title": "Inside Star Citizen: Alpha 4.0 - Music of Pyro",
+   "date": "2024-12-05",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=2dOh0uSjpY4",
+   "doc": "2dOh0uSjpY4",
+   "path": "transcripts/whisper/2dOh0uSjpY4.txt",
+   "at_word": 632,
+   "topics": [
+    "pyro"
+   ],
+   "topic_kind": "place",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f0985bb99a",
+   "fact": "Crusader is known as Stanton 2, because the developers like to use that kind of terminology rather than the names.",
+   "excerpt": "and so there's my starting point and now I want to add Crusader in so I know that is Stanton 2 because we like to use the that kind of terminology rather than the names not on a personal basis",
+   "title": "Star Citizen: Happy Hour Gamedev - Creating a Solar System",
+   "date": "2017-07-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AWejQe52WzY",
+   "doc": "AWejQe52WzY",
+   "path": "transcripts/captions/AWejQe52WzY.txt",
+   "at_word": 1520,
+   "topics": [
+    "stanton",
+    "crusader"
+   ],
+   "topic_kind": "place",
+   "score": 9.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "af87913d73",
+   "fact": "The developers wanted a very specific resource as an incentive for a player to visit the Pyro system instead of Stanton.",
+   "excerpt": "so that there's like an incentive for a player to whatever visit the pyro system instead of going to stanton again right because you need like a very specific resource like we're not in the loop i think on the",
+   "title": "Star Citizen Live: Planet Content Team Q&A",
+   "date": "2022-02-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Dp6FG1Eb1Qw",
+   "doc": "Dp6FG1Eb1Qw",
+   "path": "transcripts/captions/Dp6FG1Eb1Qw.txt",
+   "at_word": 6686,
+   "topics": [
+    "stanton",
+    "pyro"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "126ed93765",
+   "fact": "Hurston was the main point of contact for interstellar cargo hauling, with missions going out to the three jump points in the Stanton system.",
+   "excerpt": "Hurston is the main point of contact for sort of interstellar cargo hauling travel, and from there, different missions go to the three jump points in the Stanton system. So when you say different missions, that sounds like a lot",
+   "title": "Star Citizen Live: Making Missions II",
+   "date": "2024-06-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=KR8sSsMfsCQ",
+   "doc": "KR8sSsMfsCQ",
+   "path": "transcripts/whisper/KR8sSsMfsCQ.txt",
+   "at_word": 2284,
+   "topics": [
+    "stanton",
+    "cargo",
+    "hurston"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3bd4a82f0b",
+   "fact": "In 4.0, the first and only jump point was the one linking Stanton to Pyro and Pyro to Stanton.",
+   "excerpt": "or customs or stuff like that. In 4.0, our first and only jump point will be the one linking Stanton to Pyro and Pyro to Stanton. Maybe the best way to share this design is simply to walk you through",
+   "title": "Inside Star Citizen: Intro to Jump Points",
+   "date": "2024-07-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=vw0sHcLGP6k",
+   "doc": "vw0sHcLGP6k",
+   "path": "transcripts/whisper/vw0sHcLGP6k.txt",
+   "at_word": 552,
+   "topics": [
+    "stanton",
+    "pyro"
+   ],
+   "topic_kind": "place",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c80c3a5519",
+   "fact": "Yela, the moon with the asteroid ring about it, was put in with the first iteration, 2.0.",
+   "excerpt": "just makes it so much easier and look so much better. So this here as you probably recognize is Yela, it’s the moon with the asteroid ring about it that we put in our first iteration, 2.0. This here is",
+   "title": "Star Citizen: Around the Verse 3.15 - UK",
+   "date": "2016-12-01",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=bmv6iS5tFeA",
+   "doc": "bmv6iS5tFeA",
+   "path": "transcripts/captions/bmv6iS5tFeA.txt",
+   "at_word": 846,
+   "topics": [
+    "yela"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "92a7e7cd40",
+   "fact": "The atmosphere on Yela is like 1% of the Mars atmosphere, so there is pretty much no air resistance.",
+   "excerpt": "this is an issue and then we went and actually looked at and realized that actually the atmosphere on Yela is like 1% of de Mars atmosphere and as a result that there's pretty much no air resistance there's nothing",
+   "title": "Star Citizen: Around the Verse - The Physics of Atmospheric Flight",
+   "date": "2017-12-14",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=2Piy-ibiq1M",
+   "doc": "2Piy-ibiq1M",
+   "path": "transcripts/captions/2Piy-ibiq1M.txt",
+   "at_word": 5678,
+   "topics": [
+    "yela"
+   ],
+   "topic_kind": "place",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5581fa283d",
+   "fact": "Jumptown 2.0 was inspired by historic, player-driven events on the icy moon of Yela.",
+   "excerpt": "Inspired by historic, player-driven events on the icy moon of Yela, Jumptown 2.0 is about to kick off once again.",
+   "title": "Jumptown 2.0",
+   "date": "2022-07-29",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/transmission/18464-Jumptown-20",
+   "doc": "https://robertsspaceindustries.com/comm-link/transmission/18464-Jumptown-20",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "yela"
+   ],
+   "topic_kind": "place",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5a88161fe3",
+   "fact": "The 135 variant of the Origin 100i has an external cargo bay.",
+   "excerpt": "bet we'll have updates when the time comes in ship updates we've got a new look at the origin 100i which has begun final art stage you can see here the external cargo bay found in the 135 variant the",
+   "title": "Inside Star Citizen: PTU and Me | Summer 2020",
+   "date": "2020-08-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=rDy7tPf6CT8",
+   "doc": "rDy7tPf6CT8",
+   "path": "transcripts/captions/rDy7tPf6CT8.txt",
+   "at_word": 2038,
+   "topics": [
+    "100i",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "2769956f4a",
+   "fact": "A 100 series ship lets a player log out in it, and its missile launchers were added in a way that would not change its look.",
+   "excerpt": "somewhere being lost and having to find somewhere else to log out you can log out in the 100 series one of the evolutions of the 100 series was the missile launches in order to not change the look of",
+   "title": "Inside Star Citizen: A Fresh Start | Summer 2020",
+   "date": "2020-09-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=YY60Ia4BJvQ",
+   "doc": "YY60Ia4BJvQ",
+   "path": "transcripts/captions/YY60Ia4BJvQ.txt",
+   "at_word": 356,
+   "topics": [
+    "100i"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d54c36b899",
+   "fact": "The 100 series from Origin, with the 100i, the 125a and the 135c, all came online at once.",
+   "excerpt": "a strong starter alternative to another series of starters that came online just a few weeks earlier the 100 series from origin with the 100i the 125a and the 135c all coming online in alpha 311 there were now more",
+   "title": "Inside Star Citizen: Year in Review | Fall 2020",
+   "date": "2020-12-17",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=LxEPDWzwjYI",
+   "doc": "LxEPDWzwjYI",
+   "path": "transcripts/captions/LxEPDWzwjYI.txt",
+   "at_word": 2102,
+   "topics": [
+    "100i"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c30071c9eb",
+   "fact": "Aurora package owners got a coupon for a five dollar discount on the 300i, done in universe as a warranty ad.",
+   "excerpt": "just an aurora package are going to get a coupon code for f five five dollar discount on the 300i but we wanted to do it in in universe so it's a it's like a warranty ad from uh from",
+   "title": "Reverse the Verse: February 26th, 2016",
+   "date": "2016-02-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9zZLfUxzGNo",
+   "doc": "9zZLfUxzGNo",
+   "path": "transcripts/captions/9zZLfUxzGNo.txt",
+   "at_word": 2019,
+   "topics": [
+    "300i",
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b6a3dc8139",
+   "fact": "One location had the player discover a 600i totally wrecked into a cave, with its cockpit hanging.",
+   "excerpt": "this location in a different beyond than what we did on the reclaimer the player will discover the six 600i totally wrecked into a cave when you get into that cave and you see how the 600i cockpit is hanging",
+   "title": "Inside Star Citizen: Derelicts of Daymar | Summer 2022",
+   "date": "2022-10-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=GZcSshdtrTM",
+   "doc": "GZcSshdtrTM",
+   "path": "transcripts/captions/GZcSshdtrTM.txt",
+   "at_word": 189,
+   "topics": [
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "7e5f03454b",
+   "fact": "The designers wanted two crash sites, the first with a 600i and the second with the MSR.",
+   "excerpt": "of theme that we have so we wanted to have two two crash sites first one was with the 600i the second one was the msr after a couple of discussions we thought that having two ships crashed at the",
+   "title": "Inside Star Citizen: Derelicts of Daymar | Summer 2022",
+   "date": "2022-10-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=GZcSshdtrTM",
+   "doc": "GZcSshdtrTM",
+   "path": "transcripts/captions/GZcSshdtrTM.txt",
+   "at_word": 97,
+   "topics": [
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "350de89e45",
+   "fact": "The 600i was done relatively early for Origin as a brand, and its big unused areas felt like a wasted opportunity.",
+   "excerpt": "big unused areas of the ship that don't really support functionality it just feels like a wasted opportunity the 600i was done relatively early for origin as a brand we we'd had the 300 and it was the first really",
+   "title": "Inside Star Citizen: A Cut Above | Fall 2022",
+   "date": "2022-12-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=zAS9RLqdweY",
+   "doc": "zAS9RLqdweY",
+   "path": "transcripts/captions/zAS9RLqdweY.txt",
+   "at_word": 2247,
+   "topics": [
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4a762d2ea1",
+   "fact": "The 600i derelict settlement took the developers a couple of months to build, two or three months.",
+   "excerpt": "built and just adding on to it and trying new variations new setups so a good example is the 600i derelict settlement took us about what a couple of months to do two or three months the big one on",
+   "title": "Star Citizen Live: From Montreal With Love",
+   "date": "2023-04-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ZSHzjAqAJq4",
+   "doc": "ZSHzjAqAJq4",
+   "path": "transcripts/captions/ZSHzjAqAJq4.txt",
+   "at_word": 3169,
+   "topics": [
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "70b02cad29",
+   "fact": "The teams took what they learned on the Origin 600i and applied it to building out the 890 Jump.",
+   "excerpt": "those teams will take what they've learned on the origin 600 I and apply it to building out the 890 jump now what's the other team gonna do well they're scheduled to begin work on the band new defender yeah",
+   "title": "Star Citizen: Around the Verse - A New Origin",
+   "date": "2018-04-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=55OAW0ont88",
+   "doc": "55OAW0ont88",
+   "path": "transcripts/captions/55OAW0ont88.txt",
+   "at_word": 4930,
+   "topics": [
+    "890",
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "bf9faea2bb",
+   "fact": "Every 890 Jump comes with an 85 X, and that is what will be in there on day one.",
+   "excerpt": "to hold 285 X's yes but it only comes with one yet a standard so if you own an 890 jump you also own an 85 X that comes with it and that's what will be in there day one",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Shape of Ships",
+   "date": "2018-12-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kF7GF4W12JE",
+   "doc": "kF7GF4W12JE",
+   "path": "transcripts/captions/kF7GF4W12JE.txt",
+   "at_word": 12633,
+   "topics": [
+    "890"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6890d1b4a3",
+   "fact": "A lot of the 890's progress was in its defensive capabilities, so it can tank damage and just avoid combat with smaller ships.",
+   "excerpt": "with smaller ships like the constellation 600 high end Corsair it's something we're keeping an eye on for the 890 a lot of its progress is in its defensive capabilities and be able to tank that and just avoid combat",
+   "title": "Star Citizen Live: All Things Flyable",
+   "date": "2019-09-13",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=qpurmw03-KI",
+   "doc": "qpurmw03-KI",
+   "path": "transcripts/captions/qpurmw03-KI.txt",
+   "at_word": 2306,
+   "topics": [
+    "890"
+   ],
+   "topic_kind": "ship",
+   "score": 10.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f65925c409",
+   "fact": "The 890 has a basketball court, which one developer called just amazing.",
+   "excerpt": "right i think i might be winning this whole thing yo what did you pick would win ah the 890 uh it has a basketball court that's just amazing tyler was the only one to double i just recently i",
+   "title": "Star Citizen: Ship Showdown LIVE 2020",
+   "date": "2020-09-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=3z0dMxKKRb4",
+   "doc": "3z0dMxKKRb4",
+   "path": "transcripts/captions/3z0dMxKKRb4.txt",
+   "at_word": 9675,
+   "topics": [
+    "890"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5cfd2fce9c",
+   "fact": "At one year and $21 million, Arrow Designs wished Chris Roberts and Star Citizen a happy anniversary and happy birthday.",
+   "excerpt": "it all you guys at cig RSI Chris Roberts happy anniversary and happy birthday from the guys at jazz Arrow designs wow one year and $21 million Chris that's a whole lot of trust congratulations happy birthday Star Citizen congratulations",
+   "title": "Wingman's Hangar ep042 . October 18, 2013",
+   "date": "2013-10-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=NHD5f1p6EOM",
+   "doc": "NHD5f1p6EOM",
+   "path": "transcripts/captions/NHD5f1p6EOM.txt",
+   "at_word": 9698,
+   "topics": [
+    "arrow"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4db9b53aa6",
+   "fact": "The Arrow model shown was one of the first meshes ever made for Wing Commander 3.",
+   "excerpt": "uh, and yeah, as I said earlier the reason that we have these first two ships this model of Arrow and drulfi is because they are the first meshes that were made for wing commander 3 Which was in development",
+   "title": "Happy Hour Museum: Armada, Academy and Arena",
+   "date": "2017-04-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=1yTB_AQzPjk",
+   "doc": "1yTB_AQzPjk",
+   "path": "transcripts/whisper/1yTB_AQzPjk.txt",
+   "at_word": 7723,
+   "topics": [
+    "arrow"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "90726a9eeb",
+   "fact": "All the vehicles in the game have components, even smaller ships like the Aurora and the Arrow, and they are all physicalized.",
+   "excerpt": "from the light check how will we access ship components for smaller ships those things like the Aurora the arrow etc yep so all the vehicles and the game have components they're all physicalized we don't sort of cheat anything",
+   "title": "Star Citizen Live: All About Spaceships - Alpha 3.5/3.6",
+   "date": "2019-07-05",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=vGQpP5kdBck",
+   "doc": "vGQpP5kdBck",
+   "path": "transcripts/captions/vGQpP5kdBck.txt",
+   "at_word": 860,
+   "topics": [
+    "arrow",
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a8e1e11904",
+   "fact": "The Aurora brochure specifically calls it the 2943 Aurora model spacecraft, a bit of in-universe history.",
+   "excerpt": "safe exactly from scrambled legs that's a good name the Star Citizen universe is full of history in the Aurora brochure the Aurora is specifically called 2943 Aurora model spacecraft other ships such as a constellation MK3 and ancient RSI",
+   "title": "Wingman's Hangar ep019 . May 3, 2013",
+   "date": "2013-05-03",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=nB0fZLMYqgk",
+   "doc": "nB0fZLMYqgk",
+   "path": "transcripts/captions/nB0fZLMYqgk.txt",
+   "at_word": 3819,
+   "topics": [
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "07d74f8701",
+   "fact": "The Aurora once got recalled and bugged out because of a slight XML typo that slipped in at the last moment.",
+   "excerpt": "then 221 400 221 all right excellent so there is our lovely fix woo so there we go the Aurora got recalled and bugged out because of a slight XML typo that happened to get slipped in at the last",
+   "title": "Around the Verse: Episode 1.29 (2015.01.29)",
+   "date": "2015-01-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=W2tfwSXw9fc",
+   "doc": "W2tfwSXw9fc",
+   "path": "transcripts/captions/W2tfwSXw9fc.txt",
+   "at_word": 2380,
+   "topics": [
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "238c9a631e",
+   "fact": "After building out a kit, a smaller ship like the Aurora or the Buccaneer typically takes about two months, the developers said.",
+   "excerpt": "or days but that was after a long time of building out a kit uh smaller ships like the Aurora or the buccaneer or whatnot uh it typically takes about I would say about two months MH to get to",
+   "title": "Star Citizen: Happy Hour w/ Ben Lesnick & Elwin Bachiller Jr",
+   "date": "2017-02-03",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ctxgVRjXtj8",
+   "doc": "ctxgVRjXtj8",
+   "path": "transcripts/captions/ctxgVRjXtj8.txt",
+   "at_word": 8366,
+   "topics": [
+    "aurora",
+    "buccaneer"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "07f252113a",
+   "fact": "The Aurora Mark two does the same roles in the new RSI style, primarily a big visual upgrade compared to the Mark ones.",
+   "excerpt": "and go That's an Aurora It does the same roles But it's new RSI style So why make an Aurora mark two that's from the chat It Primarily a big visual upgrade Compared to the mark ones, but there are",
+   "title": "Star Citizen Live | Lots of Ship Talk",
+   "date": "2025-11-27",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=wGN_kUF8cAw",
+   "doc": "wGN_kUF8cAw",
+   "path": "transcripts/whisper/wGN_kUF8cAw.txt",
+   "at_word": 4660,
+   "topics": [
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "048fd5e588",
+   "fact": "Instead of variants, the Aurora Mk2 comes with two different modules, so future upgrades can arrive as a module.",
+   "excerpt": "The ship now, instead of being a variant, comes with two different modules. And the advantage of modules is you buy one Aurora Mk2 and forever in the future, when upgrades happen to the ship, you can grab that module",
+   "title": "Star Citizen | Behind the Ships: RSI Aurora Mk II",
+   "date": "2026-03-25",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=vtGNTL1A7Nc",
+   "doc": "vtGNTL1A7Nc",
+   "path": "transcripts/whisper/vtGNTL1A7Nc.txt",
+   "at_word": 557,
+   "topics": [
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "232f963c5c",
+   "fact": "A subscriber asked why the Avenger was so heavy, at 32,000 kg, compared to similarly sized vessels.",
+   "excerpt": "way I'm it's weird having you back command and control from Scout a subscriber he says why is the Avenger so heavy 32,000 kg compared to similar similar similarly sized vessels this English language also I keep hearing the Avengers",
+   "title": "Wingman's Hangar ep043 . October 25, 2013",
+   "date": "2013-10-25",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=z1368FKxEuw",
+   "doc": "z1368FKxEuw",
+   "path": "transcripts/captions/z1368FKxEuw.txt",
+   "at_word": 1896,
+   "topics": [
+    "avenger"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "95e2ea535c",
+   "fact": "The Avenger came in three variants, the Stalker, the Titan and the Warlock, with the Stalker as the bounty hunter variant carrying a prisoner.",
+   "excerpt": "for example they're very similar shapes because it is the same manufacturer there are three different variants for the Avenger you've got the stalker the Titan and the warlock the stalker is the Bounty Hunter variant so this has prisoner",
+   "title": "Star Citizen: Around the Verse - A New Origin",
+   "date": "2018-04-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=55OAW0ont88",
+   "doc": "55OAW0ont88",
+   "path": "transcripts/captions/55OAW0ont88.txt",
+   "at_word": 6050,
+   "topics": [
+    "avenger"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "628b1b6a2d",
+   "fact": "The Avenger rework made it bigger, and the developers said that makes it fractionally less agile in a dogfight.",
+   "excerpt": "plan for that the teams working on the 600 I know and where they're going to go afterwards the Avenger rework since it's getting bigger does that mean it's less agile in a dogfight fractionally less agile is still pretty",
+   "title": "Star Citizen: Reverse the Verse LIVE - Ships of Alpha 3.2",
+   "date": "2018-06-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=-LRmL_EjjZg",
+   "doc": "-LRmL_EjjZg",
+   "path": "transcripts/captions/-LRmL_EjjZg.txt",
+   "at_word": 5341,
+   "topics": [
+    "avenger"
+   ],
+   "topic_kind": "ship",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "71f40cf773",
+   "fact": "The Buccaneer was meant to take the fighter interceptor aspects that were originally intended for another ship and double down on them.",
+   "excerpt": "never have to choose to fly another ship because oh this does it all at once um so the buccaneer is more to take the the fighter Interceptor aspects that were originally intended with the cutless and double down on",
+   "title": "Reverse the Verse: May 27th, 2016",
+   "date": "2016-05-27",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=7XMJnARztR4",
+   "doc": "7XMJnARztR4",
+   "path": "transcripts/captions/7XMJnARztR4.txt",
+   "at_word": 6635,
+   "topics": [
+    "buccaneer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "13a14a8d39",
+   "fact": "The winning gun in the Drake Interplanetary customer survey meant every backer with a Buccaneer received a C78 ballistic cannon.",
+   "excerpt": "about this one the winning gun in the Drake interplanetary customer survey has been selected every backer with a Buccaneer on their account will receive a bearing c78 ballistic Cannon and those who said they'd eat the food shame on",
+   "title": "Around the Verse: Episode 2.35",
+   "date": "2016-06-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=FeXUMd4T5mw",
+   "doc": "FeXUMd4T5mw",
+   "path": "transcripts/captions/FeXUMd4T5mw.txt",
+   "at_word": 972,
+   "topics": [
+    "buccaneer"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "73bb6aad53",
+   "fact": "The same internal concept artist did the Vanguard, the Carrack and the P-72, which was being set up as a racer.",
+   "excerpt": "our internal concept artists and has done some really great stuff. He did the Vanguard for instance and the Carrack. He’s done the P-72 which we’re setting up as a racer. So we may have the ability to upgrade it",
+   "title": "10 for the Chairman: Episode 70",
+   "date": "2015-11-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ezrghcBRcSk",
+   "doc": "ezrghcBRcSk",
+   "path": "transcripts/captions/ezrghcBRcSk.txt",
+   "at_word": 734,
+   "topics": [
+    "carrack",
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3fb0ad39d1",
+   "fact": "The developers expected the Carrack to help develop Anvil's ship library, since it would be the first large, multi-crew Anvil ship.",
+   "excerpt": "able to hit our stride and be able to develop ships faster. What will most likely happen is the Carrack will probably help develop that library for us because it will be the first large, multi-crew Anvil ship that we",
+   "title": "10 for the Developers: Episode 07",
+   "date": "2016-03-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9otSsylG3OI",
+   "doc": "9otSsylG3OI",
+   "path": "transcripts/captions/9otSsylG3OI.txt",
+   "at_word": 2796,
+   "topics": [
+    "carrack"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "26ae8a45c4",
+   "fact": "The Carrack has a multi-level bridge that spans both the second and third floors, with the pilot down below.",
+   "excerpt": "you're really doing with your time. After that, we find ourselves where all the action happens on board the Carrack with our multi-level bridge that spans both the second and third floors. Now, down below, you'll find the pilot and",
+   "title": "Inside Star Citizen: Moons and Carrack Swoons | Winter 2020",
+   "date": "2020-02-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=FQ6zXxdmKDA",
+   "doc": "FQ6zXxdmKDA",
+   "path": "transcripts/captions/FQ6zXxdmKDA.txt",
+   "at_word": 1297,
+   "topics": [
+    "carrack"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3d37135d23",
+   "fact": "A developer said the Caterpillar is like the tail of a lizard, more of a safety feature, and predicted a Reddit post in 5 minutes.",
+   "excerpt": "but it's more of like a safety feature it's going to be a Reddit post in 5 minutes the caterpillar is like the tail of a lizard and Star season is doomed and so on because of it I don't",
+   "title": "Reverse the Verse: September 25th, 2015",
+   "date": "2015-09-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=laFTPWnFCf4",
+   "doc": "laFTPWnFCf4",
+   "path": "transcripts/captions/laFTPWnFCf4.txt",
+   "at_word": 7221,
+   "topics": [
+    "caterpillar"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4b49cbb60e",
+   "fact": "The standard Caterpillar has 4 cargo modules that can be swapped out, each loaded and unloaded individually.",
+   "excerpt": "a little rail… but I fell off anyway. JH: Alright, so for these cargo modules - and the standard Caterpillar has 4 modules that can be swapped out. JH: Right. So, you unload and load from each individual module off",
+   "title": "Around the Verse: Episode 2.32",
+   "date": "2016-05-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=fDzAmjYncQk",
+   "doc": "fDzAmjYncQk",
+   "path": "transcripts/captions/fDzAmjYncQk.txt",
+   "at_word": 3657,
+   "topics": [
+    "caterpillar",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "403a011747",
+   "fact": "A Constellation only has a crew of four, so an attempt to take one over would be a pretty quick battle.",
+   "excerpt": "maybe there'll be a crew of 10 or 20 people you know even you could try and take over constellation which only has a crew of four so that'll be a pretty quick battle um so yeah so there's there's",
+   "title": "Wingman's Hangar ep004 . January 18, 2013",
+   "date": "2013-01-25",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=SCsGPpLEQsA",
+   "doc": "SCsGPpLEQsA",
+   "path": "transcripts/captions/SCsGPpLEQsA.txt",
+   "at_word": 664,
+   "topics": [
+    "constellation"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "7dc13f2c2b",
+   "fact": "The developers said they would be in trouble if the Constellation was not ready for 2.0.",
+   "excerpt": "2.0 unless something has changed that I'm not aware of but that's all no we're in trouble if the constellation isn't ready for 2.0 yeah we're in trouble um we're in trouble yeah so that that's part of it uh",
+   "title": "Reverse the Verse: October Subscriber Edition",
+   "date": "2015-10-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=0TwZIdx4E0U",
+   "doc": "0TwZIdx4E0U",
+   "path": "transcripts/captions/0TwZIdx4E0U.txt",
+   "at_word": 8485,
+   "topics": [
+    "constellation"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b98be70aa2",
+   "fact": "The reworked Constellation had about half a million fewer polys than the original model, yet looked like twice the polys.",
+   "excerpt": "form fit a whole lot better. Overall the shapes are a lot better and believe it or not this Constellation is I think half a million less polys than the original model and it looks like twice the polys. JH:",
+   "title": "Around the Verse: Episode 2.08",
+   "date": "2015-11-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ufY6jwan76I",
+   "doc": "ufY6jwan76I",
+   "path": "transcripts/captions/ufY6jwan76I.txt",
+   "at_word": 6730,
+   "topics": [
+    "constellation"
+   ],
+   "topic_kind": "ship",
+   "score": 8.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9bcb5aa246",
+   "fact": "The Constellation had four slightly gimbled size three weapons forward-facing, versus five turrets on the Retaliator.",
+   "excerpt": "Plus there's that interesting balance between the five 306 degree turrets on the Retaliator versus the two that are on the Constellation with the four slightly gimbled size three weapons forward-facing, size three weapons on the Constellation. The dozens of",
+   "title": "Reverse the Verse: December 4th, 2015",
+   "date": "2015-12-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ykMEqeFBP-8",
+   "doc": "ykMEqeFBP-8",
+   "path": "transcripts/whisper/ykMEqeFBP-8.txt",
+   "at_word": 6438,
+   "topics": [
+    "constellation",
+    "retaliator"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "7d7210a851",
+   "fact": "The balance intent was three Hornets against a Constellation, with the Hornets having taken pretty severe damage.",
+   "excerpt": "I saw someone asking about multi-crew versus dogfighter ships. We do... We are still intending for it to be three Hornets against a Constellation. They'll have taken pretty severe damage. Whereas the balance for the retaliator is three Hornets for",
+   "title": "Reverse the Verse: December 4th, 2015",
+   "date": "2015-12-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ykMEqeFBP-8",
+   "doc": "ykMEqeFBP-8",
+   "path": "transcripts/whisper/ykMEqeFBP-8.txt",
+   "at_word": 6972,
+   "topics": [
+    "constellation"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "24cfcfc9b9",
+   "fact": "The developers said they had remade the Freelancer four times, part of a commitment to keep older ships updated.",
+   "excerpt": "so but uh but yeah as we've seen we've remade the freelancer four times i think you've read the constellation a couple times it's i think our commitment to bringing keeping these things updated and bringing them along with everything",
+   "title": "Star Citizen Live: IAE Free Fly All Ships Q&A",
+   "date": "2020-12-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=gsWDdomcMCM",
+   "doc": "gsWDdomcMCM",
+   "path": "transcripts/captions/gsWDdomcMCM.txt",
+   "at_word": 5196,
+   "topics": [
+    "constellation",
+    "freelancer"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e8948a4335",
+   "fact": "The Travel Safety Advisory System estimates 15,000 people die annually in outlaw raids, and the Cutlass Black accounts for 2/3 of the ships used by known piracy groups.",
+   "excerpt": "down, I guess. The Travel Safety Advisory System estimates that 15,000 people die annually in outlaw raids, and the Cutlass Black accounts for 2/3 of all ships used by known piracy groups. People have often questioned Drake Interplanetary's role in",
+   "title": "Star Citizen: Around the Verse - Trouble at Drake",
+   "date": "2017-04-06",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=RQLRvB9LAlo",
+   "doc": "RQLRvB9LAlo",
+   "path": "transcripts/captions/RQLRvB9LAlo.txt",
+   "at_word": 3179,
+   "topics": [
+    "cutlass"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e6ede7a0bc",
+   "fact": "All things being equal, one SRV can pull about one Cutlass, something bigger than itself but not humongously bigger.",
+   "excerpt": "ten times gravity that's going to affect it but all things being equal one SRV to sort of one Cutlass so it's it can pull something that's bigger than it but not humongously bigger it's it's got a medium power",
+   "title": "Star Citizen: Reverse the Verse LIVE - Argo SRV",
+   "date": "2019-02-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ODDREvwE_g8",
+   "doc": "ODDREvwE_g8",
+   "path": "transcripts/captions/ODDREvwE_g8.txt",
+   "at_word": 1052,
+   "topics": [
+    "cutlass"
+   ],
+   "topic_kind": "ship",
+   "score": 7.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "fa119f35a4",
+   "fact": "Drake ship design comes in two styles, the developers said: the smaller Cutlass style and the asymmetrical Caterpillar style.",
+   "excerpt": "Drake universe you know you kind of have to two styles you can go we've got the smaller like cutlass style and then you've got the caterpillar asymmetrical and he wanted to go more on that asymmetrical style and so",
+   "title": "Star Citizen: Reverse the Verse LIVE - Drake Corsair",
+   "date": "2019-03-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=0k2jhyOqSNM",
+   "doc": "0k2jhyOqSNM",
+   "path": "transcripts/captions/0k2jhyOqSNM.txt",
+   "at_word": 1563,
+   "topics": [
+    "cutlass",
+    "caterpillar"
+   ],
+   "topic_kind": "ship",
+   "score": 7.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5e4d698465",
+   "fact": "The Cyclone was getting ready to join the other 50 flyable ships and vehicles in the verse.",
+   "excerpt": "we are setting up damaged States and generating all LOD versions to allow for the best possible performance the cyclone is getting ready to join the other 50 flyable ships and vehicles in the verse another ship we're making progress",
+   "title": "Star Citizen: Around the Verse - Los Angeles Studio Update",
+   "date": "2018-03-01",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=sk1wtt7qvKA",
+   "doc": "sk1wtt7qvKA",
+   "path": "transcripts/captions/sk1wtt7qvKA.txt",
+   "at_word": 369,
+   "topics": [
+    "cyclone"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c0b3cf4e5d",
+   "fact": "The designer took the Ursa Rover as a template for the Cyclone, then went looking for the number that controls speed.",
+   "excerpt": "Ursa rover and I look I took basically that as a template and then I brought it into the cyclone and I'm like okay where's the number that controls speed because I hadn't actually made one before and I went",
+   "title": "Star Citizen: Around the Verse - Reclamation Now",
+   "date": "2018-03-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=WCnYoFNtqnY",
+   "doc": "WCnYoFNtqnY",
+   "path": "transcripts/captions/WCnYoFNtqnY.txt",
+   "at_word": 5212,
+   "topics": [
+    "cyclone",
+    "ursa"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b223654a7f",
+   "fact": "The Eclipse's design inspiration comes from a flying wing like the stealthy B-2 bomber.",
+   "excerpt": "citizen alpha 3.2 let's check in on the progress of this torpedo delivering Dynamo now the inspiration for the Eclipse has been primarily things like the b-2 stealth bomber it's you know a flying wing it's designed to be this",
+   "title": "Squadron 42: Around the Verse - Scanners Aglow, Torpedoes in Tow",
+   "date": "2018-05-31",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=tPa8KIgSh3Y",
+   "doc": "tPa8KIgSh3Y",
+   "path": "transcripts/captions/tPa8KIgSh3Y.txt",
+   "at_word": 2592,
+   "topics": [
+    "eclipse"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "qwen2.5:3b"
+  },
+  {
+   "id": "58a7bb20ef",
+   "fact": "The Eclipse has quite an avian feel, and it is a wide ship, about as wide as two to three Gladius fighters.",
+   "excerpt": "has quite an avian feel to it so we kind of try to kind of replicate that on the Eclipse to a degree you know it's why there's two to three Gladius is it's it's a wide ship I think",
+   "title": "Squadron 42: Around the Verse - Scanners Aglow, Torpedoes in Tow",
+   "date": "2018-05-31",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=tPa8KIgSh3Y",
+   "doc": "tPa8KIgSh3Y",
+   "path": "transcripts/captions/tPa8KIgSh3Y.txt",
+   "at_word": 2971,
+   "topics": [
+    "eclipse",
+    "gladius"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "bc10089987",
+   "fact": "A community video showed the Aegis Eclipse is great for a lot of things, but maybe not counting to ten.",
+   "excerpt": "cranny of the resplendent origin 600 I and of course the hot cocoa who showed us why the aegis eclipse is great for a lot of things but maybe not counting to ten come on you guys have helped make",
+   "title": "Star Citizen: Reverse the Verse LIVE - Chris Roberts on Development",
+   "date": "2018-06-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AMPTD3Dr4gE",
+   "doc": "AMPTD3Dr4gE",
+   "path": "transcripts/captions/AMPTD3Dr4gE.txt",
+   "at_word": 519,
+   "topics": [
+    "eclipse"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "696eeeedce",
+   "fact": "The developers performed a Christmas song, with four Caterpillars, three Constellations, two Super Hornets and a Freelancer.",
+   "excerpt": "TV on the third day of Christmas Ryan Church gave to me three constellations to Super hornets and a freelancer on my on the fourth day of Christmas Aon robs gave to me four caterpillars three constellations two super hornets",
+   "title": "Wingman's Hangar ep050 . December 20, 2013",
+   "date": "2013-12-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=0zQwHfszgLc",
+   "doc": "0zQwHfszgLc",
+   "path": "transcripts/captions/0zQwHfszgLc.txt",
+   "at_word": 5869,
+   "topics": [
+    "freelancer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "074f0c59b9",
+   "fact": "The Freelancer once had a tenth of its mass, which is why it was so insanely fast in races, and it was not an issue of a misplaced zero.",
+   "excerpt": "be a tenth of its mass and that's why it was uh since so insanely fast that was the freelancer racing was so funny to watch on YouTube it wasn't an issue of a of a misplaced zero uh it",
+   "title": "Reverse the Verse: January 8th, 2016",
+   "date": "2016-01-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=X718mEnBHKE",
+   "doc": "X718mEnBHKE",
+   "path": "transcripts/captions/X718mEnBHKE.txt",
+   "at_word": 8780,
+   "topics": [
+    "freelancer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f030c71f44",
+   "fact": "The five original ships were the Aurora, the Constellation, the Hornet, a 300 and the Freelancer.",
+   "excerpt": "we started with with five original ships we had an Aurora Aurora constellation the Hornet a 300 and a freelancer those were the five and of those five you were tasked with creating the freelancer that's right let's see what",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Jim Martin Experience",
+   "date": "2018-03-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=5_J8MBQD43o",
+   "doc": "5_J8MBQD43o",
+   "path": "transcripts/captions/5_J8MBQD43o.txt",
+   "at_word": 3565,
+   "topics": [
+    "freelancer",
+    "constellation",
+    "aurora",
+    "hornet"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "67a164a02e",
+   "fact": "When the Freelancer MAX was originally sold, it had four engines.",
+   "excerpt": "redid their the ship matrix and we updated all our ships a lot of people went asking about the freelancer max and now the freelancer max when it was originally sold had four engines but on the matrix currently it",
+   "title": "Star Citizen: Calling All Devs - Apartments, Decompression and Ship Reworks",
+   "date": "2018-04-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Ru4S5CTM_6o",
+   "doc": "Ru4S5CTM_6o",
+   "path": "transcripts/captions/Ru4S5CTM_6o.txt",
+   "at_word": 192,
+   "topics": [
+    "freelancer"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "95b5ec9db4",
+   "fact": "The developers picked the Gladius as the test case for 2-3 weeks of alterations because it is used by far the most in squadrons.",
+   "excerpt": "we did about 2-3 weeks with myself J and VFX guys just going over various alterations so we picked Gladius as the test case because it's used by far the most in squadrons so you're going to be sat in",
+   "title": "Star Citizen: Around the Verse - Cockpits: Enhancing the Experience",
+   "date": "2017-10-13",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=hGNoDLNkILM",
+   "doc": "hGNoDLNkILM",
+   "path": "transcripts/captions/hGNoDLNkILM.txt",
+   "at_word": 6066,
+   "topics": [
+    "gladius"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "54e0726c23",
+   "fact": "A Gladius versus an F8 showed about five times the health, so the developers were evaluating making ships more vulnerable.",
+   "excerpt": "So we're currently evaluating whether or not we should make them more more vulnerable because if you compare some numbers from for example like gladius versus a F8 we're looking at like a five times health that is like quite",
+   "title": "Star Citizen Live: Q&A - Vehicle Flight and Balance",
+   "date": "2025-06-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=QLvVp-dEfKo",
+   "doc": "QLvVp-dEfKo",
+   "path": "transcripts/whisper/QLvVp-dEfKo.txt",
+   "at_word": 1171,
+   "topics": [
+    "gladius"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "87286bf878",
+   "fact": "The Gladius weighed 55 tons, while the Squadron version of the Gladius was up at 180 tons.",
+   "excerpt": "when we have measurements on we're also going to have like more realistic ship masses at the moment the gladius weights 55 55 tons our squadron weight a little bit heavy our squadron Gladius was up at 180 tons which",
+   "title": "Star Citizen Live: Q&A - Vehicle Flight and Balance",
+   "date": "2025-06-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=QLvVp-dEfKo",
+   "doc": "QLvVp-dEfKo",
+   "path": "transcripts/whisper/QLvVp-dEfKo.txt",
+   "at_word": 6910,
+   "topics": [
+    "gladius"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3cff950a0c",
+   "fact": "Between 4.2 and 4.3, the Gladius to play with is not the same Gladius; its shape and its entity hierarchy can completely change.",
+   "excerpt": "We cannot do that for reasons related to the data format. So let's say between 4.2 and 4.3, the Gladius to play with is not the same Gladius between patches. It's completely changed. It's shape has changed. It's entity hierarchy",
+   "title": "Star Citizen Live | Tech Talk w/ Benoit Beausejour",
+   "date": "2025-09-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=lPaDb5rh0tE",
+   "doc": "lPaDb5rh0tE",
+   "path": "transcripts/whisper/lPaDb5rh0tE.txt",
+   "at_word": 29669,
+   "topics": [
+    "gladius"
+   ],
+   "topic_kind": "ship",
+   "score": 8.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c92a301afc",
+   "fact": "The developers ruled out scaling mission difficulty by spawning bigger enemies just because a player turned up in a Hammerhead.",
+   "excerpt": "scaling difficulty scale in like in invert like yeah I accept this mission and I turned up in a hammerhead and suddenly we've decided to spawn you bigger enemies what you no more enemies whatever that's not something we will",
+   "title": "Star Citizen: Calling All Devs - Hammerhead Missions & AC Game Modes",
+   "date": "2018-07-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=YxWpOQ5BNlU",
+   "doc": "YxWpOQ5BNlU",
+   "path": "transcripts/captions/YxWpOQ5BNlU.txt",
+   "at_word": 2788,
+   "topics": [
+    "hammerhead"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "84cd53c752",
+   "fact": "With unlimited ballistic ammo ranges, a player could sit 20 kilometers away from a Hammerhead and kill it, which is not fun.",
+   "excerpt": "we had un like unlimited ballistic ammo ranges you could sit at 20 kilometers away from my from a hammerhead and just kill it right right there like with enough given enough time um that's not fun and there's not",
+   "title": "Star Citizen Live: That Vehicle Life 3.14",
+   "date": "2021-08-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=KmCjvpU8xOE",
+   "doc": "KmCjvpU8xOE",
+   "path": "transcripts/captions/KmCjvpU8xOE.txt",
+   "at_word": 4926,
+   "topics": [
+    "hammerhead"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f0798a3709",
+   "fact": "With 2.6 came the Drake Herald, the first info runner ship.",
+   "excerpt": "sat down with Josh and the rest of the team to see what makes this courier run. Ship Shape: Herald Matthew Sherman (MS): With 2.6 we’re excited to release the Drake Herald and it’s our first “info runner” ship. What",
+   "title": "Star Citizen: Around The Verse 3.7 – Austin",
+   "date": "2016-09-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=soR5XR5Sybc",
+   "doc": "soR5XR5Sybc",
+   "path": "transcripts/captions/soR5XR5Sybc.txt",
+   "at_word": 2137,
+   "topics": [
+    "herald"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b030fdc299",
+   "fact": "The M2 Hercules was pitched as a military-grade transport for ground vehicles like the Cyclone or the Nova tank.",
+   "excerpt": "it's time to reintroduce the world to Crusader industries and their brand new line of military-grade transport ships the Hercules starlet now whether it's the m2 milspec ready to transport ground vehicles like the cyclone or Nova tank into the",
+   "title": "Star Citizen: Around the Verse - The Labours of Hercules",
+   "date": "2018-05-03",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=iqVnBrYu2Ns",
+   "doc": "iqVnBrYu2Ns",
+   "path": "transcripts/captions/iqVnBrYu2Ns.txt",
+   "at_word": 1324,
+   "topics": [
+    "hercules",
+    "cyclone"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "048aa9a620",
+   "fact": "The designer who named the Hercules, after the real-world transport it was based on, also named the Vanguard Harbinger.",
+   "excerpt": "it and I said well it's kind of based on the you know the c10 well you know the Hercules and stuff so they just called Hercules that's what it does hmm I named the the Vanguard Harbinger I named",
+   "title": "Star Citizen Live: Gamedev - Making Ship Up II",
+   "date": "2019-11-01",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=mKBIYEO5Ht4",
+   "doc": "mKBIYEO5Ht4",
+   "path": "transcripts/captions/mKBIYEO5Ht4.txt",
+   "at_word": 5962,
+   "topics": [
+    "hercules",
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c375eeb77a",
+   "fact": "The M2 Hercules Starlifter was built for transport both big and small, including 12 reinforced safety restraint seats.",
+   "excerpt": "unit because you share a lot but no one should have to wait to use the bathroom the m2 hercules starlifter is built for transport both big and small that includes 12 reinforced safety restraint seats but at the end",
+   "title": "Inside Star Citizen: Labors of Hercules | Spring 2021",
+   "date": "2021-06-02",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9pzSi7Nwu78",
+   "doc": "9pzSi7Nwu78",
+   "path": "transcripts/captions/9pzSi7Nwu78.txt",
+   "at_word": 353,
+   "topics": [
+    "hercules"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "0447c8b92e",
+   "fact": "The bomb needs something like 50 meters to arm, so a Hercules 49 meters off the ground can drop it and it hits the ground and does not go off.",
+   "excerpt": "for the bomb uh to arm which is something like 50 meters and that means if you've got a Hercules that's 49 meters off the ground you drop it hits the ground doesn't go off great the Hercules then flies",
+   "title": "Star Citizen Live: Taking Flight",
+   "date": "2022-11-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=7oAePxoHGk4",
+   "doc": "7oAePxoHGk4",
+   "path": "transcripts/captions/7oAePxoHGk4.txt",
+   "at_word": 1240,
+   "topics": [
+    "hercules"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "4e14e5f9cd",
+   "fact": "A Hornet counts as one vehicle with about 60 items attached to it, the developers explained.",
+   "excerpt": "ship so imagine a constellation or you know something bigger like a staer or Idis um but say a hornet is a you know a vehicle and then it's got about 60 items attached to it so what happens right",
+   "title": "Star Citizen: March Subscriber's Town Hall feat. Chris Roberts",
+   "date": "2016-03-30",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=5hfQYKW7E-w",
+   "doc": "5hfQYKW7E-w",
+   "path": "transcripts/captions/5hfQYKW7E-w.txt",
+   "at_word": 7342,
+   "topics": [
+    "hornet"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e7704162da",
+   "fact": "The designer wanted the Hornet F7 recognisable from a distance, so the lines of the MK1 Hornet were updated.",
+   "excerpt": "Also I had the thought that from a distance one should be able to tell that the ship is Hornet F7. Essentially I wanted to update the lines of the MK1 Hornet and also bring the mesh up to a",
+   "title": "Star Citizen: Around the Verse 3.3 - AUSTIN",
+   "date": "2016-08-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Rk7ZwswT2tA",
+   "doc": "Rk7ZwswT2tA",
+   "path": "transcripts/captions/Rk7ZwswT2tA.txt",
+   "at_word": 3688,
+   "topics": [
+    "hornet"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "fb499567a5",
+   "fact": "The Hornet F7A Mark 2 in Squadron 42 got a green version based on the original colour scheme of the pitch video.",
+   "excerpt": "the green version based on the original colour scheme of the pitch video. That’s where we are with the Hornet F7A Mark 2. We hope you enjoy flying it in Squadron 42. Outro SG: I think a lot of people",
+   "title": "Star Citizen: Around the Verse 3.3 - AUSTIN",
+   "date": "2016-08-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Rk7ZwswT2tA",
+   "doc": "Rk7ZwswT2tA",
+   "path": "transcripts/captions/Rk7ZwswT2tA.txt",
+   "at_word": 4299,
+   "topics": [
+    "hornet"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1e97d783ce",
+   "fact": "The Hornet was a nod to Wing Commander and to historical ships, from the F-18 Hornet today back to World War 2 days.",
+   "excerpt": "a nod to what I did in Wing Commander and a nod to historical ships whether it’s the F-18 Hornet today or back in World War 2 Days. So that was essentially the inspiration. Originally I had given a brief",
+   "title": "Star Citizen: Around the Verse - Super Hornet & Multi-Region Servers",
+   "date": "2017-02-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=HPUBMu1fav4",
+   "doc": "HPUBMu1fav4",
+   "path": "transcripts/captions/HPUBMu1fav4.txt",
+   "at_word": 1245,
+   "topics": [
+    "hornet"
+   ],
+   "topic_kind": "ship",
+   "score": 8.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "377f019459",
+   "fact": "The Avenger used to be the premiere dogfighter until the Hornet came out, blew them out of the water, and became the ubiquitous ship of the UEE navy.",
+   "excerpt": "frontline kind of carrier dogfighter. The idea was the Avenger used to be their premiere dogfighter and then the Hornet came out and blew them out of the water and became the ubiquitous of the UEE navy. CR: Once I",
+   "title": "Star Citizen: Around the Verse - Super Hornet & Multi-Region Servers",
+   "date": "2017-02-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=HPUBMu1fav4",
+   "doc": "HPUBMu1fav4",
+   "path": "transcripts/captions/HPUBMu1fav4.txt",
+   "at_word": 1471,
+   "topics": [
+    "hornet",
+    "avenger"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f6eb34080a",
+   "fact": "The Hull B has a very similar cargo capacity to the Caterpillar, but as a medium ship rather than a large one it has more accessible locations.",
+   "excerpt": "Another advantage of the hull B compared to say the Caterpillar, which has a very similar amount of cargo capacity, is the Caterpillar is a large hangar and the hull B is a medium, so you have more accessible locations",
+   "title": "Star Citizen | Behind the Ships: MISC Hull B",
+   "date": "2026-04-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=JWEbWUewco0",
+   "doc": "JWEbWUewco0",
+   "path": "transcripts/whisper/JWEbWUewco0.txt",
+   "at_word": 678,
+   "topics": [
+    "hull",
+    "caterpillar",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "87afe397e4",
+   "fact": "The developers showed the Idris on a really, really bad day, with the sound of its most extreme damage states.",
+   "excerpt": "to 100% and today I’m going to show you the more extreme of those damage states and that the Idris on a really, really bad day. So, here we are on the Idris and obviously looking around something pretty catastrophic",
+   "title": "Star Citizen: Around the Verse 3.2 - UK",
+   "date": "2016-08-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ZNV-Y5hauZ0",
+   "doc": "ZNV-Y5hauZ0",
+   "path": "transcripts/captions/ZNV-Y5hauZ0.txt",
+   "at_word": 4502,
+   "topics": [
+    "idris"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a4be684475",
+   "fact": "The Stanton is a military variant of the Idris, with a complement of two Gladiuses and an 80-person crew, far more than a standard Idris.",
+   "excerpt": "I'll give you a bit of background on the actual Stanton. It's um it's a military variant of the Idris. Uh it's got two ship complement of two Gladiuses, um 80-person crew, which is a lot more than the standard",
+   "title": "Squadron 42: The Briefing Room - Episode 1",
+   "date": "2020-10-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=y-uR8lJFbMY",
+   "doc": "y-uR8lJFbMY",
+   "path": "transcripts/captions/y-uR8lJFbMY.txt",
+   "at_word": 9891,
+   "topics": [
+    "idris",
+    "stanton"
+   ],
+   "topic_kind": "ship",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1847fec4b4",
+   "fact": "Players could not board and take over the Idris in 3.12, because it did not have the interior yet.",
+   "excerpt": "full of gold uh todd time to break some hearts here uh will players be able to board the idris and take it over in 3.12 no it doesn't have the interior so uh right now no okay so uh",
+   "title": "Star Citizen Live: All About Alpha 3.12",
+   "date": "2020-12-11",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=6RylJpU_qJ4",
+   "doc": "6RylJpU_qJ4",
+   "path": "transcripts/captions/6RylJpU_qJ4.txt",
+   "at_word": 8180,
+   "topics": [
+    "idris"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9e03667946",
+   "fact": "In combat, an Idris tries to get its nose onto the target, while a Javelin is always trying to keep its side against it.",
+   "excerpt": "larger ships the javelin is different it wants to get within the turret range of its target whilst the idris is trying to get its nose onto the target the javelin is always trying to keep its side against the",
+   "title": "Inside Star Citizen: Let Them Fight | Winter 2021",
+   "date": "2021-02-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=i_gD1QOFiPo",
+   "doc": "i_gD1QOFiPo",
+   "path": "transcripts/captions/i_gD1QOFiPo.txt",
+   "at_word": 440,
+   "topics": [
+    "idris",
+    "javelin"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a457e2a68f",
+   "fact": "The developers focused on the Javelin, the Idris and the Bengal, all big capital ships going into Squadron 42 and eventually the PU.",
+   "excerpt": "of the ships that are going into Squadron 42 and the PU eventually. So we’ve been focusing on the Javelin, the Idris and the Bengal which are all big capital ships. So that’s pretty exciting. We’ve also been looking at",
+   "title": "Around the Verse: Episode 2.30",
+   "date": "2016-05-05",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=E3T1BwUWruQ",
+   "doc": "E3T1BwUWruQ",
+   "path": "transcripts/captions/E3T1BwUWruQ.txt",
+   "at_word": 1750,
+   "topics": [
+    "javelin",
+    "idris"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c91a66482b",
+   "fact": "The Idris was originally pretty suicidal, happily engaging the Javelin and getting destroyed as long as it managed to get off its railgun.",
+   "excerpt": "good example was the the idris the interest was originally pretty suicidal in that it would happily engage the javelin and get destroyed as long as it managed to get off its railgun and so its logic wound up evolving",
+   "title": "Star Citizen Live: Dynamic Events",
+   "date": "2021-01-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=HJJLpY4661w",
+   "doc": "HJJLpY4661w",
+   "path": "transcripts/captions/HJJLpY4661w.txt",
+   "at_word": 3480,
+   "topics": [
+    "javelin",
+    "idris"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e5447f0417",
+   "fact": "A railgun would only be picked for the larger ships, and a Javelin wants to get within the turret range of its target.",
+   "excerpt": "to try and use this railgun on a mustang it would only pick it for the larger ships the javelin is different it wants to get within the turret range of its target whilst the idris is trying to get",
+   "title": "Inside Star Citizen: Let Them Fight | Winter 2021",
+   "date": "2021-02-04",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=i_gD1QOFiPo",
+   "doc": "i_gD1QOFiPo",
+   "path": "transcripts/captions/i_gD1QOFiPo.txt",
+   "at_word": 424,
+   "topics": [
+    "javelin"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a91d0d203c",
+   "fact": "One smuggling idea was a small group of three Star Runners, where one has the smuggled gear and the other two are decoys.",
+   "excerpt": "to be a risk you mentioned the decoys and I was initially thinking you know instead of one star runner a small group of three star runners one's actually got the smuggled gear and the other two have the decoy",
+   "title": "Star Citizen: Reverse the Verse - Mercury Star Runner Town Hall",
+   "date": "2018-08-25",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=GLUWkAMlspU",
+   "doc": "GLUWkAMlspU",
+   "path": "transcripts/captions/GLUWkAMlspU.txt",
+   "at_word": 7173,
+   "topics": [
+    "mercury"
+   ],
+   "topic_kind": "ship",
+   "score": 7.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1f827879ac",
+   "fact": "In the live chat, the developers were asked whether the Mercury Star Runner could carry a rover or any vehicle other than the bikes, and said yes.",
+   "excerpt": "heavy plated but it's definitely going to be a thing okay let's see from the live chat will the mercury star runner be able to carry a rover or any vehicle other than the bikes yes so this is something",
+   "title": "Star Citizen Live: Invictus Launch Week Vehicle Q&A",
+   "date": "2020-05-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=JgxGRTEqQR0",
+   "doc": "JgxGRTEqQR0",
+   "path": "transcripts/captions/JgxGRTEqQR0.txt",
+   "at_word": 3838,
+   "topics": [
+    "mercury"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "221b48ef06",
+   "fact": "Ship naming arrived in waves, and owners of the Hammerhead, Reclaimer, Mercury Star Runner and 600i could reserve their names.",
+   "excerpt": "wave of our long-awaited ship naming coming to the persistent universe where proud owners of the hammerhead reclaimer carrick mercury star runner 600i and 890 jumps could reserve their very very very small names they got better they're getting better",
+   "title": "Inside Star Citizen: Year In Review | Fall 2021",
+   "date": "2022-01-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ZnwVOvyVQH8",
+   "doc": "ZnwVOvyVQH8",
+   "path": "transcripts/captions/ZnwVOvyVQH8.txt",
+   "at_word": 509,
+   "topics": [
+    "mercury",
+    "reclaimer",
+    "hammerhead",
+    "600i"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6a26748fbe",
+   "fact": "Initial empty item ports had no connection to power, heat or even fuel, the developers explained, using the Mustang's two wing ports as the example.",
+   "excerpt": "initial empty item ports did not have a connection to power or heat or even fuel so on the Mustang for example the two ports on the left and right wing you could attach weapons to them but because the",
+   "title": "Around the Verse: Episode 1.27 (2015.01.15)",
+   "date": "2015-01-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=H5iuq45bO0o",
+   "doc": "H5iuq45bO0o",
+   "path": "transcripts/captions/H5iuq45bO0o.txt",
+   "at_word": 2938,
+   "topics": [
+    "mustang"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8241146c1e",
+   "fact": "The designers wanted walls that are not 90-degree angles, but the Mustang is such a tiny space they could not quite accomplish it.",
+   "excerpt": "their walls tend to not be 90-degree angles we couldn't quite accomplish that a hundred percent here on the Mustang because as you can see it's a tiny space right so we had to work with what we had and",
+   "title": "Star Citizen: Reverse the Verse LIVE - Mustang Series Rework",
+   "date": "2018-08-17",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Ar9pL0SXQtg",
+   "doc": "Ar9pL0SXQtg",
+   "path": "transcripts/captions/Ar9pL0SXQtg.txt",
+   "at_word": 6545,
+   "topics": [
+    "mustang"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "d5175add03",
+   "fact": "The Nomad has 12 maneuvering thrusters and was to come with one standard tractor beam to pull cargo into its hold.",
+   "excerpt": "main thrusters two retro thrusters and 12 maneuvering thrusters in the future when tractor beam technology comes online the nomad will come with one standard and it will be able to use that to pull cargo into its hold once",
+   "title": "Inside Star Citizen: New Conventions | Fall 2020",
+   "date": "2020-11-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=1TQL4xyLFow",
+   "doc": "1TQL4xyLFow",
+   "path": "transcripts/captions/1TQL4xyLFow.txt",
+   "at_word": 402,
+   "topics": [
+    "nomad",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "91c7918048",
+   "fact": "The Nomad was a departure for its manufacturer, aesthetically and functionally, and a solid cargo runner at 24 SCU.",
+   "excerpt": "right so it's a departure within that manufacturer to just try something very different both aesthetically and functionally the nomad is a solid cargo runner at 24 scu you can make pretty decent chunk of change doing cargo runs and",
+   "title": "Inside Star Citizen: New Conventions | Fall 2020",
+   "date": "2020-11-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=1TQL4xyLFow",
+   "doc": "1TQL4xyLFow",
+   "path": "transcripts/captions/1TQL4xyLFow.txt",
+   "at_word": 167,
+   "topics": [
+    "nomad",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5184570c64",
+   "fact": "The Perseus is really a military ship, and it is about destroying other big ships.",
+   "excerpt": "CHRONO #1034 EPISODE: None TITLE: Inside Star Citizen: Enter Perseus | Fall 2020 DATE: 20201203 VIDEO_ID: PF8V2NH3g1Y === TRANSCRIPT === [Applause] so this ship is really a military ship it's about destroying other big ships because it's so formidable that",
+   "title": "Inside Star Citizen: Enter Perseus | Fall 2020",
+   "date": "2020-12-03",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=PF8V2NH3g1Y",
+   "doc": "PF8V2NH3g1Y",
+   "path": "transcripts/captions/PF8V2NH3g1Y.txt",
+   "at_word": 0,
+   "topics": [
+    "perseus"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "39a28e38fc",
+   "fact": "For enforced balance, Perseus torpedoes are way smaller and do way less damage compared to the Polaris ones.",
+   "excerpt": "why not the pilot? Yeah, why not? Because we sort of want to have some enforced balance there that Perseus torpedoes are way smaller way less damage Compared to the Polaris ones. I think it's there's this thing it's like",
+   "title": "Star Citizen Live | Lots of Ship Talk",
+   "date": "2025-11-27",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=wGN_kUF8cAw",
+   "doc": "wGN_kUF8cAw",
+   "path": "transcripts/whisper/wGN_kUF8cAw.txt",
+   "at_word": 8351,
+   "topics": [
+    "perseus",
+    "polaris"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "dcadd9539c",
+   "fact": "The Pisces was to be an exploration theme snub, landing on planets the 890 Jump may not be able to land on.",
+   "excerpt": "off and Landing from planets that the 890 jump may not be able to land to uh the the Pisces will absolutely be an exploration theme snub uh with you know suitable capabilities for that so it's just having the",
+   "title": "Reverse the Verse: December Subscriber Edition",
+   "date": "2015-12-10",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ZuykCdicMmI",
+   "doc": "ZuykCdicMmI",
+   "path": "transcripts/captions/ZuykCdicMmI.txt",
+   "at_word": 11138,
+   "topics": [
+    "pisces",
+    "890"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "ca8542082f",
+   "fact": "Quantum range was to be normalized by tank size, and the Pisces got more range than the Terrapin with the same size quantum fuel tank and drive.",
+   "excerpt": "will be normalized by tank size rather than a seemingly random number per vehicle the example they give the Pisces gets more range than the Terrapin with the same size s quantum fuel tank using the same quantum drive it's",
+   "title": "Star Citizen Live: Invictus Launch Week Vehicle Q&A",
+   "date": "2020-05-22",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=JgxGRTEqQR0",
+   "doc": "JgxGRTEqQR0",
+   "path": "transcripts/captions/JgxGRTEqQR0.txt",
+   "at_word": 8127,
+   "topics": [
+    "pisces",
+    "terrapin"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "a444fcdb9a",
+   "fact": "The medical variant of the Pisces was made a little bit faster than the regular one, just so it can get to emergencies.",
+   "excerpt": "iae ISC continues the CR is a new entry medical level uh vehicle it's a variant of the well-loved Pisces we decided to make it a little bit faster than the regular passes just so you can get to emergencies",
+   "title": "Inside Star Citizen: Galaxy Class | Fall 2022",
+   "date": "2023-01-05",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=bpFmuF6jHEQ",
+   "doc": "bpFmuF6jHEQ",
+   "path": "transcripts/captions/bpFmuF6jHEQ.txt",
+   "at_word": 1109,
+   "topics": [
+    "pisces"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f6417e1e9e",
+   "fact": "A Pisces may take quite a bit longer, with the back door left open and a 32 SCU box stuck out of it.",
+   "excerpt": "It's just going to take quite a bit longer and you might have to leave the back door of your Pisces open with a 32 SCU stuck out of it. But that's how you want to play the game. And",
+   "title": "Star Citizen Live Q&A: Making Missions II-2",
+   "date": "2024-07-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=82EN1QQtDTQ",
+   "doc": "82EN1QQtDTQ",
+   "path": "transcripts/whisper/82EN1QQtDTQ.txt",
+   "at_word": 571,
+   "topics": [
+    "pisces"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "9543c4cbe6",
+   "fact": "Of the four earlier RSI ships, the Aurora and the Constellation utilized VTOL fans while the Polaris and the Orion did not.",
+   "excerpt": "there have been four RSI ships before this. The the Aurora and the Constellation utilized VTOL fans and the Polaris and the Orion did not. The Apollo does not look like it has any VTOL fans. Are you Can we",
+   "title": "Star Citizen: Reverse the Verse LIVE - RSI Apollo and Medical Gameplay",
+   "date": "2018-07-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=2QX63JLLiQk",
+   "doc": "2QX63JLLiQk",
+   "path": "transcripts/captions/2QX63JLLiQk.txt",
+   "at_word": 9825,
+   "topics": [
+    "polaris",
+    "constellation",
+    "aurora"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "895d5f25ed",
+   "fact": "The Polaris concept used a lot of the Bengal design, which the developers were fleshing out for squadron.",
+   "excerpt": "then we have the Bengal which we're fleshing out pretty well for squadron on the other end and the Polaris sort of fits in between the two the actual concept used a lot of the bengal design and it used",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Shape of Ships",
+   "date": "2018-12-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kF7GF4W12JE",
+   "doc": "kF7GF4W12JE",
+   "path": "transcripts/captions/kF7GF4W12JE.txt",
+   "at_word": 7655,
+   "topics": [
+    "polaris"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c0df1437c6",
+   "fact": "The big change on the Polaris is that it did get a bit bigger, as all things do.",
+   "excerpt": "and between those two that is the madison constellation and the other thing that's the big change on the polaris is it did get a bit bigger as as all things do but the trade-off for that is now the",
+   "title": "Star Citizen Live: All About Spaceships",
+   "date": "2021-05-28",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=NTLpV4rAPLA",
+   "doc": "NTLpV4rAPLA",
+   "path": "transcripts/captions/NTLpV4rAPLA.txt",
+   "at_word": 3853,
+   "topics": [
+    "polaris"
+   ],
+   "topic_kind": "ship",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "5354fc1026",
+   "fact": "Doing the Polaris first helps reduce the amount of work needed for the Perseus and the Galaxy, the developers explained.",
+   "excerpt": "the backlog of capital ships uh so we want to want to start with RSI uh because doing the Polaris first helps reduce the amount of work needed for the Perseus and the Galaxy so uh those three will likely",
+   "title": "Star Citizen Live: Invictus All-Vehicles Roundtable",
+   "date": "2023-06-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=LSM8kao5Q6k",
+   "doc": "LSM8kao5Q6k",
+   "path": "transcripts/captions/LSM8kao5Q6k.txt",
+   "at_word": 12150,
+   "topics": [
+    "polaris",
+    "perseus"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "df9f1627a1",
+   "fact": "The Polaris chin turret was given bespoke size six guns, where previously they were size five.",
+   "excerpt": "The Chin Turret on the front, they now have bespoke guns on. They're now, I think, size six when they were previously size five. But they're completely bespoke to the Polaris. We basically made it as big as we could",
+   "title": "Star Citizen: The IAE Show Episode 2",
+   "date": "2024-11-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Vvimc3d3d_I",
+   "doc": "Vvimc3d3d_I",
+   "path": "transcripts/whisper/Vvimc3d3d_I.txt",
+   "at_word": 2699,
+   "topics": [
+    "polaris"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "447c107030",
+   "fact": "The developers said more RSI ships, including the Galaxy, would get the Zeus styling rather than the Polaris and Perseus look.",
+   "excerpt": "And you will see more of the Zeus styling in the galaxy and other RSI ships this year. We'll have that Zeus aesthetic rather than the Polaris and Perseus one. I love that RSI interior. The Zeus interior. Personally, I'm",
+   "title": "Star Citizen Live: Invictus Ship Talk Q&A",
+   "date": "2025-05-16",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=fOkYR-y2Sx4",
+   "doc": "fOkYR-y2Sx4",
+   "path": "transcripts/whisper/fOkYR-y2Sx4.txt",
+   "at_word": 2892,
+   "topics": [
+    "polaris",
+    "zeus",
+    "perseus"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "665db680e0",
+   "fact": "A developer joked that the way to bankrupt yourself is to go down to the basement of the Polaris and queue up eight torpedoes.",
+   "excerpt": "It's so good. I'd queue up here. If you want to bankrupt yourself Go down to the basement of the Polaris and queue up eight torpedoes Something you don't want to exist. Okay So yes, we do want to um",
+   "title": "Star Citizen Live | Lots of Ship Talk",
+   "date": "2025-11-27",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=wGN_kUF8cAw",
+   "doc": "wGN_kUF8cAw",
+   "path": "transcripts/whisper/wGN_kUF8cAw.txt",
+   "at_word": 8291,
+   "topics": [
+    "polaris"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "308ccd937d",
+   "fact": "If a rock's resistance goes over 90%, the current Prospector cannot pump enough power into it to break it, the developers said.",
+   "excerpt": "has has a resistance, I don't know, let's say it goes over 90%. The current date the current uh prospector will not be able to scratch it. It cannot pump enough power into it in order to break that rock.",
+   "title": "Star Citizen Live: Alpha 3.7 Roundup",
+   "date": "2019-10-18",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=CR4Za6dT8Ng",
+   "doc": "CR4Za6dT8Ng",
+   "path": "transcripts/captions/CR4Za6dT8Ng.txt",
+   "at_word": 5391,
+   "topics": [
+    "prospector"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3a0a583ccd",
+   "fact": "Athagen created a short 30 second fan-made teaser for the MISC Razor that left quite a few people in the Star Citizen community waiting for more.",
+   "excerpt": "his own experience with texturing and video making. Athagen created a short 30 second fan-made teaser for the MISC Razor that's left quite a few people in the Star Citizen community waiting for more. I can't wait to see what",
+   "title": "Star Citizen: Citizens of the Stars - STLYoungblood & Jeremiah Lee",
+   "date": "2017-02-06",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=Q52nm5Sn1sk",
+   "doc": "Q52nm5Sn1sk",
+   "path": "transcripts/captions/Q52nm5Sn1sk.txt",
+   "at_word": 1462,
+   "topics": [
+    "razor"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "552f8d0035",
+   "fact": "The Reclaimer was going to be the larger ship going into the game at that point, and the developers called it absolutely gargantuan.",
+   "excerpt": "a lot of character and personality to it that we could tell with some environmental storytelling already so the reclaimer is actually going to be the larger ship going into the game for three one it's absolutley gargantuan it's huge",
+   "title": "Star Citizen: Around the Verse - Reclamation Now",
+   "date": "2018-03-15",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=WCnYoFNtqnY",
+   "doc": "WCnYoFNtqnY",
+   "path": "transcripts/captions/WCnYoFNtqnY.txt",
+   "at_word": 3593,
+   "topics": [
+    "reclaimer"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "54c0fc7064",
+   "fact": "Above a length of 128 meters, a ship needs the same size landing pad as the Reclaimer and the Idris, and those are not well populated throughout the universe.",
+   "excerpt": "is a length of 128 meters above that you go on to the same size landing pad as the reclaimer idris and those are not populous or well populated throughout the universe so the smaller the ship can be the",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Shape of Ships",
+   "date": "2018-12-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kF7GF4W12JE",
+   "doc": "kF7GF4W12JE",
+   "path": "transcripts/captions/kF7GF4W12JE.txt",
+   "at_word": 14587,
+   "topics": [
+    "reclaimer",
+    "idris"
+   ],
+   "topic_kind": "ship",
+   "score": 8.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "20bf3a5305",
+   "fact": "Where the team once did one in three months by hand, it was now doing 15 in three months; the Reclaimer was about six months.",
+   "excerpt": "by hand where we did one in three months now we're doing 15 and three months and like the reclaimer was about six months and so the reclaimer and the Daymark crash were both mostly hand placed and once we",
+   "title": "Star Citizen Live: From Montreal With Love",
+   "date": "2023-04-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ZSHzjAqAJq4",
+   "doc": "ZSHzjAqAJq4",
+   "path": "transcripts/captions/ZSHzjAqAJq4.txt",
+   "at_word": 3272,
+   "topics": [
+    "reclaimer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c443e232d4",
+   "fact": "The Redeemer came by default with two internally mounted class 3 missile racks and two class 5 gunner operated turrets.",
+   "excerpt": "gunship is the new top-of-the-line gunship manufactured by Aegis Dynamics designed specifically for piracy interdiction and police action the Redeemer comes by default with two internally mounted class 3 missile racks two class 5 Gunner operated turrets and one class",
+   "title": "The Next Great Starship Episode 1.12",
+   "date": "2014-05-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=4PqQnehIl-I",
+   "doc": "4PqQnehIl-I",
+   "path": "transcripts/captions/4PqQnehIl-I.txt",
+   "at_word": 5265,
+   "topics": [
+    "redeemer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1457d1cd13",
+   "fact": "The Redeemer gunship prototype's cockpit was redesigned with heavier armor while minimizing visibility.",
+   "excerpt": "here and there it's cool I love it all right so let's check out four horsemen the agis Dynamics Redeemer gunship prototype has been improved since our initial unveiling the cockpit has been redesigned with heavier armor while minimizing visibility",
+   "title": "The Next Great Starship Episode 1.14",
+   "date": "2014-05-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AJj7gw9P9wo",
+   "doc": "AJj7gw9P9wo",
+   "path": "transcripts/captions/AJj7gw9P9wo.txt",
+   "at_word": 2945,
+   "topics": [
+    "redeemer"
+   ],
+   "topic_kind": "ship",
+   "score": 7.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b761474986",
+   "fact": "The Redeemer is 37 M long, 19 M wide and 10 M tall, and is capable of lifting up to 20 tons.",
+   "excerpt": "capable of lifting up to 20 tons at 37 M long 19 M wide and 10 m tall the Redeemer is a robust combat package built on a versatile chassis milspec parameters were met without excess keeping the overall signature",
+   "title": "The Next Great Starship Episode 1.14",
+   "date": "2014-05-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=AJj7gw9P9wo",
+   "doc": "AJj7gw9P9wo",
+   "path": "transcripts/captions/AJj7gw9P9wo.txt",
+   "at_word": 3234,
+   "topics": [
+    "redeemer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "48820a1c3b",
+   "fact": "The Redeemer was meant to hover around AC-130 style, bristling with guns, as close air support for the Valkyrie.",
+   "excerpt": "bristling with guns it's there for close air support hovering around the ac-130 style it's there too like a redeemer is going to be a great support ship to the Valkyrie so the Valkyrie can come in drop all the",
+   "title": "CitizenCon 2948 - Reverse the Verse Live From CitizenCon",
+   "date": "2018-10-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=4fDTWAs0OH0",
+   "doc": "4fDTWAs0OH0",
+   "path": "transcripts/captions/4fDTWAs0OH0.txt",
+   "at_word": 5404,
+   "topics": [
+    "redeemer",
+    "valkyrie"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "deb4abb2c3",
+   "fact": "The Retaliator used a very complicated prefab system, pulled into 1.1, so designers and artists could design a ship.",
+   "excerpt": "tell you we had to pull in some features uh for Maine into 1.1 so we could have the Retaliator set up and that uses a very complicated prefab system where essentially our designers and artists could design a ship",
+   "title": "Around the Verse: Episode 1.35 (2015.03.12)",
+   "date": "2015-03-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=MFk4PCXoVms",
+   "doc": "MFk4PCXoVms",
+   "path": "transcripts/captions/MFk4PCXoVms.txt",
+   "at_word": 2957,
+   "topics": [
+    "retaliator"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8c5fb9ede4",
+   "fact": "The Retaliator was originally speced so the rocket turret from the Vanguard could go on it, but the developers were unsure given the current design.",
+   "excerpt": "people have asked if they could take the rocket turret from the Vanguard and put it on the uh Retaliator. Uh I don't know given the current uh design of it. It was originally speced that you could but that",
+   "title": "Reverse the Verse: August 28th, 2015",
+   "date": "2015-08-30",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=rFL-mw7-X-k",
+   "doc": "rFL-mw7-X-k",
+   "path": "transcripts/captions/rFL-mw7-X-k.txt",
+   "at_word": 8128,
+   "topics": [
+    "retaliator",
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "0cc8aa22ad",
+   "fact": "Alpha 2.2 was set to include physicalized EVA, a flyable Sabre, a hangar-ready Xi'an Scout and the new reputation system.",
+   "excerpt": "2.1. BL: And the team is hard at work on Alpha 2.2 which is gonna include physicalized EVA, flyable Sabre, hanger ready Xi’an Scout and the new reputation system among other new features. That went live to PTU on Monday",
+   "title": "Around the Verse: Episode 2.20",
+   "date": "2016-02-25",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=MGzOj9mWB4U",
+   "doc": "MGzOj9mWB4U",
+   "path": "transcripts/captions/MGzOj9mWB4U.txt",
+   "at_word": 363,
+   "topics": [
+    "sabre"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "e43004f933",
+   "fact": "Artists took one Scorpius wing to final art ahead of duplicating and reversing it for the other three.",
+   "excerpt": "the ship successfully touches down it's the little things the really enormous little things work also continues on the scorpius from rsi as artists take one wing to final art ahead of duplicating and reversing it for the other three",
+   "title": "Inside Star Citizen: Off Camera | Winter 2022",
+   "date": "2022-03-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=J6dAvp2xqEI",
+   "doc": "J6dAvp2xqEI",
+   "path": "transcripts/captions/J6dAvp2xqEI.txt",
+   "at_word": 1229,
+   "topics": [
+    "scorpius"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "df7c087b21",
+   "fact": "The Scorpius is a heavy fighter for two people, and quite agile given its size.",
+   "excerpt": "you're in this one ship taking on the world rather than two people doing their own thing so the scorpius is a heavy fighter it's quite agile given its size it's a two-person ship and the gun air is in",
+   "title": "Inside Star Citizen: Pack Mule | Spring 2022",
+   "date": "2022-06-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=UGRKdRcSk74",
+   "doc": "UGRKdRcSk74",
+   "path": "transcripts/captions/UGRKdRcSk74.txt",
+   "at_word": 709,
+   "topics": [
+    "scorpius"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1354ef838d",
+   "fact": "The Scorpius went up to a single size 2 shield, pretty hefty in the combat meta, ahead of its Invictus launch week launch.",
+   "excerpt": "gone up to a single size 2 shield which is pretty hefty in the current combat meta whilst the scorpius will be launching at invictus launch week development is not stopping on the ship there are some things that we",
+   "title": "Inside Star Citizen: Pack Mule | Spring 2022",
+   "date": "2022-06-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=UGRKdRcSk74",
+   "doc": "UGRKdRcSk74",
+   "path": "transcripts/captions/UGRKdRcSk74.txt",
+   "at_word": 944,
+   "topics": [
+    "scorpius"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "cc5e503392",
+   "fact": "Ships that became flyable and drivable in 2022 included the Mule, Centurion, STV, Scorpius, Corsair, Cutter and C8R Pisces.",
+   "excerpt": "ones that made their way flyable and drivable in 2022 including the hall a hover quad mule Centurion STV Scorpius Corsair cutter and c8r Pisces and that brings us to now and the impending release of alpha 318 which will",
+   "title": "Inside Star Citizen: Year in Review | Fall 2022",
+   "date": "2023-01-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=pewuW7zcM_A",
+   "doc": "pewuW7zcM_A",
+   "path": "transcripts/captions/pewuW7zcM_A.txt",
+   "at_word": 1075,
+   "topics": [
+    "scorpius",
+    "corsair",
+    "pisces"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "81c5e7fd9c",
+   "fact": "The UK team unified the look of the Starfarer and the Freelancer, two ships from the same manufacturer.",
+   "excerpt": "something we’ve been working on. All of the manufacturers you should be able to see this now between the Starfarer and the Freelancer. The UK team did a really great job unifying those two ships. They look like they’re exactly",
+   "title": "10 for the Developers: Episode 07",
+   "date": "2016-03-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=9otSsylG3OI",
+   "doc": "9otSsylG3OI",
+   "path": "transcripts/captions/9otSsylG3OI.txt",
+   "at_word": 2146,
+   "topics": [
+    "starfarer",
+    "freelancer"
+   ],
+   "topic_kind": "ship",
+   "score": 7.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b45f2e0fe9",
+   "fact": "Alpha 2.3 introduced the flyable Xi'an Scout and the hangar ready Starfarer, along with bug fixes and balance changes.",
+   "excerpt": "locked down Star Citizen down Star Citizen Alpha 2.3 which introduces the flyable Xi’An Scout and the hangar ready Starfarer as well as some other systems, bug fixes, balance changes and we put that out to the PTU our Public",
+   "title": "Around the Verse: Episode 2.24",
+   "date": "2016-03-24",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=y2OVeUxfjuM",
+   "doc": "y2OVeUxfjuM",
+   "path": "transcripts/captions/y2OVeUxfjuM.txt",
+   "at_word": 308,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "b8be8419a7",
+   "fact": "Bad News Baron organised a 5 v 5 FPS battle on board a Starfarer, an example of emergent gameplay.",
+   "excerpt": "week’s MVP. A huge congratulations to Bad News Baron for organising an 5 v 5 FPS battle onboard a Starfarer which you saw a sample of in the beginning of this episode. We love seeing this level of emergent gameplay",
+   "title": "Around the Verse: Episode 2.34",
+   "date": "2016-06-02",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=j6LW8NJtjGs",
+   "doc": "j6LW8NJtjGs",
+   "path": "transcripts/captions/j6LW8NJtjGs.txt",
+   "at_word": 6550,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "cbaf6d0ca0",
+   "fact": "A refueling drone is huge next to just one of the fuel pods on the back of the Starfarer, and the Starfarer has six of those.",
+   "excerpt": "the the size of the drone compared to just one of the fuel pods on the back of the Starfarer, it's huge difference in volume. And then the Starfarer has six of those. So, it's like turning up with They're",
+   "title": "Star Citizen: Reverse the Verse LIVE - Refueling, Repairing & Rearming",
+   "date": "2018-02-23",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=qwOih2JMvIo",
+   "doc": "qwOih2JMvIo",
+   "path": "transcripts/captions/qwOih2JMvIo.txt",
+   "at_word": 3151,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8b93204026",
+   "fact": "A Starfarer pit stop is like a Formula One pit stop, and an average player will still do it in about 30 seconds or one minute.",
+   "excerpt": "a like a pit stop formula one thing and if you're just an average player who first has a starfarer and doesn't want to be bothered you will still do it in about 30 seconds or one minute depending what",
+   "title": "Star Citizen: Calling All Devs - Refuel and Repair",
+   "date": "2021-04-02",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=63wbZgdMcA8",
+   "doc": "63wbZgdMcA8",
+   "path": "transcripts/captions/63wbZgdMcA8.txt",
+   "at_word": 980,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "08bdfd81ce",
+   "fact": "A Starfarer might not refine as well as a station does, with its 95% yield, but an organization can run it for hours and keep churning profit.",
+   "excerpt": "uh an organization can run for hours, and just like keep churning profit. Uh the the difference is the Starfarer might not be able to refine as good as the station does with like 95% yield, but it doesn't matter,",
+   "title": "Star Citizen Live: EU PU Gameplay Features",
+   "date": "2021-07-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=pnPBHdHWSM4",
+   "doc": "pnPBHdHWSM4",
+   "path": "transcripts/captions/pnPBHdHWSM4.txt",
+   "at_word": 6352,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "367ea78d75",
+   "fact": "The developers described a hauler coming every 5 minutes to take what a Starfarer refined, sell it at the market and come back.",
+   "excerpt": "operation. He will be coming every whatever, 5 minutes, comes, takes whatever was refined by the by the the Starfarer, puts in his cargo hold, goes, sells to the market. Come back, and that creates an entire operation that uh",
+   "title": "Star Citizen Live: EU PU Gameplay Features",
+   "date": "2021-07-09",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=pnPBHdHWSM4",
+   "doc": "pnPBHdHWSM4",
+   "path": "transcripts/captions/pnPBHdHWSM4.txt",
+   "at_word": 6313,
+   "topics": [
+    "starfarer",
+    "cargo"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "bf4d492326",
+   "fact": "Refueling had two types at first, starting with player to AI refueling, where a Starfarer can take a contract from a faction.",
+   "excerpt": "We're doing two types for the initial release. We're going to do player to AI refueling. This is where I have my Starfarer. I can take a contract from the faction, which I'll leave as surprise for later. Not because",
+   "title": "Star Citizen Live | Q&A Industrial Gameplay",
+   "date": "2026-02-19",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=is7CtiqXrt8",
+   "doc": "is7CtiqXrt8",
+   "path": "transcripts/whisper/is7CtiqXrt8.txt",
+   "at_word": 7952,
+   "topics": [
+    "starfarer"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6ad58046a4",
+   "fact": "If normal ships could only scan 15 kilometers, the Terrapin and other scanning ships were meant to reach 30, 40 or 50.",
+   "excerpt": "numbers but they're numbers for the sake of giving numbers if normal ships can only scan 15 kilometers the Terrapin and other scanning ships are going to be 30 40 50 so they are going to be able to detect",
+   "title": "Star Citizen: Reverse the Verse LIVE - Ships of Alpha 3.2",
+   "date": "2018-06-08",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=-LRmL_EjjZg",
+   "doc": "-LRmL_EjjZg",
+   "path": "transcripts/captions/-LRmL_EjjZg.txt",
+   "at_word": 7054,
+   "topics": [
+    "terrapin"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "637d51c30b",
+   "fact": "The Ursa Rover was made to work properly for the first time at Gamescom, the developers said.",
+   "excerpt": "down to discuss what design did to get this versatile vehicle ready for the spotlight. 12:02 Behind the Scenes: Ursa Rover Corentin Billemont (CB): At GamesCom we made Rover work for the first time. We showed it properly to the",
+   "title": "Star Citizen: Around the Verse 3.10 - UK",
+   "date": "2016-10-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=keV14u8sGaE",
+   "doc": "keV14u8sGaE",
+   "path": "transcripts/captions/keV14u8sGaE.txt",
+   "at_word": 2108,
+   "topics": [
+    "ursa"
+   ],
+   "topic_kind": "ship",
+   "score": 7.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "1fbba7af85",
+   "fact": "The Ursa Medivac's onboard med-bed was pitched to mean that death and dismemberment are no longer synonymous with defeat.",
+   "excerpt": "The Ursa Medivac provides frontline medical support essential to any ground operation. The speed, handling, and durability of the Ursa, coupled with the high-tech onboard med-bed mean that death and/or dismemberment are no longer synonymous with defeat!",
+   "title": "Q&A: RSI Ursa Medivac",
+   "date": "2023-09-24",
+   "k": "c",
+   "url": "https://robertsspaceindustries.com/comm-link/engineering/19973-Q-A-RSI-Ursa-Medivac",
+   "doc": "https://robertsspaceindustries.com/comm-link/engineering/19973-Q-A-RSI-Ursa-Medivac",
+   "path": null,
+   "at_word": 0,
+   "topics": [
+    "ursa"
+   ],
+   "topic_kind": "ship",
+   "score": 3.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "7d221e4946",
+   "fact": "The Valkyrie came from wanting a ship that could carry more than the Vanguard.",
+   "excerpt": "actually it would be great if it could have more than the Vanguard public carries and that's where the Valkyrie came from so the Valkyrie has taken its place inside the Valkyries why don't we - yeah the Valkyries taking",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Shape of Ships",
+   "date": "2018-12-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kF7GF4W12JE",
+   "doc": "kF7GF4W12JE",
+   "path": "transcripts/captions/kF7GF4W12JE.txt",
+   "at_word": 3018,
+   "topics": [
+    "valkyrie",
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "84c82948ce",
+   "fact": "The developers said they learned a lesson on the Valkyrie, so newer corridors fit two people going shoulder-to-shoulder.",
+   "excerpt": "have a wider corridor they can fit two people going shoulder-to-shoulder I think we learned that lesson on the Valkyrie well yeah it's a lot like the doorways were wide enough to fit two people through if they're wearing the",
+   "title": "Star Citizen Live: Making Ship Up",
+   "date": "2019-05-31",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=zUVI5QDiWGM",
+   "doc": "zUVI5QDiWGM",
+   "path": "transcripts/captions/zUVI5QDiWGM.txt",
+   "at_word": 2388,
+   "topics": [
+    "valkyrie"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "6809609c68",
+   "fact": "The Redeemer was pushed toward a pure gunship because the Valkyrie and the Vanguard Hoplite had taken the thunder from its dropship capability.",
+   "excerpt": "about in the past we're moving it more towards a gunship rather than a hybrid gunship dropship because the Valkyrie and the vanguard hoplite have sort of taken the Thunder with Redeemers dropship capability so we pushed the Redeemer all",
+   "title": "Star Citizen Live: All About Spaceships",
+   "date": "2019-12-06",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=_mawF0Gzy5o",
+   "doc": "_mawF0Gzy5o",
+   "path": "transcripts/captions/_mawF0Gzy5o.txt",
+   "at_word": 1306,
+   "topics": [
+    "valkyrie",
+    "redeemer",
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f8a76e7bd5",
+   "fact": "During the Evocati test a Valkyrie chair got two kills, so anyone with fewer was worse than a chair.",
+   "excerpt": "um so happens a chair just to add to the mystery a chair got two kills this was a valkyrie chair got two kills so if you didn't get two kills during the evocati test you were worse than a",
+   "title": "Star Citizen: Calling All Devs - Player vs. Player",
+   "date": "2020-06-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=IMptw4O1dO0",
+   "doc": "IMptw4O1dO0",
+   "path": "transcripts/captions/IMptw4O1dO0.txt",
+   "at_word": 4362,
+   "topics": [
+    "valkyrie"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "c8f984a98c",
+   "fact": "The Vanguard began as Chris's idea for the Bulldog, drawing on the P-38 Lightning he liked.",
+   "excerpt": "out it toilets toilets yeah that's right Chris had the idea of of the Bulldog which now is the Vanguard and the he liked the p38 Mustang I'm sorry the p-38 lightning yeah so our idea was to take that",
+   "title": "Around the Verse: Episode 1.37 (2015.03.26)",
+   "date": "2015-03-26",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=uU_48DSOR1k",
+   "doc": "uU_48DSOR1k",
+   "path": "transcripts/captions/uU_48DSOR1k.txt",
+   "at_word": 5114,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "ec5b2e4902",
+   "fact": "The two Vanguard variants were a little overpriced in the first analysis, so they became slightly cheaper.",
+   "excerpt": "external instead of internal. And uh that should be fun. Um I'm also pleased to announce that the two Vanguard variants uh were overpriced a little bit in our first analysis. Um, so they're they're slightly cheaper. I think it's",
+   "title": "Reverse the Verse: August 28th, 2015",
+   "date": "2015-08-30",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=rFL-mw7-X-k",
+   "doc": "rFL-mw7-X-k",
+   "path": "transcripts/captions/rFL-mw7-X-k.txt",
+   "at_word": 3188,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 5.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "468212bcc0",
+   "fact": "The Vanguard was chosen as source material for a new Squadron 42 dropship, the Hoplite, because it originally has a pod in the middle.",
+   "excerpt": "Hoplite. Paul Dalessi (PD): I was given the task of creating a new dropship for Squadron 42 - the Vanguard was chosen to be a source material for that - the Vanguard originally has a pod in the middle that",
+   "title": "Star Citizen: Around the Verse 3.9 - UK",
+   "date": "2016-09-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=50Jk-mQ9_pw",
+   "doc": "50Jk-mQ9_pw",
+   "path": "transcripts/captions/50Jk-mQ9_pw.txt",
+   "at_word": 1451,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "140fbf9c06",
+   "fact": "The Vanguard Warden is default Aegis black, while the Hoplite is green because it is a UEE dropship.",
+   "excerpt": "any work, it’s not going to delay anything, it’s just going to help Squadron 42 come out faster. The Vanguard Warden’s black - default Aegis black - the Hoplite is green, it’s a UEE ship - it’s a UEE dropship",
+   "title": "Star Citizen: Around the Verse 3.9 - UK",
+   "date": "2016-09-29",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=50Jk-mQ9_pw",
+   "doc": "50Jk-mQ9_pw",
+   "path": "transcripts/captions/50Jk-mQ9_pw.txt",
+   "at_word": 1607,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 6.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "feffd146d8",
+   "fact": "The developers were unifying the base mesh for all the Vanguard ships, and the Hoplite brings its larger rear ramp and rear door.",
+   "excerpt": "both of them so as part of this we're going to be unifying the base mesh for all the Vanguard's and one of the good things of the hoplite is the larger rear ramp and the larger rear door so",
+   "title": "Star Citizen: Reverse the Verse LIVE - The Shape of Ships",
+   "date": "2018-12-07",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kF7GF4W12JE",
+   "doc": "kF7GF4W12JE",
+   "path": "transcripts/captions/kF7GF4W12JE.txt",
+   "at_word": 4913,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "53e0972f5c",
+   "fact": "Analytics showed the Vanguard as the second or third most played ship by actual time.",
+   "excerpt": "at the analytics are second or third most played ship by actual time really good job there with the Vanguard which is if you're judging things purely on their armor those those two are pretty pretty tough and I wouldn't",
+   "title": "Star Citizen Live: All Things Flyable",
+   "date": "2019-09-13",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=qpurmw03-KI",
+   "doc": "qpurmw03-KI",
+   "path": "transcripts/captions/qpurmw03-KI.txt",
+   "at_word": 3059,
+   "topics": [
+    "vanguard"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8d8df1c810",
+   "fact": "The name Vulture was one of three choices in a fun vote for what the salvage ship should be called; another was Carrion.",
+   "excerpt": "just the fun vote what should the savage ship be called the three choices I gave them was the vulture which is what you know the writing team is have offered one was a carrion so I was like something",
+   "title": "Happy Hour Gamedev: YOU Pick the Next Drake Ship",
+   "date": "2017-12-01",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=VaN9iKEOOBA",
+   "doc": "VaN9iKEOOBA",
+   "path": "transcripts/captions/VaN9iKEOOBA.txt",
+   "at_word": 2692,
+   "topics": [
+    "vulture",
+    "salvage"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "75c63dd391",
+   "fact": "The Drake Vulture began as an entry-level, profession-based idea and took six months to develop into a fully fleshed out concept.",
+   "excerpt": "gonna be the next offering from Drake but roaring ahead with an entry-level profession based mindset was the Drake vulture and over the last six months we've developed this original kernel of an idea into a fully fleshed out concept",
+   "title": "Star Citizen: Around the Verse - Vulture Views and Weapons 2",
+   "date": "2018-06-14",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=DH9qDTKTR7U",
+   "doc": "DH9qDTKTR7U",
+   "path": "transcripts/captions/DH9qDTKTR7U.txt",
+   "at_word": 3689,
+   "topics": [
+    "vulture"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "8f4b639135",
+   "fact": "The developers showed a Vulture trying to attach to an 890 Jump and admitted it was a wonky situation that did not feel right.",
+   "excerpt": "is from the gameplay we learned that what about big ships so how for example now you saw the vulture trying to attach to the 890 jump that is a bit of a wonky situation and it doesn't feel right",
+   "title": "Inside Star Citizen: Preparing Prototypes",
+   "date": "2023-08-21",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=kaWB5AkY-zc",
+   "doc": "kaWB5AkY-zc",
+   "path": "transcripts/captions/kaWB5AkY-zc.txt",
+   "at_word": 1985,
+   "topics": [
+    "vulture",
+    "890"
+   ],
+   "topic_kind": "ship",
+   "score": 6.0,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "f8e8c3537c",
+   "fact": "The Reclaimer's gameplay is similar to the Vulture's but played from the co-pilot's claw seat.",
+   "excerpt": "able to fly them somewhere and sell them the reclaimer game play is very similar to that of the vulture except that it's all done by the claw operator who is the co-pilot seat you may notice that the claw",
+   "title": "Inside Star Citizen: Salvage Operation",
+   "date": "2023-12-20",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=ljdiKYfo2ZI",
+   "doc": "ljdiKYfo2ZI",
+   "path": "transcripts/captions/ljdiKYfo2ZI.txt",
+   "at_word": 775,
+   "topics": [
+    "vulture",
+    "reclaimer"
+   ],
+   "topic_kind": "ship",
+   "score": 4.0,
+   "model": "qwen2.5:3b"
+  },
+  {
+   "id": "7887dbc7b3",
+   "fact": "The Zeus ES was coming at 4.0, and the developers had done its LOD zero gate review the day before.",
+   "excerpt": "There's two from that video. They're pretty much the two that people know about now. First one is the Zeus. So the Zeus ES is coming at 4.0. We did the Lod Zero gate review for that yesterday. Yeah. So",
+   "title": "Star Citizen Live Q&A: Invictus All-Vehicles",
+   "date": "2024-05-17",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=71uiBVajvFE",
+   "doc": "71uiBVajvFE",
+   "path": "transcripts/whisper/71uiBVajvFE.txt",
+   "at_word": 11008,
+   "topics": [
+    "zeus"
+   ],
+   "topic_kind": "ship",
+   "score": 5.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "49fe72bb02",
+   "fact": "The Zeus had way more shield generators than everything else, and the developers used 4.0 as the opportunity to change that.",
+   "excerpt": "system. We also use it as an opportunity. What we mentioned at CitizenCon, where we talked about why the Zeus had way more shield generators than everything else, we're actually using 4.0 as the opportunity to do those changes. So",
+   "title": "Star Citizen Live Q&A: Invictus All-Vehicles",
+   "date": "2024-05-17",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=71uiBVajvFE",
+   "doc": "71uiBVajvFE",
+   "path": "transcripts/whisper/71uiBVajvFE.txt",
+   "at_word": 11482,
+   "topics": [
+    "zeus"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  },
+  {
+   "id": "3465552989",
+   "fact": "The Zeus supports up to three crew members, but a pilot can fly it alone and a buddy can man the turrets.",
+   "excerpt": "So yeah, it supports up to three crew members, but you can fly it yourself if you want. And if you've got a buddy, they can man the turrets. The Zeus is for me probably some of the best looking",
+   "title": "Inside Star Citizen: Alpha 3.24.2 - Zeus and MFDs",
+   "date": "2024-09-12",
+   "k": "v",
+   "url": "https://www.youtube.com/watch?v=zHYhi7se4F8",
+   "doc": "zHYhi7se4F8",
+   "path": "transcripts/whisper/zHYhi7se4F8.txt",
+   "at_word": 252,
+   "topics": [
+    "zeus"
+   ],
+   "topic_kind": "ship",
+   "score": 4.5,
+   "model": "hand-written from the excerpt"
+  }
+ ]
+}

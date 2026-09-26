@@ -390,7 +390,8 @@ class SuitWindow(SCWindow):
                                   lifecycle=lifecycle, store=self.store, sound=sound,
                                   idle_source=os_idle_seconds,
                                   afk_after_s=float(self.s.get("afk_minutes", DEFAULT_AFK_MINUTES)) * 60.0,
-                                  dev_facts=DevFacts.from_settings(self.s))
+                                  dev_facts=DevFacts.from_settings(self.s),
+                                  features=self.s)      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
         self.core.dev_facts_persist = self._persist_dev_facts
         # Game ears for combat: the ducking meter already reads StarCitizen.exe's own output ~20x a second.
         if self.speech.ducker is not None:

@@ -3,11 +3,16 @@
 OFF BY DEFAULT (settings "dev_facts": False). A dev fact breaks the fourth wall, and some pilots want full immersion.
 When the pilot turns it on:
 
-  * WHAT: a fact comes ONLY from the Star Citizen dev-history corpus (sc_dev_history.py: 1,368 dev-video transcripts +
-    5,152 comm-links). The line is a TEMPLATE filled from one document's title, kind and date. No model words it, so
-    no model can invent it. Every template still goes through grounding_validator.ground(), which for a dev fact also
-    demands the aside frame, the date, no URL and no claim of memory (the dev-fact block there), so a model rephrasing
-    one later is held to the same source.
+  * WHAT (J 2026-09-25: "The fun facts should also be fun not just video titles"): a fact is ONE specific detail from
+    INSIDE a dev video or comm-link (a number CIG gave, a design decision, something that changed), never the title.
+    Facts come ONLY from a CURATED PACK, data/dev_facts_pack.json, built offline by tools/build_dev_fact_pack.py from
+    the Star Citizen dev-history corpus (sc_dev_history.py: 1,368 dev-video transcripts + 5,152 comm-links). Each
+    entry carries the VERBATIM excerpt it came from, the source title, date and url, so a human can audit it. The
+    build rejects any sentence with a number, name or content word the excerpt and metadata do not have
+    (fact_problems below); the selftest re-checks every entry. At runtime nothing is generated or fetched: the pack is
+    a local file, so a fact is instant, works offline, and cannot invent anything. The line still goes through
+    grounding_validator.ground() with the EXCERPT as its source (numbers and names are checked against it), which for
+    a dev fact also demands the aside frame, the date, no URL and no claim of memory.
   * HOW IT IS SAID: always framed as its own aside ("Fun fact from the dev history: ..."), one sentence plus the date,
     never as something a character remembers. ONE companion only: Montaigne, the ship who "knows things only
     secondhand". Elah never says one. Nothing about it is written to the pilot's memory.
@@ -15,12 +20,12 @@ When the pilot turns it on:
     on record, no event line in the last few minutes, not AFK, not shaken, PRESENCE mode, nothing queued, no
     not-now snooze. The normal gate, pacing and quiet budget still apply on top.
   * TOPICAL first: the current ship, then what the pilot is doing (mining, salvage, cargo, quantum travel), then
-    where they are. A random fact only when nothing topical is found. Never the same document twice in a session.
+    where they are (pack entries carry topic tags). A random fact only when nothing topical is left. Never the same
+    fact, nor two facts from the same source, in one session.
   * RATE: at most `dev_facts_max_per_hour` (default 2) per rolling hour.
   * OFF THE HOT PATH: nothing here runs on the game-event path (note_event is a deque append). The core's ambient tick
-    asks poll(); poll never blocks: it hands back an aside prepared earlier, or starts ONE background worker that
-    loads the cached index (or fetches it with a short socket timeout) and prepares the next. Offline with no cache =
-    no aside at all, no error, and a quiet retry half an hour later.
+    asks poll(), which reads the bundled pack once (a few hundred KB, local) and picks from memory after that. No
+    network, ever. A missing or unreadable pack = no aside at all, no error, and a quiet retry half an hour later.
   * VOICE TOGGLE (J 2026-09-25): "fun facts on" / "fun facts off" and close variants (voice_toggle below) flip it
     mid-session without the settings dialog; Montaigne acknowledges in one line and the choice is saved.
 
@@ -30,8 +35,9 @@ Montaigne picks the fact back up ("Since you are still among the living, back to
 history: ..."). Once per session at most. A Tier 1 injury, a death, combat, a second urgent event while it waits, or
 the pilot turning fun facts off DROPS the fact for good. The core owns the timing; this module owns the text.
 
-    python dev_facts.py --selftest [path\\to\\Game.log]     fixture corpus + a real Game.log replay (no models)
-    python dev_facts.py --examples                          asides from the REAL cached index (offline if cached)
+    python dev_facts.py --selftest [path\\to\\Game.log]     the real pack + fixtures + a real Game.log replay (no models)
+    python dev_facts.py --examples                          asides from the real pack, for a few contexts
+    python dev_facts.py --sample N                          N random pack facts, each with its source excerpt
 """
 from __future__ import annotations
 
@@ -42,7 +48,6 @@ import os
 import random
 import re
 import sys
-import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -64,10 +69,9 @@ FRAMES = (FRAME, "Fun fact from the dev history, straight from the archives:",
 RESUME_LEAD = "Since you are still among the living, back to that fun fact from the dev history:"
 SPEAKER = "montaigne"                 # ONE companion only. Elah never says a dev fact.
 DEFAULT_MAX_PER_HOUR = 2
-FETCH_TIMEOUT_S = 5.0                 # per socket operation; the fetch never runs on the game-event path anyway
-RETRY_UNAVAILABLE_S = 1800.0          # offline and uncached: try again in half an hour, silently
-MAX_TITLE_WORDS = 14
-REF = os.environ.get("SC_DEV_HISTORY_REF", "corpus")     # "corpus" until the corpus PR merges
+RETRY_UNAVAILABLE_S = 1800.0          # pack missing or unreadable: try again in half an hour, silently
+PACK_PATH = HERE.parent / "data" / "dev_facts_pack.json"
+REF = os.environ.get("SC_DEV_HISTORY_REF", "corpus")     # the build tool's corpus ref; "corpus" until the PR merges
 
 # Montaigne acknowledges a toggle. Fixed lines: no facts, no numbers, nothing for a model to get wrong.
 ACK_ON = ("Splendid. When it is quiet, I shall share what the archives say.",
@@ -103,9 +107,6 @@ def callout_spec(text: str) -> dict:
 
 
 _MONTHS = ("January February March April May June July August September October November December").split()
-# Titles that are real but make a dull "fun fact" (store promotions, schedules). Skipped, never rewritten.
-_DULL = re.compile(r"\b(?:promotions?|subscriber|giveaway|free fly|patch notes|known issues|schedule|"
-                   r"roadmap roundup|this week in star citizen|sale)\b", re.I)
 
 # ---- the voice toggle -----------------------------------------------------------------------------------------------
 _N = r"(?:(?:fun|dev|development|dev history|developer)\s+facts?|trivia)"
@@ -164,9 +165,7 @@ EVENT_ACTIVITY = {"refinery_complete": "mining", "platform_moving": "cargo", "qt
 CONTRACT_ACTIVITY = (("mining", re.compile(r"\b(?:mining|mine|ore|quantanium|refin\w*)\b", re.I)),
                      ("salvage", re.compile(r"\bsalvag\w*\b", re.I)),
                      ("cargo", re.compile(r"\b(?:cargo|haul\w*|deliver\w*|freight)\b", re.I)))
-# activity -> (search query, the words said aloud). Spoken words are only ever the query's own words.
-ACTIVITY_QUERY = {"mining": ("mining", "mining"), "salvage": ("salvage", "salvage"),
-                  "cargo": ("cargo hauling", "cargo hauling"), "quantum": ("quantum travel", "quantum travel")}
+ACTIVITIES = ("mining", "salvage", "cargo", "quantum")      # the pack's activity tags
 ACTIVITY_WINDOW_S = 1800.0
 
 _SHIP_NAMES: Optional[list] = None
@@ -210,49 +209,233 @@ def _spoken_date(d: str) -> Optional[str]:
     return f"{da} {_MONTHS[mo - 1]} {y}"
 
 
-def _spoken_title(t: str) -> str:
-    t = re.sub(r"\(\s*[\d.\-/ ]+\s*\)", " ", str(t))           # "(2014.03.17)" is a date stamp, not a title
-    t = re.sub(r"[\"“”‘’`]", "", t)                           # quotation marks are refused by the gate
-    t = re.sub(r"\s*[|:]\s*", ", ", t)
-    t = re.sub(r"\s+", " ", t).strip(" ,.-")
-    return t
+# ---- the pack's checks (shared: the build tool refuses with these, the selftest re-checks every entry with them) ----
+# A pack fact is one sentence rewritten from a verbatim excerpt. It may reword; it may not ADD. Three mechanical tests,
+# each against the excerpt plus the document's own metadata (title, date):
+#   numbers  every number it states, in digits or words, is a number the source states ("two hundred" == "200");
+#   names    every capitalised word or code (C2, 890, Mk) is a word of the source;
+#   content  at most MAX_NOVEL content words that the source lacks (framing like "developers said" excepted).
+# Plus shape: third person (no "I"/"we"/"you": Montaigne is reporting, not remembering or addressing), one sentence,
+# not a bare "X came out on DATE" title template. Stated limits: a check on WORDS cannot see a true-worded sentence
+# with a wrong meaning ("the Prospector is not slow" from "the prospector is not fast"); that is what the human read
+# at build time is for, and why every entry keeps its excerpt next to it.
+_N_UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                       "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_N_UNITS.update({"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
+                 "ninety": 90, "dozen": 12, "twice": 2, "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7,
+                 "eighth": 8, "ninth": 9, "tenth": 10})
+_N_SCALE = {"hundred": 100, "thousand": 1000, "million": 10 ** 6, "billion": 10 ** 9}
+_N_TOK = re.compile(r"\d[\d,]*(?:\.\d+)?k?\b|[a-z]+")
 
 
-def build_aside(doc: dict, topic: Optional[str], in_title: bool, frame: str = FRAME) -> Optional[dict]:
-    """One dev-history document -> a Montaigne aside spec with its fixed text. None when it cannot be said cleanly."""
-    title, date = _spoken_title(doc.get("t", "")), _spoken_date(doc.get("d", ""))
-    if not title or not date or len(title.split()) > MAX_TITLE_WORDS:
+def numbers_in(text: str) -> set:
+    """Every number a text states, as values: '5,000' / 'five thousand' -> 5000, 'two hundred and fifty' -> 250,
+    '10k' -> 10000, '1.5 million' -> 1500000, 'a hundred' -> 100. 'one' ALONE is ordinary English ('the one that'),
+    so it only counts with a scale word after it; 'first'/'second' are not counted (time and ordinary English)."""
+    toks = _N_TOK.findall(str(text or "").lower().replace("-", " "))
+    out, total, cur, active, only_one = set(), 0, 0, False, True
+
+    def flush():
+        nonlocal total, cur, active, only_one
+        if active and not (only_one and total + cur in (0, 1)):
+            out.add(total + cur)
+        total, cur, active, only_one = 0, 0, False, True
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t[0].isdigit():
+            flush()
+            v = float(t.rstrip("k").replace(",", "")) * (1000 if t.endswith("k") else 1)
+            if i + 1 < len(toks) and toks[i + 1] in _N_SCALE:
+                v *= _N_SCALE[toks[i + 1]]
+                i += 1
+            out.add(int(v) if v == int(v) else v)
+        elif t in _N_UNITS:
+            u = _N_UNITS[t]
+            if active and ((cur % 10 == 0 and cur >= 20 and u < 10) or (cur % 100 == 0 and cur >= 100 and u < 100)
+                           or (cur == 0 and total > 0)):
+                cur += u                                    # "twenty five", "two hundred and fifty", "a thousand two"
+            elif active and cur:
+                flush()
+                cur, active = _N_UNITS[t], True
+            else:
+                cur, active = cur + _N_UNITS[t], True
+            if t != "one":
+                only_one = False
+        elif t in _N_SCALE:
+            if not active and i > 0 and toks[i - 1] == "a":
+                cur, active = 1, True
+            if active:
+                only_one = False
+                if _N_SCALE[t] == 100:
+                    cur = max(cur, 1) * 100
+                else:
+                    total, cur = total + max(cur, 1) * _N_SCALE[t], 0
+        elif t == "and" and active and i + 1 < len(toks) and toks[i + 1] in _N_UNITS:
+            pass
+        else:
+            flush()
+        i += 1
+    flush()
+    return out
+
+
+_STOPISH = set("a an the and or but of to in on at for with by from is are was were be been being it its it's this "
+               "that these those as not no so if then than there their they them what which who when where while how "
+               "all any some more most much many very just only also into over under about after before up down out "
+               "can could would should will may might must has have had does did do each every both other such own "
+               "same one ones".split())
+# Reporting words Montaigne may add without adding a fact.
+_FRAMING = set("developer developers devs dev team teams said says explained explain showed shown revealed noted "
+               "mentioned according designers designer talked discussed described confirmed video videos show "
+               "star citizen game players player pilots pilot ship ships spacecraft back".split())
+_FIRST_OR_SECOND = re.compile(r"\b(?:i|i'm|i've|i'd|i'll|we|we're|we've|we'd|we'll|our|ours|us|my|me|mine|you|your|"
+                              r"you're|you'll|you've|yours)\b")
+TEMPLATE = re.compile(r"\b(?:came out on|came up in the (?:video|comm-link)|was released on|was published on)\b", re.I)
+MAX_NOVEL = 2
+FACT_WORDS = (7, 32)
+_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9'’.\-]*[A-Za-z0-9]|[A-Za-z0-9]")
+
+
+def _norm(w: str) -> str:
+    return w.lower().replace("’", "'").removesuffix("'s").strip(".'-")
+
+
+def _stem(w: str) -> str:
+    for suf in ("ing", "ed", "es", "s", "ly", "er"):
+        if len(w) > len(suf) + 3 and w.endswith(suf):
+            return w[: -len(suf)]
+    return w
+
+
+def _vocab(text: str) -> set:
+    out = set()
+    for t in _TOKEN.findall(str(text or "")):
+        n = _norm(t)
+        out.add(n)
+        out.update(p for p in re.split(r"[-.]", n) if p)
+    return out
+
+
+def excerpt_number_words(excerpt: str) -> str:
+    """The digit form of every number in the excerpt (words included), so the gate's number-word check can see that
+    'five' in a fact is the excerpt's 'five'. A claim value: it states nothing the excerpt does not."""
+    return " ".join(str(n) for n in sorted(numbers_in(excerpt), key=float))
+
+
+def fact_problems(entry: dict) -> list:
+    """Why this pack entry must not be said ([] = fine). Used by the build (to refuse) and the selftest (to re-check)."""
+    fact, ex = str(entry.get("fact") or "").strip(), str(entry.get("excerpt") or "").strip()
+    meta = f"{entry.get('title', '')} {entry.get('date', '')} {_spoken_date(entry.get('date', '')) or ''}"
+    probs = []
+    if not ex:
+        return ["no source excerpt"]
+    if not fact:
+        return ["no fact"]
+    if not _spoken_date(entry.get("date", "")):
+        probs.append("no usable date")
+    n = len(fact.split())
+    if not FACT_WORDS[0] <= n <= FACT_WORDS[1]:
+        probs.append(f"length {n} words")
+    if TEMPLATE.search(fact):
+        probs.append("title template")
+    title_words = _vocab(entry.get("title", "")) - _STOPISH
+    if title_words and len(_vocab(fact) & title_words) >= max(3, int(0.8 * len(title_words))) \
+            and not (_vocab(fact) - title_words - _STOPISH - _FRAMING) & _vocab(ex):
+        probs.append("restates the title")
+    if re.search(r'["“”]', fact):
+        probs.append("quotation marks")
+    if _FIRST_OR_SECOND.search(fact.lower().replace("’", "'")):
+        probs.append("first or second person")
+    if len(re.findall(r"[.!?](?:\s|$)", fact.rstrip(".!? ") + " ")) > 0:
+        probs.append("more than one sentence")
+    src_nums = numbers_in(ex) | numbers_in(meta)
+    extra = sorted(numbers_in(fact) - src_nums, key=float)
+    if extra:
+        probs.append(f"numbers not in the source {extra}")
+    src = _vocab(ex) | _vocab(meta) | {_norm(t) for t in (entry.get("topics") or [])}
+    names = []
+    spoken = _lower_first(fact, f"{ex} {entry.get('title', '')}", entry.get("topics") or ())
+    for i, t in enumerate(_TOKEN.findall(spoken)):          # checked AS SPOKEN (first word de-capitalised)
+        n_ = _norm(t)
+        has_digit, has_alpha = any(c.isdigit() for c in t), any(c.isalpha() for c in t)
+        if not (t[0].isupper() or (has_digit and has_alpha)):
+            continue                                        # a plain number is the number check's job
+        if n_ in _FRAMING or (i == 0 and n_ in _STOPISH):
+            continue                                        # "Star Citizen", "The": not a claim about anything
+        if n_ not in src and not all(p in src for p in re.split(r"[-.]", n_) if p) \
+                and _stem(n_) not in {_stem(w) for w in src}:      # "Jump" from "890 jumps" is not invented
+            names.append(t)
+    if names:
+        probs.append(f"names not in the source {names}")
+    src_stems = {_stem(w) for w in src}
+    novel = [w for w in (_norm(t) for t in _TOKEN.findall(fact))
+             if len(w) >= 4 and w not in _STOPISH and w not in _FRAMING and w not in src
+             and _stem(w) not in src_stems and not any(s.startswith(_stem(w)[:6]) for s in src_stems
+                                                       if len(_stem(w)) >= 6)]
+    if len(novel) > MAX_NOVEL:
+        probs.append(f"content not in the source {novel}")
+    return probs
+
+
+def _lower_first(s: str, source: str = "", names=()) -> str:
+    """The fact follows 'in a video from DATE,' so its first word loses its sentence capital, unless it is a name:
+    a word the source itself writes capitalised ('Crusader', 'MISC'), one of the entry's topic tags (a ship or place
+    the captions happen to write in lower case), a code (C8R, 890) or an acronym."""
+    w = s.split()[0] if s.split() else ""
+    if not w or w[0].islower():
+        return s
+    core = re.sub(r"(?:'s|’s)?[^\w]*$", "", w)
+    if any(c.isdigit() for c in core) or (len(core) > 1 and core.isupper()):
+        return s
+    if _norm(core) in (_STOPISH | _FRAMING):
+        return s[0].lower() + s[1:]
+    tags = {_norm(n) for n in names} - set(ACTIVITIES)      # "mining" is a topic, not a name
+    if _norm(core) in tags or re.search(rf"(?<![\w]){re.escape(core)}(?![\w])", source):
+        return s
+    return s[0].lower() + s[1:]
+
+
+def fact_spec(entry: dict, frame: str = FRAME, scenario: str = SCENARIO) -> Optional[dict]:
+    """One pack entry -> a Montaigne aside spec. The source (excerpt, title, date) goes in as the claims, so the gate
+    checks the spoken numbers and names against the SOURCE, never against the sentence itself."""
+    date = _spoken_date(entry.get("date", ""))
+    fact = str(entry.get("fact") or "").strip().rstrip(".!? ")
+    if not date or not fact or not entry.get("excerpt"):
         return None
-    kind = "video" if doc.get("k") == "v" else "comm-link"
-    if topic and not in_title:
-        body = f"{topic} came up in the {kind} {title}, on {date}."
-    else:
-        body = f"the {kind} {title} came out on {date}."
-    return _spec(doc, f"{frame} {body}", body, title, date, kind, topic, SCENARIO)
+    kind = "video" if entry.get("k") == "v" else "comm-link"
+    src_text = f"{entry['excerpt']} {entry.get('title', '')}"
+    body = f"in a {kind} from {date}, {_lower_first(fact, src_text, entry.get('topics') or ())}."
+    text = f"{RESUME_LEAD if scenario == RESUME_SCENARIO else frame} {body}"
+    n = len(text.split())
+    claims = [{"id": "C1", "predicate": "devfact.date", "value": str(entry.get("date", ""))},
+              {"id": "C2", "predicate": "devfact.date_spoken", "value": date},
+              {"id": "C3", "predicate": "devfact.kind", "value": kind},
+              {"id": "C4", "predicate": "devfact.source_title", "value": str(entry.get("title", ""))},
+              {"id": "C5", "predicate": "devfact.excerpt", "value": str(entry["excerpt"])},
+              {"id": "C6", "predicate": "devfact.excerpt_numbers", "value": excerpt_number_words(entry["excerpt"])}]
+    return {"id": f"{scenario}:{entry.get('id')}", "scenario": scenario, "aside": "dev_fact", "speaker": SPEAKER,
+            "fixed_text": text, "body": body, "date_spoken": date, "fact": dict(entry),
+            "claims": claims, "required_values": [], "length_words": [max(1, n - 3), n],
+            "allowed_names": [],          # name gate ON: a capitalised word must come from the excerpt/title/date
+            "source": {"id": entry.get("id"), "doc": entry.get("doc"), "title": _short_title(entry.get("title", "")),
+                       "title_raw": entry.get("title", ""), "date": entry.get("date", ""), "kind": kind,
+                       "k": entry.get("k"), "url": entry.get("url")}}
+
+
+def _short_title(t: str) -> str:
+    return re.sub(r"\s+", " ", str(t)).strip()
 
 
 def resume_spec(spec: dict) -> dict:
     """The same fact, picked back up after an injury (Montaigne only; the core decides WHEN)."""
-    src = spec["source"]
-    doc = {"t": src["title_raw"], "d": src["date"], "k": src["k"], "id": src["id"], "url": src.get("url")}
-    return _spec(doc, f"{RESUME_LEAD} {spec['body']}", spec["body"], src["title"], spec["date_spoken"], src["kind"],
-                 spec.get("topic_words"), RESUME_SCENARIO)
+    return fact_spec(spec["fact"], scenario=RESUME_SCENARIO)
 
 
-def _spec(doc, text, body, title, date, kind, topic, scenario) -> dict:
-    n = len(text.split())
-    claims = [{"id": "C1", "predicate": "devfact.title", "value": title},
-              {"id": "C2", "predicate": "devfact.date", "value": str(doc.get("d", ""))},
-              {"id": "C3", "predicate": "devfact.date_spoken", "value": date},
-              {"id": "C4", "predicate": "devfact.kind", "value": kind}]
-    if topic:
-        claims.append({"id": "C5", "predicate": "devfact.topic", "value": topic})
-    return {"id": f"{scenario}:{doc.get('id')}", "scenario": scenario, "aside": "dev_fact", "speaker": SPEAKER,
-            "fixed_text": text, "body": body, "date_spoken": date, "topic_words": topic,
-            "claims": claims, "required_values": [], "length_words": [max(1, n - 3), n],
-            "allowed_names": [],          # name gate ON: only words from the title/date/topic may be capitalised
-            "source": {"id": doc.get("id"), "title": title, "title_raw": doc.get("t", ""), "date": doc.get("d", ""),
-                       "kind": kind, "k": doc.get("k"), "url": doc.get("url") or doc.get("u")}}
+def load_pack(path: Path = PACK_PATH) -> list:
+    """The curated facts, [] if the file is missing. Entries without an excerpt are dropped here too."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return [f for f in data.get("facts", []) if f.get("excerpt") and f.get("fact") and f.get("id")]
 
 
 # ---- the engine (sc_dev_history.py), found without copying it --------------------------------------------------
@@ -280,26 +463,25 @@ def load_engine():
 
 
 class DevFacts:
-    """The sidecar. enabled=False (the default) means poll() returns None and nothing is ever loaded or fetched."""
+    """The sidecar. enabled=False (the default) means poll() returns None and nothing is ever loaded."""
 
     def __init__(self, enabled: bool = False, max_per_hour: int = DEFAULT_MAX_PER_HOUR,
-                 history_factory: Optional[Callable[[], object]] = None, now: Callable[[], float] = time.time,
-                 sync: bool = False, rng: Optional[random.Random] = None, ground: Optional[Callable] = None):
+                 pack_factory: Optional[Callable[[], list]] = None, now: Callable[[], float] = time.time,
+                 sync: bool = False, rng: Optional[random.Random] = None, ground: Optional[Callable] = None,
+                 pack_path: Optional[Path] = None):
         self.enabled = bool(enabled)
         self.max_per_hour = int(max_per_hour or 0)
-        self.now, self.sync = now, sync
-        self._factory = history_factory or self._default_history
-        self._dh = None
+        self.now, self.sync = now, sync          # sync is kept for callers; the pack is local, nothing is threaded
+        self._factory = pack_factory or (lambda: load_pack(pack_path or PACK_PATH))
+        self._pack: Optional[list] = None
         self._rng = rng or random.Random()
         if ground is None:
             from grounding_validator import ground as _g
             ground = _g
         self._ground = ground
-        self._lock = threading.Lock()
-        self._worker: Optional[threading.Thread] = None
-        self._ready: Optional[tuple] = None          # (context key, spec)
         self._unavailable_until = -1e18
-        self.used: set = set()                       # doc ids SPOKEN this session: never twice
+        self.used: set = set()                       # fact ids SPOKEN this session: never twice
+        self.used_docs: set = set()                  # ... and never two facts from one source in a session
         self._spoken_t: deque = deque()
         self._events: deque = deque(maxlen=64)       # (t, activity) from the game events that imply one
         self._rot = 0
@@ -313,19 +495,9 @@ class DevFacts:
         return cls(enabled=bool(s.get("dev_facts", False)),
                    max_per_hour=int(s.get("dev_facts_max_per_hour", DEFAULT_MAX_PER_HOUR) or 0), **kw)
 
-    @staticmethod
-    def _default_history():
-        eng = load_engine()
-        if eng is None:
-            raise RuntimeError("sc_dev_history engine not found")
-
-        def fetch(path: str) -> bytes:
-            return eng._http_get(eng.raw_url(path, REF), timeout=FETCH_TIMEOUT_S)
-        return eng.DevHistory(fetch=fetch, ref=REF)
-
     # -- inputs ------------------------------------------------------------------------------------------------------
     def note_event(self, et: str, data: Optional[dict] = None) -> None:
-        """Cheap (a deque append): called from the core's event path. Never loads or fetches anything."""
+        """Cheap (a deque append): called from the core's event path. Never loads anything."""
         act = EVENT_ACTIVITY.get(et)
         if act is None and et in ("contract_accepted", "objective_new"):
             txt = str((data or {}).get("mission_name") or (data or {}).get("objective") or "")
@@ -342,19 +514,23 @@ class DevFacts:
         return next((a for k, a in SHIP_ACTIVITY.items() if k in ship.split()), None)
 
     def topics(self, st: dict) -> list:
-        """[(query, spoken topic words)] in order: ship, activity, place, system. Rotated a step each time a fact is
-        spoken so one ship does not own every fact of the night."""
+        """[(kind, match words)] in order: ship, activity, place, system. Rotated a step each time a fact is spoken so
+        one ship does not own every fact of the night. A pack entry matches when one of its topic tags is one of the
+        match words ('Cutlass Black' -> {'cutlass', 'black'} matches the tag 'cutlass')."""
         out = []
         ship = clean_ship(st.get("ship"))
         if ship:
-            out.append((ship, f"the {ship}"))
+            out.append(("ship", {_norm(w) for w in ship.split()}))
         act = self.activity(st)
         if act:
-            out.append(ACTIVITY_QUERY[act])
+            out.append(("activity", {act}))
         for key in ("location", "planetary_body", "system"):
             v = st.get(key)
-            if v and not any(str(v) == o[0] for o in out):
-                out.append((str(v), str(v)))
+            if v:
+                words = {_norm(w) for w in re.split(r"[\s_\-]+", str(v)) if len(w) >= 3}
+                words.add(_norm(str(v)).replace(" ", ""))
+                if not any(words == o[1] for o in out):
+                    out.append(("place", words))
         if out:
             r = self._rot % len(out)
             out = out[r:] + out[:r]
@@ -371,7 +547,10 @@ class DevFacts:
         """The core calls this when a dev fact was actually SAID. A resume is the same fact: not counted twice."""
         if spec.get("scenario") != SCENARIO:
             return
-        self.used.add((spec.get("source") or {}).get("id"))
+        src = spec.get("source") or {}
+        self.used.add(src.get("id"))
+        if src.get("doc"):
+            self.used_docs.add(src.get("doc"))
         self._spoken_t.append(self.now())
         self._rot += 1
         self.stats["spoken"] += 1
@@ -394,106 +573,63 @@ class DevFacts:
         self._last_callout = self.now()
         self.stats["callouts"] += 1
 
-    # -- poll (ambient thread, never blocks) ---------------------------------------------------------------------
-    @staticmethod
-    def context_key(st: dict) -> tuple:
-        return (clean_ship(st.get("ship")), st.get("location"), st.get("system"))
+    # -- poll (ambient thread; a local file read once, then memory) --------------------------------------------------
+    def pack(self) -> Optional[list]:
+        if self._pack is None:
+            if self.now() < self._unavailable_until:
+                return None
+            try:
+                self._pack = list(self._factory() or [])
+            except Exception as e:
+                self._unavailable_until = self.now() + RETRY_UNAVAILABLE_S
+                self.stats["unavailable"] += 1
+                log.info("dev facts pack unavailable (%s: %s); silent for now", type(e).__name__, e)
+                return None
+        return self._pack
 
     def poll(self, st: dict) -> Optional[dict]:
         if not self.enabled:
             return None
         self.stats["polls"] += 1
-        if not self.under_cap() or self.now() < self._unavailable_until:
+        if not self.under_cap():
             return None
-        key = self.context_key(st)
-        with self._lock:
-            ready, self._ready = self._ready, None
-        if ready is not None:
-            k, spec = ready
-            if k == key and spec["source"]["id"] not in self.used:
-                return spec
-        self._kick(dict(st), key)
-        if self.sync:
-            with self._lock:
-                ready, self._ready = self._ready, None
-            if ready is not None:
-                return ready[1]
-        return None
-
-    def _kick(self, st: dict, key: tuple) -> None:
-        if self.sync:
-            self._prepare(st, key)
-            return
-        if self._worker is not None and self._worker.is_alive():
-            return
-        self._worker = threading.Thread(target=self._prepare, args=(st, key), name="suitmk2_dev_facts", daemon=True)
-        self._worker.start()
-
-    def _history(self):
-        if self._dh is None:
-            self._dh = self._factory()
-        return self._dh
-
-    def _prepare(self, st: dict, key: tuple) -> None:
+        pack = self.pack()
+        if not pack:
+            return None
         try:
-            dh = self._history()
-            dh.index()                       # cached, or ONE fetch with a short timeout; raises offline+uncached
-        except Exception as e:
-            self._dh = None
-            self._unavailable_until = self.now() + RETRY_UNAVAILABLE_S
-            self.stats["unavailable"] += 1
-            log.info("dev facts unavailable (%s: %s); silent for now", type(e).__name__, e)
-            return
-        try:
-            spec = self._pick(dh, st)
+            spec = self._pick(pack, st)
         except Exception:
             log.info("dev facts: pick failed", exc_info=True)
             spec = None
         if spec is None:
             self.stats["no_doc"] += 1
-            return
+            return None
         self.stats["prepared"] += 1
-        with self._lock:
-            self._ready = (key, spec)
+        return spec
 
-    def _usable(self, spec: Optional[dict]) -> bool:
-        if spec is None or spec["source"]["id"] in self.used:
-            return False
-        if self._ground(spec, spec["fixed_text"]):
-            self.stats["ungrounded"] += 1    # e.g. a title with a number word the gate cannot tie to a digit
-            return False
-        return True
+    def _usable(self, entry: dict) -> Optional[dict]:
+        if entry.get("id") in self.used or (entry.get("doc") and entry.get("doc") in self.used_docs):
+            return None
+        spec = fact_spec(entry, self._rng.choice(FRAMES))
+        if spec is None or self._ground(spec, spec["fixed_text"]):
+            self.stats["ungrounded"] += 1
+            return None
+        return spec
 
-    def _pick(self, dh, st: dict) -> Optional[dict]:
-        for query, words in self.topics(st):
-            try:
-                docs = dh.search(query, 25)
-            except Exception:
-                continue
-            qterms = set(re.findall(r"[a-z0-9][a-z0-9'\-]{2,}", query.lower()))
-            titled, body = [], []
-            for d in docs:
-                if _DULL.search(d.get("t", "")):
-                    continue
-                if query.lower() in d.get("t", "").lower():
-                    titled.append(d)
-                elif qterms and d.get("matched", 0) >= len(qterms):
-                    body.append(d)
-            for group, in_title in ((titled, True), (body, False)):
-                cands = [s for s in (build_aside(d, words, in_title, self._rng.choice(FRAMES)) for d in group[:8])
-                         if self._usable(s)]
-                if cands:
-                    return self._rng.choice(cands[:3])
-        # Nothing topical: a random document, so the feature still does something on a bare log.
-        docs = dh.index().get("docs") or []
-        for _ in range(60):
-            if not docs:
-                break
-            d = self._rng.choice(docs)
-            if _DULL.search(d.get("t", "")):
-                continue
-            s = build_aside(dict(d, url=d.get("u")), None, True, self._rng.choice(FRAMES))
-            if self._usable(s):
+    def _pick(self, pack: list, st: dict) -> Optional[dict]:
+        for kind, words in self.topics(st):
+            cands = [e for e in pack if {_norm(t) for t in (e.get("topics") or [])} & words]
+            self._rng.shuffle(cands)
+            for e in cands:
+                s = self._usable(e)
+                if s is not None:
+                    return s
+        # Nothing topical left: any fact, so the feature still does something on a bare log.
+        order = list(pack)
+        self._rng.shuffle(order)
+        for e in order:
+            s = self._usable(e)
+            if s is not None:
                 return s
         return None
 
@@ -501,38 +637,49 @@ class DevFacts:
 # ======================================================================================================================
 # selftest
 # ======================================================================================================================
-def _fixture_history(cache: Path, offline: bool = False):
-    """A tiny fake corpus served through the REAL sc_dev_history client (so search and caching are the real code)."""
-    import gzip
-    eng = load_engine()
-    docs = [{"id": "v1", "k": "v", "t": "Q&A: MISC Prospector - Part I", "d": "2016-04-27", "p": "x"},
-            {"id": "v2", "k": "v", "t": "Inside Star Citizen: Salvage Operation", "d": "2023-12-20", "p": "x"},
-            {"id": "v3", "k": "v", "t": "Around the Verse - The Evolution of Quantum Travel", "d": "2017-11-09",
-             "p": "x"},
-            {"id": "c1", "k": "c", "t": "Portfolio: Hurston Dynamics", "d": "2013-07-23", "s": "..", "u": "https://r/1"},
-            {"id": "c2", "k": "c", "t": "The Observist: Area18, ArcCorp, Stanton", "d": "2014-06-18", "s": "..",
-             "u": "https://r/2"},
-            {"id": "v4", "k": "v", "t": "Ten for the Chairman: Episode 12 (2014.03.17)", "d": "2014-03-17", "p": "x"},
-            {"id": "v5", "k": "v", "t": "Mining Gameplay Deep Dive", "d": "2019-02-05", "p": "x"},
-            {"id": "c3", "k": "c", "t": "May 2025 Subscriber Promotions", "d": "2025-05-01", "s": "..", "u": "u"},
-            {"id": "v6", "k": "v", "t": "Hauling Cargo Across Stanton", "d": "2022-04-29", "p": "x"},
-            {"id": "c4", "k": "c", "t": "2120: Give These People Air", "d": "2012-09-12", "s": "..", "u": "https://r/4"},
-            {"id": "v7", "k": "v", "t": "Calling All Devs: Prospector Mining Heads", "d": "2018-06-11", "p": "x"},
-            {"id": "v8", "k": "v", "t": "Inside Star Citizen: Refinery Decks", "d": "2021-03-04", "p": "x"}]
-    words = {"prospector": [0, 10], "misc": [0], "salvage": [1], "operation": [1], "quantum": [2], "travel": [2, 3],
-             "hurston": [3], "dynamics": [3], "area18": [4], "arccorp": [4], "stanton": [4, 8], "chairman": [5],
-             "mining": [6, 0, 10, 11], "gameplay": [6], "promotions": [7], "hauling": [8], "cargo": [8],
-             "air": [9], "people": [9], "heads": [10], "refinery": [11]}
-    postings = {w: {str(i): 2 for i in ix} for w, ix in words.items()}
-    blob = gzip.compress(json.dumps({"version": 1, "n_docs": len(docs), "docs": docs, "postings": postings}).encode())
+FIXTURE_FACTS = [
+    {"id": "f1", "doc": "v1", "k": "v", "title": "Q&A: MISC Prospector - Part I", "date": "2016-04-27",
+     "url": "https://www.youtube.com/watch?v=v1", "topics": ["prospector", "mining"],
+     "excerpt": "the prospector carries thirty two scu of ore in the side pods and the arm folds under the nose "
+                "when you are flying so it does not get knocked off",
+     "fact": "The Prospector carries 32 SCU of ore in its side pods, and its arm folds under the nose in flight."},
+    {"id": "f2", "doc": "v2", "k": "v", "title": "Inside Star Citizen: Salvage Operation", "date": "2023-12-20",
+     "url": "https://www.youtube.com/watch?v=v2", "topics": ["salvage", "vulture"],
+     "excerpt": "so hull scraping was the first step and now the vulture can also break a wreck into pieces with "
+                "structural salvage which is the big new thing",
+     "fact": "After hull scraping came structural salvage, which lets the Vulture break a wreck into pieces."},
+    {"id": "f3", "doc": "v3", "k": "v", "title": "Around the Verse - The Evolution of Quantum Travel",
+     "date": "2017-11-09", "url": "https://www.youtube.com/watch?v=v3", "topics": ["quantum"],
+     "excerpt": "originally quantum travel was a straight line at a fixed speed and now the drive spools up and has "
+                "to calibrate before the jump",
+     "fact": "Quantum travel was originally a straight line at a fixed speed; now the drive spools up and calibrates."},
+    {"id": "f4", "doc": "v5", "k": "v", "title": "Mining Gameplay Deep Dive", "date": "2019-02-05",
+     "url": "https://www.youtube.com/watch?v=v5", "topics": ["mining"],
+     "excerpt": "the rock has a resistance and an instability and if the energy goes into the red for too long the "
+                "rock will explode and damage your ship",
+     "fact": "A rock that stays in the red for too long explodes and damages the ship, the developers explained."},
+    {"id": "f5", "doc": "v5", "k": "v", "title": "Mining Gameplay Deep Dive", "date": "2019-02-05",
+     "url": "https://www.youtube.com/watch?v=v5", "topics": ["mining"],
+     "excerpt": "we added modules so a mining head can take three consumable modules that change resistance",
+     "fact": "A mining head can take three consumable modules that change the rock's resistance."},
+    {"id": "f6", "doc": "c1", "k": "c", "title": "Portfolio: Hurston Dynamics", "date": "2013-07-23",
+     "url": "https://r/1", "topics": ["hurston", "lorville"],
+     "excerpt": "Hurston Dynamics bought an entire planet in 2865 and built its capital Lorville on it",
+     "fact": "Hurston Dynamics bought an entire planet in 2865 and built its capital, Lorville, on it."},
+    {"id": "f7", "doc": "v6", "k": "v", "title": "Hauling Cargo Across Stanton", "date": "2022-04-29",
+     "url": "https://www.youtube.com/watch?v=v6", "topics": ["cargo", "hull"],
+     "excerpt": "the hull c can carry four thousand six hundred scu when the spine is fully loaded",
+     "fact": "A fully loaded Hull C spine carries 4,600 SCU of cargo."},
+]
 
-    def fetch(path):
+
+def _fixture_pack(cache: Optional[Path] = None, offline: bool = False):
+    """A small hand-written pack (the shape build_dev_fact_pack.py writes). offline=True = the pack file is missing."""
+    def load():
         if offline:
-            raise OSError("offline")
-        if path == eng.INDEX_PATH:
-            return blob
-        raise OSError("no transcript in the fixture")
-    return lambda: eng.DevHistory(fetch=fetch, cache=cache)
+            raise FileNotFoundError("dev_facts_pack.json")
+        return [dict(f) for f in FIXTURE_FACTS]
+    return load
 
 
 class _Speech:
@@ -659,7 +806,7 @@ def _interrupt_run(cache: Path, tier: int, second_urgent: bool = False, dev_on: 
                    off_mid_fact: bool = False, pre_tick: bool = True) -> dict:
     """A fact starts; `clock+3 s` a Tier-`tier` injury lands. Returns the ordered sequence of what was said/cut."""
     clock = [200_000.0]
-    dv = DevFacts(enabled=dev_on, history_factory=_fixture_history(cache), now=lambda: clock[0], sync=True,
+    dv = DevFacts(enabled=dev_on, pack_factory=_fixture_pack(cache), now=lambda: clock[0], sync=True,
                   rng=random.Random(3))
     core, sp = _core(clock, dv)
     core.state.set("ship", "MISC Prospector : P")
@@ -733,42 +880,108 @@ def _selftest(game_log: Optional[str]) -> int:
         results.append((name, bool(cond)))
 
     tmp = Path(tempfile.mkdtemp(prefix="devfacts_"))
-    case("the sc_dev_history engine is found from SuitMk2", load_engine() is not None)
+    case("the sc_dev_history engine is found from SuitMk2 (the pack builder's engine)", load_engine() is not None)
     case("settings: dev_facts defaults OFF", settings_mod.DEFAULTS.get("dev_facts") is False)
     case("settings: dev_facts_max_per_hour defaults low (2)", settings_mod.DEFAULTS.get("dev_facts_max_per_hour") == 2)
 
     # -- the aside itself ---------------------------------------------------------------------------------------
-    a = build_aside({"id": "v1", "k": "v", "t": "Q&A: MISC Prospector - Part I", "d": "2016-04-27"}, "the Prospector",
-                    True)
-    case("aside is framed, dated, one sentence", bool(a) and a["fixed_text"].startswith(FRAME_KEY)
-         and "27 April 2016" in a["fixed_text"] and a["fixed_text"].count(".") == 1)
+    a = fact_spec(FIXTURE_FACTS[0])
+    case("aside is framed, dated, one sentence, and says the FACT (not the title)",
+         bool(a) and a["fixed_text"].startswith(FRAME_KEY) and "27 April 2016" in a["fixed_text"]
+         and a["fixed_text"].rstrip(".").count(".") == 0 and "32 SCU" in a["fixed_text"]
+         and "Q&A" not in a["fixed_text"])
     case("aside passes the real grounding gate", bool(a) and not ground(a, a["fixed_text"]))
     case("aside speaker is Montaigne, never Elah", bool(a) and a["speaker"] == "montaigne")
     case("aside carries no URL in its text", bool(a) and "http" not in a["fixed_text"])
-    b = build_aside({"id": "v2", "k": "v", "t": "Inside Star Citizen: Salvage Operation", "d": "2023-12-20"},
-                    "salvage", False)
-    case("a body match says the topic came up", bool(b) and "salvage came up in the video" in b["fixed_text"])
-    z = build_aside({"id": "z", "k": "v", "t": "Ten for the Chairman: Episode 12 (2014.03.17)", "d": "2014-03-17"},
-                    None, True)
-    case("a title whose number word has no digit in the source is refused by the gate (silence, not a guess)",
-         z is not None and bool(ground(z, z["fixed_text"])))
-    # a model rephrasing is held to the same source
-    case("rephrase with an invented number is refused", any("unauthorized numbers" in f for f in ground(
-        a, FRAME + " the Prospector Q&A had 40 questions, on 27 April 2016.")))
-    case("rephrase with a wrong year is refused", any("unauthorized numbers" in f for f in ground(
-        a, FRAME + " the video Q&A, MISC Prospector, Part I came out on 27 April 2017.")))
-    case("rephrase claiming memory is refused", any("memory" in f for f in ground(
-        a, FRAME + " I remember the video Q&A, MISC Prospector, Part I from 27 April 2016.")))
-    case("rephrase without the aside frame is refused", any("frame" in f for f in ground(
-        a, "The video Q&A, MISC Prospector, Part I came out on 27 April 2016, a fine day.")))
-    case("rephrase without the date is refused", any("date" in f for f in ground(
-        a, FRAME + " the video Q&A, MISC Prospector, Part I came out a while back, pilot.")))
-    case("rephrase speaking the URL is refused", any("URL" in f for f in ground(
-        a, FRAME + " the video Q&A, MISC Prospector, Part I, 27 April 2016, youtube.com.")))
+    case("every fixture fact passes its own checks and the gate",
+         all(not fact_problems(f) and not ground(fact_spec(f), fact_spec(f)["fixed_text"]) for f in FIXTURE_FACTS))
+    case("a number said in digits that the excerpt says in words is the same number ('four thousand six hundred')",
+         not fact_problems(FIXTURE_FACTS[6]))
+    # the checks that stop a rewrite from adding a fact
+    base = FIXTURE_FACTS[0]
+
+    def probs(fact, **kw):
+        return " | ".join(fact_problems(dict(base, fact=fact, **kw)))
+    case("check: an invented number is refused",
+         "numbers not in the source" in probs("The Prospector carries 40 SCU of ore in its side pods."))
+    case("check: an invented name is refused",
+         "names not in the source" in probs("Chris Roberts said the Prospector arm folds under the nose in flight."))
+    case("check: invented content is refused",
+         "content not in the source" in probs("The Prospector was modelled on deep-sea trawlers and tested in "
+                                              "blizzards before launch."))
+    case("check: first person is refused (Montaigne reports, he was not there)",
+         "first or second person" in probs("We made the Prospector arm fold under the nose so it does not get "
+                                           "knocked off."))
+    case("check: the old 'X came out on DATE' template is refused",
+         "title template" in probs("The video Q&A, MISC Prospector, Part I came out on 27 April 2016."))
+    case("check: restating the title is refused", "restates the title" in probs("It was the Q&A on the MISC "
+                                                                                 "Prospector, Part I."))
+    case("check: an entry without its excerpt is refused", fact_problems(dict(base, excerpt="")) == ["no source excerpt"])
+    case("check: two sentences are refused",
+         "more than one sentence" in probs("The Prospector carries 32 SCU of ore. The arm folds under the nose."))
+    # a rephrasing at speech time is held to the same source by the gate
+    case("gate: a rephrase with an invented number is refused", any("unauthorized numbers" in f for f in ground(
+        a, FRAME + " in a video from 27 April 2016, the Prospector carries 40 SCU of ore.")))
+    case("gate: a rephrase with a wrong year is refused", any("unauthorized numbers" in f for f in ground(
+        a, FRAME + " in a video from 27 April 2017, the Prospector carries 32 SCU of ore.")))
+    case("gate: a rephrase with an invented name is refused", any("unauthorized names" in f for f in ground(
+        a, FRAME + " in a video from 27 April 2016, Chris Roberts said the Prospector carries 32 SCU of ore.")))
+    case("gate: a rephrase claiming memory is refused", any("memory" in f for f in ground(
+        a, FRAME + " I remember, in a video from 27 April 2016, the Prospector carried 32 SCU of ore.")))
+    case("gate: a rephrase without the aside frame is refused", any("frame" in f for f in ground(
+        a, "In a video from 27 April 2016, the Prospector carries 32 SCU of ore in its side pods, pilot.")))
+    case("gate: a rephrase without the date is refused", any("date" in f for f in ground(
+        a, FRAME + " in an old video, the Prospector carries 32 SCU of ore in its side pods, pilot, truly.")))
+    case("gate: a rephrase speaking the URL is refused", any("URL" in f for f in ground(
+        a, FRAME + " in a video from 27 April 2016 on youtube.com, the Prospector carries 32 SCU.")))
     r = resume_spec(a)
-    case("resume keeps the frame and the date and passes the gate",
+    case("resume keeps the frame, the fact and the date and passes the gate",
          r["fixed_text"].startswith("Since you are still among the living") and "27 April 2016" in r["fixed_text"]
-         and not ground(r, r["fixed_text"]))
+         and a["body"] in r["fixed_text"] and not ground(r, r["fixed_text"]))
+
+    # -- THE REAL PACK (data/dev_facts_pack.json) --------------------------------------------------------------------
+    import socket
+    real_socket = socket.socket
+
+    def _no_net(*a_, **k_):
+        raise OSError("network disabled by the selftest")
+    socket.socket = _no_net                      # the pack must load with no network at all
+    try:
+        pack_ok, pack = True, []
+        try:
+            pack = load_pack()
+        except Exception as e:
+            pack_ok = False
+            print(f"  pack failed to load: {type(e).__name__}: {e}")
+        t0 = time.perf_counter()
+        dvp = DevFacts(enabled=True, max_per_hour=99, now=lambda: 0.0, rng=random.Random(4))
+        sp0 = dvp.poll({"ship": "MISC Prospector : P"})
+        first_ms = (time.perf_counter() - t0) * 1000
+    finally:
+        socket.socket = real_socket
+    case(f"the bundled pack loads OFFLINE (network disabled) and a fact comes from it ({first_ms:.0f} ms)",
+         pack_ok and bool(sp0) and sp0["source"]["id"] in {f["id"] for f in pack})
+    raw = json.loads(PACK_PATH.read_text(encoding="utf-8")) if PACK_PATH.exists() else {"facts": []}
+    case(f"the pack is a real size ({len(pack)} facts; aim 150-300)", 150 <= len(pack) <= 400)
+    case("every entry in the pack FILE has its verbatim source excerpt, title, date and url",
+         all(f.get("excerpt") and f.get("title") and f.get("date") and f.get("url") for f in raw["facts"])
+         and len(raw["facts"]) == len(pack))
+    bad_pack = [(f["id"], fact_problems(f)) for f in pack if fact_problems(f)]
+    for fid, pr in bad_pack[:5]:
+        print(f"  pack entry {fid}: {pr}")
+    case("every pack fact: every number and name in it appears in its excerpt or metadata (fact_problems)",
+         pack_ok and not bad_pack)
+    ungrounded = [f["id"] for f in pack if ground(fact_spec(f), fact_spec(f)["fixed_text"])]
+    case("every pack fact, as spoken, passes the real grounding gate", pack_ok and not ungrounded)
+    case("no pack fact is a bare 'X came out on DATE' template, nor its title",
+         all(not TEMPLATE.search(f["fact"]) and _norm(f["fact"]) != _norm(f["title"]) for f in pack))
+    case("pack ids are unique", len({f["id"] for f in pack}) == len(pack))
+    kinds = {k: sum(1 for f in pack if f.get("topic_kind") == k) for k in ("ship", "activity", "place")}
+    case(f"the pack covers ships, activities and places {kinds}", all(v >= 10 for v in kinds.values()))
+    t0 = time.perf_counter()
+    for _ in range(20):
+        dvp.poll({"ship": "Drake Cutlass Black : P", "location": "Lorville"})
+    case("a poll with the pack loaded is instant (< 20 ms)", (time.perf_counter() - t0) / 20 * 1000 < 20)
 
     # -- voice toggle ---------------------------------------------------------------------------------------------
     case("voice: every ON phrase is recognised", all(voice_toggle(p) is True for p in VOICE_ON_EXAMPLES))
@@ -789,7 +1002,7 @@ def _selftest(game_log: Optional[str]) -> int:
     case("the ELAH_NAMES_FEELING guard still applies to a callout",
          bool(ground(callout_spec("You're glitching again. I'm worried."), "You're glitching again. I'm worried.")))
     ct_ = [0.0]
-    dfc = DevFacts(enabled=True, now=lambda: ct_[0], rng=random.Random(5), history_factory=lambda: None)
+    dfc = DevFacts(enabled=True, now=lambda: ct_[0], rng=random.Random(5), pack_factory=lambda: None)
     fake_fact = {"scenario": SCENARIO}
     hits, texts = 0, []
     for _ in range(3000):
@@ -814,20 +1027,29 @@ def _selftest(game_log: Optional[str]) -> int:
     # -- context --------------------------------------------------------------------------------------------------
     case("ship channel name cleaned", clean_ship("MISC Prospector : ProjectGegnome") == "Prospector")
     case("vehicle code cleaned", (clean_ship("@vehicle_NameDRAK_Golem_OX : X") or "").startswith("Golem"))
-    df = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "a"), sync=True, now=lambda: 1000.0,
+    df = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "a"), sync=True, now=lambda: 1000.0,
                   rng=random.Random(1))
     case("ship implies activity", df.activity({"ship": "Aegis Reclaimer : P"}) == "salvage")
     df.note_event("refinery_complete", {})
     case("a refinery event means mining", df.activity({}) == "mining")
     s1 = df.poll({"ship": "MISC Prospector : P"})
     case("topical: the current ship's fact first", bool(s1) and "Prospector" in s1["fixed_text"])
-    df2 = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "b"), sync=True, now=lambda: 1000.0,
+    df2 = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "b"), sync=True, now=lambda: 1000.0,
                    rng=random.Random(2))
     s2 = df2.poll({"system": "Nyx"})     # nothing about Nyx in the fixture
-    case("nothing topical: a random real document, still framed and dated",
+    case("nothing topical: any pack fact, still framed and dated",
          bool(s2) and s2["fixed_text"].startswith(FRAME_KEY) and not ground(s2, s2["fixed_text"]))
-    case("dull titles (store promotions) are never picked",
-         all("Promotions" not in ((df2._pick(df2._history(), {}) or {}).get("fixed_text") or "") for _ in range(20)))
+    df3 = DevFacts(enabled=True, max_per_hour=99, pack_factory=_fixture_pack(), now=lambda: 1000.0,
+                   rng=random.Random(6))
+    said3 = []
+    for _ in range(len(FIXTURE_FACTS) + 3):
+        s3_ = df3.poll({"ship": "MISC Prospector : P"})
+        if s3_:
+            df3.spoken(s3_)
+            said3.append(s3_["source"])
+    case("never the same fact twice, nor two facts from one source, in a session (f4/f5 share a video)",
+         len({x["id"] for x in said3}) == len(said3) and len({x["doc"] for x in said3}) == len(said3)
+         and len(said3) == len({f["doc"] for f in FIXTURE_FACTS}))
 
     # -- offline with no cache: silent, no error --------------------------------------------------------------------
     warns = []
@@ -839,13 +1061,13 @@ def _selftest(game_log: Optional[str]) -> int:
     h = _H()
     logging.getLogger().addHandler(h)
     try:
-        off = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "empty_cache", offline=True), sync=True,
+        off = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "empty_cache", offline=True), sync=True,
                        now=lambda: 5000.0)
         outs = [off.poll({"ship": "MISC Prospector : P"}) for _ in range(5)]
-        case("offline + no cache: no aside, no exception, no warning, one attempt then backoff",
+        case("pack missing: no aside, no exception, no warning, one attempt then backoff",
              all(o is None for o in outs) and off.stats["unavailable"] == 1 and not warns)
         clock = [300_000.0]
-        offc = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "empty_core", offline=True), sync=True,
+        offc = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "empty_core", offline=True), sync=True,
                         now=lambda: clock[0])
         core_off, sp_off = _core(clock, offc)
         core_off.state.set("ship", "MISC Prospector : P")
@@ -853,23 +1075,23 @@ def _selftest(game_log: Optional[str]) -> int:
             clock[0] += 700
             core_off.ambient_tick()
             _drain(core_off)
-        case("offline + no cache through the core: zero dev lines, no warning",
+        case("pack missing, through the core: zero dev lines, no warning",
              not any(_is_dev(x[3]) for x in sp_off.said) and not warns)
-        off2 = DevFacts(enabled=True, history_factory=lambda: (time.sleep(0.5), 1 / 0)[1], now=lambda: 0.0)
-        t0 = time.perf_counter()
-        o2 = off2.poll({"ship": "x"})
-        case("poll never blocks on a slow corpus load (background prepare)",
-             o2 is None and time.perf_counter() - t0 < 0.1)
-        if off2._worker:
-            off2._worker.join(5)
-        case("disabled: poll touches nothing", DevFacts(enabled=False, history_factory=lambda: 1 / 0).poll({}) is None)
+        ct2 = [0.0]
+        calls2 = []
+        off2 = DevFacts(enabled=True, pack_factory=lambda: calls2.append(1) or 1 / 0, now=lambda: ct2[0])
+        o2 = [off2.poll({"ship": "x"}) for _ in range(3)]
+        ct2[0] += RETRY_UNAVAILABLE_S + 1
+        off2.poll({"ship": "x"})
+        case("a broken pack is silent and retried only after the back-off", o2 == [None] * 3 and len(calls2) == 2)
+        case("disabled: poll touches nothing", DevFacts(enabled=False, pack_factory=lambda: 1 / 0).poll({}) is None)
     finally:
         logging.getLogger().removeHandler(h)
 
     # -- the voice toggle through the core: flips both ways, persists, acknowledges --------------------------------
     clock = [400_000.0]
     saved = {}
-    dvt = DevFacts(enabled=False, history_factory=_fixture_history(tmp / "tog"), now=lambda: clock[0], sync=True)
+    dvt = DevFacts(enabled=False, pack_factory=_fixture_pack(tmp / "tog"), now=lambda: clock[0], sync=True)
     ct, spt = _core(clock, dvt)
     ct.dev_facts_persist = lambda on: saved.__setitem__("dev_facts", on)
     case("toggle: 'fun facts on' turns it on, persists, Montaigne acknowledges",
@@ -887,7 +1109,7 @@ def _selftest(game_log: Optional[str]) -> int:
         settings_mod.PATH = settings_mod.DIR / "settings.json"
         s = settings_mod.load()
         case("fresh settings file: dev_facts is off", s["dev_facts"] is False)
-        dvs = DevFacts.from_settings(s, history_factory=_fixture_history(tmp / "tog2"), now=lambda: clock[0],
+        dvs = DevFacts.from_settings(s, pack_factory=_fixture_pack(tmp / "tog2"), now=lambda: clock[0],
                                      sync=True)
         cs, _ = _core(clock, dvs)
         cs.dev_facts_persist = lambda on: (s.__setitem__("dev_facts", on), settings_mod.save(s))
@@ -906,7 +1128,7 @@ def _selftest(game_log: Optional[str]) -> int:
         touched = []
         clock = [0.0]
         dflt = DevFacts.from_settings(dict(settings_mod.DEFAULTS), now=lambda: clock[0], sync=True,
-                                      history_factory=lambda: touched.append(1) or 1 / 0)
+                                      pack_factory=lambda: touched.append(1) or 1 / 0)
         core, sp, events, t0 = replay(path, dflt, clock)
         n_dev = sum(1 for x in sp.said if _is_dev(x[3]))
         print(f"  default replay of {path.name}: {core.stats['events']} events, {(clock[0] - t0) / 3600:.1f} h, "
@@ -916,7 +1138,7 @@ def _selftest(game_log: Optional[str]) -> int:
 
         clock = [0.0]
         facts = []
-        on = DevFacts(enabled=True, max_per_hour=2, history_factory=_fixture_history(tmp / "replay"),
+        on = DevFacts(enabled=True, max_per_hour=2, pack_factory=_fixture_pack(tmp / "replay"),
                       now=lambda: clock[0], sync=True, rng=random.Random(7))
         _orig_spoken = on.spoken
 
@@ -956,9 +1178,10 @@ def _selftest(game_log: Optional[str]) -> int:
         case("no repeated fact in the session", len({s["source"]["id"] for _, s in facts}) == len(facts))
 
         def src_nums(s):
-            return set(NUM.findall(f"{s['source']['title_raw']} {s['source']['date']} {s['date_spoken']}"))
-        case("no invented numbers: every number said is in the source title or date",
-             all(set(NUM.findall(s["fixed_text"])) <= src_nums(s) for _, s in facts))
+            return numbers_in(f"{s['fact']['excerpt']} {s['source']['title_raw']} {s['source']['date']} "
+                              f"{s['date_spoken']}")
+        case("no invented numbers: every number said is in the source excerpt, title or date",
+             all(numbers_in(s["fixed_text"]) <= src_nums(s) for _, s in facts))
         hurt = [t for t, et, _ in events if et in ("injury", "incapacitated", "player_respawned")]
         case("none within 10 min after an injury or death in the log",
              all(not any(0 <= t - h < 600 for h in hurt) for t in times))
@@ -969,7 +1192,7 @@ def _selftest(game_log: Optional[str]) -> int:
 
     # -- synthetic: combat and injury windows are refused even when everything else is quiet ----------------------
     clock = [100_000.0]
-    dv = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "syn"), now=lambda: clock[0], sync=True)
+    dv = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "syn"), now=lambda: clock[0], sync=True)
     c3, s3 = _core(clock, dv)
     c3.state.set("ship", "MISC Prospector : P")
     clock[0] += 700                             # past the session warm-up
@@ -1002,11 +1225,11 @@ def _selftest(game_log: Optional[str]) -> int:
 
     # -- the callout's own urgency guard: forced to fire, it still stays quiet in an urgent moment -------------------
     clock = [600_000.0]
-    dvc = DevFacts(enabled=True, history_factory=_fixture_history(tmp / "co"), now=lambda: clock[0], sync=True)
+    dvc = DevFacts(enabled=True, pack_factory=_fixture_pack(tmp / "co"), now=lambda: clock[0], sync=True)
     dvc._rng = type("R", (), {"random": lambda self: 0.0, "shuffle": lambda self, x: None,
                               "choice": lambda self, x: x[0]})()
     cco, sco = _core(clock, dvc)
-    fspec = build_aside({"id": "v9", "k": "v", "t": "Mining Gameplay Deep Dive", "d": "2019-02-05"}, None, True)
+    fspec = fact_spec(FIXTURE_FACTS[3])
     for label, setup in (("combat", lambda: setattr(cco.gate_state, "in_combat", True)),
                          ("not now", lambda: cco.not_now.snooze(5))):
         setup()
@@ -1072,15 +1295,37 @@ def _examples() -> int:
             continue
         df.spoken(s)
         print(f"{st}\n  montaigne: {s['fixed_text']}\n  elah (callout, forced for display; live ~1 in 3): "
-              f"{bag.pop()}\n     source: {s['source']['title_raw']} | {s['source']['date']} | {s['source']['url']}")
+              f"{bag.pop()}\n     source: {s['source']['title_raw']} | {s['source']['date']} | {s['source']['url']}"
+              f"\n     excerpt: {s['fact']['excerpt']}")
+    return 0
+
+
+def _sample(n: int, seed: Optional[int] = None) -> int:
+    """N random facts from the pack as Montaigne would say them, each with the verbatim excerpt it came from."""
+    pack = load_pack()
+    rng = random.Random(seed)
+    for f in rng.sample(pack, min(n, len(pack))):
+        s = fact_spec(f, rng.choice(FRAMES))
+        print(f"[{f['id']}] ({', '.join(f['topics'])})\n  SAID:    {s['fixed_text']}\n  EXCERPT: {f['excerpt']}\n"
+              f"  SOURCE:  {f['title']} | {f['date']} | {f['url']}\n")
+    print(f"({len(pack)} facts in {PACK_PATH.name})")
     return 0
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")        # a bare cp1252 console must not crash on a curly quote
+    except Exception:
+        pass
     if "--selftest" in sys.argv:
         rest = [a for a in sys.argv[1:] if not a.startswith("--")]
         sys.exit(_selftest(rest[0] if rest else None))
     if "--examples" in sys.argv:
         sys.exit(_examples())
+    if "--sample" in sys.argv:
+        i = sys.argv.index("--sample")
+        n_ = int(sys.argv[i + 1]) if len(sys.argv) > i + 1 and sys.argv[i + 1].isdigit() else 12
+        seed_ = next((int(a.split("=", 1)[1]) for a in sys.argv if a.startswith("--seed=")), None)
+        sys.exit(_sample(n_, seed_))
     print(__doc__)

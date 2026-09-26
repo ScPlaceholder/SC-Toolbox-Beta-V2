@@ -50,6 +50,13 @@ from pacing import apply as apply_pacing, NotNow                           # noq
 from feedback import FeedbackRecorder                                      # noqa: E402
 from session_story import welcome_spec, first_meeting_spec, mark_welcomed, recap_record, read_session   # noqa: E402
 import dev_facts as devf                                                   # noqa: E402
+import npc_factions                                                        # noqa: E402
+from refinery_tracker import RefineryTracker                               # noqa: E402
+from bdl_tracker import BdlTracker                                         # noqa: E402
+import manufacturers                                                       # noqa: E402
+import place_flavour                                                       # noqa: E402
+from contract_history import ContractHistory                               # noqa: E402
+from settings import DEFAULTS as _SETTING_DEFAULTS                         # noqa: E402
 
 log = logging.getLogger("suitmk2.core")
 
@@ -93,7 +100,10 @@ ROUTED_ELSEWHERE = {"boarded_ship": "ship_channel_joined (the classifier's name)
                     "item_earned": "reward_earned carrying an item becomes item_earned inside build_event_spec",
                     "ship_milestone": "synthesised by _boarded() from the per-ship boarding count",
                     "out_of_medpens": "synthesised by _loadout_changed() when the last medpen goes",
-                    "out_of_mags": "synthesised by _loadout_changed() when the last spare magazine goes"}
+                    "out_of_mags": "synthesised by _loadout_changed() when the last spare magazine goes",
+                    "refinery_pickup": "synthesised by on_event on arrival where refinery_tracker has an open order",
+                    "bdl_warning": "synthesised by feed_line from bdl_tracker (med pen use, an estimate)",
+                    "bdl_clear": "synthesised by feed_line from bdl_tracker when the estimate falls back"}
 # AFK (J 2026-09-24): events the pilot had to DO, which the OS idle clock cannot see when they fly on a HOTAS or a
 # gamepad. Each one counts as activity for the AFK window (AfkWatch.poke). Rewards, objectives and injuries are not
 # here: the game hands those out whether or not anyone is at the controls.
@@ -103,6 +113,10 @@ PILOT_DRIVEN_EVENTS = {"location_change", "qt_arrived", "jurisdiction_change", "
 DEV_FACT_URGENT_EVENTS = {"injury", "incapacitated", "player_respawned"}
 QUIET_WINDOW_EVENTS = {"qt_route_calculated": "quantum", "qt_target_selected": "quantum",
                        "hangar_ready": "parked", "docking_ready": "parked"}
+# Optional April-spec features (settings.py). The core reads only these keys from the settings it is handed; a core
+# built with no settings (the selftests, the dry run) gets the shipped defaults.
+FEATURE_KEYS = ("npc_faction_names", "refinery_tracker", "bdl_tracker", "manufacturer_flavour", "place_flavour",
+                "contract_history")
 
 
 _GROUND: Optional[list] = None
@@ -143,8 +157,10 @@ class CompanionCore:
                  ambient_every_s: float = 90.0, now: Callable[[], float] = time.time, chattiness: int = 2,
                  feedback_dir: Optional[Path] = None, lifecycle=None, session_id: str = "", store=None,
                  sound=None, idle_source: Optional[Callable[[], Optional[float]]] = None,
-                 afk_after_s: float = DEFAULT_AFK_MINUTES * 60.0, dev_facts=None):
+                 afk_after_s: float = DEFAULT_AFK_MINUTES * 60.0, dev_facts=None,
+                 features: Optional[dict] = None):
         self.speech, self.realizer, self.eyes = speech, realizer, eyes
+        self.features = {k: (features or {}).get(k, _SETTING_DEFAULTS.get(k)) for k in FEATURE_KEYS}
         self.sound = sound                   # sound_classifier.SoundClassifier or None (game ears that know WHAT)
         self.recorder, self.dreams, self.headroom = recorder, dreams, headroom
         self.ambient_every_s, self.now = ambient_every_s, now
@@ -160,6 +176,8 @@ class CompanionCore:
         self.loadout.on_changed(self._loadout_changed)
         self._loadout_prev = {"medpens": 0, "mags": 0}
         self.classifier = EventClassifier(self.state, self.volatile)
+        # Who the log says is around (npc_factions.py): kills, hits, hails and plain presence, with how much it said.
+        self.threats = npc_factions.ThreatLog(now=now)
         self.parser.subscribe(self.classifier.on_event)
         self.classifier.subscribe(self.on_event)
         self.gate = SpeakGate(now=now)
@@ -173,6 +191,18 @@ class CompanionCore:
         except Exception:
             log.exception("topic graph unavailable; talked-out ticks stay silent")
             self.walker = None
+        # Every ship maker's brochure facts and both characters' takes join the graph (manufacturers.py). BEFORE the
+        # told-topics load below, which addresses facts by index.
+        if self.walker is not None and self.features.get("manufacturer_flavour"):
+            try:
+                manufacturers.merge_into(self.walker.g)
+            except Exception:
+                log.exception("manufacturer lore")
+        if self.walker is not None and self.features.get("place_flavour"):
+            try:
+                place_flavour.merge_into(self.walker.g)      # Elah's re-checked April place lines, as her opinions
+            except Exception:
+                log.exception("place flavour")
         # Combat from SC's own audio onsets (fed by voice_fx.DuckingMonitor.listeners), confirmed by the strongest
         # second sense there is: the sound classifier, then the eyes, else audio onsets alone. A holstered weapon
         # ends it early. J's design, 2026-09-23.
@@ -198,6 +228,13 @@ class CompanionCore:
         self._seen_transitions = 0
         self.lifecycle, self.session_id = lifecycle, session_id or time.strftime("%Y%m%d_%H%M%S")
         self.store = store
+        # Refinery orders across sessions (refinery_tracker.py): the log has no duration, only the "Completed at" notice
+        # and its re-announcement at every login, so this remembers WHERE an order waits and reminds on arrival there.
+        self.refinery = RefineryTracker(store, now=now) if self.features.get("refinery_tracker") else None
+        # Simulated blood drug level (bdl_tracker.py): an ESTIMATE from med pens drawn and never seen again.
+        self.bdl = BdlTracker() if self.features.get("bdl_tracker") else None
+        # What kind of work the pilot does (contract_history.py), from contract titles, kept in the pilot's memory.
+        self.contracts = ContractHistory(store, now=now) if self.features.get("contract_history") else None
         self._load_told_topics()
         self._refresh_feelings()
         self._welcomed = False               # once per session, whatever path triggers it
@@ -475,6 +512,24 @@ class CompanionCore:
             self.loadout_parser.on_line(line)
         except Exception:
             log.exception("loadout parser")
+        if self.features.get("npc_faction_names"):
+            try:
+                for s in npc_factions.scan_line(line, getattr(self.parser, "_local_name", None)):
+                    self.threats.note(s)
+            except Exception:
+                log.exception("npc factions")
+        if self.contracts is not None:
+            try:
+                self.contracts.on_line(line)             # <EndMission> ... Abandon: the one outcome with no HUD line
+            except Exception:
+                log.exception("contract history")
+        if self.bdl is not None:
+            try:
+                evs = self.bdl.on_line(line, getattr(self.parser, "_local_name", None))
+                if evs:
+                    self._bdl_say(evs)
+            except Exception:
+                log.exception("bdl tracker")
 
     def _loadout_changed(self, s) -> None:
         """Summarise the loadout for the conversation lane; speak only when medpens or spare mags run OUT."""
@@ -609,6 +664,8 @@ class CompanionCore:
         aff_et = {"ship_channel_joined": "boarded_ship", "ship_channel_left": "left_ship"}.get(et, et)
         if aff_et == "boarded_ship":
             self._boarded(data.get("channel") or data.get("ship_type") or self.state.get("ship"))
+        if self.contracts is not None and et in ("contract_accepted", "contract_complete", "contract_failed"):
+            self._contract_event(et, data)               # BEFORE the affect feed: it may carry an affect_scale
         try:
             self.affect.feed(aff_et, data)
         except Exception:
@@ -617,6 +674,8 @@ class CompanionCore:
         # the ship the pilot is in. Raw events only; ship_feelings decides what they mean, with decay.
         if et in ("incapacitated", "contract_complete"):
             self._ship_event("death" if et == "incapacitated" else "mission")
+        if self.bdl is not None and et in ("incapacitated", "player_respawned", "med_bed_heal"):
+            self.bdl.reset(et)                          # a death, a new body, or the med bed clears the estimate
         try:
             self.activity.feed(et, data)
             if et in ("location_change", "qt_arrived"):
@@ -660,6 +719,8 @@ class CompanionCore:
                 log.exception("session record")
         if et in QUIET_WINDOW_EVENTS and self.dreams is not None:
             self._work_put(("dream", QUIET_WINDOW_EVENTS[et]))
+        if self.refinery is not None:
+            self._refinery_event(et, data)
         if dup:
             self.stats["dup"] += 1
             return
@@ -669,9 +730,22 @@ class CompanionCore:
         if et == "location_change" and self._first_meeting_pending:
             self._first_meeting_pending = False
             threading.Thread(target=self._welcome, daemon=True).start()   # first run: now there is a live fact
+        if et == "refinery_complete" and self.refinery is not None:
+            info = self.refinery.notice(data.get("location"))
+            if info and info["suppressed"]:
+                self._note(f"refinery notice for {info['station']}: quiet (the pickup reminder was just said)")
+                return
+            if info and info["known"]:
+                data["refinery_known"], data["refinery_days_waiting"] = True, info["days_waiting"]
+        if et == "incapacitated" and self.features.get("npc_faction_names") and data.get("killer"):
+            f = npc_factions.resolve(data["killer"])          # <Actor Death> named who did it (builds to Nov 2025)
+            if f:
+                data["killer_faction"] = f["spoken"]
         spec = build_event_spec(et, data, self._ambient_state(), self._variant["event"])
         if spec is None:
             return
+        if et == "ship_channel_joined" and self.features.get("manufacturer_flavour"):
+            manufacturers.flavour_boarding(spec, data.get("channel") or data.get("ship_type") or "")
         self._variant["event"] += 1
         gp, sp = EVENT_PRIORITY[et]
         # Talked out: an event ABOUT a subject (a place, a zone, a body part) already mentioned enough is dropped.
@@ -681,6 +755,69 @@ class CompanionCore:
             self._note(f"talked out, skipped: {subject_key(spec)}")
             return
         self._consider(spec, gp, sp, f"event {et}")
+
+    def _contract_event(self, et: str, data: dict) -> None:
+        """Remember the contract's type and outcome; on completion, hand the line its milestone and the feeling its
+        scale. Enriches `data` in place (the spec and the affect feed read the same dict)."""
+        try:
+            mid, title = data.get("mission_id"), str(data.get("mission_name") or "")
+            if et == "contract_accepted":
+                t = self.contracts.accepted(mid, title)
+            elif et == "contract_failed":
+                t = self.contracts.failure(mid, title)
+            else:
+                r = self.contracts.completed(mid, title)
+                t = r["type"]
+                data["affect_scale"] = r["affect_scale"]
+                if r["milestone"]:
+                    data["contract_milestone"] = r["milestone"]
+                    data["contracts_of_type"], data["contracts_total"] = r["of_type"], r["total"]
+            if t != "other":
+                data["mission_type"] = t
+        except Exception:
+            log.exception("contract history")
+
+    def _bdl_say(self, evs: list) -> None:
+        """Say the most serious of the estimate's events from one log line (two bands can pass in one tick). The load
+        is words, never a number; the one number is how many pens the log showed in the last few minutes."""
+        doses = [e for e in evs if e["type"] == "dose"]
+        order = ("caution", "danger", "critical")
+        ev = max(doses, key=lambda e: order.index(e["band"])) if doses else evs[-1]
+        et = "bdl_warning" if ev["type"] == "dose" else "bdl_clear"
+        try:
+            self.affect.feed(et)
+        except Exception:
+            log.exception("affect")
+        spec = build_event_spec(et, ev, self._ambient_state(), self._variant["event"])
+        if spec is None:
+            return
+        self._variant["event"] += 1
+        if et == "bdl_clear":
+            self._consider(spec, Priority.AMBIENT, PRIORITY_AMBIENT, "stim load estimate coming down")
+        elif ev["band"] == "critical":
+            self._consider(spec, Priority.URGENT, PRIORITY_URGENT, "stim load estimate critical")
+        else:
+            self._consider(spec, Priority.EVENT, PRIORITY_EVENT, f"stim load estimate {ev['band']}")
+
+    def _refinery_event(self, et: str, data: dict) -> None:
+        """Logins open the re-announcement window; arriving where an order waits reminds the pilot (once a session)."""
+        try:
+            if et == "join_pu":
+                self.refinery.joined()
+            else:
+                self.refinery.sweep()
+            if et not in ("location_change", "qt_arrived"):
+                return
+            r = self.refinery.arrived(data.get("location_name") or data.get("location") or "")
+            if r is None:
+                return
+            spec = build_event_spec("refinery_pickup", {"location": r["station"], "days_waiting": r["days_waiting"]},
+                                    self._ambient_state(), self._variant["event"])
+            if spec is not None:
+                self._variant["event"] += 1
+                self._consider(spec, Priority.EVENT, PRIORITY_EVENT, f"refinery order waiting at {r['station']}")
+        except Exception:
+            log.exception("refinery tracker")
 
     # -- ambient --------------------------------------------------------------------------------------------------
     def _ambient_state(self) -> dict:
@@ -694,6 +831,10 @@ class CompanionCore:
                "recent_locations": snap.get("recent_locations_visited", []), "queue_size": self.speech.pending()}
         if out.get("ship") and _is_ground_vehicle(out["ship"]):
             out["vehicle_kind"] = "ground vehicle"
+        if self.features.get("npc_faction_names"):
+            th = self.threats.current()
+            if th:
+                out["threat_faction"], out["threat_role"] = th["spoken"], th["role"]
         departed = getattr(self, "_departed", None)
         if departed and out["location"] == departed:          # we left it: not "where we are" any more
             out["location"], out["minutes_at_location"], out["departed_from"] = None, 0, departed
@@ -1240,6 +1381,174 @@ class CompanionCore:
             log.exception("welcome")         # a bad memory file means no welcome, never a crash
 
 
+# ---- selftest: the optional April-spec features, each with a feature-OFF control ----------------------------------
+def _capture(core) -> list:
+    """Replace the gate with a recorder: the specs the core WOULD consider, in order."""
+    got: list = []
+    core._consider = lambda spec, *a, **k: got.append(spec)
+    return got
+
+
+def _claims(spec: Optional[dict]) -> dict:
+    return {c["predicate"]: c["value"] for c in (spec or {}).get("claims", [])}
+
+
+def _npc_case(FakeSpeech, on: bool) -> tuple:
+    """A real ASD presence line (J's 2026-08-02 log), then a fight starts, then a real <Actor Death> line where an ASD
+    grunt killed the pilot (J's 2025-08-21 log, whose incapacitated event carries the killer). -> (combat, death)."""
+    core = CompanionCore(FakeSpeech(), realizer=None, features={"npc_faction_names": on})
+    got = _capture(core)
+    core.parser._local_name = "ProjectGegnome"
+    core.feed_line(npc_factions.LINE_FIXTURES[5][3])
+    core._combat_edge("on", "selftest")
+    combat = next((s for s in got if s["scenario"] == "event_combat_on"), None)
+    core.feed_line(npc_factions.LINE_FIXTURES[1][3])
+    death = next((s for s in got if s["scenario"] == "event_incapacitated"), None)
+    return _claims(combat), _claims(death)
+
+
+def _feature_cases(FakeSpeech) -> list:
+    out = []
+    combat, death = _npc_case(FakeSpeech, True)
+    out.append(("npc names: a fight next to ASD troops names them", combat.get("threat.faction") == "ASD troops"))
+    out.append(("npc names: a death by an ASD grunt says who did it", death.get("threat.killed_by") == "ASD troops"))
+    off_c, off_d = _npc_case(FakeSpeech, False)
+    out.append(("npc names CONTROL: with the setting off, neither line names anyone (the checks above then fail)",
+                "threat.faction" not in off_c and "threat.killed_by" not in off_d and "combat.state" in off_c))
+    first, pickup, again = _refinery_case(FakeSpeech, True)
+    out.append(("refinery: an order announced in one session is remembered in the next, and arriving there says so",
+                pickup.get("refinery.location") == "HUR-L2 Faithful Dream Station"
+                and pickup.get("refinery.days_waiting") == 2))
+    out.append(("refinery: the login re-announcement right after the reminder is not said twice", again is None))
+    warn = _bdl_case(FakeSpeech, True)
+    import bdl_tracker as bt
+    first = _claims(warn[0]) if warn else {}
+    out.append(("bdl: J's real overdose gets a hedged stim warning (words, plus the pen count the log showed)",
+                first.get("suit.stim_load_estimate") in {b[2] for b in bt.BANDS}
+                and isinstance(first.get("suit.medpens_recent"), int)))
+    n = first.get("suit.medpens_recent")
+    honest = f"That is a lot of stims, {n} pens. Hold off."
+    out.append(("bdl: grounding passes the pen count and refuses an invented level",
+                warn and not ground(warn[0], honest) and ground(warn[0], f"BDL at 60 percent, {n} pens. Hold off.")))
+    out.append(("bdl: it escalates to the critical wording before the game's own Overdose notice",
+                any(_claims(w).get("suit.stim_load_estimate") == "far too many stims" for w in warn)))
+    out.append(("bdl CONTROL: with the setting off the same pens say nothing", _bdl_case(FakeSpeech, False) == []))
+    claims, stance, gatac = _maker_case(FakeSpeech, True)
+    out.append(("makers: boarding J's Drake Ironclad names Drake Interplanetary and leans plain and short",
+                claims.get("ship.manufacturer") == "Drake Interplanetary" and "plain and short" in stance))
+    out.append(("makers: a maker the ship branch skipped (Gatac) has topic facts", gatac))
+    oc, ostance, ogatac = _maker_case(FakeSpeech, False)
+    out.append(("makers CONTROL: with the setting off, no maker claim, no cue, no Gatac node",
+                "ship.manufacturer" not in oc and "plain and short" not in ostance and not ogatac
+                and oc.get("ship.name") == "Drake Ironclad"))
+    found, fails = _place_case(FakeSpeech, True)
+    out.append(("places: Elah's re-checked Lorville line is in the walk and passes grounding", found and not fails))
+    out.append(("places CONTROL: with the setting off the Lorville node has no such line",
+                _place_case(FakeSpeech, False)[0] is False))
+    c_on, pride_on = _contract_case(FakeSpeech, True)
+    out.append(("contracts: the tenth bounty's completion line says so (type + count from the pilot's history)",
+                c_on.get("mission.type") == "bounty" and c_on.get("contracts.of_type_completed") == 10))
+    c_off, pride_off = _contract_case(FakeSpeech, False)
+    out.append(("contracts: finishing the specialty lifts Elah's pride above the same event without history",
+                pride_on > pride_off > 0))
+    out.append(("contracts CONTROL: with the setting off, no type, no count", "mission.type" not in c_off
+                and "contracts.of_type_completed" not in c_off and c_off.get("mission.status") == "complete"))
+    off = _refinery_case(FakeSpeech, False)
+    out.append(("refinery CONTROL: with the setting off there is no pickup reminder and the notice speaks as news",
+                off[1] == {} and off[2] is not None and "refinery.still_waiting" not in _claims(off[2])))
+    return out
+
+
+def _refinery_case(FakeSpeech, on: bool) -> tuple:
+    """J's 2026-04-03 login at HUR-L2, verbatim lines: {Join PU}, the station's location line, then the notice. The
+    order was first announced two days earlier, in a previous session with the same pilot memory."""
+    import tempfile
+    import memory_store as ms
+    import refinery_tracker as rt
+    clock = [2_000_000.0]
+    with tempfile.TemporaryDirectory() as d:
+        store = ms.open_store(d, "pilot")
+        c1 = CompanionCore(FakeSpeech(), realizer=None, now=lambda: clock[0], store=store,
+                           features={"refinery_tracker": on})
+        got1 = _capture(c1)
+        c1.feed_line(rt.FIXTURE_NOTICE)
+        first = next((s for s in got1 if s["scenario"] == "event_refinery_complete"), None)
+        clock[0] += 2 * 86400 + 30
+        c2 = CompanionCore(FakeSpeech(), realizer=None, now=lambda: clock[0], store=store,
+                           features={"refinery_tracker": on})
+        got2 = _capture(c2)
+        for line in (rt.FIXTURE_JOIN, rt.FIXTURE_AT_STATION, rt.FIXTURE_NOTICE):
+            clock[0] += 5
+            c2.feed_line(line)
+        pickup = next((s for s in got2 if s["scenario"] == "event_refinery_pickup"), None)
+        again = next((s for s in got2 if s["scenario"] == "event_refinery_complete"), None)
+    return first, _claims(pickup), again
+
+
+# J's log "Game Build(12660092) 23 Sep 26 (19 52 37).log", verbatim (tail trimmed): boarding his Ironclad.
+BOARD_IRONCLAD = ('<2026-09-24T01:15:39.827Z> [Notice] <SHUDEvent_OnNotification> Added notification "You have joined '
+                  "channel 'Drake Ironclad : ProjectGegnome'.")
+
+
+def _maker_case(FakeSpeech, on: bool) -> tuple:
+    """Board J's Drake Ironclad (real line). -> (boarding claims, boarding stance, does Gatac have a topic node)."""
+    core = CompanionCore(FakeSpeech(), realizer=None, features={"manufacturer_flavour": on})
+    got = _capture(core)
+    core.feed_line(BOARD_IRONCLAD)
+    board = next((s for s in got if s["scenario"] == "event_boarded_ship"), None)
+    gatac = core.walker is not None and bool((core.walker.g.nodes.get("maker_gatac_manufacture") or {}).get("facts"))
+    return _claims(board), (board or {}).get("interpretation", {}).get("text", ""), gatac
+
+
+def _place_case(FakeSpeech, on: bool) -> tuple:
+    """At Lorville: does the walker have Elah's re-checked line there, and does it pass grounding as the walker
+    would offer it? -> (line found, grounding failures)."""
+    core = CompanionCore(FakeSpeech(), realizer=None, features={"place_flavour": on})
+    if core.walker is None:
+        return False, ["no walker"]
+    g, w = core.walker.g, core.walker
+    facts = (g.nodes.get("lorville") or {}).get("facts", [])
+    i = next((k for k, f in enumerate(facts) if f.get("source", "").startswith("place_flavour")), None)
+    if i is None:
+        return False, []
+    w._next_fact["lorville"] = i
+    spec = w._spec("lorville", 0, set())
+    return True, ground(spec, facts[i]["text"])
+
+
+def _contract_case(FakeSpeech, on: bool) -> tuple:
+    """A pilot with nine bounties and one cargo run behind them (their memory) finishes J's real bounty (18 Dec 2025
+    line). -> (completion-line claims, Elah's pride right after)."""
+    import tempfile
+    import memory_store as ms
+    import contract_history as chm
+    clock = [3_000_000.0]
+    with tempfile.TemporaryDirectory() as d:
+        store = ms.open_store(d, "pilot")
+        seed = chm.ContractHistory(store, now=lambda: clock[0])
+        seed.completed("seed-cargo", "Rookie Rank - Direct Small Cargo Haul")
+        for i in range(9):
+            seed.completed(f"seed-{i}", "Verified Bounty: Someone")
+        core = CompanionCore(FakeSpeech(), realizer=None, now=lambda: clock[0], store=store,
+                             features={"contract_history": on})
+        got = _capture(core)
+        core.feed_line(chm.FIXTURE_BOUNTY_DONE)
+        done = next((s for s in got if s["scenario"] == "event_contract_complete"), None)
+        pride = core.affect.levels["elah"]["pride"]
+    return _claims(done), pride
+
+
+def _bdl_case(FakeSpeech, on: bool) -> list:
+    """J's real 30 Mar 2026 overdose (bdl_tracker.MAR30, 16 pens in two minutes; the game said "Overdose" at 06:38:41
+    and he went down at 06:38:58). -> the stim warnings the core would consider, in order."""
+    import bdl_tracker as bt
+    core = CompanionCore(FakeSpeech(), realizer=None, features={"bdl_tracker": on})
+    got = _capture(core)
+    for line in bt.mar30_lines():
+        core.feed_line(line)
+    return [s for s in got if s["scenario"] == "event_bdl_warning"]
+
+
 # ---- selftest: real Game.log lines, fake sidecar + speech --------------------------------------------------------
 def _selftest(game_log: Optional[str]) -> int:
     results = []
@@ -1422,6 +1731,9 @@ def _selftest(game_log: Optional[str]) -> int:
     case("a pilot-driven game event (HOTAS flying) counts as activity", not core7.afk.afk())
     case("no idle source (the dry run): never AFK",
          not CompanionCore(FakeSpeech(), realizer=None).afk.afk())
+
+    for name, ok in _feature_cases(FakeSpeech):
+        results.append((name, ok))
 
     for name, ok in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")

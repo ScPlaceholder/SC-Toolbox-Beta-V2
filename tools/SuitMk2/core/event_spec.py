@@ -31,7 +31,8 @@ _LEN_BY_EVENT = {"combat_on": (1, 8), "combat_off": (1, 14)}
 # SUITMK2_SHORT_EDGES=0 turns it off for an A/B dry run.
 SHORT_EDGE_EVENTS = {"incapacitated", "player_respawned", "injury", "med_bed_heal", "qt_arrived", "boarded_ship",
                      "left_ship", "docking_detached", "contract_accepted", "contract_complete",
-                     "entered_monitored_space", "exited_monitored_space", "refinery_complete", "platform_moving",
+                     "entered_monitored_space", "exited_monitored_space", "refinery_complete", "refinery_pickup",
+                     "platform_moving", "bdl_warning", "bdl_clear",
                      "out_of_medpens", "out_of_mags", "objective_new", "blueprint_received"}
 SHORT_EDGE_LEN = (2, 10)
 SHORT_EDGE_SHARE = 0.7
@@ -165,6 +166,21 @@ _VARIANTS: dict[str, list[tuple[str, str, str]]] = {
         ("elah", "PRACTICAL", "the refinery job is done; say where to collect it"),
         ("montaigne", "GRAND_PHILOSOPHY_TO_TRIVIAL", "raw rock made useful at last, which pleases him more than it should"),
     ],
+    # refinery_tracker.py: arriving at the station where a finished order is waiting (the log's only refinery signal is
+    # the "Completed at" notice; it never records a pickup, so this is said once per session per station).
+    "refinery_pickup": [
+        ("elah", "PRACTICAL", "we are at the station where a refinery order is ready; say to collect it while here"),
+        ("montaigne", "ESSAY_DIGRESSION", "the refined ore has been waiting here for them, which he finds loyal of it"),
+    ],
+    # bdl_tracker.py: an ESTIMATED blood drug level from med pens used (the game never logs the value). Elah only: the
+    # suit reads the pilot's body. Hedged wording, no levels or thresholds; only the pen count the log showed.
+    "bdl_warning": [
+        ("elah", "PRACTICAL", "hedged, not a readout: that is a lot of stims in a short time; hold off on the next pen"),
+        ("elah", "CORRECTION", "an estimate, said as one: ease off the med pens for a bit"),
+    ],
+    "bdl_clear": [
+        ("elah", "DEADPAN", "the stims should be wearing off by now; hedged, one clipped line"),
+    ],
     "blueprint_received": [
         ("elah", "PRACTICAL", "new blueprint; say what it is"),
         ("montaigne", "ESSAY_DIGRESSION", "a plan for a thing, which he suspects he prefers to the thing itself"),
@@ -221,6 +237,11 @@ def _claims_for(event_type: str, d: dict, state: dict) -> tuple[list, list, list
         add("suit.pilot_incapacitated", True, required=True)
         if state.get("location"):
             add("location.name", state["location"])
+        # Who did it (npc_factions.py): the log's own kill line when it has one, else who it says is around.
+        if d.get("killer_faction"):
+            add("threat.killed_by", d["killer_faction"], required=True)
+        elif state.get("threat_faction"):
+            add("threat.faction_nearby", state["threat_faction"])
     elif event_type == "med_bed_heal":
         healed = d.get("healed_parts")
         add("suit.med_bed_heal", True, required=True)
@@ -261,6 +282,10 @@ def _claims_for(event_type: str, d: dict, state: dict) -> tuple[list, list, list
         add("session.reward_auec", amount, required=True, number=True)
     elif event_type in ("combat_on", "combat_off"):
         add("combat.state", "on" if event_type == "combat_on" else "off", required=True)
+        # Who the log says is around as the fight starts (npc_factions.ThreatLog; a merely-present creature is never
+        # it). Required, so the line names them: "Contact. Nine Tails pirates." fits the 1-8 word combat edge.
+        if event_type == "combat_on" and state.get("threat_faction"):
+            add("threat.faction", state["threat_faction"], required=True)
     elif event_type == "item_earned":
         item = str(d.get("item") or "").strip()
         if not item:
@@ -282,11 +307,26 @@ def _claims_for(event_type: str, d: dict, state: dict) -> tuple[list, list, list
     elif event_type in ("out_of_medpens", "out_of_mags"):
         add("loadout.item", "medpens" if event_type == "out_of_medpens" else "spare magazines", required=True)
         add("loadout.remaining", 0, required=True)
-    elif event_type == "refinery_complete":
+    elif event_type in ("refinery_complete", "refinery_pickup"):
         loc = str(d.get("location") or "").strip()
         if not loc:
             return [], [], []
         add("refinery.location", loc, required=True)
+        if event_type == "refinery_pickup":
+            add("refinery.ready_here", True, required=True)
+        elif d.get("refinery_known"):                    # the game's login re-announcement of an order already known
+            add("refinery.still_waiting", True, required=True)
+        days = _as_int(d.get("refinery_days_waiting") if event_type == "refinery_complete" else d.get("days_waiting"))
+        if days and days >= 1:
+            add("refinery.days_waiting", days, required=True, number=True)
+    elif event_type in ("bdl_warning", "bdl_clear"):
+        # An ESTIMATE (bdl_tracker.py): the load is words ("a lot of stims"), never a level. The pen count is the one
+        # number, and it is what the log showed, not a model.
+        add("suit.stim_load_estimate", d.get("load") if event_type == "bdl_warning" else "coming back down",
+            required=True)
+        n = _as_int(d.get("recent"))
+        if event_type == "bdl_warning" and n:
+            add("suit.medpens_recent", n, required=True, number=True)
     elif event_type == "blueprint_received":
         bp = str(d.get("blueprint") or "").strip()
         if not bp:
@@ -304,6 +344,14 @@ def _claims_for(event_type: str, d: dict, state: dict) -> tuple[list, list, list
             return [], [], []
         add("mission.name", name, required=True)
         add("mission.status", "accepted" if event_type == "contract_accepted" else "complete")
+        # contract_history.py: the kind of job, from its title, and a milestone from the pilot's own record
+        if d.get("mission_type"):
+            add("mission.type", d["mission_type"])
+        m = d.get("contract_milestone") if event_type == "contract_complete" else None
+        if m in ("first_of_type", "type_count") and _as_int(d.get("contracts_of_type")):
+            add("contracts.of_type_completed", _as_int(d["contracts_of_type"]), required=True, number=True)
+        elif m == "total" and _as_int(d.get("contracts_total")):
+            add("contracts.total_completed", _as_int(d["contracts_total"]), required=True, number=True)
     elif event_type == "objective_new":
         obj = str(d.get("objective") or "").strip()
         if not obj or "~mission(" in obj:
@@ -342,6 +390,19 @@ def build_event_spec(event_type: str, data: dict, state: Optional[dict] = None, 
     if event_type == "injury" and (_as_int((data or {}).get("tier")) == 1
                                    or str((data or {}).get("severity") or "").lower() == "severe"):
         pool = [("elah", "PRACTICAL", "the worst tier; get to a med bed now")]
+    elif event_type == "contract_complete" and (data or {}).get("contract_milestone") == "first_of_type":
+        pool = [("elah", "CALLBACK", "the first job of this kind they have ever finished; one line that notices it is new")]
+    elif event_type == "contract_complete" and (data or {}).get("contract_milestone") == "type_count":
+        pool = [("elah", "CALLBACK", "this many of one kind of job now; name the kind and the count, dry"),
+                ("montaigne", "PILOT_CHARACTER", "what this many jobs of one kind says about the pilot")]
+    elif event_type == "contract_complete" and (data or {}).get("contract_milestone") == "total":
+        pool = [("montaigne", "GRAND_PHILOSOPHY_TO_TRIVIAL", "this many contracts in all: a career, treated grandly"),
+                ("elah", "DEADPAN", "the running total of contracts; one dry line")]
+    elif event_type == "bdl_warning" and (data or {}).get("band") == "critical":
+        pool = [("elah", "PRACTICAL", "urgent but hedged: far too many stims; no more pens, a med bed if it gets worse")]
+    elif event_type == "refinery_complete" and (data or {}).get("refinery_known"):
+        pool = [("elah", "PRACTICAL", "the order there is still waiting from before; a plain reminder, not news"),
+                ("montaigne", "SELF_DEPRECATION", "the ore is still waiting for them, patiently, as he does")]
     elif event_type == "injury" and injury_effect(str((data or {}).get("body_part") or ""),
                                                   _as_int((data or {}).get("tier"))):
         # Arm or head: what it does to the pilot's shooting or senses is the useful part (J 2026-09-24).
