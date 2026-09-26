@@ -489,7 +489,10 @@ class SuitWindow(SCWindow):
         else:
             self._talk.setText("Talk key: set...")
         if self._voice_missing:
-            self._talk_hint.setText("Voice input needs: pip install " + " ".join(self._voice_missing))
+            # Installed users have an embedded Python and no way to "pip install", so the
+            # hint says what is missing, not a command they cannot run (2.4.0 install test).
+            self._talk_hint.setText("Voice input is not included in this build (missing: "
+                                    + ", ".join(self._voice_missing) + "). Everything else still works.")
         elif not self.s.get("talk_key"):
             self._talk_hint.setText("No talk key set: click Talk key and press the key to hold while you talk.")
         else:
