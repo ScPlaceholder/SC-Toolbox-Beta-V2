@@ -284,6 +284,17 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
         del /q "%STAGE%\skills\%%S\*_audit*.py" 2>nul
         del /q "%STAGE%\skills\%%S\*_audit*.txt" 2>nul
         del /q "%STAGE%\skills\%%S\audit_report.txt" 2>nul
+        :: ★ 2026-09-26 — the erkul ground-truth SCRAPERS. Dev tools: they exist to query
+        :: erkul and compare its answers with ours, so they are deliberately NOT gated by
+        :: erkul_network_allowed() (gating them would delete their only purpose). But they
+        :: were SHIPPING: pak_cross_audit.py was caught by the *_audit* rule above and
+        :: these two were not, so every installer carried two live erkul scrapers.
+        :: erkul's API page states third-party automated access is not authorised, so
+        :: shipping them to users is the risk — not running them here. Excluded, not gated,
+        :: which keeps them working on a dev box where they belong.
+        del /q "%STAGE%\skills\%%S\erkul_dropdown_truth.py" 2>nul
+        del /q "%STAGE%\skills\%%S\erkul_slot_truth.py" 2>nul
+        del /q "%STAGE%\skills\%%S\erkul_dropdown_truth.json" 2>nul
         del /q "%STAGE%\skills\%%S\erkul_power_formulas.js" 2>nul
         del /q "%STAGE%\skills\%%S\ERKUL_PARITY_FIX_PROMPT.md" 2>nul
         del /q "%STAGE%\skills\%%S\INSTALL.md" 2>nul
