@@ -447,6 +447,30 @@ class SCWindow(QMainWindow):
             y = max(geom.y(), min(y, geom.bottom() - self.height()))
         self.move(x, y)
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not getattr(self, "_fit_checked", False):
+            self._fit_checked = True
+            self._fit_on_screen()
+
+    def _fit_on_screen(self) -> None:
+        """On first show, move the window back inside the screen it is on if it runs past an edge.
+
+        The size clamps (constructor + restore_geometry_from_args) cannot catch a tool that positions
+        itself afterwards: Market Finder calls self.move(x, y) after SCWindow.__init__, so in the 2.4.0
+        laptop test it was 2561 wide - clamped - but placed at x=225, and its right pane was cut off.
+        Checked once per window, so a user who later drags a window partly off-screen is not fought.
+        """
+        fg = self.frameGeometry()
+        screen = QGuiApplication.screenAt(fg.center()) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        sg = screen.availableGeometry()
+        x = max(sg.left(), min(fg.left(), sg.right() - fg.width() + 1))
+        y = max(sg.top(), min(fg.top(), sg.bottom() - fg.height() + 1))
+        if (x, y) != (fg.left(), fg.top()):
+            self.move(x, y)
+
     def restore_geometry_from_args(self, x: int, y: int, w: int, h: int, opacity: float) -> None:
         screen = QGuiApplication.primaryScreen()
         if screen:
