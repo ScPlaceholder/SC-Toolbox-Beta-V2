@@ -308,7 +308,7 @@ echo  [*] Staging tools...
 ::   weights only — safe to ship.
 :: (These notes live OUTSIDE the block: '::' inside a ( ) block is parsed as a label
 ::  and printed 'The system cannot find the drive specified.' in the 2.4.0 build log.)
-for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2) do (
+for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History) do (
     if exist "%ROOT%\tools\%%T" (
         xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
         del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul

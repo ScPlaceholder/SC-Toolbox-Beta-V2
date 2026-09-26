@@ -1,0 +1,10 @@
+{
+  "id": "dev_history",
+  "name": "Dev History",
+  "icon": "📜",
+  "color": "#88aaff",
+  "folder": "Dev_History",
+  "script": "dev_history_app.py",
+  "hotkey": "<shift>+h",
+  "settings_key": "hotkey_dev_history"
+}
