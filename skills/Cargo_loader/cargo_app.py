@@ -175,12 +175,24 @@ def _load_commodity_colors() -> dict[str, str]:
 _load_commodity_colors()
 
 
+# Mission cargo (J, 2026-09-26): contract boxes are painted by mission, not by
+# commodity, so up to ten contracts in one hold can be told apart. Listed first
+# in the brush; colours picked to stay distinct from each other.
+MISSION_CARGO: dict[str, str] = {
+    f"Mission Cargo {i}": c for i, c in enumerate(
+        ["#ff4d6d", "#ffb703", "#8ac926", "#00b4d8", "#9d4edd",
+         "#ff7f11", "#f15bb5", "#06d6a0", "#e9c46a", "#4361ee"], 1)
+}
+
+
 def commodity_color(name: str) -> str:
     """Return the color for a commodity name.
 
-    Uses commodity_colors.json for known commodities.
-    Generates a deterministic color from a hash for unknown ones.
+    Mission cargo has fixed colours; commodity_colors.json covers known
+    commodities; unknown ones get a deterministic colour from a hash.
     """
+    if name in MISSION_CARGO:
+        return MISSION_CARGO[name]
     with _COMMODITY_LOCK:
         cached = _COMMODITY_COLORS.get(name)
     if cached is not None:
@@ -235,7 +247,7 @@ def get_commodity_names() -> list[str]:
     with _COMMODITY_LOCK:
         names = set(_UEX_COMMODITIES)
         names.update(_COMMODITY_COLORS.keys())
-    return sorted(names)
+    return list(MISSION_CARGO) + sorted(names - set(MISSION_CARGO))
 
 
 # ── Palette (from shared theme) ───────────────────────────────────────────────
@@ -521,7 +533,15 @@ class _BrushView(QGraphicsView):
         # consumed the event because a box drag is in progress.
         self.drag_key_handler = None
         self.drag_right_click_handler = None
+        # Manual placement hooks (set by CargoApp): pointer hover with no
+        # button held, a click on empty grid (not a pan), pointer leaving.
+        self.hover_handler = None
+        self.empty_click_handler = None
+        self.leave_handler = None
+        self._press_at = None
         self.setFocusPolicy(Qt.StrongFocus)
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
 
     def set_brush_cursor(self, cursor) -> None:
         self._brush_cursor = cursor
@@ -536,17 +556,40 @@ class _BrushView(QGraphicsView):
         if self._brush_cursor is not None:
             self.viewport().setCursor(self._brush_cursor)
 
+    def _scene_at(self, event):
+        return self.mapToScene(event.position().toPoint())
+
+    def _box_under(self, event) -> bool:
+        for it in self.items(event.position().toPoint()):
+            g = it if isinstance(it, _CargoBoxGroup) else it.group()
+            if isinstance(g, _CargoBoxGroup):
+                return True
+        return False
+
     def mousePressEvent(self, event):
         if (event.button() == Qt.RightButton and self.drag_right_click_handler
-                and self.drag_right_click_handler()):
+                and self.drag_right_click_handler(self._scene_at(event))):
             event.accept()
             return
+        self._press_at = event.position() if event.button() == Qt.LeftButton else None
         super().mousePressEvent(event)
         self._restore()
 
     def mouseReleaseEvent(self, event):
+        press, self._press_at = self._press_at, None
         super().mouseReleaseEvent(event)
         self._restore()
+        if (event.button() == Qt.LeftButton and press is not None
+                and self.empty_click_handler is not None
+                and (event.position() - press).manhattanLength()
+                < QApplication.startDragDistance()
+                and not self._box_under(event)):
+            self.empty_click_handler(self._scene_at(event))
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        if self.leave_handler is not None:
+            self.leave_handler()
 
     def keyPressEvent(self, event):
         if self.drag_key_handler and self.drag_key_handler(event):
@@ -557,6 +600,8 @@ class _BrushView(QGraphicsView):
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
         self._restore()
+        if event.buttons() == Qt.NoButton and self.hover_handler is not None:
+            self.hover_handler(self._scene_at(event))
 
 
 # ── Clickable box group ──────────────────────────────────────────────────────
@@ -1242,6 +1287,12 @@ onto your Star Citizen ship before you undock.</p>
 
 <b style="color:#c8d4e8">Isometric View</b>
 <ul>
+  <li><b>Manual mode</b> (the default) — every ship starts empty. Click a
+      size in the panel (e.g. <b>32 SCU</b>), then click the grid to place it;
+      a ghost shows where it lands. Click a box to stack on it, <b>R</b>
+      rotates, <b>right-click</b> a box removes it, <b>Esc</b> stops placing.
+      <b>Optimize</b> fills the grid for you and you can keep editing.
+      <b>Auto</b> packs the counts you type.</li>
   <li><b>Scroll wheel</b> — zoom in/out.</li>
   <li><b>Click &amp; drag</b> empty space — pan the view.</li>
   <li><b>Drag a box</b> to move it. It snaps to the 1-SCU grid, to
@@ -1249,8 +1300,8 @@ onto your Star Citizen ship before you undock.</p>
       a <b style="color:#4caf50">green</b> ghost means it can go there,
       <b style="color:#f44336">red</b> means it can't (it returns home).
       <b>R</b> or <b>right-click</b> rotates it while dragging,
-      <b>Esc</b> cancels, <b>Ctrl+Z</b> undoes a move. Changing a
-      container count re-packs automatically.</li>
+      <b>Esc</b> cancels, <b>Ctrl+Z</b> undoes a move. Typing a
+      container count switches to Auto and re-packs.</li>
   <li><b>◁ ▷ buttons</b> (toolbar) — rotate the camera 90° to see all sides.</li>
   <li>Container colours match the size legend at the bottom of the view.</li>
   <li>When a commodity brush is active, <b>click any box</b> to paint it.</li>
@@ -1468,6 +1519,11 @@ class CargoApp(SCWindow):
         self._slot_assignment: list[dict] = []
         self._counts: dict[int, int] = {s: 0 for s in CONTAINER_SIZES}
         self._has_layout: bool = False
+        # Manual (default): blank grid, boxes placed by hand. Auto: counts + Optimize.
+        self._mode: str = "manual"
+        self._place_size: int | None = None
+        self._place_rot: bool = False
+        self._syncing: bool = False
         self._pending_loadout: dict | None = None
 
         # Planning mode state
@@ -1724,10 +1780,14 @@ class CargoApp(SCWindow):
         self._renderer = CargoRenderer(self._scene)
         self._renderer.set_box_click_callback(self._on_box_clicked)
         self._renderer.set_drag_owner(self)
-        self._view.drag_key_handler = self._drag_key
-        self._view.drag_right_click_handler = self._drag_right_click
+        self._view.drag_key_handler = self._view_key
+        self._view.drag_right_click_handler = self._view_right_click
+        self._view.hover_handler = self._on_view_hover
+        self._view.empty_click_handler = self._on_view_empty_click
+        self._view.leave_handler = self._on_view_leave
         self._undo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self)
         self._undo_shortcut.activated.connect(self._undo_move)
+        self._refresh_mode_ui()
 
     def _build_assignments_overlay(self) -> QWidget:
         """Build the assignments summary overlay pinned to the top-left of the iso view."""
@@ -1841,8 +1901,48 @@ class CargoApp(SCWindow):
         pad_lay.addWidget(sep)
         pad_lay.addSpacing(4)
 
+        # Mode: Manual (default) places boxes by hand on a blank grid; Auto
+        # packs typed counts. J, 2026-09-26: "it should be obvious".
+        mode_row = QWidget(pad)
+        mode_lay = QHBoxLayout(mode_row)
+        mode_lay.setContentsMargins(0, 0, 0, 0)
+        mode_lay.setSpacing(0)
+        self._mode_btns: dict[str, QPushButton] = {}
+        for key, text, tip in (
+                ("manual", "\u270b  " + _("Manual"),
+                 _("Place boxes yourself: click a size below, then click the grid")),
+                ("auto", "\u2699  " + _("Auto"),
+                 _("Type container counts, then press Optimize to pack them"))):
+            mb = QPushButton(text, mode_row)
+            mb.setCheckable(True)
+            mb.setCursor(Qt.PointingHandCursor)
+            mb.setToolTip(tip)
+            mb.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {BG3}; color: {FG_DIM};
+                    font-family: Consolas; font-size: 9pt; font-weight: bold;
+                    border: 1px solid {BORDER}; padding: 5px 8px;
+                }}
+                QPushButton:checked {{
+                    background-color: {ACCENT}; color: {BG}; border-color: {ACCENT};
+                }}
+                QPushButton:hover:!checked {{ color: {FG}; }}
+            """)
+            mb.clicked.connect(lambda _c=False, k=key: self._set_mode(k))
+            mode_lay.addWidget(mb, 1)
+            self._mode_btns[key] = mb
+        pad_lay.addWidget(mode_row)
+        self._mode_hint = QLabel("", pad)
+        self._mode_hint.setWordWrap(True)
+        self._mode_hint.setStyleSheet(
+            f"color: {YELLOW}; font-family: Consolas; font-size: 8pt; background: transparent;"
+        )
+        pad_lay.addWidget(self._mode_hint)
+        pad_lay.addSpacing(4)
+
         # Container rows
         self._spinboxes: dict[int, QSpinBox] = {}
+        self._place_btns: dict[int, QPushButton] = {}
         self._cont_labels: dict[int, QLabel] = {}
         for size in CONTAINER_SIZES:
             row = QWidget(pad)
@@ -1855,10 +1955,28 @@ class CargoApp(SCWindow):
             swatch.setStyleSheet(f"background-color: {CONT_COL[size]};")
             row_lay.addWidget(swatch)
 
-            sz_lbl = QLabel(f"{size:>2} SCU", row)
-            sz_lbl.setFixedWidth(50)
-            sz_lbl.setStyleSheet(f"color: {FG}; font-family: Consolas; font-size: 9pt; background: transparent;")
-            row_lay.addWidget(sz_lbl)
+            # The size is also the Manual-mode place tool: click it, then the grid.
+            sz_btn = QPushButton(f"{size:>2} SCU", row)
+            sz_btn.setCheckable(True)
+            sz_btn.setFixedWidth(54)
+            sz_btn.setCursor(Qt.PointingHandCursor)
+            sz_btn.setToolTip(
+                _("Click, then click the grid to place a {n} SCU box").format(n=size))
+            sz_btn.setStyleSheet(f"""
+                QPushButton {{
+                    color: {FG}; font-family: Consolas; font-size: 9pt;
+                    background-color: {BG3}; border: 1px solid {BORDER};
+                    padding: 1px 3px; text-align: left;
+                }}
+                QPushButton:hover {{ border-color: {ACCENT}; }}
+                QPushButton:checked {{
+                    background-color: {CONT_COL[size]}; color: {BG};
+                    border-color: {FG}; font-weight: bold;
+                }}
+            """)
+            sz_btn.clicked.connect(lambda on, s=size: self._on_place_btn(s, on))
+            row_lay.addWidget(sz_btn)
+            self._place_btns[size] = sz_btn
 
             sb = QSpinBox(row)
             sb.setRange(0, 9999)
@@ -1876,6 +1994,7 @@ class CargoApp(SCWindow):
                     width: 0; height: 0; border: none;
                 }}
             """)
+            sb.valueChanged.connect(self._on_count_edited)
             sb.valueChanged.connect(self._update_fill)
             row_lay.addWidget(sb)
             self._spinboxes[size] = sb
@@ -2024,6 +2143,8 @@ class CargoApp(SCWindow):
 
         self._commodity_combo = SCFuzzyCombo(placeholder="Select commodity\u2026", parent=pad)
         self._commodity_combo.item_selected.connect(self._on_commodity_selected)
+        # Mission cargo is there at once, before (or without) the UEX list.
+        self._commodity_combo.set_items(list(MISSION_CARGO))
         pad_lay.addWidget(self._commodity_combo)
         pad_lay.addSpacing(4)
 
@@ -2140,7 +2261,10 @@ class CargoApp(SCWindow):
 
         self._update_spinbox_limits()
 
-        if self._has_layout:
+        if self._mode == "manual":
+            # J: "the default grid should be blank" - place boxes by hand.
+            self._clear_containers()
+        elif self._has_layout:
             self._reset_containers()
         else:
             self._optimize()
@@ -2250,6 +2374,8 @@ class CargoApp(SCWindow):
     def _on_commodity_selected(self, name: str) -> None:
         if not name:
             return
+        if self._place_size is not None:
+            self._set_place_size(None)
         self._selected_commodity = name
         color = commodity_color(name)
         self._brush_swatch.setStyleSheet(
@@ -2273,7 +2399,13 @@ class CargoApp(SCWindow):
         self._view.clear_brush_cursor()
 
     def _on_box_clicked(self, group: _CargoBoxGroup) -> None:
-        """Handle a box click in planning mode."""
+        """Handle a box click: stack onto it (place tool) or paint it (brush)."""
+        if (self._mode == "manual" and self._place_size is not None
+                and self._selected_commodity is None):
+            box = tuple(group.box_data)
+            # Deferred: placing redraws, deleting the item whose handler runs.
+            QTimer.singleShot(0, lambda: self._place_at(None, over_box=box))
+            return
         if self._selected_commodity is None:
             # If no brush, clicking clears the assignment
             if group.pos_key in self._renderer._assignments:
@@ -2490,9 +2622,259 @@ class CargoApp(SCWindow):
         self._renderer._manual_boxes = manual
         self._renderer._assignments.clear()
         self._renderer._assignments.update(assignments)
+        if self._mode == "manual" and manual is not None:
+            self._sync_counts_from_boxes()
         self._render_grid()
         self._update_assignment_summary()
-        self._status_lbl.setText(_("Move undone"))
+        self._status_lbl.setText(_("Undone"))
+
+    # ── Manual / Auto mode ───────────────────────────────────────────────────
+    #
+    # J, 2026-09-26: "there should be a manual mode and it should be obvious
+    # to the users ... otherwise they just see a ship with no way to arrange
+    # things and the default grid should be blank". Manual (the default)
+    # starts every ship empty: click a size, click the grid (a ghost previews
+    # the landing), drag to move, right-click to remove, Ctrl+Z to undo.
+    # Auto is the old behaviour: typed counts, packed by Optimize. Optimize,
+    # Reset and a loaded plan in Manual fill the grid and hand the result back
+    # as an arrangement you can keep editing. Typing a count switches to Auto.
+
+    def _refresh_mode_ui(self) -> None:
+        for k, b in self._mode_btns.items():
+            b.blockSignals(True)
+            b.setChecked(k == self._mode)
+            b.blockSignals(False)
+        if self._mode == "manual":
+            self._mode_hint.setText(_(
+                "Click a size below, then click the grid to place it. "
+                "Drag to move, right-click to remove, R rotates. "
+                "Optimize fills it for you."))
+        else:
+            self._mode_hint.setText(_(
+                "Type how many of each size, then press Optimize."))
+
+    def _set_mode(self, mode: str) -> None:
+        if mode == self._mode:
+            self._refresh_mode_ui()
+            return
+        self._mode = mode
+        if mode == "manual":
+            # What is on screen becomes the arrangement you edit.
+            self._renderer._manual_boxes = list(self._renderer._last_boxes)
+            self._sync_counts_from_boxes()
+            self._render_grid()
+            self._status_lbl.setText(_("Manual: click a size, then the grid"))
+        else:
+            self._set_place_size(None)
+            self._drop_manual_layout()
+            self._update_fill()
+            self._status_lbl.setText(_("Auto: counts are packed for you"))
+        self._refresh_mode_ui()
+
+    def _on_count_edited(self, _v=None) -> None:
+        """A typed count means "pack this for me": switch to Auto."""
+        if self._syncing or self._mode != "manual":
+            return
+        self._mode = "auto"
+        self._set_place_size(None)
+        self._drop_manual_layout()
+        self._refresh_mode_ui()
+        self._status_lbl.setText(_("Typed a count \u2014 switched to Auto"))
+
+    def _on_place_btn(self, size: int, on: bool) -> None:
+        if not on:
+            self._set_place_size(None)
+            self._status_lbl.setText(_("Placing done"))
+            return
+        if self._mode != "manual":
+            self._set_mode("manual")
+        self._set_place_size(size)
+
+    def _set_place_size(self, size: int | None) -> None:
+        self._place_size = size
+        for s, b in self._place_btns.items():
+            b.blockSignals(True)
+            b.setChecked(s == size)
+            b.blockSignals(False)
+        self._renderer.clear_ghost()
+        if size is None:
+            if self._selected_commodity is None:
+                self._view.clear_brush_cursor()
+            return
+        if self._selected_commodity is not None:
+            self._clear_brush()
+        self._view.set_brush_cursor(QCursor(Qt.CrossCursor))
+        self._view.setFocus(Qt.OtherFocusReason)
+        self._status_lbl.setText(
+            _("Placing {n} SCU: click the grid  \u00b7  R rotate  \u00b7  Esc done").format(n=size))
+
+    def _sync_counts_from_boxes(self) -> None:
+        """Spinboxes and capacity show what is actually placed."""
+        counts = {s: 0 for s in CONTAINER_SIZES}
+        for b in self._renderer._manual_boxes or []:
+            counts[b[6]] = counts.get(b[6], 0) + 1
+        self._syncing = True
+        try:
+            for size in CONTAINER_SIZES:
+                sb = self._spinboxes[size]
+                sb.blockSignals(True)
+                sb.setMaximum(max(sb.maximum(), counts[size]))
+                sb.setValue(counts[size])
+                sb.blockSignals(False)
+        finally:
+            self._syncing = False
+        self._counts = {s: counts[s] for s in CONTAINER_SIZES}
+        self._refresh_capacity()
+
+    def _freeze_if_manual(self) -> None:
+        """After a fill in Manual mode, keep the result as an editable arrangement."""
+        if self._mode == "manual":
+            self._renderer._manual_boxes = list(self._renderer._last_boxes)
+            self._sync_counts_from_boxes()
+
+    def _box_group_at(self, scene_pos):
+        for it in self._scene.items(scene_pos):
+            g = it if isinstance(it, _CargoBoxGroup) else it.group()
+            if isinstance(g, _CargoBoxGroup):
+                return g
+        return None
+
+    def _place_target(self, scene_pos, over_box=None):
+        """Where the chosen size lands for this pointer: (pos, dims, valid, reason) or None."""
+        if (self._place_size is None or self._mode != "manual"
+                or not self._current_ship or not self._slots):
+            return None
+        if self._renderer._manual_boxes is None:
+            self._renderer._manual_boxes = list(self._renderer._last_boxes)
+        w, h, l = CONTAINER_DIMS[self._place_size]
+        if self._place_rot:
+            w, h, l = rotate_yaw((w, h, l))
+        grids = self._grids_world()
+        if over_box is None and scene_pos is not None:
+            g = self._box_group_at(scene_pos)
+            over_box = tuple(g.box_data) if g is not None else None
+        if over_box is not None:
+            # Pointing at a box: stack on it (snap drops onto the top).
+            bx, _by, bz, bw, _bh, bl, _sz = over_box
+            cx, cz = bx + bw / 2.0, bz + bl / 2.0
+        else:
+            hit = None
+            for y0 in sorted({int(g.get("y0") or 0) for g in grids}, reverse=True):
+                p = self._renderer.unproject(scene_pos.x(), scene_pos.y(), y0)
+                if p is not None and any(
+                        int(g.get("y0") or 0) == y0
+                        and g["x"] <= p[0] <= g["x"] + g["w"]
+                        and g["z"] <= p[1] <= g["z"] + g["l"] for g in grids):
+                    hit = p
+                    break
+            if hit is None:
+                hit = self._renderer.unproject(scene_pos.x(), scene_pos.y(), 0)
+            if hit is None:
+                return None
+            cx, cz = hit
+        ctx = PlacementContext(grids, list(self._renderer._manual_boxes),
+                               union=self._has_layout)
+        pos, valid, reason = ctx.snap((w, h, l, self._place_size),
+                                      (cx - w / 2.0, cz - l / 2.0))
+        return pos, (w, h, l), valid, reason
+
+    def _on_view_hover(self, scene_pos) -> None:
+        if self._drag or self._place_size is None:
+            return
+        t = self._place_target(scene_pos)
+        if t is None:
+            self._renderer.clear_ghost()
+            return
+        pos, (w, h, l), valid, reason = t
+        self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid)
+        self._status_lbl.setText(
+            (_("Click to place {n} SCU").format(n=self._place_size) if valid
+             else _("Can't place: ") + _(reason))
+            + "  \u00b7  R rotate  \u00b7  Esc done")
+
+    def _on_view_leave(self) -> None:
+        if not self._drag and self._place_size is not None:
+            self._renderer.clear_ghost()
+
+    def _on_view_empty_click(self, scene_pos) -> None:
+        if self._drag or self._place_size is None:
+            return
+        QTimer.singleShot(0, lambda: self._place_at(scene_pos))
+
+    def _push_undo(self) -> None:
+        self._move_undo.append((
+            None if self._renderer._manual_boxes is None else list(self._renderer._manual_boxes),
+            dict(self._renderer._assignments),
+        ))
+
+    def _after_manual_edit(self, msg: str) -> None:
+        self._renderer.clear_ghost()
+        self._sync_counts_from_boxes()
+        self._render_grid()
+        self._update_assignment_summary()
+        self._status_lbl.setText(msg)
+
+    def _place_at(self, scene_pos, over_box=None) -> bool:
+        t = self._place_target(scene_pos, over_box=over_box)
+        if t is None:
+            return False
+        pos, (w, h, l), valid, reason = t
+        if not valid:
+            self._status_lbl.setText(_("Can't place: ") + _(reason))
+            return True
+        self._push_undo()
+        self._renderer._manual_boxes = list(self._renderer._manual_boxes) + [
+            (pos[0], pos[1], pos[2], w, h, l, self._place_size)]
+        self._after_manual_edit(
+            _("Placed {n} SCU  \u00b7  Ctrl+Z to undo").format(n=self._place_size))
+        return True
+
+    def _remove_box(self, box: tuple) -> None:
+        boxes = list(self._renderer._manual_boxes or [])
+        if box not in boxes:
+            return
+        boxes.remove(box)
+        x, y, z, w, h, l, size = box
+        if any(o[1] == y + h and o[0] < x + w and x < o[0] + o[3]
+               and o[2] < z + l and z < o[2] + o[5] for o in boxes):
+            self._status_lbl.setText(_("Take the box on top off first"))
+            return
+        self._push_undo()
+        self._renderer._assignments.pop((x, y, z, size), None)
+        self._renderer._manual_boxes = boxes
+        self._after_manual_edit(
+            _("Removed {n} SCU  \u00b7  Ctrl+Z to undo").format(n=size))
+
+    def _view_right_click(self, scene_pos) -> bool:
+        if self._drag_right_click():
+            return True
+        if self._mode != "manual":
+            return False
+        g = self._box_group_at(scene_pos)
+        if g is None:
+            return False
+        if self._renderer._manual_boxes is None:
+            self._renderer._manual_boxes = list(self._renderer._last_boxes)
+        box = tuple(g.box_data)
+        QTimer.singleShot(0, lambda: self._remove_box(box))
+        return True
+
+    def _view_key(self, event) -> bool:
+        if self._drag_key(event):
+            return True
+        if self._place_size is None:
+            return False
+        if event.key() == Qt.Key_Escape:
+            self._set_place_size(None)
+            self._status_lbl.setText(_("Placing done"))
+            return True
+        if event.key() == Qt.Key_R and not event.modifiers() & (
+                Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier):
+            self._place_rot = not self._place_rot
+            vp = self._view.viewport()
+            self._on_view_hover(self._view.mapToScene(vp.mapFromGlobal(QCursor.pos())))
+            return True
+        return False
 
     def _drop_manual_layout(self) -> None:
         if self._drag:
@@ -2676,6 +3058,22 @@ class CargoApp(SCWindow):
             # Recompute used after any clamping
             used = sum(self._get_count(s) * s for s in CONTAINER_SIZES)
 
+        self._refresh_capacity()
+
+        # Update counts dict (a changed count invalidates a hand arrangement)
+        new_counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
+        if new_counts != self._counts and self._renderer._manual_boxes is not None:
+            self._drop_manual_layout()
+            self._status_lbl.setText(_("Container counts changed \u2014 manual arrangement reset"))
+        for s in CONTAINER_SIZES:
+            self._counts[s] = new_counts[s]
+
+        self._update_assignment()
+        self._render_grid()
+
+    def _refresh_capacity(self) -> None:
+        cap = self._current_ship.get("capacity", 0) if self._current_ship else 0
+        used = sum(self._get_count(s) * s for s in CONTAINER_SIZES)
         pct = min(used / cap, 1.0) if cap > 0 else 0.0
 
         color = RED if used > cap else GREEN
@@ -2689,17 +3087,6 @@ class CargoApp(SCWindow):
         for size in CONTAINER_SIZES:
             n = self._get_count(size)
             self._cont_labels[size].setText(f"= {n * size:>5,}")
-
-        # Update counts dict (a changed count invalidates a hand arrangement)
-        new_counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
-        if new_counts != self._counts and self._renderer._manual_boxes is not None:
-            self._drop_manual_layout()
-            self._status_lbl.setText(_("Container counts changed \u2014 manual arrangement reset"))
-        for s in CONTAINER_SIZES:
-            self._counts[s] = new_counts[s]
-
-        self._update_assignment()
-        self._render_grid()
 
     def _update_assignment(self) -> None:
         if self._has_layout:
@@ -2849,6 +3236,7 @@ class CargoApp(SCWindow):
             self._counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
             self._renderer._manual_boxes = boxes
         self._update_fill()
+        self._freeze_if_manual()
         self._update_assignment_summary()
 
     def _optimize(self) -> None:
@@ -2868,6 +3256,7 @@ class CargoApp(SCWindow):
                 self._spinboxes[size].setValue(count)
                 self._spinboxes[size].blockSignals(False)
         self._update_fill()
+        self._freeze_if_manual()
 
     def _reset_containers(self) -> None:
         self._drop_manual_layout()
@@ -2888,6 +3277,7 @@ class CargoApp(SCWindow):
                         self._spinboxes[sz].blockSignals(False)
         self._slot_assignment = []
         self._update_fill()
+        self._freeze_if_manual()
 
     def _clear_containers(self) -> None:
         self._drop_manual_layout()
@@ -2897,6 +3287,7 @@ class CargoApp(SCWindow):
             self._spinboxes[s].blockSignals(False)
         self._slot_assignment = []
         self._update_fill()
+        self._freeze_if_manual()
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
