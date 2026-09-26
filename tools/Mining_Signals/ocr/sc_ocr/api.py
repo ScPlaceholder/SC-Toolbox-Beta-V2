@@ -5719,7 +5719,7 @@ def _classify_crops_signal(
             log.debug("api: _classify_crops_signal swallowed: %s", exc)
             return []
     try:
-        model_path = _tr.get_model_path("signal")
+        model_path = _tr.get_runtime_model_path("signal")
     except Exception as exc:
         log.debug("api: _classify_crops_signal swallowed: %s", exc)
         return []
@@ -5873,7 +5873,7 @@ def _classify_crops_signal_topk(
             log.debug("api: _classify_crops_signal_topk swallowed: %s", exc)
             return []
     try:
-        model_path = _tr.get_model_path("signal")
+        model_path = _tr.get_runtime_model_path("signal")
     except Exception as exc:
         log.debug("api: _classify_crops_signal_topk swallowed: %s", exc)
         return []
@@ -6017,7 +6017,7 @@ def _classify_crops_signal_rgb(
             log.debug("api: _classify_crops_signal_rgb swallowed: %s", exc)
             return []
     try:
-        model_path = _tr.get_model_path("signal_rgb")
+        model_path = _tr.get_runtime_model_path("signal_rgb")
     except Exception as exc:
         log.debug("api: _classify_crops_signal_rgb swallowed: %s", exc)
         return []
@@ -6180,7 +6180,7 @@ def _classify_crops_signal_rgb_inv(
             )
             return []
     try:
-        model_path = _tr.get_model_path("signal_rgb_inv")
+        model_path = _tr.get_runtime_model_path("signal_rgb_inv")
     except Exception as exc:
         log.debug("api: _classify_crops_signal_rgb_inv swallowed: %s", exc)
         return []
@@ -6318,7 +6318,7 @@ def _classify_crops_signal_inv(
             log.debug("api: _classify_crops_signal_inv swallowed: %s", exc)
             return []
     try:
-        model_path = _tr.get_model_path("signal_inv")
+        model_path = _tr.get_runtime_model_path("signal_inv")
     except Exception as exc:
         log.debug("api: _classify_crops_signal_inv swallowed: %s", exc)
         return []
@@ -6525,7 +6525,7 @@ def _ensure_hud_rgb_model() -> bool:
     try:
         from .. import training_registry as _reg
         spec = _reg.get("hud_rgb")
-        model_path = str(spec.model_path)
+        model_path = str(_reg.get_runtime_model_path("hud_rgb"))
     except Exception as exc:
         log.debug("sc_ocr.hud: registry lookup for hud_rgb failed: %s", exc)
         return False
@@ -15383,7 +15383,7 @@ def _signal_cnn_at_tess_boxes(
         from ocr import training_registry as _tr  # type: ignore
     except Exception as exc:
         log.debug("api: _signal_cnn_at_tess_boxes swallowed: %s", exc)
-    model_path = _tr.get_model_path("signal")
+    model_path = _tr.get_runtime_model_path("signal")
     if not model_path.is_file():
         return None
     global _signal_session, _signal_session_path, _signal_classes
@@ -15610,7 +15610,7 @@ def _signal_cnn_per_digit(
                 )
                 return None
 
-        model_path = _tr.get_model_path("signal")
+        model_path = _tr.get_runtime_model_path("signal")
         if not model_path.is_file():
             # No trained signal CNN on this install — the agreement
             # gate will see None and conservatively keep CRNN's read.

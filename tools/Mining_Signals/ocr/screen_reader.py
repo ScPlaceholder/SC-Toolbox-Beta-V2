@@ -703,6 +703,29 @@ def get_last_capture():
     return _last_capture
 
 
+def _devmode_capture(img, result) -> None:
+    """Dev Mode's Capture switch: store this panel for the user to label.
+
+    Off by default and a no-op unless the user turned Capture on in Dev
+    Mode. The reader's value goes in as a PROPOSAL only; Dev Mode never
+    trains or scores on it until a human confirms it. Never raises:
+    capture must not be able to break a scan."""
+    if img is None:
+        return
+    try:
+        from devmode import api as _dm
+    except ImportError:
+        return
+    try:
+        if not _dm.capture_enabled():
+            return
+        _dm.add_capture(img.convert("RGB"), "signal",
+                        {"reader": None if result is None else str(result)},
+                        {"source": "live_scan"})
+    except Exception as exc:  # noqa: BLE001 - capture is optional; a scan must never fail on it
+        log.debug("devmode capture skipped: %s", exc)
+
+
 def scan_region(region: dict) -> Optional[int]:
     """One-shot: capture the region and extract the number.
 
@@ -756,6 +779,7 @@ def scan_region(region: dict) -> Optional[int]:
     #      into that live_samples/ dir)
     # Completely inert (one cheap env lookup + one path check, no file
     # I/O) when neither is present — changes no production behaviour.
+    _devmode_capture(img, result)
     _ls_dir = os.environ.get("SC_LIVE_SAMPLES")
     if not _ls_dir:
         try:

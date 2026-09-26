@@ -95,8 +95,8 @@ def _resolve_hud_cnn_path() -> str:
         return _ONLINE_MODEL_PATH
     # HUD-specific CNN (preferred over the legacy generic model_cnn.onnx).
     try:
-        from ..training_registry import get_model_path
-        hud_path = str(get_model_path("hud"))
+        from ..training_registry import get_runtime_model_path
+        hud_path = str(get_runtime_model_path("hud"))
         if os.path.isfile(hud_path):
             return hud_path
     except Exception as exc:  # pragma: no cover — defensive

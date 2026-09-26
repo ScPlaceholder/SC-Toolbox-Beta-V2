@@ -429,8 +429,36 @@ def get_training_sources(kind: str) -> list[Path]:
 def get_model_path(kind: str) -> Path:
     """Path to the trained ONNX model for a region kind. Caller is
     responsible for handling the case where the file doesn't exist
-    yet (e.g. fall back to a generic shipped model)."""
+    yet (e.g. fall back to a generic shipped model).
+
+    This is the SHIPPED model's path, and trainers write to it. The live
+    reader should load get_runtime_model_path() instead."""
     return get(kind).model_path
+
+
+def get_runtime_model_path(kind: str) -> Path:
+    """The model the LIVE reader should load for ``kind``: the user's own
+    Dev Mode model if they activated one (it beat the shipped model on
+    their held-out captures), otherwise the shipped model.
+
+    Dev Mode keeps user models outside the install folder and never
+    overwrites the shipped file, so "Revert to stock" is just this
+    function returning get_model_path() again. Any problem reaching
+    Dev Mode falls back to the shipped model; a missing optional tool
+    must never stop the reader."""
+    try:
+        from devmode.api import active_model_path   # tools/Mining_Signals on sys.path
+    except ImportError:
+        return get_model_path(kind)
+    try:
+        user = active_model_path(kind)
+    except Exception as exc:  # noqa: BLE001 - Dev Mode state unreadable: use stock
+        import logging
+        logging.getLogger(__name__).warning("dev mode model lookup failed for %s: %s", kind, exc)
+        return get_model_path(kind)
+    if user and Path(user).is_file():
+        return Path(user)
+    return get_model_path(kind)
 
 
 def assert_path_belongs_to(kind: str, path: os.PathLike | str) -> None:
