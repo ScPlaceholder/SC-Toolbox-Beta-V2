@@ -291,6 +291,9 @@ class StarMapPanel(QWidget):
             view = SystemView(code, name, self._bodies.get(code.upper(), []),
                               terminal_names=self._terminal_names())
         except Exception:
+            import logging as _lg
+            _lg.getLogger(__name__).warning("SystemView failed to build; staying on the current view",
+                                            exc_info=True)
             return
         view.planetEntered.connect(lambda pn, c=code: self._enter_neighborhood(c, pn))
         view.drillIn.connect(lambda pn, c=code: self._enter_neighborhood(c, pn))
@@ -397,6 +400,9 @@ class StarMapPanel(QWidget):
             view = PlanetSystemView(code, planet_name, self._bodies.get(code.upper(), []),
                                     terminal_names=self._terminal_names())
         except Exception:
+            import logging as _lg
+            _lg.getLogger(__name__).warning("PlanetSystemView failed to build; staying on the current view",
+                                            exc_info=True)
             return
         view.bodyEntered.connect(lambda bn, c=code: self._enter_globe(c, bn))
         view.drillIn.connect(lambda bn, c=code: self._enter_globe(c, bn))
@@ -411,6 +417,9 @@ class StarMapPanel(QWidget):
             view = PlanetView(code, body_name, self._bodies.get(code.upper(), []),
                               terminal_names=self._terminal_names())
         except Exception:
+            import logging as _lg
+            _lg.getLogger(__name__).warning("PlanetView failed to build; staying on the current view",
+                                            exc_info=True)
             return
         view.drillOut.connect(self._go_back)
         view.terminalClicked.connect(self._open_terminal)

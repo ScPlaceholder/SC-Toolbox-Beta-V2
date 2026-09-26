@@ -78,7 +78,10 @@ class ItemsIndexLoader(QObject):
                 terminals = {}
             index = build_index(res.data, terminals, meta)
         except Exception:
-            pass
+            # Still degrade to an empty index (the dialog says "no item data"), but say why.
+            import logging as _lg
+            _lg.getLogger(__name__).warning("item price index build failed; showing no item data",
+                                            exc_info=True)
         self.done.emit(index, source)
 
 

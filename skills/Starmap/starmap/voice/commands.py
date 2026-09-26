@@ -1,4 +1,4 @@
-"""CommandRouter — turns transcripts into panel actions.
+r"""CommandRouter — turns transcripts into panel actions.
 
 Built-in commands cover map navigation, routing, the grocery list and
 ears control. ``register()`` is the public extension point: repurposed

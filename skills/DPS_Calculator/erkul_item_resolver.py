@@ -195,8 +195,8 @@ def _load():
             if (blob.get("v") == CACHE_VERSION
                     and time.time() - blob.get("ts", 0) < TTL and blob.get("items")):
                 return blob["items"]
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  warn: erkul item cache unreadable ({type(e).__name__}); rebuilding")
     idx = _build() if _network_allowed() else {}
     if idx:  # only persist a non-empty fetch
         ITEMS_CACHE.write_text(
