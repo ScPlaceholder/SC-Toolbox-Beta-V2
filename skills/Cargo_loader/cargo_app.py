@@ -183,6 +183,9 @@ MISSION_CARGO: dict[str, str] = {
         ["#ff4d6d", "#ffb703", "#8ac926", "#00b4d8", "#9d4edd",
          "#ff7f11", "#f15bb5", "#06d6a0", "#e9c46a", "#4361ee"], 1)
 }
+# Ship fuel hauled in cargo (J, 2026-09-26), always in the brush after the missions.
+FUEL_CARGO: dict[str, str] = {"Hydrogen Fuel": "#8fd3ff", "Quantum Fuel": "#c77dff"}
+PINNED_BRUSH = {**MISSION_CARGO, **FUEL_CARGO}
 
 
 def commodity_color(name: str) -> str:
@@ -191,8 +194,8 @@ def commodity_color(name: str) -> str:
     Mission cargo has fixed colours; commodity_colors.json covers known
     commodities; unknown ones get a deterministic colour from a hash.
     """
-    if name in MISSION_CARGO:
-        return MISSION_CARGO[name]
+    if name in PINNED_BRUSH:
+        return PINNED_BRUSH[name]
     with _COMMODITY_LOCK:
         cached = _COMMODITY_COLORS.get(name)
     if cached is not None:
@@ -247,7 +250,7 @@ def get_commodity_names() -> list[str]:
     with _COMMODITY_LOCK:
         names = set(_UEX_COMMODITIES)
         names.update(_COMMODITY_COLORS.keys())
-    return list(MISSION_CARGO) + sorted(names - set(MISSION_CARGO))
+    return list(PINNED_BRUSH) + sorted(names - set(PINNED_BRUSH))
 
 
 # ── Palette (from shared theme) ───────────────────────────────────────────────
@@ -2144,7 +2147,7 @@ class CargoApp(SCWindow):
         self._commodity_combo = SCFuzzyCombo(placeholder="Select commodity\u2026", parent=pad)
         self._commodity_combo.item_selected.connect(self._on_commodity_selected)
         # Mission cargo is there at once, before (or without) the UEX list.
-        self._commodity_combo.set_items(list(MISSION_CARGO))
+        self._commodity_combo.set_items(list(PINNED_BRUSH))
         pad_lay.addWidget(self._commodity_combo)
         pad_lay.addSpacing(4)
 

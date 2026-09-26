@@ -139,3 +139,5 @@ def test_mission_cargo_brush(win):
     assert items[:10] == [f"Mission Cargo {i}" for i in range(1, 11)]
     colours = {cargo_app.commodity_color(n) for n in items[:10]}
     assert len(colours) == 10
+    assert items[10:12] == ["Hydrogen Fuel", "Quantum Fuel"]
+    assert cargo_app.commodity_color("Quantum Fuel") == "#c77dff"
