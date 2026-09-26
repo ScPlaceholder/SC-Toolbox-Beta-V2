@@ -274,6 +274,7 @@ class PlayTimeWindow(SCWindow):
         self._title_bar = SCTitleBar(
             window=self, title="PLAY TIME", accent_color=ACCENT,
             hotkey_text=hotkey_text, show_minimize=True,
+            extra_buttons=[("Tutorial", self._show_tutorial)],
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
         self._title_bar.close_clicked.connect(self._on_close)
@@ -949,9 +950,21 @@ class PlayTimeWindow(SCWindow):
             st.save_settings(self._settings)
             self._recompute()
 
+    def _show_tutorial(self) -> None:
+        """Show (or raise) the tutorial popup."""
+        # Imported here so a tutorial import error can never stop the window
+        # from opening.
+        from ui.tutorial_popup import TutorialPopup
+        TutorialPopup(self)
+
     def _on_card_clicked(self, cid: str) -> None:
         if cid == "longest":
-            self._tabs.setCurrentIndex(5)  # Sessions
+            # Sessions is index 6, not 5. Tab order is Overview 0, Trends 1,
+            # Calendar 2, Fun Stats 3, Career 4, Injuries 5, Sessions 6 --
+            # this said 5 (with the comment "Sessions") since Injuries was
+            # inserted ahead of it, so the card sorted the sessions table and
+            # then showed the user the Injuries tab.
+            self._tabs.setCurrentIndex(6)  # Sessions
             self._table.sortItems(3, Qt.DescendingOrder)
         elif cid == "day":
             h = self._analytics.highlights

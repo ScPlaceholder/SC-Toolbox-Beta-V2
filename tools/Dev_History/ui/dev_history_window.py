@@ -122,6 +122,7 @@ class DevHistoryWindow(SCWindow):
         self._title_bar = SCTitleBar(
             window=self, title="DEV HISTORY", icon_text="\U0001f4dc", accent_color=ACCENT,
             hotkey_text=hotkey_text, show_minimize=True,
+            extra_buttons=[("Tutorial", self._show_tutorial)],
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
         self._title_bar.close_clicked.connect(self._on_close)
@@ -499,6 +500,18 @@ class DevHistoryWindow(SCWindow):
             self.hide()
         elif t == "quit":
             self._quit()
+
+    def _show_tutorial(self) -> None:
+        """Show (or raise) the tutorial popup.
+
+        Button-triggered only, never on first show -- the disclaimer below
+        already owns that moment, and two things to read at once is one too
+        many.
+        """
+        # Imported here so a tutorial import error can never stop the window
+        # from opening.
+        from ui.tutorial_popup import TutorialPopup
+        TutorialPopup(self)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)

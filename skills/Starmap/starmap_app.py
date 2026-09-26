@@ -56,8 +56,15 @@ def main() -> None:
                    min_w=640, min_h=420,
                    opacity=parsed["opacity"],
                    accent=P.energy_cyan)
+    def _show_tutorial() -> None:
+        # Imported here so a tutorial import error can never stop the map
+        # itself from opening.
+        from starmap.tutorial import TutorialPopup
+        TutorialPopup(win)
+
     tb = SCTitleBar(win, title="STAR MAP", icon_text="\u2726",
-                    accent_color=P.energy_cyan, show_minimize=True)
+                    accent_color=P.energy_cyan, show_minimize=True,
+                    extra_buttons=[("? Tutorial", _show_tutorial)])
     tb.minimize_clicked.connect(win.showMinimized)
     tb.close_clicked.connect(win.close)
     win.content_layout.addWidget(tb)

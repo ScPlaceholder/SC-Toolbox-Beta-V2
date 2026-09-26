@@ -1559,128 +1559,290 @@ class _CargoFilterDialog(QDialog):
 class _CargoTutorialDialog(QDialog):
     """Tabbed tutorial bubble for the Cargo Loader tool."""
 
+    # Plain labels, no emoji: an emoji falls back to a font whose advance is
+    # ~4x the Consolas glyph, and the tab bar then wants 1104px for six tabs
+    # in a 620px dialog -- half of them behind scroll arrows. Measured
+    # offscreen 2026-09-26; the four-tab version had the same fault at 460px.
     _TABS = [
-        ("Overview",     "\U0001f6f8"),
-        ("Ship & View",  "\U0001f4e1"),
-        ("Cargo Config", "\U0001f4e6"),
-        ("Planning",     "\U0001f58c"),
+        "Overview",
+        "Ship & View",
+        "Containers",
+        "Items & Crates",
+        "Commodities",
+        "See Inside",
     ]
 
     _CONTENT = [
         # ── Overview ──────────────────────────────────────────────────────────
         """
 <h3 style="color:#33ccdd;margin-top:0">Welcome to Cargo Loader</h3>
-<p>Cargo Loader lets you plan and optimise how containers are loaded
-onto your Star Citizen ship before you undock.</p>
+<p>Work out what actually fits in your hold before you undock: containers,
+loose items such as ore pods and ship components, and numbered personal
+crates you fill item by item.</p>
 
 <b style="color:#c8d4e8">Quick-start steps:</b>
 <ol>
-  <li>Select your ship from the dropdown in the header.</li>
-  <li>The isometric view shows your ship's cargo grid.</li>
-  <li>Use <b>Cargo Configuration</b> (right panel) to choose how many
-      containers of each size you want to carry.</li>
-  <li>Hit <b style="color:#44aaff">▶ Optimize</b> to auto-fill the grid,
-      or enter counts manually.</li>
-  <li>Switch to <b>Planning Mode</b> (below Cargo Config) to paint
-      commodities onto individual boxes.</li>
+  <li>Pick your ship in the header dropdown.</li>
+  <li>The isometric view draws that ship's real cargo grids.</li>
+  <li>You start in <b>✋ Manual</b> on an empty hold: click a size in
+      <b>CARGO CONFIGURATION</b> (right panel), then click the grid to
+      drop a box there.</li>
+  <li>Prefer it done for you? Hit <b style="color:#44aaff">▶ Optimize</b>,
+      or switch to <b>⚙ Auto</b> and type counts.</li>
+  <li><b>PLANNING MODE</b> (lower right) has two tabs:
+      <b>Commodities</b> paints what is in each box, <b>Items</b> places
+      items and personal crates.</li>
+  <li><b>⬇ Save Plan</b> keeps the whole arrangement; <b>⬆ Load Plan</b>
+      brings it back.</li>
 </ol>
 
-<p style="color:#5a6480;font-size:8pt">Data sourced from sc-cargo.space — click ↻ in the header to refresh.</p>
+<p style="color:#5a6480;font-size:8pt">Cargo grids are read from the game
+files shipped with the toolbox, so the ship list works offline. ↻ in the
+header re-reads them.</p>
 """,
         # ── Ship & View ───────────────────────────────────────────────────────
         """
-<h3 style="color:#33ccdd;margin-top:0">Ship Selection &amp; Isometric View</h3>
+<h3 style="color:#33ccdd;margin-top:0">Picking a ship, and moving the camera</h3>
 
-<b style="color:#c8d4e8">Ship selector (header)</b>
+<b style="color:#c8d4e8">Header</b>
 <ul>
-  <li>Type any part of the ship name — results filter as you type.</li>
-  <li>Click <b>▼</b> to browse the full list without typing.</li>
-  <li>Click <b style="color:#5a6480">↻</b> to fetch the latest ship &amp; capacity data.</li>
+  <li><b>Ship dropdown</b> — type any part of the name and the list filters
+      as you type; click <b>▼</b> to browse it all.</li>
+  <li><b style="color:#5a6480">↻</b> — re-read the ship and capacity data.</li>
+  <li><b>⬇ Save Plan</b> / <b>⬆ Load Plan</b> — store and restore the whole
+      arrangement: every container, every item, every crate and its contents,
+      and what you painted.</li>
+  <li>The line on the right is the <b>status line</b>. It names the ship and
+      its SCU, and afterwards reports whatever you just did.</li>
 </ul>
 
-<b style="color:#c8d4e8">Isometric View</b>
+<b style="color:#c8d4e8">Getting around the view</b>
 <ul>
-  <li><b>Manual mode</b> (the default) — every ship starts empty. Click a
-      size in the panel (e.g. <b>32 SCU</b>), then click the grid to place it;
-      a ghost shows where it lands. Click a box to stack on it, <b>R</b>
-      rotates, <b>right-click</b> a box removes it, <b>Esc</b> stops placing.
-      <b>Optimize</b> fills the grid for you and you can keep editing.
-      <b>Auto</b> packs the counts you type.</li>
-  <li><b>Scroll wheel</b> — zoom in/out.</li>
-  <li><b>Click &amp; drag</b> empty space — pan the view.</li>
-  <li><b>Drag a box</b> to move it. It snaps to the 1-SCU grid, to
-      neighbouring boxes and walls, and only lands inside a cargo grid:
-      a <b style="color:#4caf50">green</b> ghost means it can go there,
-      <b style="color:#f44336">red</b> means it can't (it returns home).
-      <b>R</b> or <b>right-click</b> rotates it while dragging,
-      <b>Esc</b> cancels, <b>Ctrl+Z</b> undoes a move. Typing a
-      container count switches to Auto and re-packs.</li>
-  <li><b>◁ ▷ buttons</b> (toolbar) — rotate the camera 90° to see all sides.</li>
-  <li>Container colours match the size legend at the bottom of the view.</li>
-  <li>When a commodity brush is active, <b>click any box</b> to paint it.</li>
+  <li><b>Scroll wheel</b> — zoom in and out.</li>
+  <li><b>Click &amp; drag</b> empty space — pan.</li>
+  <li><b>↺ ↻</b> (top toolbar) — swing the camera 90° so you can see the
+      sides that were facing away. The toolbar text tells you which way it
+      is pointing, and which faces are lit.</li>
+  <li><b>Hover a box</b> — it lights up and the status line names it, plus
+      whatever commodity is painted on it.</li>
 </ul>
 
-<b style="color:#c8d4e8">Assignments overlay</b>
-<p>The translucent panel in the <b>top-left</b> of the iso view shows a live
-summary of which commodities are painted and how many boxes each has,
-coloured to match the commodity.</p>
+<b style="color:#c8d4e8">Moving a box that is already placed</b>
+<ul>
+  <li><b>Drag it.</b> It snaps to the 1-SCU grid and flush against
+      neighbouring boxes and walls.</li>
+  <li>The ghost tells you the verdict:
+      <b style="color:#4caf50">green</b> it lands there,
+      <b style="color:#e0a54d">amber</b> an item lands but breaks a rule
+      (see the Items tab),
+      <b style="color:#f44336">red</b> refused — the box returns home.</li>
+  <li><b>R</b> or <b>right-click</b> rotates it mid-drag, <b>Esc</b> cancels,
+      <b>Ctrl+Z</b> undoes the last move.</li>
+</ul>
+
+<b style="color:#c8d4e8">Legend and overlay</b>
+<p>The strip along the bottom maps each colour to a container size. The
+translucent panel <b>top-left</b> lists what you have painted and how many
+boxes each has.</p>
 """,
-        # ── Cargo Config ──────────────────────────────────────────────────────
+        # ── Containers ────────────────────────────────────────────────────────
         """
-<h3 style="color:#33ccdd;margin-top:0">Cargo Configuration</h3>
+<h3 style="color:#33ccdd;margin-top:0">Loading containers</h3>
 
-<b style="color:#c8d4e8">Capacity bar</b>
-<p>Shows <i>used / total SCU</i>. Turns <b style="color:#ff5533">red</b>
-if you exceed the ship's capacity.</p>
-
-<b style="color:#c8d4e8">Container rows</b>
+<b style="color:#c8d4e8">Two ways to do it</b>
 <ul>
-  <li>Each row is a container size (1 SCU → 32 SCU).</li>
-  <li>The coloured swatch matches the isometric view colour for that size.</li>
-  <li>Spinbox shows the <b>count</b>; the right column shows the total SCU
-      contributed by that size.</li>
-  <li>The spinbox <b>maximum</b> is capped automatically to:
-    <ul>
-      <li>The physical slot limit for that size on the selected ship.</li>
-      <li>The remaining total capacity after other sizes are accounted for.</li>
-    </ul>
-  </li>
+  <li><b>✋ Manual</b> (where you start) — you place every box. Click a size
+      button, then click the grid; a ghost shows where it will land. Click
+      the top of a box to stack on it.</li>
+  <li><b>⚙ Auto</b> — you type how many of each size and the packer arranges
+      them. <b>Typing a count switches you to Auto by itself</b>, so if you
+      were mid-way through placing by hand, that is why.</li>
+</ul>
+<p style="color:#5a6480;font-size:8pt">The yellow lines under the two buttons
+are a reminder of whichever mode you are in.</p>
+
+<b style="color:#c8d4e8">While placing (Manual)</b>
+<ul>
+  <li><b>R</b> — rotate the box you are about to drop.</li>
+  <li><b>Right-click</b> a box — remove it. If something is resting on it you
+      are told to take the top box off first.</li>
+  <li><b>Esc</b>, or clicking the size button again — stop placing.</li>
+  <li><b>Ctrl+Z</b> — undo.</li>
+  <li>A container that breaks a rule is <b>refused</b>, and the status line
+      says why: outside the cargo grids, overlaps another container, sticks
+      out of the top, not supported underneath, or a grid that only takes
+      certain sizes.</li>
+</ul>
+
+<b style="color:#c8d4e8">Capacity</b>
+<ul>
+  <li><b>Capacity</b> shows <i>used / total SCU</i> and goes
+      <b style="color:#ff5533">red</b> past the ship's limit.</li>
+  <li>The small line under the bar tallies <b>items</b> and <b>crates</b>
+      separately, with a ⚠ count if any are flagged.
+      <b>Items never count toward SCU</b> — they are not cargo.</li>
+</ul>
+
+<b style="color:#c8d4e8">The size rows</b>
+<ul>
+  <li>One row per container size, 1 SCU to 32 SCU, the swatch matching its
+      colour in the view.</li>
+  <li>The <b>size button itself is the place tool</b> in Manual mode.</li>
+  <li>The number box is the count for Auto; <b>▲ ▼</b> nudge it. The right
+      column is the SCU that size contributes.</li>
+  <li>The count is capped to what the ship can physically hold in that size,
+      and to the capacity left after the other sizes.</li>
 </ul>
 
 <b style="color:#c8d4e8">Buttons</b>
 <ul>
-  <li><b style="color:#44aaff">▶ Optimize</b> — greedy-fills the grid with
-      the best container mix for maximum SCU usage.</li>
-  <li><b style="color:#ff5533">✕ Clear</b> — zeroes all container counts.</li>
-  <li><b style="color:#ffaa22">↺ Reset</b> — restores the last saved/optimised
-      layout for ships with a known reference loadout.</li>
+  <li><b style="color:#44aaff">▶ Optimize</b> — fill the hold with the best
+      mix for maximum SCU. You can keep editing afterwards.</li>
+  <li><b style="color:#ff5533">✕ Clear</b> — zero every container count.</li>
+  <li><b style="color:#ffaa22">↺ Reset</b> — go back to the known reference
+      loadout, for ships that have one.</li>
 </ul>
 """,
-        # ── Planning Mode ─────────────────────────────────────────────────────
+        # ── Items & Crates ────────────────────────────────────────────────────
         """
-<h3 style="color:#33ccdd;margin-top:0">Planning Mode</h3>
+<h3 style="color:#33ccdd;margin-top:0">Loose items, and personal crates</h3>
+<p>Not everything you haul is a cargo container. The <b>Items</b> tab in
+<b>PLANNING MODE</b> places the awkward things — and the crates you fill
+yourself.</p>
 
-<b style="color:#c8d4e8">Commodity Brush</b>
+<b style="color:#c8d4e8">Placing an item</b>
 <ul>
-  <li>Select a commodity from the <b>COMMODITY BRUSH</b> dropdown (type to search).</li>
-  <li>Once selected, the cursor in the iso view becomes a <b>paint brush</b>
-      tinted in the commodity's colour.</li>
-  <li>Click any container box in the iso view to assign that commodity to it.</li>
-  <li>Click the same box again with a different brush to reassign it.</li>
-  <li>Click with <b>no brush</b> active to clear a box's assignment.</li>
-  <li>Hit <b>Clear Brush</b> to deactivate the brush without clearing assignments.</li>
+  <li>The tree groups them: <b>Ore Pods</b>, <b>Missiles</b>, <b>Bombs</b>,
+      <b>Ship Weapons</b>, and <b>Components</b> (coolers, power plants,
+      shields, quantum drives). <b>Search items…</b> narrows it and opens the
+      groups for you.</li>
+  <li><b>Click a row, then click the grid.</b> It behaves exactly like a
+      container size: ghost preview, <b>R</b> to rotate, <b>right-click</b> to
+      remove, <b>Esc</b> to stop, <b>Ctrl+Z</b> to undo, and you can drag it
+      afterwards. It snaps flush against containers and other items.</li>
+  <li>The right-hand column is its footprint in cells, e.g. <b>S2 2×2×3</b>.
+      A trailing <b>~</b> means the size is approximate — worked out from the
+      item's volume because the game files give no box for it. Hover the row
+      to see which.</li>
+</ul>
+
+<b style="color:#c8d4e8">Items warn, they do not refuse</b>
+<p>An item that lands outside a grid, overlaps something, sticks out of the
+top or floats is still placed, with an <b style="color:#e0a54d">amber</b>
+ghost and a <b>⚠</b> in the status line. Real holds take shapes a grid model
+does not, so the call is yours. Containers are still strict.</p>
+<p style="color:#5a6480;font-size:8pt">Items are counted on their own line
+under the capacity bar and never added to your SCU.
+<b>✕ Clear items</b> removes them all (Ctrl+Z undoes it).
+If the item list is missing, a <b>Download</b> button appears — the same
+pinned game build the DPS tool uses.</p>
+
+<h3 style="color:#e0b84d">Personal crates</h3>
+<p>Stor*All boxes for a loot run: place them in the hold, then fill each one
+item by item.</p>
+<ul>
+  <li><b>PERSONAL CRATES</b> sits at the top of the Items tab:
+      <b>1/8 &middot; 1 &middot; 2 &middot; 4 &middot; 8 SCU</b>. Click one,
+      then click the grid, same as any item.</li>
+  <li>Each crate you place is <b>numbered</b> and gets <b>its own tab</b>
+      beside <b>Hold</b> at the top of the view. Numbers never get reused, so
+      removing crate 2 does not renumber crate 3.</li>
+  <li><b>Pop out</b> puts that crate in its own small window so you can work
+      on it next to the hold; closing that window docks it back.</li>
+</ul>
+
+<b style="color:#c8d4e8">Filling a crate</b>
+<ul>
+  <li><b>ADD ITEMS</b> — type in <b>Search any item…</b>: guns, armour,
+      clothes, food, gadgets, components, minerals, anything carryable.
+      Pick a row, set <b>Qty</b>, press <b>Add to crate</b>
+      (double-click or Enter also works).</li>
+  <li><b>IN THIS CRATE</b> lists what is inside with the volume of each and
+      the running total. <b>−</b> and <b>+</b> change a quantity,
+      <b>Remove</b> takes the row out.</li>
+  <li>The fill bar goes amber near full and red at full.</li>
+  <li><b>Open on UEX</b> opens the selected item's UEX page in your browser.</li>
+</ul>
+
+<b style="color:#c8d4e8">The volume rule is strict</b>
+<p>A crate checks volume and refuses anything that does not fit —
+<b style="color:#ff5533">Won't fit</b>, with the reason. Search results that
+are already too big for the space left are shown in red before you try. You
+cannot get a ship engine into a handheld box, and the tool will not pretend
+otherwise.</p>
+<p style="color:#5a6480;font-size:8pt">The item lists load the first time you
+open a crate tab. If they are not downloaded yet a <b>Download</b> button
+appears (pinned build, about 110 MB). Without the UEX cache you still get
+every item and its volume, just no UEX links.</p>
+""",
+        # ── Commodities ───────────────────────────────────────────────────────
+        """
+<h3 style="color:#33ccdd;margin-top:0">Marking what is in each box</h3>
+
+<b style="color:#c8d4e8">Commodity brush</b>
+<ul>
+  <li>Pick from the <b>COMMODITY BRUSH</b> dropdown on the
+      <b>Commodities</b> tab (type to search).</li>
+  <li><b>Mission Cargo 1</b> to <b>10</b> and <b>Hydrogen Fuel</b> /
+      <b>Quantum Fuel</b> are always at the top of the list. Contract boxes
+      are not a commodity, so give each contract its own number and you can
+      tell ten of them apart in one hold. They are there before the
+      commodity list has loaded, and stay if it never does.</li>
+  <li>The cursor becomes a <b>paint brush</b> in that colour. Click any box to
+      mark it; click it again with a different brush to change it.</li>
+  <li>The swatch and name under the dropdown say which brush is live, or
+      <b>No brush</b>.</li>
+  <li><b>Click with no brush</b> to clear a box. <b>Clear Brush</b> puts the
+      brush down without unmarking anything.</li>
 </ul>
 
 <b style="color:#c8d4e8">Assignments overlay</b>
-<p>Top-left of the iso view — updates live as you paint boxes, showing
-commodity totals colour-coded to their commodity colour.</p>
+<p>Top-left of the view, updating as you paint: every commodity you have used
+and how many boxes carry it, in its own colour.</p>
 
 <b style="color:#c8d4e8">Filter</b>
 <ul>
-  <li>Opens a dialog listing every assigned commodity.</li>
-  <li>Uncheck a commodity to <b>hide</b> those boxes in the iso view
-      (useful for planning complex multi-commodity loads).</li>
-  <li>Use <b>Check All / Uncheck All</b> to toggle visibility in bulk.</li>
+  <li>Opens <b>CARGO FILTER</b>, listing every commodity you have painted with
+      its box count.</li>
+  <li>Untick one to <b>hide</b> those boxes — handy for seeing one contract's
+      cargo on its own. <b>Check All</b> / <b>Uncheck All</b> do it in bulk,
+      <b>Close</b> dismisses the dialog.</li>
+</ul>
+""",
+        # ── See Inside ────────────────────────────────────────────────────────
+        """
+<h3 style="color:#33ccdd;margin-top:0">Seeing into a full hold</h3>
+<p>Once the hold is packed, the boxes you care about are buried behind the
+ones in front. The bar above the view exists to get them out of the way.
+<b>Nothing here changes your plan</b> — it is the camera, not the cargo.
+Nothing is moved, saved or counted.</p>
+
+<b style="color:#c8d4e8">Alt+click — hide what is on top</b>
+<ul>
+  <li>Hover a box and the status line names it. If anything is resting on it,
+      it also says <b>Alt+click hides the N above</b>.</li>
+  <li><b>Alt+click</b> that box and they vanish, so you can see and reach it.
+      Alt+click more boxes to keep digging.</li>
+  <li>The status line confirms what went, or tells you nothing was on top.</li>
+</ul>
+
+<b style="color:#c8d4e8">Layer slider — take the hold down a level at a time</b>
+<ul>
+  <li>Drag the slider on the right of that bar to show only boxes up to a
+      given height. The label reads <b>All layers</b>, or
+      <b>Up to layer 2/4</b>.</li>
+  <li>It only does something when the hold is stacked more than one high.</li>
+</ul>
+
+<b style="color:#c8d4e8">Getting them back</b>
+<ul>
+  <li>Whenever anything is hidden you get a count —
+      <b>3 boxes hidden ·</b> — and a <b>Show all</b> button. Press it and
+      everything comes back, slider included.</li>
+  <li>Place a box where hidden ones were and they are revealed by themselves,
+      so you never build on top of something you cannot see.</li>
+  <li>If you try to remove a box with a hidden one on top, the status line
+      says so and names <b>Show all</b>.</li>
 </ul>
 """,
     ]
@@ -1764,7 +1926,7 @@ commodity totals colour-coded to their commodity colour.</p>
             }}
         """)
 
-        for (label, _icon), content in zip(self._TABS, self._CONTENT):
+        for label, content in zip(self._TABS, self._CONTENT):
             page = QWidget()
             page_lay = QVBoxLayout(page)
             page_lay.setContentsMargins(0, 0, 0, 0)
@@ -1791,7 +1953,7 @@ commodity totals colour-coded to their commodity colour.</p>
 
             scroll.setWidget(inner)
             page_lay.addWidget(scroll)
-            tabs.addTab(page, f"{_icon}  {label}")
+            tabs.addTab(page, label)
 
         card_lay.addWidget(tabs)
         lay.addWidget(card)
@@ -3465,7 +3627,9 @@ class CargoApp(SCWindow):
             self._tutorial_dlg = _CargoTutorialDialog(
                 anchor=self._btn_refresh, parent=self
             )
-            self._tutorial_dlg.setFixedSize(460, 420)
+            # Six tabs need the width; the tab bar scrolls (and hides tabs)
+            # if the dialog is narrower than its sizeHint.
+            self._tutorial_dlg.setFixedSize(620, 500)
             self._tutorial_dlg.finished.connect(
                 lambda: setattr(self, "_tutorial_dlg", None)
             )

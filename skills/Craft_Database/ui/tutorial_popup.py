@@ -88,9 +88,13 @@ debounce delay.</p>
 <ul>
   <li><b>Blueprint name</b> and <b>craft time</b></li>
   <li>An <b>Own</b> button to add the blueprint to your inventory</li>
-  <li>Up to four <b>ingredient pills</b> with resource name and quantity</li>
-  <li>How the blueprint is obtained: <b>known by default</b> or the number
-      of <b>mission reward pools</b> that give it</li>
+  <li>Up to four <b>ingredient pills</b> with resource name and quantity.
+      Materials are measured in <b>cSCU</b>; gems and parts are counted as
+      whole pieces (<b>pcs</b>)</li>
+  <li>How the blueprint is obtained: the number of <b>missions</b> that drop
+      it, or <b>Known by default</b>, or the number of
+      <b>mission reward pools</b> that give it when the individual missions
+      are not known</li>
 </ul>
 <p>Click anywhere on a card (or the <span style="{_ACC}">\u2197</span> button)
 to open a <b>detail popup</b> with full crafting information.</p>
@@ -104,29 +108,36 @@ blueprints match the current filters.</p>
 _TAB_FILTERS = _html(f"""
 {_h3("Filter Panel", _C_FILTER)}
 
-{_h4("Obtainable Only", _C_FILTER)}
-<p>Check this box to show only blueprints a player can actually get:
-known by default, or given by at least one mission reward pool. The game
-files also hold recipes nothing hands out yet.</p>
+{_h4("Obtainable", _C_FILTER)}
+<p><b>On by default.</b> It keeps only blueprints a player can actually get:
+known from the start, or given by at least one mission reward pool. The game
+files also hold recipes nothing hands out yet &mdash; untick it to see those
+too.</p>
 
-{_h4("Category", _C_FILTER)}
+{_h4("Blueprint Type", _C_FILTER)}
 <p>Filter by item type, e.g. <b>Weapons / Sniper</b>,
 <b>Armour / Heavy / Core</b> or <b>Ship Components / Shield</b>. Picking a
 top level (<b>Armour</b>) includes everything under it. Type to fuzzy-search
 the dropdown.</p>
 
-{_h4("Resource", _C_FILTER)}
+{_h4("Resource Needed", _C_FILTER)}
 <p>Show only blueprints that require a specific crafting material,
 e.g. <b>Tungsten</b> or <b>Taranite</b>.</p>
 
-{_h4("Missions", _C_FILTER)}
-<p>The game data names the <b>reward pool</b> a blueprint comes from, not
-the individual missions, contractors or drop chances. For which missions
-give a blueprint, use the <b>Mission Database</b>.</p>
+{_h4("Mission Type / Location / Contractor", _C_FILTER)}
+<p>These three appear <b>only once mission drop data is available</b>, and
+they filter by who gives a blueprint, where, and on what kind of job.</p>
+<p>If you do not see them, the drop data has not been loaded. It is joined
+from the <b>Mission Database</b>'s own cache, so
+<b>open Mission Database once and let it fetch</b>, then reopen this tool.</p>
+<p><span style="{_YLW}">Coverage is partial</span> &mdash; roughly
+<b>645 of the 1,607</b> blueprints have known drops. A blueprint with no
+missions listed means <b>no data</b>, not "nothing drops it".</p>
 
-{_h4("Clear Filters", _C_FILTER)}
-<p>Click the <span style="{_DIM}">Clear Filters</span> button at the bottom
-of the filter panel to reset all dropdowns and the ownable checkbox at once.</p>
+{_h4("Clear all filters", _C_FILTER)}
+<p>The red <span style="{_DIM}">Clear all filters</span> button at the bottom
+of the panel resets every dropdown at once and turns <b>Obtainable</b> back
+on.</p>
 """)
 
 _TAB_INVENTORY = _html(f"""
@@ -172,21 +183,44 @@ Up to <b>5 detail popups</b> can be open simultaneously.</p>
 sliders to the same value at once.</p>
 
 {_h4("Parts &amp; Per-Slot Quality", _C_DETAIL)}
-<p>Each ingredient slot shows the resource name, quantity in <b>cSCU</b>,
-and its own <b>independent quality slider</b>. You can adjust each
-ingredient's quality individually to see how different quality
-combinations affect the final stats. Quality effect tags
+<p>Each ingredient slot shows the resource name, the amount, and its own
+<b>independent quality slider</b>. Raw materials are given in <b>cSCU</b>;
+gems and parts are counted as whole pieces (<b>pcs</b>). A slot marked
+<b>(any 2 of 3)</b> means the recipe accepts a choice &mdash; you do not need
+every material listed under it.</p>
+<p>Adjust each ingredient's quality individually to see how different
+combinations change the result. Quality effect tags
 (<span style="{_GRN}">+%</span> / <span style="{_YLW}">&minus;%</span>)
 update in real time as you move each slider.</p>
+
+{_h4("Craft &amp; Dismantle Time", _C_DETAIL)}
+<p><b>DISMANTLE</b> sits next to the craft time. Hover it to see what share of
+the materials you get back.</p>
 
 {_h4("Stat Summary", _C_DETAIL)}
 <p>A table below the parts lists every affected stat with its crafted
 modifier at the current quality value.</p>
 
-{_h4("Obtained From", _C_DETAIL)}
-<p>At the bottom: <b>known by default</b>, or the mission reward pools
-that give this blueprint (as named in the game files). The dismantle time is shown next to
-the craft time (hover it for the share of materials returned).</p>
+{_h4("Drops &mdash; which missions give it", _C_DETAIL)}
+<p>When the drops are known, the bottom of the popup has a
+<b>DROPS (N MISSIONS)</b> section, split into
+<span style="{_GRN}">LAWFUL</span> and <span style="{_ACC}">UNLAWFUL</span>
+and grouped by mission type. Each row gives the mission name, the
+<b>contractor</b> who offers it, the <b>location</b>, and the
+<b>drop chance</b>.</p>
+<p><span style="{_YLW}">Two honest caveats.</span> The chances in one reward
+pool can add up to less than 100% &mdash; some pools hold an empty slot that
+consumes probability, and it is left in rather than inflating the real
+numbers. And the drop data is from a different game build than the
+blueprints, so treat a mission list as a good guide, not a guarantee.</p>
+
+{_h4("Obtained From &mdash; when drops are not known", _C_DETAIL)}
+<p>Only around <b>645 of the 1,607</b> blueprints have known drops, and none
+do until the <b>Mission Database</b> has fetched its cache. For the rest you
+get <b>OBTAINED FROM</b> instead: <b>Known by default</b>, or the reward pools
+that give it as named in the game files, or <b>Not given by any mission in
+this game build</b>.</p>
+<p>An empty list means <b>no data</b>, never "nothing drops it".</p>
 
 {_h4("Pin &amp; Close", _C_DETAIL)}
 <p>Click <span style="{_GRN}">Pin</span> to lock a popup in place so it
@@ -203,8 +237,10 @@ _TAB_TIPS = _html(f"""
 closed to keep the screen tidy. Pinned popups are never auto-closed.</p>
 
 {_h4("Combined Filters", _C_TIPS)}
-<p>All filters work together. For example, set <b>Resource = Tungsten</b> and
-<b>Category = Ship Components</b> to find components that need Tungsten.</p>
+<p>All filters work together. For example, set
+<b>Resource Needed = Tungsten</b> and
+<b>Blueprint Type = Ship Components</b> to find components that need
+Tungsten.</p>
 
 {_h4("Fuzzy Search in Dropdowns", _C_TIPS)}
 <p>Every filter dropdown supports fuzzy matching &mdash; you don't need to
@@ -217,6 +253,13 @@ Drag the title bar to move it out of the way.</p>
 {_h4("Data Refresh", _C_TIPS)}
 <p>The data is pinned to one game build and does not expire. A toolbox
 update moves it to a newer build; the tool then offers the download again.</p>
+
+{_h4("Missing the mission drops?", _C_TIPS)}
+<p>The blueprints ship with the toolbox, but the <b>mission drop lists do
+not</b> &mdash; they are joined from the <b>Mission Database</b>'s own
+downloaded cache. On a fresh install, open Mission Database once and let it
+fetch, then reopen this tool and the drops, and the mission / location /
+contractor filters, will be there.</p>
 """)
 
 _TABS = [
