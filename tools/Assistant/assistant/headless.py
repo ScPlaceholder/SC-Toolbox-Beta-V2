@@ -96,7 +96,7 @@ def route_popup_data(route: dict, ship: str = "", ship_scu: int = 0) -> dict:
 # spoken aliases -> launcher skill id (ids come from core.skill_registry)
 _SKILL_ALIASES = {
     "trade": "trade", "trading": "trade", "trade hub": "trade", "routes": "trade",
-    "market": "market", "market finder": "market", "shop": "market", "prices": "market",
+    "market": "market", "market finder": "market", "item finder": "market", "shop": "market", "prices": "market",
     "missions": "missions", "mission database": "missions", "mission db": "missions",
     "craft": "craft_db", "crafting": "craft_db", "craft database": "craft_db",
     "blueprints": "craft_db",
@@ -109,7 +109,7 @@ _SKILL_ALIASES = {
     "starmap": "starmap", "star map": "starmap", "map": "starmap",
     "mouse blocker": "mouse_blocker",
     "suit": "suitmk2", "suitmk2": "suitmk2",
-    "assistant": "assistant",
+    "assistant": "assistant", "toolbox assistant": "assistant", "ai assistant": "assistant",
 }
 
 

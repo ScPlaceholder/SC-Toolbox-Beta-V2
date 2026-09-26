@@ -1,4 +1,4 @@
-"""SC Toolbox — AI Assistant.
+"""SC Toolbox — Toolbox Assistant.
 
 The voice-driven LLM copilot for the whole toolbox. Launched as a
 subprocess by the launcher like any other skill.

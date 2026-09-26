@@ -71,12 +71,12 @@ NICKNAMES = {
 
 # launcher skill id -> spoken display name (ids are the launcher's own)
 _TOOL_DISPLAY = {
-    "trade": "Trade Hub", "market": "Market Finder", "missions": "Mission DB",
+    "trade": "Trade Hub", "market": "Item Finder", "missions": "Mission DB",
     "craft_db": "Craft Database", "mining": "Mining Loadout",
     "mining_signals": "Mining Signals", "cargo": "Cargo Loader",
     "dps": "DPS Calculator", "battle_buddy": "Battle Buddy", "playtime": "PlayTime",
     "starmap": "Starmap", "mouse_blocker": "Mouse Blocker", "suitmk2": "SuitMk2",
-    "assistant": "Assistant",
+    "assistant": "Toolbox Assistant",
 }
 
 # words too common in speech to count as a one-word name on their own

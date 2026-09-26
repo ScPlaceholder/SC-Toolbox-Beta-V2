@@ -129,7 +129,7 @@ class AssistantWindow(SCWindow):
 
     def __init__(self, base_dir: str, opacity: float = 0.95,
                  parent: Optional[QWidget] = None) -> None:
-        super().__init__(title="AI Assistant", width=520, height=340,
+        super().__init__(title="Toolbox Assistant", width=520, height=340,
                          min_w=420, min_h=240, opacity=opacity,
                          accent=P.energy_cyan, parent=parent)
         self._base_dir = base_dir

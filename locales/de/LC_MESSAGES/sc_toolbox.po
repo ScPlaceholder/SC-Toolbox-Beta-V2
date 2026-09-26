@@ -784,8 +784,8 @@ msgid "MY CAREER"
 msgstr "MEINE KARRIERE"
 
 #: core/skill_registry.py:46
-msgid "Market Finder"
-msgstr "Marktsuche"
+msgid "Item Finder"
+msgstr "Artikelsuche"
 
 #: skills/DPS_Calculator/dps_ui/constants.py:223 skills/DPS_Calculator/dps_ui/constants.py:282
 msgid "Max"

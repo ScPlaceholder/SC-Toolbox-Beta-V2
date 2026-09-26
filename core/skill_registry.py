@@ -43,7 +43,7 @@ _BUILTIN_SKILLS: list[dict] = [
         "settings_key": "hotkey_mining",
     },
     {
-        "id": "market", "name": N_("Market Finder"), "icon": "\U0001f6d2",
+        "id": "market", "name": N_("Item Finder"), "icon": "\U0001f6d2",
         "color": "#aa66ff", "folder": "Market_Finder",
         "script": "uex_item_browser.py", "hotkey": "<shift>+5",
         "settings_key": "hotkey_market",

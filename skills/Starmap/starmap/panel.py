@@ -212,7 +212,7 @@ class StarmapPanel(QWidget):
         self._btn_market.setCursor(Qt.PointingHandCursor)
         self._btn_market.setCheckable(True)
         self._btn_market.setStyleSheet(_btn_ss())
-        self._btn_market.setToolTip("Show / hide the Market Finder view (terminal items)")
+        self._btn_market.setToolTip("Show / hide the Item Finder view (terminal items)")
         self._btn_market.toggled.connect(
             lambda on, k="market": self._side_toggled(k, on))
 

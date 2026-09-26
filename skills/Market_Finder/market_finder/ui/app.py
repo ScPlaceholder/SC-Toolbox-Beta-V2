@@ -59,7 +59,7 @@ class MarketFinderApp(SCWindow):
         cmd_file: str | None = None,
     ) -> None:
         super().__init__(
-            title="Market Finder",
+            title="Item Finder",
             width=w,
             height=h,
             min_w=700,

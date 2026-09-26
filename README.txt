@@ -47,7 +47,7 @@ Default Hotkeys:
   Shift + 2    Cargo Loader
   Shift + 3    Mission Database
   Shift + 4    Mining Loadout
-  Shift + 5    Market Finder
+  Shift + 5    Item Finder
   Shift + 6    Trade Hub
   Shift + 7    Craft Database
   Shift + 8    Battle Buddy
@@ -55,7 +55,7 @@ Default Hotkeys:
   Shift + 0    Mouse Blocker
   Ctrl + 1     Mining Signals
   Ctrl + 2     SuitMk2
-  Ctrl + 3     AI Assistant
+  Ctrl + 3     Toolbox Assistant
   Ctrl + 4     PlayTime Calculator
 
 Every default is a modifier plus a number (no letter or symbol keys), and
@@ -490,7 +490,7 @@ v1.0.0 -- March 2026 -- Initial Release
     - Cargo Loader (sc-cargo.space)
     - Mission Database (scmdb.net)
     - Mining Loadout (uexcorp.space)
-    - Market Finder (uexcorp.space)
+    - Item Finder (uexcorp.space)
     - Trade Hub (uexcorp.space)
   Features:
     - Unified launcher with tile grid

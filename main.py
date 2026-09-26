@@ -295,7 +295,7 @@ class SCToolbox(Skill):
         :param skill_name: The skill to launch.
             Options: "dps" (DPS Calculator), "cargo" (Cargo Loader),
             "missions" (Mission Database), "mining" (Mining Loadout),
-            "market" (Market Finder), "trade" (Trade Hub),
+            "market" (Item Finder), "trade" (Trade Hub),
             "mouse blocker" (Mouse Blocker overlay).
         """
         if not await self._ensure_started():
@@ -313,7 +313,7 @@ class SCToolbox(Skill):
         :param skill_name: The skill to toggle.
             Options: "dps" (DPS Calculator), "cargo" (Cargo Loader),
             "missions" (Mission Database), "mining" (Mining Loadout),
-            "market" (Market Finder), "trade" (Trade Hub),
+            "market" (Item Finder), "trade" (Trade Hub),
             "mouse blocker" (Mouse Blocker overlay).
         """
         if not await self._ensure_started():

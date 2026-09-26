@@ -1,4 +1,4 @@
-# AI Assistant (toolbox-wide LLM voice copilot)
+# Toolbox Assistant (toolbox-wide LLM voice copilot)
 
 The user talks; the assistant summons toolbox data through tools and
 answers. Side effects (pinning a route popup, opening Trade Hub) always
@@ -75,8 +75,8 @@ Workers never write the tools' caches or settings, and run with
 |---|---|---|
 | `ship_info(name)` | shared ship presets | |
 | `find_trade_routes(ship, commodity?, system?, top_n=5, allow_illegal=true)` | Trade Hub (`commodities_prices_all`) | |
-| `find_item_price(item, top_n=5)` | Market Finder | |
-| `ship_buy_rent(ship)` | Market Finder | |
+| `find_item_price(item, top_n=5)` | Item Finder | |
+| `ship_buy_rent(ship)` | Item Finder | |
 | `missions_for_blueprint(name)` | Mission DB | |
 | `where_to_mine(resource)` | Mission DB | |
 | `search_missions(faction?, system?, mission_type?)` | Mission DB | |

@@ -71,7 +71,7 @@
 | Shift+2 | **Cargo Loader** | 3D isometric cargo grid viewer & container optimizer | StarCitizenWiki/scunpacked-data (sc-cargo.space fallback) |
 | Shift+3 | **Mission Database** | Browse missions, crafting blueprints & mining resources | scmdb.net |
 | Shift+4 | **Mining Loadout** | Mining laser, module & gadget optimizer | uexcorp.space |
-| Shift+5 | **Market Finder** | Searchable catalog of all purchasable items with buy/sell locations | uexcorp.space |
+| Shift+5 | **Item Finder** | Searchable catalog of all purchasable items with buy/sell locations | uexcorp.space |
 | Shift+6 | **Trade Hub** | Trade route calculator for single-hop & multi-leg routes | uexcorp.space |
 | Shift+7 | **Craft Database** | Crafting recipe browser with material requirements | scmdb.net |
 | Shift+8 | **Battle Buddy** | Real-time HUD overlay — tracks kills, deaths, and inventory from game logs | Star Citizen game log |
@@ -79,7 +79,7 @@
 | Shift+0 | **Mouse Blocker** | Blocks mouse input to the game window so you can use overlays without clicking through | — |
 | Ctrl+1 | **Mining Signals** | Live screen overlay reading signal scan %, mass, resistance, and instability from the SCAN RESULTS panel — powered by the new **SC_OCR** engine | Screen capture (SC_OCR + Tesseract) |
 | Ctrl+2 | **SuitMk2** | Suit companion: Elah and Montaigne talk about what happens in your game, push-to-talk questions | Star Citizen game log |
-| Ctrl+3 | **AI Assistant** | Ask about trade routes, cargo, prices, missions and loadouts by voice or text | the other tools' data |
+| Ctrl+3 | **Toolbox Assistant** | Ask about trade routes, cargo, prices, missions and loadouts by voice or text | the other tools' data |
 | Ctrl+4 | **PlayTime Calculator** | Tracks time played per session and in total, read from the game logs | Star Citizen game log |
 
 Press **Ctrl + 0** to toggle the launcher window.
@@ -142,8 +142,8 @@ You don't need to do anything to use SC_OCR — it ships pre-trained inside Mini
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/market_finder.png" alt="Market Finder" width="800"><br>
-  <em>Market Finder — browse 272 ships and items with buy prices, cargo capacity, crew, and all purchase locations</em>
+  <img src="assets/screenshots/market_finder.png" alt="Item Finder" width="800"><br>
+  <em>Item Finder — browse 272 ships and items with buy prices, cargo capacity, crew, and all purchase locations</em>
 </p>
 
 <p align="center">

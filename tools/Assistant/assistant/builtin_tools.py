@@ -359,7 +359,7 @@ def _open_trade_hub(ctx: ToolContext) -> dict:
     name="launch_tool",
     description=(
         "Open one of the toolbox's tool windows through the launcher: Trade "
-        "Hub, Market Finder, Mission DB, Craft Database, Mining Loadout, "
+        "Hub, Item Finder, Mission DB, Craft Database, Mining Loadout, "
         "Mining Signals, Cargo Loader, DPS Calculator, Battle Buddy, "
         "PlayTime, Starmap, Mouse Blocker, SuitMk2. Only when the user asks "
         "to open or show a tool."),

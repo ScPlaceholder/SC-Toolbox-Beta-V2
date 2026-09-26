@@ -21,8 +21,8 @@ def _html(body: str) -> str:
 
 
 _TAB_GETTING_STARTED = _html(f"""
-<h3 style="{_H}">Welcome to Market Finder</h3>
-<p>Market Finder lets you search the entire Star Citizen item catalog
+<h3 style="{_H}">Welcome to Item Finder</h3>
+<p>Item Finder lets you search the entire Star Citizen item catalog
 powered by <span style="{_ACC}">uexcorp.space</span> data. Find buy/sell
 locations, compare prices, and browse ships and rentals.</p>
 
@@ -118,7 +118,7 @@ use alongside Star Citizen. Drag the title bar to reposition. Window
 position and size are saved between sessions.</p>
 
 <h4 style="{_H}">Keyboard Shortcut</h4>
-<p>If you launched Market Finder via the SC Toolbox launcher, you can
+<p>If you launched Item Finder via the SC Toolbox launcher, you can
 assign a global hotkey in the launcher's settings panel to toggle the
 window from anywhere.</p>
 """)
