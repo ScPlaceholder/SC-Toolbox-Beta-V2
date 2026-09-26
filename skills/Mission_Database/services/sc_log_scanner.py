@@ -114,6 +114,16 @@ def get_sc_folder() -> Optional[str]:
     folder = s.get("sc_folder")
     if folder and os.path.isdir(folder):
         return folder
+    # The launcher's shared install root (first-launch popup): use the channel
+    # whose Game.log was written most recently.  Not persisted here, so a later
+    # change in the launcher still reaches this tool.
+    try:
+        from shared.sc_install import get_sc_root, newest_game_log
+        game_log = newest_game_log(get_sc_root())
+        if game_log:
+            return os.path.dirname(game_log).replace("\\", "/")
+    except ImportError:
+        pass
     detected = auto_detect_sc_folder()
     if detected:
         s["sc_folder"] = detected

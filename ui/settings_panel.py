@@ -473,6 +473,23 @@ class SettingsPopup(QWidget):
 
     # ── Tab 1: Tools ──────────────────────────────────────────────────────
 
+    def _refresh_sc_path(self) -> None:
+        try:
+            from shared.sc_install import get_sc_root
+            root = get_sc_root()
+        except Exception:  # noqa: BLE001 - a status label must not break Settings
+            root = None
+        self._sc_path_desc.setText(root or _t("not linked \u2014 each tool finds it on its own"))
+        self._sc_path_desc.setToolTip(root or "")
+
+    def _change_sc_path(self) -> None:
+        """Reopen the first-launch popup so the shared folder can be changed."""
+        from shared import sc_install
+        from shared.qt.sc_path_dialog import ScPathDialog
+        dlg = ScPathDialog(self, detected=sc_install.get_or_detect_sc_root())
+        dlg.exec()
+        self._refresh_sc_path()
+
     def _build_tools_tab(self) -> QWidget:
         page = QWidget()
         page.setObjectName("toolsPage")
@@ -608,6 +625,47 @@ class SettingsPopup(QWidget):
         sc_lay.addWidget(self._scale_combo)
 
         c_lay.addWidget(scale_row)
+
+        # ── Star Citizen folder (shared by every tool that reads Game.log) ──
+        sc_sep = QFrame()
+        sc_sep.setFixedHeight(1)
+        sc_sep.setStyleSheet(f"background-color: {P.border};")
+        c_lay.addWidget(sc_sep)
+
+        sc_row = QWidget()
+        sc_row.setFixedHeight(32)
+        sc_row.setStyleSheet("background: transparent;")
+        scp_lay = QHBoxLayout(sc_row)
+        scp_lay.setSpacing(8)
+        scp_lay.setContentsMargins(0, 0, 0, 0)
+
+        scp_lbl = QLabel(_t("Star Citizen folder"))
+        scp_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        scp_lay.addWidget(scp_lbl)
+
+        self._sc_path_desc = QLabel()
+        self._sc_path_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        scp_lay.addWidget(self._sc_path_desc, stretch=1)
+
+        sc_btn = QPushButton(_t("Change\u2026"))
+        sc_btn.setCursor(Qt.PointingHandCursor)
+        sc_btn.setFixedHeight(24)
+        sc_btn.setStyleSheet(f"""
+            QPushButton {{ background: {P.bg_input}; color: {P.fg};
+                border: 1px solid {P.border}; border-radius: 3px;
+                font-family: Consolas; font-size: 8pt; padding: 0 10px; }}
+            QPushButton:hover {{ color: {P.fg_bright}; border-color: {P.energy_cyan}; }}
+        """)
+        sc_btn.clicked.connect(self._change_sc_path)
+        scp_lay.addWidget(sc_btn)
+        c_lay.addWidget(sc_row)
+        self._refresh_sc_path()
 
         # ── Auto-hide launcher ────────────────────────────────────────────
         hide_sep = QFrame()

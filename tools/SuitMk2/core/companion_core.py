@@ -142,6 +142,13 @@ def _is_ground_vehicle(ship: str) -> bool:
 def find_game_log(saved: Optional[str] = None) -> Optional[Path]:
     """The live Game.log: a saved path, else the common install roots on every drive."""
     cands = [Path(saved)] if saved else []
+    try:                                  # the launcher's shared install root, if linked
+        from shared.sc_install import get_sc_root, newest_game_log
+        shared = newest_game_log(get_sc_root())
+        if shared:
+            cands.append(Path(shared))
+    except ImportError:
+        pass
     for letter in "CDEFGH":
         for rel in (r"Star Citizen\StarCitizen", r"StarCitizen", r"Program Files\Roberts Space Industries\StarCitizen",
                     r"Roberts Space Industries\StarCitizen", r"Games\StarCitizen"):

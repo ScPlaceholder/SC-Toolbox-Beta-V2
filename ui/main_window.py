@@ -698,8 +698,19 @@ class LauncherWindow(SCWindow):
     def run(self) -> None:
         """Start the event loop (called by SCToolboxApp)."""
         self.show()
+        # First launch: ask once where Star Citizen is installed, so every tool
+        # that reads the game logs shares one answer.  Deferred so the launcher
+        # paints first; a failure here must never keep the launcher from running.
+        QTimer.singleShot(400, self._first_launch_sc_path)
         from PySide6.QtWidgets import QApplication
         QApplication.instance().exec()
+
+    def _first_launch_sc_path(self) -> None:
+        try:
+            from shared.qt.sc_path_dialog import maybe_prompt_for_sc_path
+            maybe_prompt_for_sc_path(self)
+        except Exception:  # noqa: BLE001 - optional onboarding; tools still auto-detect
+            log.exception("first-launch Star Citizen path prompt failed")
 
     def _open_settings(self) -> None:
         """Open the settings popup bubble."""

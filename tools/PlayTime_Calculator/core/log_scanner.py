@@ -128,11 +128,27 @@ def auto_detect_sc_folder() -> Optional[str]:
     return None
 
 
+def _shared_sc_root() -> Optional[str]:
+    """The folder linked once in the launcher's first-launch popup, if any."""
+    try:
+        from shared.sc_install import get_sc_root
+    except ImportError:
+        return None
+    return get_sc_root()
+
+
 def get_or_detect_folder() -> Optional[str]:
-    """Return the saved folder if still valid, else auto-detect and persist it."""
+    """Saved folder if still valid, else the launcher's shared one, else auto-detect.
+
+    The shared folder is not copied into this tool's own setting, so changing
+    it in the launcher later reaches PlayTime too.
+    """
     saved = _settings.get_sc_folder()
     if saved and os.path.isdir(saved):
         return saved
+    shared = _shared_sc_root()
+    if shared:
+        return shared
     detected = auto_detect_sc_folder()
     if detected:
         _settings.set_sc_folder(detected)
