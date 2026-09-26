@@ -280,10 +280,16 @@ class StarmapPanel(QWidget):
         self._ears.transcript.connect(self._on_transcript)
         self._ears.needsInstall.connect(self._on_ears_needs_install)
 
+        # Speaks as the player's chosen character (Elah by default, set in the launcher's Settings); the old
+        # Windows-voice Mouth stays as the fallback if the shared voice cannot load.
         try:
-            self._mouth = Mouth()
+            from shared.character_voice import CharacterMouth
+            self._mouth = CharacterMouth()
         except Exception:
-            self._mouth = None
+            try:
+                self._mouth = Mouth()
+            except Exception:
+                self._mouth = None
 
         # The interactive voice bar: ears toggle, mic mode (always on /
         # push-to-talk / toggle), mic keybind, star map calibration, spoken

@@ -149,7 +149,12 @@ class AssistantWindow(SCWindow):
         self._agent.on_speak = self.speakRequested.emit
 
         # ── voice ────────────────────────────────────────────────────────
-        self._mouth = Mouth()
+        # Speaks as the player's chosen character (Elah by default, set in the launcher's Settings).
+        try:
+            from shared.character_voice import CharacterMouth
+            self._mouth = CharacterMouth()
+        except Exception:
+            self._mouth = Mouth()
         self._ears = EarsController(self)
         # hold-to-talk by default; "mic_mode": "toggle" in the state file opts out
         self._ears.set_mode(self._state.get("mic_mode", "push"))

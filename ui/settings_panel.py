@@ -667,6 +667,44 @@ class SettingsPopup(QWidget):
         c_lay.addWidget(sc_row)
         self._refresh_sc_path()
 
+        # ── Tool voice: who speaks for the Starmap and the Assistant (J, 2026-09-26: "Elah as default but
+        #    allow players to pick"). Shared setting, read on every spoken line, so it applies at once. ──
+        tv_row = QWidget()
+        tv_row.setFixedHeight(32)
+        tv_row.setStyleSheet("background: transparent;")
+        tv_lay = QHBoxLayout(tv_row)
+        tv_lay.setSpacing(8)
+        tv_lay.setContentsMargins(0, 0, 0, 0)
+        tv_lbl = QLabel(_t("Tool voice"))
+        tv_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        tv_lay.addWidget(tv_lbl)
+        tv_desc = QLabel(_t("Who speaks for the Star Map and the Assistant"))
+        tv_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        tv_lay.addWidget(tv_desc, stretch=1)
+        self._voice_combo = QComboBox()
+        self._voice_combo.setStyleSheet(_COMBO_QSS)
+        self._voice_combo.setFixedWidth(140)
+        self._voice_combo.setFixedHeight(24)
+        try:
+            from shared import character_voice as _cv
+            for key in _cv.VOICES:
+                self._voice_combo.addItem(_t(_cv.LABELS[key]), key)
+            i = self._voice_combo.findData(_cv.get_voice())
+            self._voice_combo.setCurrentIndex(i if i >= 0 else 0)
+            self._voice_combo.currentIndexChanged.connect(
+                lambda _i: _cv.set_voice(self._voice_combo.currentData()))
+        except Exception:
+            log.exception("tool voice setting unavailable")
+            self._voice_combo.setEnabled(False)
+        tv_lay.addWidget(self._voice_combo)
+        c_lay.addWidget(tv_row)
+
         # ── Auto-hide launcher ────────────────────────────────────────────
         hide_sep = QFrame()
         hide_sep.setFixedHeight(1)
