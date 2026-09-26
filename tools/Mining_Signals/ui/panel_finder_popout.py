@@ -204,6 +204,18 @@ class PanelFinderPopout(QWidget):
         )
         self._debug_checkbox.toggled.connect(self._on_debug_toggled)
         hl.addWidget(self._debug_checkbox)
+        # Dev Mode: the OCR training pipeline (capture, label, glyphs, synth,
+        # train, benchmark, export) as its own window. Nothing runs until the
+        # user opens it; it lives in devmode/ and devmode_app.py.
+        dev_btn = QPushButton("Dev Mode…")
+        dev_btn.setToolTip("Open the training tools: capture, label, train and test your own OCR models")
+        dev_btn.setStyleSheet(
+            "QPushButton { background: #333; color: #ccc; border: none; "
+            "font-family: Consolas; font-size: 9pt; padding: 2px 8px; }"
+            "QPushButton:hover { background: #555; color: white; }"
+        )
+        dev_btn.clicked.connect(self._open_dev_mode)
+        hl.addWidget(dev_btn)
         refresh_btn = QPushButton("⟳")
         refresh_btn.setFixedSize(22, 22)
         refresh_btn.setToolTip("Force refresh now")
@@ -628,6 +640,14 @@ class PanelFinderPopout(QWidget):
     # ──────────────────────────────────────────
     # Debug Mode: log capture + clipboard payload
     # ──────────────────────────────────────────
+
+    def _open_dev_mode(self) -> None:
+        """Open (or raise) the Dev Mode training window."""
+        try:
+            from devmode_app import open_dev_mode
+            open_dev_mode(parent=self)
+        except Exception:  # noqa: BLE001 - optional tool; never take the panel finder down
+            log.exception("could not open Dev Mode")
 
     def _on_debug_toggled(self, on: bool) -> None:
         """Show/hide the debug panel. When toggling ON we attach a
