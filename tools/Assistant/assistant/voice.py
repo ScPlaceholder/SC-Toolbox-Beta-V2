@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import logging
 import threading
 import time
 from queue import Queue
@@ -18,6 +19,7 @@ from typing import Optional
 from PySide6.QtCore import QObject, QTimer, Signal
 
 _SAMPLE_RATE = 16000
+_log = logging.getLogger(__name__)
 _VOICE_RMS = 0.012          # above this counts as speech
 _MIN_VOICE_MS = 300         # shorter utterances are discarded
 _GAP_MS = 900               # silence gap that ends an utterance
@@ -57,6 +59,10 @@ class EarsController(QObject):
 
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
+        # Diagnostics (2026-09-26): statuses were UI-only, so an in-game "it never heard me" left no trace.
+        self.statusChanged.connect(lambda s: _log.info("ears status: %s", s))
+        self.transcript.connect(lambda s: _log.info("ears heard: %r", s))
+        self._last_trigger = None
         self._binding = None
         self._monitor = None
         self._armed = False
@@ -142,6 +148,9 @@ class EarsController(QObject):
 
     # ── trigger / capture ────────────────────────────────────────────────
     def _on_trigger(self, pressed: bool) -> None:
+        if pressed != getattr(self, "_last_trigger", None):      # edges only, not key auto-repeat
+            _log.info("ears: key %s", "down" if pressed else "up")
+            self._last_trigger = pressed
         if self._mode == "push":
             if pressed:
                 self._begin()                    # key auto-repeat: _begin ignores repeats
@@ -175,6 +184,11 @@ class EarsController(QObject):
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
                 blocksize=1600, callback=self._audio_cb)
             self._stream.start()
+            try:
+                _log.info("ears: listening on input %r (mode %s)",
+                          sd.query_devices(kind="input")["name"], self._mode)
+            except Exception:
+                pass
         except Exception as exc:
             self.statusChanged.emit("mic error: %s" % exc)
             self._stream = None
@@ -234,6 +248,14 @@ class EarsController(QObject):
     def _finish(self) -> None:
         voice_ms = self._voice_ms
         pcm = self._pcm()
+        try:
+            import numpy as _np
+            n = 0 if pcm is None else len(pcm) // 1600 * 1600
+            peak = float(_np.sqrt((pcm[:n].reshape(-1, 1600) ** 2).mean(axis=1)).max()) if n else 0.0
+            _log.info("ears: attempt ended: %d ms of speech, loudest block %.4f rms (speech line %.3f)",
+                      voice_ms, peak, _VOICE_RMS)
+        except Exception:
+            pass
         self._abort_recording()
         if pcm is None or voice_ms < _MIN_VOICE_MS:
             self.statusChanged.emit("heard nothing")
