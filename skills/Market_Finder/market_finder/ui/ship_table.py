@@ -37,6 +37,27 @@ def _fmt_num(val: object) -> str:
         return str(val)
 
 
+def _fmt_price(val: object) -> str:
+    """Format an aUEC price EXACTLY — never abbreviated.
+
+    ``_fmt_num`` above renders anything over a million as ``2.8M``, which
+    rounds to the nearest 100,000 aUEC.  For a spec figure (mass, fuel) that
+    is fine; for money it is not.  Swept across the 174 vehicles that carry a
+    buy price, the abbreviation made the table read HIGHER than the true price
+    on 97 of them (worst: Caterpillar, 11,850,300 shown as ``11.9M``, +49,700
+    aUEC), while the detail panel showed the same number in full — which is
+    the "different values" of issue #25.  A buyer comparing prices needs the
+    exact figure, so this formatter is lossless and the column is sized to fit
+    it.
+    """
+    if not val:
+        return "\u2014"
+    try:
+        return f"{float(val):,.0f}"
+    except (ValueError, TypeError):
+        return str(val)
+
+
 class ShipTable(QWidget):
     """All vehicles with specs, type filter pills, and SCTable display."""
 
@@ -104,7 +125,13 @@ class ShipTable(QWidget):
             ColumnDef("Ship", "name", width=180, fg_color=P.fg),
             ColumnDef("Manufacturer", "company_name", width=120, fg_color=P.fg_dim),
             ColumnDef("Size", "pad_type", width=45, fg_color=P.fg_dim),
-            ColumnDef("Buy Price", "_best_buy", width=80, fg_color=P.green, fmt=lambda v: _fmt_num(v)),
+            # width 140 fits "11,850,300" (120 px of Consolas 9pt) plus the
+            # 8 px cell padding either side; the header alone needed ~99 px, so
+            # the old 80 px was already clipping.  Columns stay Interactive,
+            # so anyone who wants it narrower can drag it.
+            ColumnDef("Buy Price", "_best_buy", width=140, fg_color=P.green,
+                      fmt=lambda v: _fmt_price(v),
+                      tooltip="Cheapest known buy price, in aUEC (exact)"),
             ColumnDef("SCU", "scu", width=50, fg_color=P.accent, fmt=lambda v: _fmt_num(v)),
             ColumnDef("Crew", "crew", width=45, fg_color=P.fg_dim, fmt=lambda v: str(v) if v else "\u2014"),
             ColumnDef("QT Fuel", "fuel_quantum", width=55, fg_color=P.fg_dim, fmt=lambda v: _fmt_num(v)),

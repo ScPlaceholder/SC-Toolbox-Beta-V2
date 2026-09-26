@@ -31,6 +31,7 @@ from shared.data_utils import parse_cli_args
 from ..config import (
     AUTO_REFRESH_MS, AUTO_REFRESH_RETRY_MS,
     CACHE_TTL_OPTIONS, POLL_LOADING_MS, SEARCH_DEBOUNCE_MS,
+    SEARCH_BUBBLE_MAX, SEARCH_BUBBLE_PER_TAB,
     TAB_DEFS,
     item_tab,
 )
@@ -582,21 +583,38 @@ class MarketFinderApp(SCWindow):
         self._update_view()
 
     def _get_search_results(self, query: str) -> list[dict]:
-        matches: list[dict] = []
-        for it in self.data.items:
-            if query in (it.get("name") or "").lower():
-                matches.append(it)
-                if len(matches) >= 30:
-                    break
-        # Include vehicles/ships in search results
+        """Matching items and vehicles, in the order SearchBubble will keep.
+
+        Vehicles are gathered FIRST and their slots are reserved out of the
+        bubble's budget, because ``SearchBubble`` slices the flat list to
+        ``SEARCH_BUBBLE_MAX`` *before* grouping it.  Filling that budget with
+        items and appending vehicles afterwards — as this did — meant any query
+        with a full page of item matches had its whole Ships group sliced off:
+        ``aurora``, ``drake``, ``hull`` and ``rsi`` all reproduced the original
+        symptom of issue #9 that way, long after ships were added to the
+        corpus.  Collecting more than ``SEARCH_BUBBLE_PER_TAB`` vehicles is
+        pointless, since the bubble renders at most that many per group.
+        """
+        vehicles: list[dict] = []
         for v in self.data.vehicles:
             if (query in (v.get("name") or "").lower()
                     or query in (v.get("name_full") or "").lower()
                     or query in (v.get("company_name") or "").lower()):
-                matches.append({**v, "_is_vehicle": True})
-                if len(matches) >= 40:
+                vehicles.append({**v, "_is_vehicle": True})
+                if len(vehicles) >= SEARCH_BUBBLE_PER_TAB:
                     break
-        return matches
+
+        item_budget = max(0, SEARCH_BUBBLE_MAX - len(vehicles))
+        matches: list[dict] = []
+        for it in self.data.items:
+            if query in (it.get("name") or "").lower():
+                matches.append(it)
+                if len(matches) >= item_budget:
+                    break
+
+        # Items first so the bubble's group order is unchanged for queries
+        # that were never starved; both lists now fit inside the slice.
+        return matches + vehicles
 
     def _show_bubble(self, results: list[dict]) -> None:
         self._dismiss_bubble()
