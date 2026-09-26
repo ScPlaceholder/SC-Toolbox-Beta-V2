@@ -791,6 +791,20 @@ class MiningSignalsApp(SCWindow):
         self._btn_calibrate.setStyleSheet(_btn_style)
         ocr_layout.addWidget(self._btn_calibrate)
 
+        # ── Dev Mode ──
+        # The training tools (capture, label, glyphs, synth, train, test, export). Also reachable
+        # from the Panel Finder, but that sits behind Calibrate, which refuses until a HUD region is
+        # set - so on a fresh install (2.4.0 laptop test) there was no way in at all.
+        self._btn_dev_mode = QPushButton("Dev Mode", self._ocr_row)
+        self._btn_dev_mode.setCursor(Qt.PointingHandCursor)
+        self._btn_dev_mode.setToolTip(
+            "Open the training tools: capture, label, train and test your own OCR models, "
+            "or export a failure report to send to the developer."
+        )
+        self._btn_dev_mode.clicked.connect(self._on_dev_mode)
+        self._btn_dev_mode.setStyleSheet(_btn_style)
+        ocr_layout.addWidget(self._btn_dev_mode)
+
         self._btn_scan_toggle = QPushButton("Start Scan", self._ocr_row)
         self._btn_scan_toggle.setCursor(Qt.PointingHandCursor)
         self._btn_scan_toggle.setCheckable(True)
@@ -3654,6 +3668,14 @@ class MiningSignalsApp(SCWindow):
         self._config["break_bubble_position"] = pos
         _save_config(self._config)
         log.info("Break bubble position set: (%d, %d)", pos["x"], pos["y"])
+
+    def _on_dev_mode(self) -> None:
+        """Open (or raise) the Dev Mode training window. Optional tool: never take the scanner down."""
+        try:
+            from devmode_app import open_dev_mode
+            open_dev_mode(parent=self)
+        except Exception:  # noqa: BLE001
+            log.exception("could not open Dev Mode")
 
     def _on_calibrate_crops(self) -> None:
         """Open the calibration dialog for the current HUD region.
