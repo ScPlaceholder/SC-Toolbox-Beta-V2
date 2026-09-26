@@ -291,7 +291,10 @@ class EventParser:
             return "med_bed_heal"
         if "Medical Bed:" in line and "restored your health" in line:
             return "med_bed_heal"
-        if "Injury Detected" in line:
+        # One real injury appears on 4+ lines (the queued notification, queue dumps, then
+        # Next/StartFade/Remove updates). Only the "Added notification" line is the event:
+        # across J's 1,112 logs, 793 lines mention an injury but only 158 are real ones.
+        if "Injury Detected" in line and "Added notification" in line:
             return "injury"
         if "Emergency Services" in line and "en route" in line.lower():
             return "emergency_services"
