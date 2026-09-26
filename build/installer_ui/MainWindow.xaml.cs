@@ -427,10 +427,12 @@ public partial class MainWindow : Window
     private const int EXPECTED_INSTALL_SECONDS = 25;
 
     // Velopack expands the .nupkg into %LOCALAPPDATA%\SC_Toolbox\.
-    // The full install ends up around ~1.4 GB on disk. We use the live
-    // size of that directory as a real progress signal — much more honest
-    // than time-based easing.
-    private const long EXPECTED_INSTALL_BYTES = 1_400_000_000L;
+    // We use the live size of that directory as a real progress signal — much
+    // more honest than time-based easing — so this has to be the REAL total.
+    // It said 1.4 GB until 2.4.0, when the install measured 4.88 GB (current    // 3.19 + packages\ 1.69, Velopack keeps the full .nupkg), so the bar hit
+    // its 95 % ceiling early and sat there. ~5 GB includes faster-whisper.
+    // Re-measure the whole install folder when the payload changes.
+    private const long EXPECTED_INSTALL_BYTES = 5_000_000_000L;
     // If on-disk size hasn't grown for STALL_DETECT_SECONDS *AND* the
     // subprocess hasn't exited, we treat it as stuck and surface a clear
     // error instead of leaving the user staring at 95 %.
