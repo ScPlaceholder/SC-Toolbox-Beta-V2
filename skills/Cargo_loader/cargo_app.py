@@ -24,9 +24,9 @@ import time
 
 import requests
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot, QPoint, QPointF
+from PySide6.QtCore import Qt, QTimer, Signal, Slot, QPoint, QPointF, QUrl
 from PySide6.QtGui import (QColor, QCursor, QPainter, QPixmap, QPolygonF, QFont, QPen, QBrush,
-                           QKeySequence, QShortcut)
+                           QKeySequence, QShortcut, QDesktopServices)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QSizePolicy, QSpinBox, QTabWidget,
@@ -68,6 +68,12 @@ from cargo_engine.item_catalog import (
     COMPONENT_CATEGORIES,
 )
 from cargo_engine.validation import validate_layout
+from cargo_engine import crate_items
+from crate_ui import CratePanel, CrateWindow
+
+# Personal crates are items of their own category (not an Items-tree category:
+# they have their own row of buttons and a tab each).
+ITEM_COLORS = {**ITEM_COLORS, "crate": crate_items.CRATE_COLOR}
 
 from cargo_common import (
     CONTAINER_DIMS as LEGACY_CONTAINER_DIMS,
@@ -286,6 +292,31 @@ ITEM_WARN = "#ffb000"
 def item_catalog_path() -> str | None:
     """ship-items.json from the scunpacked cache (shared/scunpacked.py)."""
     return item_catalog.default_path()
+
+
+def crate_data_dir() -> str | None:
+    """Where the crate item lists live: the scunpacked cache of the pinned
+    build (fps-items.json, ship-items.json, items.json + the derived index)."""
+    try:
+        from shared import scunpacked
+    except Exception:                                   # noqa: BLE001
+        return None
+    return scunpacked.cache_dir()
+
+
+def uex_cache_path() -> str:
+    """The Item Finder's UEX items cache, read-only (never fetched from here)."""
+    return crate_items.default_uex_cache(_DIR)
+
+
+def crate_no(key) -> int | None:
+    """The number of a placed crate from its item key ("<class>#<n>")."""
+    if not isinstance(key, str) or "#" not in key:
+        return None
+    try:
+        return int(key.rsplit("#", 1)[1])
+    except ValueError:
+        return None
 
 
 def _mix(a: str, b: str, t: float) -> str:
@@ -1068,7 +1099,8 @@ class CargoRenderer:
             pen = QPen(QColor(ITEM_WARN), 2)
         else:
             pen = QPen(QColor(cat_col), 2)
-            pen.setStyle(Qt.DashLine)
+            if d.get("crate_no") is None:        # crates: solid, they are boxes
+                pen.setStyle(Qt.DashLine)
         pen.setCosmetic(True)
         group.item_pen = pen
         group.set_click_callback(self._on_box_clicked)
@@ -1086,7 +1118,16 @@ class CargoRenderer:
         tx = [p[0] for p in pts_t]
         ty = [p[1] for p in pts_t]
         top_w = max(tx) - min(tx)
-        if top_w >= 14:
+        if d.get("crate_no") is not None and top_w >= 8:
+            # Personal crate: its number, as big as the lid allows.
+            text = str(d["crate_no"])
+            fs = max(8, min(int(top_w * 0.42 / max(len(text), 1) * 1.6), 30))
+            t = self._scene.addText(text, QFont("Consolas", fs, QFont.Bold))
+            t.setDefaultTextColor(QColor(ITEM_WARN if warnings else "#ffffff"))
+            t.setPos(sum(tx) / 4 - t.boundingRect().width() / 2,
+                     sum(ty) / 4 - t.boundingRect().height() / 2)
+            group.set_label(t)
+        elif top_w >= 14:
             text = d.get("label") or key[:6]
             fs = max(6, min(int(top_w / max(len(text), 1) * 1.1), 10))
             t = self._scene.addText(text, QFont("Consolas", fs, QFont.Bold))
@@ -1636,6 +1677,17 @@ class CargoApp(SCWindow):
         self._place_item: str | None = None     # Items tab: catalogue key being placed
         self._item_catalog: list[dict] | None = None
         self._items_loading: bool = False
+        # Personal crates: number -> {cls, key, name, short, capacity_u,
+        # contents}. A removed crate keeps its record (Ctrl+Z brings it back
+        # with its contents); only crates in the hold are saved or tabbed.
+        self._crates: dict[int, dict] = {}
+        self._crate_next: int = 1
+        self._crate_panels: dict[int, CratePanel] = {}
+        self._crate_windows: dict[int, CrateWindow] = {}
+        self._crate_index: dict | None = None
+        self._crate_index_state: str = "idle"   # idle loading ready missing downloading error
+        self._uex: dict | None = None
+        self._uex_state: str = "idle"            # idle loading ready none
         self._place_rot: bool = False
         self._syncing: bool = False
         self._pending_loadout: dict | None = None
@@ -1649,6 +1701,8 @@ class CargoApp(SCWindow):
         self._move_undo: list[tuple] = []   # (manual_boxes_before, assignments_before)
 
         self._build_ui()
+        for d in crate_items.crate_defs():
+            self._renderer._item_defs[d["key"]] = d
         self.restore_geometry_from_args(x, y, w, h, opacity)
 
         self._data = ShipDataLoader()
@@ -1866,9 +1920,10 @@ class CargoApp(SCWindow):
         leg_lay.addStretch(1)
         iso_lay.addWidget(leg)
 
-        self._view_tabs.addTab(iso_container, "Isometric View")
-        # Only one tab — hide the tab bar entirely
+        self._view_tabs.addTab(iso_container, _("Hold"))
+        # The tab bar shows once a personal crate is placed (one tab each).
         self._view_tabs.tabBar().setVisible(False)
+        self._view_tabs.currentChanged.connect(self._on_view_tab)
         # Grid Editor is a standalone HTML tool; don't create QWebEngineView here
         # (spawning QtWebEngineProcess delays startup and breaks graceful shutdown).
         self._web_view = None
@@ -2376,6 +2431,45 @@ class CargoApp(SCWindow):
         lay.setContentsMargins(6, 6, 6, 6)
         lay.setSpacing(4)
 
+        # Personal crates (J, 2026-09-26): placed like items, numbered 1..N,
+        # each with its own tab to fill. Always available: their sizes are
+        # pinned in crate_items.CRATES (checked against items.json).
+        crate_lbl = QLabel(_("PERSONAL CRATES"), tab)
+        crate_lbl.setStyleSheet(
+            f"color: {crate_items.CRATE_COLOR}; font-family: Electrolize, Consolas;"
+            f" font-size: 8pt; background: transparent;")
+        lay.addWidget(crate_lbl)
+        crate_row = QWidget(tab)
+        crate_row_lay = QHBoxLayout(crate_row)
+        crate_row_lay.setContentsMargins(0, 0, 0, 0)
+        crate_row_lay.setSpacing(3)
+        self._crate_btns: dict[str, QPushButton] = {}
+        for d in crate_items.crate_defs():
+            b = QPushButton(d["short"].replace(" SCU", ""), crate_row)
+            b.setCheckable(True)
+            b.setCursor(Qt.PointingHandCursor)
+            w, h, l = d["dims"]
+            b.setToolTip(f"{d['name']}\n{_('Holds')} {crate_items.fmt_u(d['capacity_u'])}"
+                         f"  ·  {w}×{h}×{l} {_('cells')}")
+            b.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {BG3}; color: {FG};
+                    font-family: Consolas; font-size: 8pt;
+                    border: 1px solid {crate_items.CRATE_COLOR}; padding: 3px 2px;
+                }}
+                QPushButton:hover {{ background-color: {BORDER}; }}
+                QPushButton:checked {{ background-color: {crate_items.CRATE_COLOR}; color: {BG}; }}
+            """)
+            b.toggled.connect(lambda on, k=d["key"]: self._on_crate_btn(k, on))
+            crate_row_lay.addWidget(b)
+            self._crate_btns[d["key"]] = b
+        scu_lbl = QLabel(_("SCU"), crate_row)
+        scu_lbl.setStyleSheet(f"color: {FG_DIM}; font-family: Consolas; font-size: 8pt;"
+                              f" background: transparent;")
+        crate_row_lay.addWidget(scu_lbl)
+        lay.addWidget(crate_row)
+        lay.addSpacing(4)
+
         self._items_search = QLineEdit(tab)
         self._items_search.setPlaceholderText(_("Search items…"))
         self._items_search.setClearButtonEnabled(True)
@@ -2600,6 +2694,12 @@ class CargoApp(SCWindow):
             self._set_mode("manual")
         self._set_place_size(None)          # unchecks the size buttons
         self._place_item = key
+        cb = self._crate_btns.get(key)
+        if cb is not None:
+            cb.blockSignals(True)
+            cb.setChecked(True)
+            cb.blockSignals(False)
+            self._ensure_crate_index()      # first use of the crates: load lazily
         cur = self._items_tree.currentItem()     # keep the armed row highlighted
         if cur is not None and cur.data(0, Qt.UserRole) == key:
             self._items_tree.blockSignals(True)
@@ -2634,9 +2734,12 @@ class CargoApp(SCWindow):
         return out
 
     def _update_items_summary(self) -> None:
-        n = len(self._renderer._items)
+        crates = sum(1 for b in self._renderer._items if crate_no(b[6]) is not None)
+        n = len(self._renderer._items) - crates
         flagged = sum(1 for b in self._renderer._items if self._renderer._item_flags.get(b))
         text = _("Items: {n}").format(n=n)
+        if crates:
+            text += "  ·  " + _("Crates: {k}").format(k=crates)
         if flagged:
             text += "  ⚠ " + _("{k} flagged").format(k=flagged)
         self._items_summary_lbl.setText(text)
@@ -2679,6 +2782,365 @@ class CargoApp(SCWindow):
                 }
             out.append((x, y, z, w, h, l, key))
         return out
+
+    # ── Personal crates ────────────────────────────────────────────────────────
+    #
+    # J, 2026-09-26: "add personal boxes and then have them each have a number
+    # on it and they will create a tab at the top of the page that you can
+    # swap to or pop out ... fuzzy search and assign any item ingame that will
+    # fit in the crate ... you can't shove a Kraken engine into a handheld
+    # crate". In the hold a crate is an item (warnings, not walls) whose key is
+    # "<class>#<n>"; what is INSIDE it obeys a strict volume rule
+    # (cargo_engine.crate_items.check_fit).
+
+    def _on_crate_btn(self, key: str, on: bool) -> None:
+        if on:
+            self._brush_tabs.setCurrentIndex(1)
+            self._set_place_item(key)
+        else:
+            self._set_place_item(None)
+            self._status_lbl.setText(_("Placing done"))
+
+    def _new_crate(self, cls: str, no: int | None = None,
+                   contents: list | None = None) -> str:
+        """Register crate *no* (next free number if None) of class *cls*;
+        returns its item key. Numbers only ever go up, so removing crate 2
+        never renumbers crate 3."""
+        base = self._item_def(cls)
+        if no is None:
+            no = self._crate_next
+        self._crate_next = max(self._crate_next, no + 1)
+        key = f"{cls}#{no}"
+        short = base.get("short") or cls
+        self._renderer._item_defs[key] = dict(
+            base, key=key, crate_no=no, crate_cls=cls, label=str(no),
+            name=_("Crate {n} ({size})").format(n=no, size=short))
+        self._crates[no] = {"cls": cls, "key": key, "name": base.get("name", cls),
+                            "short": short, "capacity_u": int(base.get("capacity_u") or 0),
+                            "contents": list(contents or [])}
+        return key
+
+    def _live_crates(self) -> dict[int, tuple]:
+        """Crates in the hold right now: number -> item tuple."""
+        out = {}
+        for b in self._renderer._items:
+            no = crate_no(b[6])
+            if no is not None and no in self._crates:
+                out[no] = b
+        return out
+
+    def _crate_tab_text(self, no: int) -> str:
+        return _("Crate {n} ({size})").format(n=no, size=self._crates[no]["short"])
+
+    def _sync_crate_tabs(self) -> None:
+        """One tab (or popped-out window) per crate in the hold, in number order."""
+        if not hasattr(self, "_view_tabs"):
+            return
+        live = self._live_crates()
+        for no in [n for n in self._crate_panels if n not in live]:
+            panel = self._crate_panels.pop(no)
+            win = self._crate_windows.pop(no, None)
+            if win is not None:
+                win.take_panel()
+                win.close()
+                win.deleteLater()
+            else:
+                i = self._view_tabs.indexOf(panel)
+                if i >= 0:
+                    self._view_tabs.removeTab(i)
+            panel.deleteLater()
+        for no in sorted(live):
+            if no not in self._crate_panels:
+                panel = CratePanel(self, no, _CapacityBar)
+                self._crate_panels[no] = panel
+                self._insert_crate_tab(no)
+        for no, panel in self._crate_panels.items():
+            i = self._view_tabs.indexOf(panel)
+            if i >= 0:
+                self._view_tabs.setTabText(i, self._crate_tab_text(no))
+        self._view_tabs.tabBar().setVisible(bool(self._crate_panels))
+
+    def _insert_crate_tab(self, no: int) -> None:
+        panel = self._crate_panels[no]
+        at = 1 + sum(1 for n, p in self._crate_panels.items()
+                     if n < no and self._view_tabs.indexOf(p) >= 0)
+        self._view_tabs.insertTab(at, panel, self._crate_tab_text(no))
+
+    def _open_crate(self, no: int) -> None:
+        """Show crate *no*: its tab, or raise its popped-out window."""
+        if no not in self._crate_panels:
+            self._sync_crate_tabs()
+        panel = self._crate_panels.get(no)
+        if panel is None:
+            return
+        win = self._crate_windows.get(no)
+        if win is not None:
+            win.show()
+            win.raise_()
+        else:
+            self._view_tabs.setCurrentWidget(panel)
+        self._on_crate_shown()
+
+    def _on_view_tab(self, index: int) -> None:
+        if index > 0:
+            self._on_crate_shown()
+
+    def _on_crate_shown(self) -> None:
+        """A crate tab is in use: load the item lists and the UEX cache, lazily."""
+        self._ensure_crate_index()
+        self._ensure_uex()
+
+    # -- the tab / window API used by crate_ui.CratePanel --------------------
+
+    def crate_state(self, no: int) -> dict | None:
+        return self._crates.get(no)
+
+    def crate_is_popped(self, no: int) -> bool:
+        return no in self._crate_windows
+
+    def crate_toggle_pop(self, no: int) -> None:
+        if no in self._crate_windows:
+            self.crate_dock(no)
+        else:
+            self.crate_pop(no)
+
+    def crate_pop(self, no: int) -> None:
+        """Move crate *no* out of the tab bar into its own small window."""
+        panel = self._crate_panels.get(no)
+        if panel is None or no in self._crate_windows:
+            return
+        i = self._view_tabs.indexOf(panel)
+        if i >= 0:
+            self._view_tabs.removeTab(i)
+        win = CrateWindow(self, panel)
+        self._crate_windows[no] = win
+        win.show()
+        panel.refresh()
+        self._on_crate_shown()
+
+    def crate_dock(self, no: int, from_close: bool = False) -> None:
+        """Put a popped-out crate back in the tab bar (closing its window)."""
+        win = self._crate_windows.pop(no, None)
+        if win is None:
+            return
+        panel = win.take_panel()
+        if not from_close:
+            win.close()
+        win.deleteLater()
+        if no in self._crate_panels:
+            self._insert_crate_tab(no)
+            self._view_tabs.setCurrentWidget(panel)
+            panel.refresh()
+
+    def _refresh_crate(self, no: int) -> None:
+        panel = self._crate_panels.get(no)
+        if panel is not None:
+            panel.refresh()
+
+    def crate_add(self, no: int, entry: dict, qty: int = 1) -> tuple[bool, str]:
+        st = self._crates.get(no)
+        if st is None:
+            return False, _("no such crate")
+        ok, why = crate_items.add_item(st["capacity_u"], st["contents"], entry, qty)
+        if ok:
+            self._refresh_crate(no)
+            self._status_lbl.setText(_("Crate {n}: added {q} × {name}").format(
+                n=no, q=qty, name=entry.get("name", "")))
+        return ok, why
+
+    def crate_set_qty(self, no: int, key: str, qty: int) -> tuple[bool, str]:
+        st = self._crates.get(no)
+        if st is None:
+            return False, _("no such crate")
+        ok, why = crate_items.set_qty(st["capacity_u"], st["contents"], key, qty)
+        if ok:
+            self._refresh_crate(no)
+        return ok, why
+
+    def crate_index_rows(self) -> list | None:
+        idx = self._crate_index
+        return idx.get("items") if idx else None
+
+    def crate_data_note(self) -> tuple[str, bool]:
+        """(one short line, show the Download button)."""
+        st = self._crate_index_state
+        if st == "ready":
+            n = len(self.crate_index_rows() or [])
+            if self._uex_state == "ready":
+                return _("{n:,} items  ·  UEX linked").format(n=n), False
+            if self._uex_state == "none":
+                return _("{n:,} items  ·  no UEX cache, names only").format(n=n), False
+            return _("{n:,} items").format(n=n), False
+        return {
+            "loading": (_("Loading item lists…"), False),
+            "downloading": (_("Downloading item lists…"), False),
+            "missing": (_("Item lists not downloaded yet."), True),
+            "error": (_("Item lists could not be read."), True),
+        }.get(st, (_("Item lists load on first use."), False))
+
+    def crate_uex(self, entry: dict) -> tuple[dict | None, str]:
+        """(UEX record or None, a line saying why not). Cache only, no network."""
+        if self._uex_state != "ready":
+            return None, (_("No UEX cache: name only") if self._uex_state == "none"
+                          else _("UEX: loading…"))
+        rec = crate_items.uex_match(self._uex, entry)
+        return rec, ("" if rec else _("Not listed on UEX"))
+
+    def crate_open_url(self, url: str) -> None:
+        QDesktopServices.openUrl(QUrl(url))
+
+    def _refresh_crate_notes(self) -> None:
+        for panel in self._crate_panels.values():
+            panel.refresh_data_note()
+
+    # -- lazy loading (off the UI thread) -------------------------------------
+
+    def _ensure_crate_index(self) -> None:
+        """Read (or build once) the compact crate item index, off the UI thread."""
+        if self._crate_index_state in ("loading", "ready", "downloading"):
+            return
+        d = crate_data_dir()
+        if not d or not (os.path.isfile(crate_items.index_path(d))
+                         or crate_items.have_sources(d)):
+            self._crate_index_state = "missing"
+            self._refresh_crate_notes()
+            return
+        self._crate_index_state = "loading"
+        self._refresh_crate_notes()
+
+        def work():
+            try:
+                idx = crate_items.load_index(d)
+            except Exception:                           # noqa: BLE001
+                log.exception("crate item index failed to load")
+                idx = None
+            self._main_thread_call.emit(lambda: self._on_crate_index(idx))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_crate_index(self, idx) -> None:
+        if idx is None:
+            d = crate_data_dir()
+            self._crate_index_state = ("missing" if d and not crate_items.have_sources(d)
+                                       else "error")
+            self._refresh_crate_notes()
+            return
+        self._set_crate_index(idx)
+
+    def _set_crate_index(self, idx: dict) -> None:
+        self._crate_index = idx
+        self._crate_index_state = "ready"
+        # The datamine's own crate figures win over the pinned copy.
+        for d in crate_items.crate_defs(idx.get("crates") or None):
+            base = self._renderer._item_defs.get(d["key"]) or {}
+            base.update({k: d[k] for k in ("name", "dims", "capacity_u", "scu")})
+            self._renderer._item_defs[d["key"]] = base
+        self._refresh_crate_notes()
+
+    def crate_fetch_data(self) -> None:
+        """Download the pinned item lists (shared/scunpacked.py), then index."""
+        if self._crate_index_state in ("loading", "downloading"):
+            return
+        self._crate_index_state = "downloading"
+        self._refresh_crate_notes()
+        d = crate_data_dir()
+
+        def work():
+            idx = None
+            try:
+                from shared import scunpacked
+                scunpacked.fetch_raw(files_wanted=("ship-items.json",) + scunpacked.LOOT_FILES,
+                                     dest=d)
+                idx = crate_items.load_index(d)
+            except Exception:                           # noqa: BLE001
+                log.exception("crate item data download failed")
+            self._main_thread_call.emit(lambda: self._on_crate_fetched(idx))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_crate_fetched(self, idx) -> None:
+        if idx is None:
+            self._crate_index_state = "error"
+            self._refresh_crate_notes()
+            return
+        self._set_crate_index(idx)
+
+    def _ensure_uex(self) -> None:
+        """The Item Finder's UEX cache, if there is one, read off the UI thread."""
+        if self._uex_state != "idle":
+            return
+        self._uex_state = "loading"
+        path = uex_cache_path()
+
+        def work():
+            try:
+                uex = crate_items.load_uex(path)
+            except Exception:                           # noqa: BLE001
+                log.exception("UEX cache could not be read")
+                uex = None
+            self._main_thread_call.emit(lambda: self._set_uex(uex))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_uex(self, uex) -> None:
+        self._uex = uex
+        self._uex_state = "ready" if uex else "none"
+        self._refresh_crate_notes()
+
+    # -- save / load -----------------------------------------------------------
+
+    def _crates_payload(self) -> list[dict]:
+        out = []
+        live = self._live_crates()
+        for no in sorted(live):
+            b, st = live[no], self._crates[no]
+            out.append({
+                "no": no, "cls": st["cls"], "name": st["name"], "size": st["short"],
+                "capacity_scu": st["capacity_u"] / crate_items.MICRO,
+                "pos": [b[0], b[1], b[2]], "dims": [b[3], b[4], b[5]],
+                "contents": [{"key": c["key"], "name": c["name"], "qty": int(c["qty"]),
+                              "vol_u": int(c["vol_u"]), "kind": c.get("kind", ""),
+                              "uuid": c.get("uuid", "")} for c in st["contents"]],
+            })
+        return out
+
+    def _crates_from_payload(self, raw) -> list[tuple]:
+        """Rebuild saved crates (absent in older plans -> []); their numbers
+        are kept as saved, and the next new crate numbers after the highest."""
+        out = []
+        if not isinstance(raw, list):
+            return out
+        for c in raw:
+            try:
+                no = int(c["no"])
+                cls = str(c["cls"])
+                x, y, z = (int(v) for v in c["pos"])
+                w, h, l = (int(v) for v in c["dims"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if no < 1 or no in self._crates or min(w, h, l) < 1:
+                continue
+            if cls not in self._renderer._item_defs:
+                # A crate class this build does not know: keep what the plan says.
+                cap = int(round(float(c.get("capacity_scu") or 0) * crate_items.MICRO))
+                self._renderer._item_defs[cls] = {
+                    "key": cls, "name": str(c.get("name") or cls), "category": "crate",
+                    "size": 0, "dims": (w, h, l), "source": "plan", "approx": False,
+                    "label": str(c.get("size") or ""), "short": str(c.get("size") or "?"),
+                    "capacity_u": cap}
+            contents = []
+            for it in c.get("contents") or []:
+                try:
+                    contents.append({"key": str(it["key"]), "name": str(it.get("name") or it["key"]),
+                                     "qty": max(1, int(it["qty"])), "vol_u": int(it["vol_u"]),
+                                     "kind": str(it.get("kind") or ""),
+                                     "uuid": str(it.get("uuid") or "")})
+                except (KeyError, TypeError, ValueError):
+                    continue
+            key = self._new_crate(cls, no, contents)
+            out.append((x, y, z, w, h, l, key))
+        return out
+
 
     # ── Data ───────────────────────────────────────────────────────────────────
 
@@ -2733,6 +3195,8 @@ class CargoApp(SCWindow):
         # Clear planning mode assignments and brush for new ship
         self._renderer._assignments.clear()
         self._renderer._items = []
+        self._crates = {}
+        self._crate_next = 1
         self._commodity_visibility.clear()
         self._selected_commodity = None
         self._view.clear_brush_cursor()
@@ -2885,6 +3349,10 @@ class CargoApp(SCWindow):
             QTimer.singleShot(0, lambda: self._place_at(None, over_box=box))
             return
         if self._selected_commodity is None:
+            no = crate_no(group.box_data[6])
+            if no is not None and group.pos_key not in self._renderer._assignments:
+                QTimer.singleShot(0, lambda: self._open_crate(no))
+                return
             # If no brush, clicking clears the assignment
             if group.pos_key in self._renderer._assignments:
                 del self._renderer._assignments[group.pos_key]
@@ -3217,6 +3685,10 @@ class CargoApp(SCWindow):
             self._items_tree.blockSignals(True)
             self._items_tree.clearSelection()
             self._items_tree.blockSignals(False)
+            for b in self._crate_btns.values():
+                b.blockSignals(True)
+                b.setChecked(False)
+                b.blockSignals(False)
         for s, b in self._place_btns.items():
             b.blockSignals(True)
             b.setChecked(s == size)
@@ -3369,6 +3841,8 @@ class CargoApp(SCWindow):
         if self._place_item is not None:
             key = self._place_item
             self._push_undo()
+            if self._item_def(key).get("category") == "crate":
+                key = self._new_crate(key)
             self._renderer._items = list(self._renderer._items) + [
                 (pos[0], pos[1], pos[2], w, h, l, key)]
             name = self._item_def(key)["name"]
@@ -3559,6 +4033,7 @@ class CargoApp(SCWindow):
         # Re-apply visibility filter after re-render
         self._apply_visibility_filter()
         self._update_items_summary()
+        self._sync_crate_tabs()
 
     # ── Container calc ─────────────────────────────────────────────────────────
 
@@ -3760,11 +4235,19 @@ class CargoApp(SCWindow):
             # item data.
             items = []
             for b in self._renderer._items:
+                if crate_no(b[6]) is not None:
+                    continue                    # crates travel in "crates"
                 d = self._item_def(b[6])
                 items.append({"key": b[6], "name": d.get("name", b[6]),
                               "category": d.get("category"),
                               "pos": [b[0], b[1], b[2]], "dims": [b[3], b[4], b[5]]})
-            payload["items"] = items
+            if items:
+                payload["items"] = items
+        crates = self._crates_payload()
+        if crates:
+            # Personal crates: number, size, place in the hold and contents.
+            # Older builds ignore this key (and so lose only the crates).
+            payload["crates"] = crates
         return payload
 
     def _load_loadout(self) -> None:
@@ -3827,7 +4310,8 @@ class CargoApp(SCWindow):
         if boxes is not None:
             self._counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
             self._renderer._manual_boxes = boxes
-        self._renderer._items = self._items_from_payload(payload.get("items"))
+        self._renderer._items = (self._items_from_payload(payload.get("items"))
+                                 + self._crates_from_payload(payload.get("crates")))
         self._update_fill()
         self._freeze_if_manual()
         self._update_assignment_summary()

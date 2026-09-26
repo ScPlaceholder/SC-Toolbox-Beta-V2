@@ -68,6 +68,10 @@ COMMIT = "e96132078ae6a1a5f62a183fb1523dc006dcfddb"
 REPO = "StarCitizenWiki/scunpacked-data"
 RAW_URL = "https://raw.githubusercontent.com/" + REPO + "/{commit}/{file}"
 FILES = ("ships.json", "ship-items.json")
+# Cargo Loader personal crates (fetched only when a crate needs them, never by
+# the DPS path): every FPS item (26 MB) and the full item list (67 MB, where
+# the Stor*All crates live), from the SAME pinned commit.
+LOOT_FILES = ("fps-items.json", "items.json")
 INDEX_FILE = "guns_index.json"
 ADAPTER_VERSION = 7          # 7: Slayer fire interval + per-shot-overheat sustain; 6: camera-turret ports; 5: pellets, spread, range
 
@@ -151,16 +155,23 @@ def _sha256_file(path: str) -> str:
     return h.hexdigest()
 
 
-def fetch_raw(build: str = BUILD, commit: str = COMMIT, timeout: float = 120.0) -> dict:
-    """Download the raw files once (skips files already on disk); writes meta.json."""
-    d = cache_dir(build)
+def fetch_raw(build: str = BUILD, commit: str = COMMIT, timeout: float = 120.0,
+              files_wanted: tuple = FILES, dest: Optional[str] = None) -> dict:
+    """Download the raw files once (skips files already on disk); writes meta.json.
+
+    files_wanted: which files of the pinned commit (default: the DPS pair;
+    the Cargo Loader's crates ask for ``("ship-items.json",) + LOOT_FILES``).
+    dest: a directory to use instead of the cache (tests, verification).
+    Each file asked for gets its size and sha256 recorded in meta.json.
+    """
+    d = dest or cache_dir(build)
     meta_path = os.path.join(d, "meta.json")
     meta = {}
     if os.path.isfile(meta_path):
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
     files = meta.get("files", {})
-    for name in FILES:
+    for name in files_wanted:
         path = os.path.join(d, name)
         if not os.path.isfile(path):
             url = RAW_URL.format(commit=commit, file=name)
