@@ -74,6 +74,22 @@ def main():
                 pruned_dirs += 1
                 dirs.remove(d)
 
+    # PASS 1z (2026-09-26): drop archive files sitting at the tool's top level. The 2.4.0 test build
+    # shipped tools/Mining_Signals/ocr.zip, a 625 MB dev archive that nothing in the tree references
+    # (the tool's own .gitignore says so) -- untracked, but the build copies the whole folder. It
+    # alone made the full package bigger than 2.3.1 despite ~540 MB of other pruning, and turned a
+    # would-be small update into a 1.2 GB delta. Top level only, so no runtime data inside ocr/ etc.
+    # can be caught by accident; fails the build if the delete does not stick.
+    for f in sorted(os.listdir(mining)):
+        fp = os.path.join(mining, f)
+        if os.path.isfile(fp) and f.lower().endswith((".zip", ".7z", ".rar", ".tar", ".gz")):
+            print(f"{tag} prune file: {os.path.relpath(fp, staging)} ({os.path.getsize(fp) / 1e6:.0f} MB archive)")
+            if not dry:
+                os.remove(fp)
+                if os.path.exists(fp):
+                    print(f"{tag} FAILED to remove {fp}")
+                    sys.exit(2)
+
     # PASS 1a (2026-09-25): drop live_samples/ entirely. It is a debug capture folder, and the
     # switch that turns capture ON is a file inside it (live_samples/.enabled, read by
     # ocr/screen_reader.py:_dump_live_sample). 2.3.1 shipped that switch, so every user's copy saved a
