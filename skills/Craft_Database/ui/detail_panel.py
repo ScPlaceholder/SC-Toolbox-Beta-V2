@@ -20,7 +20,10 @@ from PySide6.QtWidgets import (
 )
 
 from shared.qt.theme import P
-from domain.models import Blueprint, IngredientSlot, QualityEffect, Mission, format_qty
+from domain.models import (
+    Blueprint, IngredientSlot, QualityEffect, Mission, format_qty,
+    combine_stat_effects,
+)
 from ui.constants import (
     TOOL_COLOR,
     STAT_POSITIVE,
@@ -570,13 +573,14 @@ class BlueprintPopup(QDialog):
         )
 
     def _update_stat_label(self, lbl: QLabel, qe_list: list[tuple[QualityEffect, int]]):
-        """Average the % modifier across all slots contributing to this stat;
-        whole-number (additive) effects such as Power Pips are summed."""
-        total = 0.0
-        additive = bool(qe_list) and all(qe.additive for qe, _ in qe_list)
-        for qe, slot_idx in qe_list:
-            total += qe.pct_at(self._slot_qualities[slot_idx])
-        pct = total if additive else (total / len(qe_list) if qe_list else 0.0)
+        """Sum every contributing slot's effect on this stat (issue #20).
+
+        The arithmetic and the reason for SUM over mean-or-product live in
+        ``domain.models.combine_stat_effects`` -- one place, testable without
+        Qt, so the two render paths through here cannot drift apart.
+        """
+        pct, additive = combine_stat_effects(
+            [(qe, self._slot_qualities[slot_idx]) for qe, slot_idx in qe_list])
         sign = "+" if pct >= 0 else ""
         color = STAT_POSITIVE if pct > 0 else (STAT_NEGATIVE if pct < 0 else STAT_NEUTRAL)
         lbl.setText(f"{sign}{pct:.0f}" if additive else f"{sign}{pct:.0f}%")

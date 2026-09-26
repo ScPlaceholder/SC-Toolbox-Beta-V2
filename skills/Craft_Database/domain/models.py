@@ -122,6 +122,48 @@ class QualityEffect:
         return f"{sign}{v:.0f}" if self.additive else f"{sign}{v:.0f}%"
 
 
+def combine_stat_effects(pairs: "list[tuple[QualityEffect, int]]") -> tuple[float, bool]:
+    """Combine every slot's contribution to ONE stat -> (value, additive).
+
+    ``pairs`` is ``[(effect, quality_for_that_effect's_slot), ...]``.  Returns
+    the combined value and whether the stat is a whole-number (additive) one,
+    so the caller knows whether to print a ``%``.
+
+    ── Issue #20: this SUMS.  It used to MEAN the percentage effects. ──
+
+    The mean was not a defensible third option, it was arithmetically
+    impossible: ``5CA 'Akura'`` has two slots each giving Max. Shield Strength
+    +5%, and the mean reported the crafted total as **+5%** -- a combined bonus
+    no larger than one of its own parts.  Whatever rule composes stacking
+    effects, it cannot land below the largest single contribution.  (The issue
+    reported +10% and +5% showing as "+8%"; same arithmetic, different recipe.)
+
+    Sum, not product, and the reason is deliberate:
+
+    * A product is the other honest candidate, since ``modifier_at`` returns a
+      MULTIPLIER where 1.0 means "no change".  Two +10% slots compose to +21%
+      that way, against +20% summed.  At the magnitudes this data actually
+      carries (single-slot effects inside roughly ±25%) the two answers differ
+      by under a point, so the choice is not being made on accuracy.
+    * It is being made on reconcilability.  The detail panel already prints a
+      per-slot tag for every contribution, and a reader adds those tags up.  A
+      product makes the summary row un-derivable from the numbers next to it --
+      which is the SAME defect class as #20 itself, a panel showing two values
+      that disagree.  The sum is the visible tags, added.
+    * The reference players check against sums, and the additive branch in this
+      function has always summed, so one rule now covers both kinds of effect.
+
+    ⇒ If a future patch ships per-slot modifiers large enough for compounding
+      to diverge materially, revisit -- and settle it with evidence, not taste:
+      craft one item in game and compare its real stat against both
+      predictions.  Do not quietly switch back to a mean.
+    """
+    if not pairs:
+        return 0.0, False
+    additive = all(qe.additive for qe, _ in pairs)
+    return sum(qe.pct_at(quality) for qe, quality in pairs), additive
+
+
 @dataclass
 class IngredientSlot:
     slot: str
