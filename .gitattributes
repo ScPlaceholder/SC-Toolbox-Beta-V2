@@ -1,0 +1,5 @@
+# cmd.exe misparses LF-only batch files: goto/label lookups that cross a read boundary land
+# mid-line. build_installer.bat was LF in the working tree and broke once edits shifted its
+# offsets (2.4.0 build 8: "'seract' is not recognized"). Force CRLF on checkout.
+*.bat text eol=crlf
+*.cmd text eol=crlf
