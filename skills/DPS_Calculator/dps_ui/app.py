@@ -1365,7 +1365,8 @@ class DpsCalcApp(SCWindow):
                 slot["id"] = f"pp_{i}"
                 tbl = self._build_table_slot(
                     self._center_tab1_layout, "components", slot,
-                    self._data.powerplants_for_size, self._data.find_powerplant,
+                    lambda sz, _s=slot: self._data.components_for_slot("PowerPlant", _s, self._ship_data),
+                    self._data.find_powerplant,
                     PP_COLS, TYPE_STRIPE["PowerPlant"])
                 self._slot_tables.setdefault("powerplants", []).append(
                     (slot, tbl, self._data.find_powerplant))
@@ -1376,7 +1377,8 @@ class DpsCalcApp(SCWindow):
             for slot in qd_slots:
                 self._build_table_slot(
                     self._center_tab1_layout, "propulsion", slot,
-                    self._data.qdrives_for_size, self._data.find_qdrive,
+                    lambda sz, _s=slot: self._data.components_for_slot("QuantumDrive", _s, self._ship_data),
+                    self._data.find_qdrive,
                     QD_COLS, TYPE_STRIPE["QuantumDrive"])
 
         # ── External fuel tanks (Starfarer, Gemini) ───────────────────────────
@@ -1702,7 +1704,8 @@ class DpsCalcApp(SCWindow):
         for slot in slots:
             self._build_table_slot(
                 parent_layout, "defenses", slot,
-                self._data.shields_for_size, self._data.find_shield,
+                lambda sz, _s=slot: self._data.components_for_slot("Shield", _s, self._ship_data),
+                self._data.find_shield,
                 SHIELD_TABLE_COLS, TYPE_STRIPE["Shield"])
 
     def _rebuild_coolers_section(self, parent_layout, slots) -> None:
@@ -1713,7 +1716,8 @@ class DpsCalcApp(SCWindow):
         for slot in slots:
             self._build_table_slot(
                 parent_layout, "components", slot,
-                self._data.coolers_for_size, self._data.find_cooler,
+                lambda sz, _s=slot: self._data.components_for_slot("Cooler", _s, self._ship_data),
+                self._data.find_cooler,
                 COOLER_TABLE_COLS, TYPE_STRIPE["Cooler"])
 
     def _rebuild_radars_section(self, parent_layout, slots) -> None:
@@ -1724,7 +1728,8 @@ class DpsCalcApp(SCWindow):
         for slot in slots:
             self._build_table_slot(
                 parent_layout, "components", slot,
-                self._data.radars_for_size, self._data.find_radar,
+                lambda sz, _s=slot: self._data.components_for_slot("Radar", _s, self._ship_data),
+                self._data.find_radar,
                 RADAR_TABLE_COLS, TYPE_STRIPE["Radar"])
 
     def _rebuild_thrusters_section(self, groups: dict) -> None:
