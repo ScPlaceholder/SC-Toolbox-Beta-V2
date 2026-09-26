@@ -1935,8 +1935,9 @@ class CargoApp(SCWindow):
             mode_lay.addWidget(mb, 1)
             self._mode_btns[key] = mb
         pad_lay.addWidget(mode_row)
+        # Fixed short lines, no wrap: a wrapped label here lost its last line at 125% display scaling.
         self._mode_hint = QLabel("", pad)
-        self._mode_hint.setWordWrap(True)
+        self._mode_hint.setWordWrap(False)
         self._mode_hint.setStyleSheet(
             f"color: {YELLOW}; font-family: Consolas; font-size: 8pt; background: transparent;"
         )
@@ -2648,13 +2649,14 @@ class CargoApp(SCWindow):
             b.setChecked(k == self._mode)
             b.blockSignals(False)
         if self._mode == "manual":
-            self._mode_hint.setText(_(
-                "Click a size below, then click the grid to place it. "
-                "Drag to move, right-click to remove, R rotates. "
-                "Optimize fills it for you."))
+            self._mode_hint.setText("\n".join((
+                _("Pick a size, then click the grid."),
+                _("Drag moves, right-click removes."),
+                _("R rotates. Optimize fills it."))))
         else:
-            self._mode_hint.setText(_(
-                "Type how many of each size, then press Optimize."))
+            self._mode_hint.setText("\n".join((
+                _("Type how many of each size,"),
+                _("then press Optimize."))))
 
     def _set_mode(self, mode: str) -> None:
         if mode == self._mode:
