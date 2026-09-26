@@ -53,6 +53,16 @@ _SHIP_GROUPS = {"SpaceShip_Mineables", "SpaceShip_Mineables_Rare"}
 # FPS / ground-vehicle groups (gold columns in the chart)
 _FPS_GROUPS = {"FPS_Mineables", "GroundVehicle_Mineables"}
 
+# Suffixes scmdb appends to element names; stripped for compact column headers.
+_ELEMENT_SUFFIXES = (" (Ore)", " (Raw)", " (Gem)")
+
+
+def _clean_element(name: str) -> str:
+    """Strip scmdb's ' (Ore)' / ' (Raw)' / ' (Gem)' suffix from an element name."""
+    for suffix in _ELEMENT_SUFFIXES:
+        name = name.replace(suffix, "")
+    return name
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public data types
@@ -67,9 +77,18 @@ class LocationRow:
     loc_type: str                # planet / moon / lagrange / …
     depth: int                   # indent level (0 = system, 1 = planet/moon)
     parent: Optional[str] = None # planet name for moons/mining bases
-    # resource_name -> max_pct (0..100)
+    # resource_name -> expected abundance % (0..100) for deposits whose TYPE is
+    # that resource — i.e. what the in-game mining kiosk lists at this location.
     ship_resources: dict[str, float] = field(default_factory=dict)
     fps_resources: dict[str, float] = field(default_factory=dict)
+    # resource_name -> expected abundance % contributed ONLY as a trace
+    # inclusion inside some OTHER deposit type.  Kept separate because the
+    # kiosk never lists these, so merging them into the dicts above makes the
+    # chart claim ores exist at a location where you cannot scan for them
+    # (issue #26: Tungsten showing at Lyria/Wala, where it is a 5-10% trace
+    # inside a Laranite deposit).
+    ship_trace: dict[str, float] = field(default_factory=dict)
+    fps_trace: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -223,17 +242,33 @@ class MiningChartFetcher:
                     # location's deposit types are mutually exclusive).
                     dep_prob = dep.get("relativeProbability", 0) / total_prob
 
-                    for part in comp.get("parts", []):
+                    parts = comp.get("parts", [])
+                    # The deposit's TYPE — the name the in-game kiosk lists — is
+                    # its first part's element.  Everything else in the
+                    # composition is a trace inclusion you can only get by
+                    # mining that type, and can never scan for by name.
+                    # (Verified against scmdb: in all 63 compositions the parts
+                    # sharing parts[0]'s element form a contiguous leading run,
+                    # usually two quality bands of the same ore, so BOTH count
+                    # toward the primary yield — taking only parts[0] would
+                    # under-report e.g. Lyria Iron as 4% instead of 25%.)
+                    primary_elem = _clean_element(
+                        parts[0].get("elementName", "")) if parts else ""
+
+                    for part in parts:
                         elem_name = part.get("elementName", "")
                         if not elem_name:
                             continue
                         # Strip the "(Ore)" / "(Raw)" suffixes for a compact header.
-                        clean = elem_name
-                        for suffix in (" (Ore)", " (Raw)", " (Gem)"):
-                            clean = clean.replace(suffix, "")
+                        clean = _clean_element(elem_name)
 
-                        target = row.ship_resources if grp_name in _SHIP_GROUPS else row.fps_resources
-                        cols_set = ship_cols_set if grp_name in _SHIP_GROUPS else fps_cols_set
+                        is_ship = grp_name in _SHIP_GROUPS
+                        is_primary = (clean == primary_elem)
+                        if is_ship:
+                            target = row.ship_resources if is_primary else row.ship_trace
+                        else:
+                            target = row.fps_resources if is_primary else row.fps_trace
+                        cols_set = ship_cols_set if is_ship else fps_cols_set
                         # Expected in-rock ABUNDANCE %, not mere occurrence:
                         #   P(rock type) * P(element present) * mean(min,max)%,
                         # summed across the location's deposit types. This is the
@@ -256,7 +291,8 @@ class MiningChartFetcher:
 
             # Only keep rows that actually contain something (avoids empty
             # salvage-only or harvestable-only locations cluttering the chart).
-            if not row.ship_resources and not row.fps_resources:
+            if not (row.ship_resources or row.fps_resources
+                    or row.ship_trace or row.fps_trace):
                 continue
 
             rows_by_name[loc_name] = row

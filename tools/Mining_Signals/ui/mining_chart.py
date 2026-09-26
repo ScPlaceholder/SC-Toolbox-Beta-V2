@@ -122,6 +122,45 @@ def _cell_bg(pct: float, group: str) -> QColor:
     return QColor(r, g, b, 220)
 
 
+def _cell_label(pct: float, trace_pct: float = 0.0) -> str:
+    """Text for one percentage cell.
+
+    Pure so the primary-vs-trace distinction that issue #26 turns on can be
+    asserted directly, without inspecting painted pixels.
+
+      pct > 0        -> "23%"   the ore is a deposit type here (kiosk lists it)
+      trace only     -> "~2%"   only a trace inclusion in another deposit type
+      neither        -> ""      not present
+
+    When an ore is BOTH — Pyro I has a Tin deposit AND Tin traces inside its
+    Copper deposits — the plain value is the SUM.  The metric is an expectation
+    over every rock at the location, so the trace share is part of the yield you
+    actually get; dropping it would understate a genuinely minable ore.  The "~"
+    marking exists to answer "can I scan for this here", and for such an ore the
+    answer is plainly yes.
+    """
+    if pct > 0:
+        return f"{int(round(pct + max(0.0, trace_pct)))}%"
+    if trace_pct > 0:
+        # Round UP off zero so a real 0.4% trace does not render as "~0%".
+        return f"~{max(1, int(round(trace_pct)))}%"
+    return ""
+
+
+def _trace_cell_bg(pct: float, group: str) -> QColor:
+    """Background for a TRACE-only cell: same hue, deliberately much fainter.
+
+    The distinction has to survive a glance across a 26-column grid, so it is
+    carried by three signals at once — a washed-out fill, dim text, and the "~"
+    prefix.  Colour alone would not do it for a colour-blind reader.
+    """
+    if pct <= 0:
+        return QColor(0, 0, 0, 0)
+    base = _cell_bg(pct, group)
+    base.setAlpha(70)
+    return base
+
+
 def _cell_fg(pct: float) -> QColor:
     if pct <= 0:
         return QColor(P.fg_dim)
@@ -423,7 +462,31 @@ class MiningChartGrid(QWidget):
     # ── filtering ──
 
     def _row_resources(self, row: LocationRow) -> dict[str, float]:
+        """Abundance for resources that are a DEPOSIT TYPE here (kiosk-visible)."""
         return row.ship_resources if self._view_mode == VIEW_SHIP else row.fps_resources
+
+    def _row_trace(self, row: LocationRow) -> dict[str, float]:
+        """Abundance contributed only as a trace inclusion in another deposit."""
+        return row.ship_trace if self._view_mode == VIEW_SHIP else row.fps_trace
+
+    def _row_total(self, row: LocationRow, col: str) -> float:
+        """Primary + trace, for sorting and for 'is this ore here at all'."""
+        return (self._row_resources(row).get(col, 0.0)
+                + self._row_trace(row).get(col, 0.0))
+
+    def _sort_key(self, row: LocationRow, col: str) -> tuple[int, float]:
+        """Rank ANY real deposit above every trace-only occurrence of the ore.
+
+        Two bands, not one number: a location with a scannable 3% deposit is
+        more useful to a miner than one with an 8% trace it cannot scan for, so
+        magnitude must not be allowed to reorder across that line.  Within a
+        band the value is the one the cell displays.
+        """
+        primary = self._row_resources(row).get(col, 0.0)
+        trace = self._row_trace(row).get(col, 0.0)
+        if primary > 0:
+            return (1, primary + trace)
+        return (0, trace)
 
     def _refilter(self) -> None:
         """Recompute ``_visible_rows`` + ``_visible_cols`` and repaint."""
@@ -480,14 +543,16 @@ class MiningChartGrid(QWidget):
             if loc_needle and not _fuzzy_match(loc_needle, row.name):
                 continue
 
-            resources = self._row_resources(row)
+            # Presence test counts trace inclusions too: the ore IS there, it
+            # just is not a scannable deposit type.  The painter marks the
+            # difference (issue #26) rather than the row silently vanishing.
             # Focused column acts as an extra hard filter.
             if focused_col is not None:
-                if resources.get(focused_col, 0) <= 0:
+                if self._row_total(row, focused_col) <= 0:
                     continue
             else:
                 if visible_cols_set:
-                    if not any(resources.get(c, 0) > 0 for c in visible_cols_set):
+                    if not any(self._row_total(row, c) > 0 for c in visible_cols_set):
                         continue
                 else:
                     continue
@@ -512,9 +577,10 @@ class MiningChartGrid(QWidget):
         kept_rows: list[LocationRow] = []
         for header, children in buckets:
             if focused_col is not None:
+                # Real deposits outrank trace-only occurrences of the same ore.
                 children = sorted(
                     children,
-                    key=lambda r: self._row_resources(r).get(focused_col, 0.0),
+                    key=lambda r: self._sort_key(r, focused_col),
                     reverse=reverse,
                 )
             if header is not None:
@@ -532,12 +598,21 @@ class MiningChartGrid(QWidget):
             )
             if target_row is not None:
                 target_resources = self._row_resources(target_row)
+                target_trace = self._row_trace(target_row)
                 def _col_key(c: str) -> tuple[int, float]:
+                    # Deposit types first, then trace-only ores, then empties —
+                    # so a focused row reads as "what can I actually mine here".
                     v = target_resources.get(c, 0.0)
-                    # Zero values always go last regardless of direction
-                    # so the interesting data clusters at the start.
-                    return (0 if v > 0 else 1,
-                            -v if reverse else v)
+                    tr = target_trace.get(c, 0.0)
+                    if v > 0:
+                        band = 0
+                        mag = v
+                    elif tr > 0:
+                        band = 1
+                        mag = tr
+                    else:
+                        return (2, 0.0)
+                    return (band, -mag if reverse else mag)
                 visible_cols = sorted(visible_cols, key=_col_key)
 
         self._visible_rows = kept_rows
@@ -965,6 +1040,7 @@ class MiningChartGrid(QWidget):
 
             # Resource cells for the active view
             resources = self._row_resources(r)
+            trace = self._row_trace(r)
             p.setFont(font_cell)
             x = self._cols_x0()
             for col in self._visible_cols:
@@ -972,6 +1048,7 @@ class MiningChartGrid(QWidget):
                 self._paint_pct_cell(
                     p, x, y, resources.get(col, 0.0), group,
                     focused=is_focus_col,
+                    trace_pct=trace.get(col, 0.0),
                 )
                 x += cell_w
 
@@ -983,17 +1060,29 @@ class MiningChartGrid(QWidget):
 
     def _paint_pct_cell(
         self, p: QPainter, x: int, y: int, pct: float,
-        group: str, focused: bool = False,
+        group: str, focused: bool = False, trace_pct: float = 0.0,
     ) -> None:
+        """Paint one percentage cell.
+
+        A deposit-type ore (``pct``) is painted solid, as before.  An ore that
+        is only a TRACE inclusion here (``trace_pct``, with ``pct`` zero) is
+        painted dim and prefixed with "~", because the in-game kiosk will not
+        list it at this location — you can only get it by mining some other
+        deposit type.  Issue #26 was this distinction not existing at all.
+        """
         rect = QRect(x, y, self._cell_w, self._cell_h)
-        p.fillRect(rect, _cell_bg(pct, group))
+        is_trace_only = pct <= 0 < trace_pct
+        # The fill ramps on the same number the label shows, so the colour can
+        # never disagree with the text in the cell.
+        p.fillRect(rect, _trace_cell_bg(trace_pct, group) if is_trace_only
+                   else _cell_bg(pct + max(0.0, trace_pct), group))
         if focused:
             tint = QColor(P.accent)
             tint.setAlpha(38)
             p.fillRect(rect, tint)
-        if pct > 0:
-            p.setPen(_cell_fg(pct))
-            label = f"{int(round(pct))}%"
+        label = _cell_label(pct, trace_pct)
+        if label:
+            p.setPen(QColor(P.fg_dim) if is_trace_only else _cell_fg(pct))
             p.drawText(rect, Qt.AlignCenter, label)
         p.setPen(QColor(P.border))
         p.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom())
@@ -1048,6 +1137,11 @@ class MiningChartTab(QWidget):
             "Percentages show the expected in-rock abundance (average "
             "yield)\nof each resource at a location, derived from scmdb.net "
             "composition\ndata — not how often a deposit merely contains it."
+            "\n\nA plain value means the resource is a DEPOSIT TYPE here, so "
+            "the\nin-game mining kiosk lists it and you can scan for it.\n"
+            "A dim ~ value means it only occurs as a TRACE inclusion "
+            "inside\nanother deposit type — the kiosk will not show it, and you "
+            "can\nonly get it by mining whatever rock contains it."
         )
         header.addWidget(self._title)
 
