@@ -14,6 +14,7 @@ QPainter approach used by the Mining Signals chart.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -228,7 +229,8 @@ class BarChart(QWidget):
         # so short hour labels pack densely and long dates thin out.
         approx_slot = pr.width() / n
         widest = max((fm.horizontalAdvance(b.label) for b in self._bars if b.label), default=10)
-        every = max(1, int((widest + 8) / approx_slot)) if approx_slot > 0 else 1
+        # ceil, not floor: int() let labels 1.9 slots wide print on every bar.
+        every = max(1, math.ceil((widest + 8) / approx_slot)) if approx_slot > 0 else 1
         for i, b in enumerate(self._bars):
             if not b.label:
                 continue

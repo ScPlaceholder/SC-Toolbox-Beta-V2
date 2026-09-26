@@ -34,6 +34,7 @@ from ui.charts import BarChart, Bar
 from ui.calendar_view import CalendarTab
 from ui.fun_stats_tab import FunStatsTab, FunStatsWorker
 from ui.career_tab import CareerTab
+from ui.injuries_tab import InjuriesTab
 
 log = logging.getLogger(__name__)
 
@@ -265,7 +266,7 @@ class PlayTimeWindow(SCWindow):
         self._sessions: list[Session] = []
         self._analytics = Analytics()
         self._worker: Optional[ScanWorker] = None
-        # Fun Stats + Career share one heavy full-content scan, owned here.
+        # Fun Stats + Career + Injuries share one heavy full-content scan, owned here.
         self._fun_worker: Optional[FunStatsWorker] = None
         self._fun_scan_done = False
 
@@ -542,6 +543,8 @@ class PlayTimeWindow(SCWindow):
         self._tabs.addTab(self._fun_tab, "Fun Stats")
         self._career_tab = CareerTab(on_request_scan=self._ensure_fun_scan, parent=self)
         self._tabs.addTab(self._career_tab, "Career")
+        self._injuries_tab = InjuriesTab(on_request_scan=self._ensure_fun_scan, parent=self)
+        self._tabs.addTab(self._injuries_tab, "Injuries")
         self._build_sessions_tab()
         self.content_layout.addWidget(self._tabs, stretch=1)
 
@@ -701,7 +704,8 @@ class PlayTimeWindow(SCWindow):
         self._rescan_btn.setEnabled(False)
         # New/relinked logs invalidate the career/fun scan; refresh if visible.
         self._fun_scan_done = False
-        if self._tabs.currentWidget() in (self._fun_tab, self._career_tab):
+        if self._tabs.currentWidget() in (self._fun_tab, self._career_tab,
+                                          self._injuries_tab):
             self._ensure_fun_scan(force=True)
         self._progress.show()
         self._progress.setValue(0)
@@ -741,11 +745,13 @@ class PlayTimeWindow(SCWindow):
     def _on_fun_progress(self, done: int, total: int) -> None:
         self._fun_tab.set_progress(done, total)
         self._career_tab.set_progress(done, total)
+        self._injuries_tab.set_progress(done, total)
 
     def _on_fun_done(self, fs) -> None:
         self._fun_scan_done = True
         self._fun_tab.set_stats(fs)
         self._career_tab.set_stats(fs)
+        self._injuries_tab.set_stats(fs)
 
     # ══ Recompute + render ════════════════════════════════════════════════════
 
@@ -764,6 +770,7 @@ class PlayTimeWindow(SCWindow):
         self._render_trends()
         self._render_sessions()
         self._calendar_tab.set_data(self._analytics.by_day, sessions_by_day)
+        self._injuries_tab.set_sessions(used)
         self._persist_summary()
 
     def _render_headline(self) -> None:

@@ -14,6 +14,8 @@ builds:
 * **Money activities** — hauling / mining / salvage / bounty / mercenary markers.
 * **Systems** — which solar systems were actually visited (Stanton, Pyro, Nyx…),
   by reference density rather than star-map mentions.
+* **Injuries** — HUD injury notifications (body part + tier) and med bed
+  surgeries; parsed by :mod:`core.injuries`.
 
 NOTE: the old ``<Actor Death>`` kill/death feed was removed from the game logs
 around Nov 2025, so kill counts, K/D and "nemesis" are no longer tracked and are
@@ -32,10 +34,11 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from . import settings as _settings
+from . import injuries as _injuries
 
 log = logging.getLogger(__name__)
 
-_CACHE_VERSION = 6  # bump when the per-file parse changes
+_CACHE_VERSION = 7  # bump when the per-file parse changes (7: injuries)
 
 # ── Regexes ──────────────────────────────────────────────────────────────────
 _HANDLE_RE = re.compile(r"Handle\[([^\]]+)\]")
@@ -299,6 +302,7 @@ def _scan_file(path: str) -> dict:
                      "fail": len(fail_ids), "by_cat": dict(by_cat),
                      "by_emp": dict(by_emp)},
         "trade": {"sells": sells, "shops": dict(shops)},
+        "injuries": _injuries.scan_text(text),
     }
 
 
@@ -325,6 +329,8 @@ class FunStats:
     mission_employers: Counter = field(default_factory=Counter)  # contractor -> completed
     trade_sells: int = 0
     trade_terminals: Counter = field(default_factory=Counter)    # location -> sells
+    # ── Injuries (HUD injury notifications + med bed surgeries) ──
+    injuries: _injuries.InjuryStats = field(default_factory=_injuries.InjuryStats)
 
     @property
     def is_empty(self) -> bool:
@@ -388,6 +394,8 @@ def _aggregate(records: list[dict]) -> FunStats:
         fs.trade_sells += tr.get("sells", 0)
         for loc, n in tr.get("shops", {}).items():
             fs.trade_terminals[loc] += n
+
+    fs.injuries = _injuries.aggregate(r.get("injuries") or {} for r in records)
 
     if handle_votes:
         fs.player_handle = handle_votes.most_common(1)[0][0]
