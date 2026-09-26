@@ -74,6 +74,22 @@ def main():
                 pruned_dirs += 1
                 dirs.remove(d)
 
+    # PASS 1a (2026-09-25): drop live_samples/ entirely. It is a debug capture folder, and the
+    # switch that turns capture ON is a file inside it (live_samples/.enabled, read by
+    # ocr/screen_reader.py:_dump_live_sample). 2.3.1 shipped that switch, so every user's copy saved a
+    # PNG of the signal panel on every scan, without limit, plus the dev machine's 2,109 captures.
+    # Nothing else reads the folder; without it the dump is inert (one env lookup, one path check).
+    live = os.path.join(mining, "live_samples")
+    if os.path.isdir(live):
+        n_live = sum(len(fs) for _, _, fs in os.walk(live))
+        print(f"{tag} prune dir : {os.path.relpath(live, staging)} ({n_live} files, incl. the .enabled switch)")
+        if not dry:
+            shutil.rmtree(live, ignore_errors=True)
+            if os.path.exists(os.path.join(live, ".enabled")):
+                print(f"{tag} FAILED to remove {live}/.enabled - live capture would ship ON")
+                sys.exit(2)
+        pruned_dirs += 1
+
     # PASS 1b (2026-09-25): prune PyTorch training checkpoints (*.pt / *.pth), ~153 MB in 2.3.1.
     # They cannot be used by a shipped copy: PyTorch is not in the bundled Python (checked: no
     # site-packages/torch anywhere in the 2.3.1 package). No runtime module references a .pt/.pth
