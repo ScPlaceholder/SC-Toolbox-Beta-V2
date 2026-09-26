@@ -62,7 +62,7 @@ def main():
     tag = "[DRY]" if dry else "[APPLY]"
     tokb, replb = tok.encode(), repl.encode()
 
-    pruned_dirs = scrubbed = pruned_ckpt = ckpt_bytes = 0
+    pruned_dirs = scrubbed = pruned_ckpt = ckpt_bytes = pruned_lang = lang_bytes = 0
 
     # PASS 1: prune backup model dirs only (safe; also drops strip-failed models)
     for root, dirs, files in os.walk(mining, topdown=True):
@@ -89,6 +89,30 @@ def main():
                 print(f"{tag} FAILED to remove {live}/.enabled - live capture would ship ON")
                 sys.exit(2)
         pruned_dirs += 1
+
+    # PASS 1c (2026-09-25): keep only the Tesseract language data the app uses (~300 MB saved).
+    # The build copies the WHOLE system Tesseract install into tools/Mining_Signals/tesseract, with
+    # every language the build machine has. Every runtime call (ocr/sc_ocr/api.py, refinery_reader,
+    # screen_reader, onnx_hud_reader) either passes "-l eng_sc" (served from ocr/tessdata, not this
+    # folder), "-l eng", or no -l at all (Tesseract's default, eng). Page-segmentation modes in use are
+    # 6, 7, 8 and 11; none needs OSD, but osd.traineddata is kept anyway as a cheap margin. Non-model
+    # files (configs/, tessconfigs/, *.user-patterns etc.) are kept. build_installer.bat re-checks
+    # tessdata/eng.traineddata AFTER this runs and fails the build if it is missing.
+    KEEP_LANGS = {"eng.traineddata", "osd.traineddata"}
+    tessdata = os.path.join(mining, "tesseract", "tessdata")
+    if os.path.isdir(tessdata):
+        for root, dirs, files in os.walk(tessdata):
+            for f in files:
+                if f.lower().endswith(".traineddata") and f.lower() not in KEEP_LANGS:
+                    fp = os.path.join(root, f)
+                    lang_bytes += os.path.getsize(fp)
+                    pruned_lang += 1
+                    if not dry: os.remove(fp)
+        print(f"{tag} prune lang: {pruned_lang} Tesseract language files ({lang_bytes / 1e6:.0f} MB), "
+              f"kept {sorted(KEEP_LANGS)}")
+        if not dry and not os.path.isfile(os.path.join(tessdata, "eng.traineddata")):
+            print(f"{tag} FAILED: tessdata/eng.traineddata is missing after the language prune")
+            sys.exit(2)
 
     # PASS 1b (2026-09-25): prune PyTorch training checkpoints (*.pt / *.pth), ~153 MB in 2.3.1.
     # They cannot be used by a shipped copy: PyTorch is not in the bundled Python (checked: no
