@@ -1,0 +1,930 @@
+{
+ "_provenance": {
+  "build": "4.10.1-LIVE.12660092",
+  "commit": "e96132078ae6a1a5f62a183fb1523dc006dcfddb",
+  "ship": "Aegis Gladius",
+  "source": "~/.sctoolbox/scunpacked/4.10.1-LIVE.12660092/dpscalc_index.json"
+ },
+ "power_raw": {
+  "cool_aegs_s01_bracer_scitem": {
+   "localName": "cool_aegs_s01_bracer_scitem",
+   "name": "Bracer",
+   "ref": "4ec3037b-4b6f-4837-b00d-cd9b4836a82a",
+   "resource": {
+    "online": {
+     "consumption": {
+      "powerSegment": 3.0
+     },
+     "conversionMinimumFraction": 0.3333333,
+     "generation": {
+      "cooling": 34.0
+     },
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 1.0,
+       "start": 3.0
+      },
+      "low": {
+       "modifier": 0.7,
+       "registerRange": 1.0,
+       "start": 1.0
+      },
+      "medium": {
+       "modifier": 0.85,
+       "registerRange": 1.0,
+       "start": 2.0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 1490.0
+      },
+      "ir": {
+       "nominalSignature": 7260.0
+      }
+     }
+    }
+   },
+   "size": 1,
+   "subType": "UNDEFINED",
+   "type": "Cooler"
+  },
+  "gats_ballisticgatling_s3": {
+   "localName": "gats_ballisticgatling_s3",
+   "name": "Mantis GT-220 Gatling",
+   "ref": "b837397c-47b6-45e7-b409-db290a068b47",
+   "resource": {
+    "online": {
+     "consumption": {
+      "power": 0.1
+     },
+     "generation": {},
+     "powerConsumptionMinimumFraction": 1.0,
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "low": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 36.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "size": 3,
+   "subType": "Gun",
+   "type": "WeaponGun"
+  },
+  "klwe_laserrepeater_s3": {
+   "localName": "klwe_laserrepeater_s3",
+   "name": "CF-337 Panther Repeater",
+   "ref": "bd13235d-1261-4b71-b32f-aed1a8beb526",
+   "resource": {
+    "online": {
+     "consumption": {
+      "power": 1.0
+     },
+     "generation": {},
+     "powerConsumptionMinimumFraction": 0.0,
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "low": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 0.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "size": 3,
+   "subType": "Gun",
+   "type": "WeaponGun"
+  },
+  "powr_aegs_s01_regulus_scitem": {
+   "localName": "powr_aegs_s01_regulus_scitem",
+   "name": "Regulus",
+   "ref": "688aab9c-bc62-4774-be7d-065dee7e2187",
+   "resource": {
+    "online": {
+     "consumption": {
+      "cooling": 0.0
+     },
+     "generation": {
+      "powerSegment": 16.0
+     },
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "low": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 7920.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "size": 1,
+   "subType": "Power",
+   "type": "PowerPlant"
+  },
+  "qdrv_wetk_s01_beacon_scitem": {
+   "localName": "qdrv_wetk_s01_beacon_scitem",
+   "name": "Beacon",
+   "ref": "b5cbef86-f37f-4e05-8aff-e0f61afe166e",
+   "resource": {
+    "online": {
+     "consumption": {
+      "cooling": 0.0,
+      "powerSegment": 3.0
+     },
+     "generation": {},
+     "powerConsumptionMinimumFraction": 1.0,
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 1.0,
+       "start": 1.0
+      },
+      "low": {
+       "modifier": 0.7,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 0.85,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 18800.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "size": 1,
+   "subType": "UNDEFINED",
+   "type": "QuantumDrive"
+  },
+  "radr_grnp_s01_ecouter": {
+   "localName": "radr_grnp_s01_ecouter",
+   "name": "Ecouter",
+   "ref": "b0ccd135-4424-417c-95e4-594a88d9b72f",
+   "resource": {
+    "online": {
+     "consumption": {
+      "cooling": 0.0,
+      "powerSegment": 5.0
+     },
+     "generation": {},
+     "powerConsumptionMinimumFraction": 0.4,
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 1.0,
+       "start": 1.0
+      },
+      "low": {
+       "modifier": 0.7,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 0.85,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 1800.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "size": 1,
+   "subType": "MidRangeRadar",
+   "type": "Radar"
+  },
+  "shld_godi_s01_allstop_scitem": {
+   "localName": "shld_godi_s01_allstop_scitem",
+   "name": "AllStop",
+   "ref": "339bd641-8dfb-4bc1-b273-5ffc5f702fbb",
+   "resource": {
+    "online": {
+     "consumption": {
+      "cooling": 0.0,
+      "powerSegment": 3.0
+     },
+     "conversionMinimumFraction": 0.3333333,
+     "generation": {
+      "shield": 602.0
+     },
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 1.0,
+       "start": 3.0
+      },
+      "low": {
+       "modifier": 0.7,
+       "registerRange": 1.0,
+       "start": 1.0
+      },
+      "medium": {
+       "modifier": 0.85,
+       "registerRange": 1.0,
+       "start": 2.0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 1240.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "shield": {
+    "maxShieldRegen": 602.0,
+    "resistance": {
+     "distortionMax": 0.95,
+     "distortionMin": 0.75,
+     "energyMax": 0.0,
+     "energyMin": 0.0,
+     "physicalMax": 0.25,
+     "physicalMin": 0.0
+    }
+   },
+   "size": 1,
+   "subType": "UNDEFINED",
+   "type": "Shield"
+  }
+ },
+ "ship": {
+  "armor": {
+   "data": {
+    "armor": {
+     "signalCrossSection": 1.13,
+     "signalElectromagnetic": 1.13,
+     "signalInfrared": 1.13
+    },
+    "health": {
+     "damageResistanceMultiplier": {
+      "distortion": 1,
+      "energy": 1.21,
+      "physical": 0.81
+     },
+     "hp": 3300
+    },
+    "subType": "Medium"
+   }
+  },
+  "cargo": 0,
+  "className": "AEGS_Gladius",
+  "crossSection": {
+   "x": 6923,
+   "y": 1731,
+   "z": 8654
+  },
+  "fuelCapacity": 1600,
+  "hull": {
+   "totalHp": 6110
+  },
+  "ifcs": {
+   "maxAfterburnSpeed": 520,
+   "resource": {
+    "online": {
+     "consumption": {
+      "powerSegment": 4.0
+     },
+     "generation": {},
+     "powerConsumptionMinimumFraction": 0.25,
+     "powerRanges": {
+      "high": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "low": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      },
+      "medium": {
+       "modifier": 1.0,
+       "registerRange": 0,
+       "start": 0
+      }
+     },
+     "signatureParams": {
+      "em": {
+       "nominalSignature": 0.0
+      },
+      "ir": {
+       "nominalSignature": 0.0
+      }
+     }
+    }
+   },
+   "scmSpeed": 226
+  },
+  "is_vehicle": false,
+  "items": {
+   "lifeSupports": [
+    {
+     "data": {
+      "localName": "lfsp_tydt_s01_comfortair",
+      "name": "ComfortAir",
+      "ref": "e947b002-e65e-4637-90b7-c894925d6625",
+      "resource": {
+       "online": {
+        "consumption": {
+         "cooling": 0.0,
+         "powerSegment": 1.0
+        },
+        "conversionMinimumFraction": 1.0,
+        "generation": {
+         "lifeSupport": 0.05
+        },
+        "powerRanges": {
+         "high": {
+          "modifier": 1.0,
+          "registerRange": 1.0,
+          "start": 1.0
+         },
+         "low": {
+          "modifier": 0.7,
+          "registerRange": 0,
+          "start": 0
+         },
+         "medium": {
+          "modifier": 0.85,
+          "registerRange": 0,
+          "start": 0
+         }
+        },
+        "signatureParams": {
+         "em": {
+          "nominalSignature": 313.0
+         },
+         "ir": {
+          "nominalSignature": 0.0
+         }
+        }
+       }
+      },
+      "size": 1,
+      "subType": "UNDEFINED",
+      "type": "LifeSupportGenerator"
+     },
+     "localName": "lfsp_tydt_s01_comfortair"
+    }
+   ]
+  },
+  "loadout": [
+   {
+    "editable": true,
+    "itemName": "MSD-322 Missile Rack",
+    "itemPortName": "hardpoint_missilerack_left_wing_outer",
+    "itemTypes": [
+     {
+      "subType": "MissileRack",
+      "type": "MissileLauncher"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Ignite II Missile",
+      "itemPortName": "missile_01_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s02_ir_fski_ignite",
+      "localReference": "d358cf84-9c78-4929-a2ad-b9caade81962",
+      "maxSize": 2,
+      "minSize": 2
+     },
+     {
+      "editable": true,
+      "itemName": "Ignite II Missile",
+      "itemPortName": "missile_02_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s02_ir_fski_ignite",
+      "localReference": "d358cf84-9c78-4929-a2ad-b9caade81962",
+      "maxSize": 2,
+      "minSize": 2
+     }
+    ],
+    "localName": "mrck_s03_behr_dual_s02",
+    "localReference": "6bea95f5-2898-434c-bffe-4b2b332d6440",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "MSD-313 Missile Rack",
+    "itemPortName": "hardpoint_missilerack_left_wing_inner",
+    "itemTypes": [
+     {
+      "subType": "MissileRack",
+      "type": "MissileLauncher"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Arrester III Missile",
+      "itemPortName": "missile_01_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s03_cs_fski_arrester",
+      "localReference": "dee6efca-71ef-438c-b762-624f9ce649f3",
+      "maxSize": 3,
+      "minSize": 3
+     }
+    ],
+    "localName": "mrck_s03_behr_single_s03",
+    "localReference": "f8d3a1e1-0d75-45bb-a453-898a7cf83382",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "VariPuck S3 Gimbal Mount",
+    "itemPortName": "hardpoint_gun_left_wing",
+    "itemTypes": [
+     {
+      "subType": "GunTurret",
+      "type": "Turret"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "CF-337 Panther Repeater",
+      "itemPortName": "hardpoint_class_2",
+      "itemTypes": [
+       {
+        "subType": "Gun",
+        "type": "WeaponGun"
+       }
+      ],
+      "localName": "klwe_laserrepeater_s3",
+      "localReference": "bd13235d-1261-4b71-b32f-aed1a8beb526",
+      "maxSize": 3,
+      "minSize": 3
+     }
+    ],
+    "localName": "mount_gimbal_s3",
+    "localReference": "8197c45b-eaf4-4836-a8f0-837d1875cd9c",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "MSD-313 Missile Rack",
+    "itemPortName": "hardpoint_missilerack_right_wing_inner",
+    "itemTypes": [
+     {
+      "subType": "MissileRack",
+      "type": "MissileLauncher"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Arrester III Missile",
+      "itemPortName": "missile_01_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s03_cs_fski_arrester",
+      "localReference": "dee6efca-71ef-438c-b762-624f9ce649f3",
+      "maxSize": 3,
+      "minSize": 3
+     }
+    ],
+    "localName": "mrck_s03_behr_single_s03",
+    "localReference": "f8d3a1e1-0d75-45bb-a453-898a7cf83382",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "MSD-322 Missile Rack",
+    "itemPortName": "hardpoint_missilerack_right_wing_outer",
+    "itemTypes": [
+     {
+      "subType": "MissileRack",
+      "type": "MissileLauncher"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Ignite II Missile",
+      "itemPortName": "missile_01_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s02_ir_fski_ignite",
+      "localReference": "d358cf84-9c78-4929-a2ad-b9caade81962",
+      "maxSize": 2,
+      "minSize": 2
+     },
+     {
+      "editable": true,
+      "itemName": "Ignite II Missile",
+      "itemPortName": "missile_02_attach",
+      "itemTypes": [
+       {
+        "subType": "Missile",
+        "type": "Missile"
+       }
+      ],
+      "localName": "misl_s02_ir_fski_ignite",
+      "localReference": "d358cf84-9c78-4929-a2ad-b9caade81962",
+      "maxSize": 2,
+      "minSize": 2
+     }
+    ],
+    "localName": "mrck_s03_behr_dual_s02",
+    "localReference": "6bea95f5-2898-434c-bffe-4b2b332d6440",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "VariPuck S3 Gimbal Mount",
+    "itemPortName": "hardpoint_gun_right_wing",
+    "itemTypes": [
+     {
+      "subType": "GunTurret",
+      "type": "Turret"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "CF-337 Panther Repeater",
+      "itemPortName": "hardpoint_class_2",
+      "itemTypes": [
+       {
+        "subType": "Gun",
+        "type": "WeaponGun"
+       }
+      ],
+      "localName": "klwe_laserrepeater_s3",
+      "localReference": "bd13235d-1261-4b71-b32f-aed1a8beb526",
+      "maxSize": 3,
+      "minSize": 3
+     }
+    ],
+    "localName": "mount_gimbal_s3",
+    "localReference": "8197c45b-eaf4-4836-a8f0-837d1875cd9c",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "Bracer",
+    "itemPortName": "Hardpoint_cooler_left",
+    "itemTypes": [
+     {
+      "subType": "",
+      "type": "Cooler"
+     }
+    ],
+    "localName": "cool_aegs_s01_bracer_scitem",
+    "localReference": "4ec3037b-4b6f-4837-b00d-cd9b4836a82a",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "Bracer",
+    "itemPortName": "Hardpoint_cooler_right",
+    "itemTypes": [
+     {
+      "subType": "",
+      "type": "Cooler"
+     }
+    ],
+    "localName": "cool_aegs_s01_bracer_scitem",
+    "localReference": "4ec3037b-4b6f-4837-b00d-cd9b4836a82a",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "Regulus",
+    "itemPortName": "hardpoint_power_plant",
+    "itemTypes": [
+     {
+      "subType": "Power",
+      "type": "PowerPlant"
+     }
+    ],
+    "localName": "powr_aegs_s01_regulus_scitem",
+    "localReference": "688aab9c-bc62-4774-be7d-065dee7e2187",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "AllStop",
+    "itemPortName": "hardpoint_shield_generator_right",
+    "itemTypes": [
+     {
+      "subType": "",
+      "type": "Shield"
+     }
+    ],
+    "localName": "shld_godi_s01_allstop_scitem",
+    "localReference": "339bd641-8dfb-4bc1-b273-5ffc5f702fbb",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "AllStop",
+    "itemPortName": "hardpoint_shield_generator_left",
+    "itemTypes": [
+     {
+      "subType": "",
+      "type": "Shield"
+     }
+    ],
+    "localName": "shld_godi_s01_allstop_scitem",
+    "localReference": "339bd641-8dfb-4bc1-b273-5ffc5f702fbb",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "Beacon",
+    "itemPortName": "hardpoint_quantum_drive",
+    "itemTypes": [
+     {
+      "subType": "",
+      "type": "QuantumDrive"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Explorer",
+      "itemPortName": "hardpoint_Jump_Drive",
+      "itemTypes": [
+       {
+        "subType": "",
+        "type": "JumpDrive"
+       }
+      ],
+      "localName": "jdrv_tars_s01_explorer_scitem",
+      "localReference": "c8797bce-6220-4d1e-bc6d-23da4a366a6d",
+      "maxSize": 1,
+      "minSize": 1
+     }
+    ],
+    "localName": "qdrv_wetk_s01_beacon_scitem",
+    "localReference": "b5cbef86-f37f-4e05-8aff-e0f61afe166e",
+    "maxSize": 1,
+    "minSize": 1
+   },
+   {
+    "editable": true,
+    "itemName": "VariPuck S3 Gimbal Mount",
+    "itemPortName": "hardpoint_gun_nose",
+    "itemTypes": [
+     {
+      "subType": "GunTurret",
+      "type": "Turret"
+     }
+    ],
+    "loadout": [
+     {
+      "editable": true,
+      "itemName": "Mantis GT-220 Gatling",
+      "itemPortName": "hardpoint_class_2",
+      "itemTypes": [
+       {
+        "subType": "Gun",
+        "type": "WeaponGun"
+       }
+      ],
+      "localName": "gats_ballisticgatling_s3",
+      "localReference": "b837397c-47b6-45e7-b409-db290a068b47",
+      "maxSize": 3,
+      "minSize": 3
+     }
+    ],
+    "localName": "mount_gimbal_s3",
+    "localReference": "8197c45b-eaf4-4836-a8f0-837d1875cd9c",
+    "maxSize": 3,
+    "minSize": 3
+   },
+   {
+    "editable": true,
+    "itemName": "Ecouter",
+    "itemPortName": "hardpoint_radar",
+    "itemTypes": [
+     {
+      "subType": "MidRangeRadar",
+      "type": "Radar"
+     }
+    ],
+    "localName": "radr_grnp_s01_ecouter",
+    "localReference": "b0ccd135-4424-417c-95e4-594a88d9b72f",
+    "maxSize": 1,
+    "minSize": 1
+   }
+  ],
+  "name": "Aegis Gladius",
+  "power_gaps": [],
+  "qtFuelCapacity": 600,
+  "ref": "b6b59889-7226-458e-a6b0-1c9392128a3c",
+  "rnPowerPools": {
+   "weaponGun": {
+    "poolSize": 4,
+    "type": "fixed"
+   }
+  },
+  "sc_empty_turret_ports": [],
+  "sc_gun_slots": [
+   {
+    "editable": true,
+    "gun_count": 1,
+    "id": "sc:hardpoint_gun_left_wing/hardpoint_class_2",
+    "label": "Gun Left Wing  [VariPuck S3 Gimbal Mount]",
+    "local_ref": "klwe_laserrepeater_s3",
+    "max_size": 3,
+    "min_size": 3,
+    "mount": "gimbal",
+    "mount_name": "VariPuck S3 Gimbal Mount",
+    "outer_ref": "",
+    "sc_slots": [
+     {
+      "editable": true,
+      "hardpoint": "hardpoint_gun_left_wing",
+      "id": "hardpoint_gun_left_wing/hardpoint_class_2",
+      "max_size": 3,
+      "min_size": 3,
+      "mount": "gimbal",
+      "port": "hardpoint_class_2",
+      "stock": "KLWE_LaserRepeater_S3",
+      "tags": [
+       "AEGS_Gladius_Base"
+      ],
+      "turret": null
+     }
+    ],
+    "turret": false,
+    "weapon_max_size": 3
+   },
+   {
+    "editable": true,
+    "gun_count": 1,
+    "id": "sc:hardpoint_gun_right_wing/hardpoint_class_2",
+    "label": "Gun Right Wing  [VariPuck S3 Gimbal Mount]",
+    "local_ref": "klwe_laserrepeater_s3",
+    "max_size": 3,
+    "min_size": 3,
+    "mount": "gimbal",
+    "mount_name": "VariPuck S3 Gimbal Mount",
+    "outer_ref": "",
+    "sc_slots": [
+     {
+      "editable": true,
+      "hardpoint": "hardpoint_gun_right_wing",
+      "id": "hardpoint_gun_right_wing/hardpoint_class_2",
+      "max_size": 3,
+      "min_size": 3,
+      "mount": "gimbal",
+      "port": "hardpoint_class_2",
+      "stock": "KLWE_LaserRepeater_S3",
+      "tags": [
+       "AEGS_Gladius_Base"
+      ],
+      "turret": null
+     }
+    ],
+    "turret": false,
+    "weapon_max_size": 3
+   },
+   {
+    "editable": true,
+    "gun_count": 1,
+    "id": "sc:hardpoint_gun_nose/hardpoint_class_2",
+    "label": "Gun Nose  [VariPuck S3 Gimbal Mount]",
+    "local_ref": "gats_ballisticgatling_s3",
+    "max_size": 3,
+    "min_size": 3,
+    "mount": "gimbal",
+    "mount_name": "VariPuck S3 Gimbal Mount",
+    "outer_ref": "",
+    "sc_slots": [
+     {
+      "editable": true,
+      "hardpoint": "hardpoint_gun_nose",
+      "id": "hardpoint_gun_nose/hardpoint_class_2",
+      "max_size": 3,
+      "min_size": 3,
+      "mount": "gimbal",
+      "port": "hardpoint_class_2",
+      "stock": "GATS_BallisticGatling_S3",
+      "tags": [
+       "AEGS_Gladius_Base"
+      ],
+      "turret": null
+     }
+    ],
+    "turret": false,
+    "weapon_max_size": 3
+   }
+  ],
+  "sc_not_counted": [],
+  "vehicle": {
+   "crewSize": 1
+  }
+ }
+}

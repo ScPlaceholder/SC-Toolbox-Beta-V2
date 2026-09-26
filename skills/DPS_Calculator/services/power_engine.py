@@ -569,6 +569,36 @@ class PowerAllocatorEngine:
             elif category in self._seg_config:
                 fill_remaining(category, self._seg_config[category])
 
+    @staticmethod
+    def _restore_level(pips: list, selected_pips: int, enabled: bool) -> int:
+        """The pip level to restore when this category is switched back ON.
+
+        ⛔ 2026-09-26 (issue #7g): `default_seg` used to be `selected_pips` verbatim,
+          and `selected_pips` is 0 for any category the CURRENT MODE leaves unpowered.
+          SCM's phase-1 skips `qdrive` and its phase-2 fill order omits it entirely
+          (NAV's omits `weapon` and `shield` the same way), so the allocator never gave
+          the quantum drive a pip. Every toggle path reads `default_seg` as "the level
+          to restore when this is switched on" — power_widget._toggle_category (the QD
+          ICON), power_widget._on_right_click, and toggle_by_type — so that structural
+          0 was read back as an allocation: clicking the QD icon in SCM powered the
+          drive with ZERO segments, drawing nothing and displaying an empty pip bar.
+        ★ DECISION — the priority list is NOT changed. `_power_config["qdrive"]
+          ["power"] = not is_scm` is erkul-exact: the QD is deliberately unpowered in
+          SCM, and inserting `qdrive` into SCM's fill order would hand it pips AT LOAD,
+          stealing headroom from coolers/weapons/shields and moving the default
+          allocation of every ship in the calculator. The 0 was never a wrong
+          allocation — it was the ABSENCE of one — so the fix is to state the restore
+          level explicitly instead of letting an absence be read as a number.
+        ⇒ For an unpowered category the restore level is what `select_first()` would
+          have given it: the first non-disabled pip, which the pip sort puts first and
+          which is the `critical` (minimum-fraction) pip. Deliberately NOT `total_pips`
+          — that would claim headroom the ship may not have — and not 0, which is the
+          bug. A powered category keeps its real allocation.
+        """
+        if enabled or selected_pips:
+            return selected_pips
+        return next((p["number"] for p in pips if not p.get("disabled")), 0)
+
     def _build_legacy_slots(self):
         """Build _slots and _categories from seg_config for UI/audit compat."""
         self._slots.clear()
@@ -595,7 +625,7 @@ class PowerAllocatorEngine:
                 "name": seg_key.title(),
                 "category": cat_key,
                 "max_segments": total_pips,
-                "default_seg": selected_pips,
+                "default_seg": self._restore_level(pips, selected_pips, enabled),
                 "current_seg": selected_pips,
                 "enabled": enabled,
                 "draw_per_seg": 1.0,

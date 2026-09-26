@@ -1,6 +1,72 @@
 """Loadout aggregation — compute footer totals and signatures from selections."""
 
 
+def select_shield_display(power_sim: bool,
+                          totals: dict,
+                          powered_regen: float,
+                          powered_res: dict,
+                          powered_count: int,
+                          shield_power_ratio: float) -> dict:
+    """Choose which shield figures the footer shows: raw maxima, or the power-sim result.
+
+    Returns {"regen", "res", "count", "source", "sim_zero"} where `source` is
+    "raw" or "sim", and `sim_zero` is True when the sim is authoritative AND reports
+    an unpowered bank — i.e. 0.0 is a MEASUREMENT here, not missing data, and the
+    caller must print it as 0.0 rather than as an em-dash.
+
+    ⛔ 2026-09-26 (issue #7e): turning shields OFF used to RAISE the displayed regen.
+      `_update_footer` asked `if power_sim and shield_powered_count:` and fell back to
+      the un-simulated maxima whenever that count was 0 — but a count of 0 has TWO
+      causes:
+        (a) the shield bank is switched off in the power allocator (or every pip is
+            deselected). The sim HAS an answer and the answer is zero.
+        (b) the allocator holds no shield data at all — nothing equipped, or the item
+            lookup resolved none. The sim has NOTHING to say.
+      Only (b) justifies the raw maxima. Treating (a) as (b) printed the ship's FULL
+      maximum regen for a bank that is unpowered, so switching shields off moved the
+      number UP, past every powered allocation (which is max x effective_pip_ratio).
+    ★ NEITHER PRODUCER WAS WRONG, so neither was changed: `compute_footer_totals`
+      returns true unpowered maxima and `power_engine` returns a true zero. The defect
+      was the CHOICE between them, which is display, so the fix lives here — in a pure
+      function the UI calls — and not as a sign flip in either producer. Flipping a
+      sign in the aggregation would have produced a number that happened to look right
+      on a bank at full pips and been wrong on every partial allocation.
+    ★★ The discriminator is `shield_power_ratio`, which power_engine sets to EXACTLY
+      0.0 when `_power_config["shield"]["power"]` is false, and to selected/total
+      otherwise. Both ways of reaching 0.0 (bank off, or zero pips selected) mean the
+      same thing: the sim says there is no shield power. Case (b) cannot reach it —
+      with no shield pips at all the ratio is 1.0 — so the two causes separate without
+      guessing. NAV mode reads 0.0 too, which is correct: shields are unpowered in NAV.
+    ⚠ No clamp to the raw maximum is applied on purpose. erkul's powerRanges modifier
+      can exceed 1.0, so a powered figure legitimately above `max_regen` is a real
+      result, not a symptom. The invariant this fix restores is directional — shields
+      ON must never read LOWER than shields OFF — not "sim <= raw".
+    """
+    raw = {
+        "regen": totals.get("shield_regen", 0.0),
+        "res": totals.get("shield_res", {"phys": 0.0, "enrg": 0.0, "dist": 0.0}),
+        "count": totals.get("shield_count", 0),
+        "source": "raw",
+        "sim_zero": False,
+    }
+    if not power_sim:
+        return raw
+
+    shields_equipped = bool(totals.get("shield_count", 0))
+    bank_unpowered = shields_equipped and float(shield_power_ratio or 0.0) == 0.0
+    if not (powered_count or bank_unpowered):
+        # (b): the sim has no shield data — keep the raw maxima rather than invent a 0.
+        return raw
+
+    return {
+        "regen": powered_regen,
+        "res": powered_res,
+        "count": powered_count,
+        "source": "sim",
+        "sim_zero": bank_unpowered and not powered_regen,
+    }
+
+
 def compute_footer_totals(selections: dict,
                           find_weapon, find_missile, find_shield,
                           find_cooler, find_radar, find_powerplant,

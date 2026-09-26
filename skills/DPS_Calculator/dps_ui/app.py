@@ -63,7 +63,9 @@ from services.stat_computation import (
     compute_powerplant_stats, compute_qdrive_stats, compute_thruster_stats,
     compute_powerplant_stats_erkul, compute_qdrive_stats_erkul,
 )
-from services.loadout_aggregator import compute_footer_totals, compute_raw_signatures
+from services.loadout_aggregator import (
+    compute_footer_totals, compute_raw_signatures, select_shield_display,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -1935,15 +1937,22 @@ class DpsCalcApp(SCWindow):
         self._last_dps = {"dps_sus": tot_sus, "dps_raw": tot_raw, "alpha": tot_alp}
         miss_dmg = totals["missile_dmg"]
         tot_hp = totals["shield_hp"]
-        # Power sim: use erkul-exact per-shield formula from power_engine
-        if self._power_sim and self._shield_powered_count:
-            tot_regen = self._shield_regen_powered
-            shld_res = self._shield_res_powered
-            shld_count = self._shield_powered_count
-        else:
-            tot_regen = totals["shield_regen"]
-            shld_res = totals["shield_res"]
-            shld_count = totals["shield_count"]
+        # Power sim: use the erkul-exact per-shield formula from power_engine.
+        # The choice between the sim result and the unpowered maxima is made in
+        # services.loadout_aggregator.select_shield_display — read its docstring before
+        # touching this: a powered_count of 0 means "the bank is OFF" as often as it
+        # means "the sim saw no shields", and conflating them made shields-off display
+        # a HIGHER regen than shields-on (issue #7e).
+        shld_disp  = select_shield_display(
+            self._power_sim, totals,
+            powered_regen=self._shield_regen_powered,
+            powered_res=self._shield_res_powered,
+            powered_count=self._shield_powered_count,
+            shield_power_ratio=self._shield_power_ratio,
+        )
+        tot_regen  = shld_disp["regen"]
+        shld_res   = shld_disp["res"]
+        shld_count = shld_disp["count"]
         tot_cool = totals["cooling"]
         tot_pwr_out = totals["power_output"]
         tot_pwr_draw = totals["power_draw"]
@@ -1997,14 +2006,33 @@ class DpsCalcApp(SCWindow):
         _set("gun_slots", f"{n_guns} " + _("equipped"))
         _set("miss_slots", f"{n_miss} " + _("equipped"))
         _set("shld_hp", f"{tot_hp:,.0f}" if tot_hp else "\u2014")
-        _set("shld_regen", f"{tot_regen:.1f}" if tot_regen else "\u2014")
-        # Always show max resistance from totals (energyMax/physMax/distMax) to match Erkul.
-        res_src  = totals["shield_res"]
-        res_cnt  = totals["shield_count"]
+        # A regen of 0.0 from the sim is a MEASUREMENT (the bank is unpowered), so it
+        # prints as 0.0. The em-dash is reserved for "no shields equipped".
+        if tot_regen:
+            _set("shld_regen", f"{tot_regen:.1f}")
+        elif shld_disp["sim_zero"]:
+            _set("shld_regen", "0.0")
+        else:
+            _set("shld_regen", "\u2014")
+        # BUG 2026-09-26 (issue #7j): this block used to read `totals["shield_res"]`
+        #   directly -- "Always show max resistance from totals to match Erkul" -- while
+        #   the pip-interpolated `shld_res` selected above was computed and never read.
+        #   So moving a shield pip changed the regen on screen and left resistance
+        #   frozen at the maxima.
+        # WIRED THROUGH rather than deleted, and the reason is parity, not symmetry:
+        #   erkul interpolates resistance with the allocation
+        #   (res_min + effective_pip_ratio x (res_max - res_min)) -- that formula in
+        #   power_engine was reverse-engineered FROM erkul's own JS. Showing the maxima
+        #   is only erkul-correct at full pips, which is the one case where the two
+        #   agree, which is why the old comment looked true. Deleting the computation
+        #   would have made the displayed resistance permanently blind to the pips;
+        #   with the sim OFF there is no pip information to honour, and
+        #   select_shield_display returns the maxima for exactly that case.
+        res_cnt  = shld_count
         avg_res  = lambda val: val / res_cnt if res_cnt else 0
-        _set("shld_phys", pct(avg_res(res_src["phys"])))
-        _set("shld_enrg", pct(avg_res(res_src["enrg"])))
-        _set("shld_dist", pct(avg_res(res_src["dist"])))
+        _set("shld_phys", pct(avg_res(shld_res["phys"])))
+        _set("shld_enrg", pct(avg_res(shld_res["enrg"])))
+        _set("shld_dist", pct(avg_res(shld_res["dist"])))
         _set("cooling", f"{tot_cool:,.0f}" if tot_cool else "\u2014")
         _set("pwr_output", f"{tot_pwr_out:,.0f}" if tot_pwr_out else "\u2014")
         _set("pwr_draw", f"{tot_pwr_draw:,.0f}" if tot_pwr_draw else "\u2014")
