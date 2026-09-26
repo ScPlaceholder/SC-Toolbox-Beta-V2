@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 log = logging.getLogger(__name__)
 
 
+def format_qty(qty: float, unit: str = "scu") -> str:
+    """'36 cSCU', '7 pcs'; legacy sc-craft amounts (unit "scu") read as cSCU."""
+    q = f"{qty:g}" if qty == int(qty) else f"{qty:.2f}"
+    return f"{q} {'cSCU' if unit == 'scu' else unit}"
+
+
 def _safe_int(value, default: int = 0) -> int:
     """Convert *value* to int, returning *default* on failure."""
     try:
@@ -45,7 +51,7 @@ class IngredientOption:
         return cls(
             guid=d.get("guid", ""),
             name=d.get("name", ""),
-            quantity_scu=_safe_float(d.get("quantity_scu", 0)),
+            quantity_scu=_safe_float(d.get("quantity", d.get("quantity_scu", 0))),
             min_quality=_safe_int(d.get("min_quality", 0)),
             unit=d.get("unit", "scu"),
             loc_key=d.get("loc_key", ""),
@@ -54,32 +60,66 @@ class IngredientOption:
 
 @dataclass
 class QualityEffect:
+    """How a slot's material quality scales one stat.
+
+    Linear by default (modifier_at_min -> modifier_at_max over the quality
+    range). ``segments`` ([qmin, qmax, start, end], from the datamine's
+    ValueSegments) make it piecewise. ``additive`` effects (e.g. Power Pips)
+    add a whole number instead of multiplying.
+    """
     stat: str
     quality_min: int = 0
     quality_max: int = 1000
     modifier_at_min: float = 1.0
     modifier_at_max: float = 1.0
+    segments: list = field(default_factory=list)
+    additive: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> QualityEffect:
+        segs = []
+        for sg in d.get("segments") or []:
+            if isinstance(sg, (list, tuple)) and len(sg) == 4:
+                segs.append([_safe_int(sg[0]), _safe_int(sg[1], 1000),
+                             _safe_float(sg[2], 1.0), _safe_float(sg[3], 1.0)])
         return cls(
             stat=d.get("stat", ""),
             quality_min=_safe_int(d.get("quality_min", 0)),
             quality_max=_safe_int(d.get("quality_max", 1000), 1000),
             modifier_at_min=_safe_float(d.get("modifier_at_min", 1.0), 1.0),
             modifier_at_max=_safe_float(d.get("modifier_at_max", 1.0), 1.0),
+            segments=segs,
+            additive=bool(d.get("additive", False)),
         )
 
+    @staticmethod
+    def _lerp(q, q0, q1, a, b) -> float:
+        if q1 == q0:
+            return b
+        t = max(0.0, min(1.0, (q - q0) / (q1 - q0)))
+        return a + t * (b - a)
+
     def modifier_at(self, quality: int) -> float:
-        if self.quality_max == self.quality_min:
-            return self.modifier_at_max
-        t = (quality - self.quality_min) / (self.quality_max - self.quality_min)
-        t = max(0.0, min(1.0, t))
-        return self.modifier_at_min + t * (self.modifier_at_max - self.modifier_at_min)
+        if self.segments:
+            segs = self.segments
+            if quality <= segs[0][0]:
+                return segs[0][2]
+            for q0, q1, a, b in segs:
+                if quality <= q1:
+                    return self._lerp(quality, q0, q1, a, b)
+            return segs[-1][3]
+        return self._lerp(quality, self.quality_min, self.quality_max,
+                          self.modifier_at_min, self.modifier_at_max)
 
     def pct_at(self, quality: int) -> float:
+        """Percent change (multiplicative) or the added amount (additive)."""
         mod = self.modifier_at(quality)
-        return (mod - 1.0) * 100.0
+        return mod if self.additive else (mod - 1.0) * 100.0
+
+    def label_at(self, quality: int) -> str:
+        v = self.pct_at(quality)
+        sign = "+" if v >= 0 else ""
+        return f"{sign}{v:.0f}" if self.additive else f"{sign}{v:.0f}%"
 
 
 @dataclass
@@ -88,7 +128,9 @@ class IngredientSlot:
     options: list[IngredientOption] = field(default_factory=list)
     quality_effects: list[QualityEffect] = field(default_factory=list)
     name: str = ""
-    quantity_scu: float = 0.0
+    quantity_scu: float = 0.0      # the amount in ``unit`` (cSCU, pcs; legacy "scu")
+    unit: str = "scu"
+    choose: str = ""               # e.g. "any 2 of 3" when the slot is optional
 
     @classmethod
     def from_dict(cls, d: dict) -> IngredientSlot:
@@ -97,7 +139,9 @@ class IngredientSlot:
             options=[IngredientOption.from_dict(o) for o in d.get("options", [])],
             quality_effects=[QualityEffect.from_dict(q) for q in d.get("quality_effects", [])],
             name=d.get("name", ""),
-            quantity_scu=_safe_float(d.get("quantity_scu", 0)),
+            quantity_scu=_safe_float(d.get("quantity", d.get("quantity_scu", 0))),
+            unit=d.get("unit", "scu"),
+            choose=d.get("choose", ""),
         )
 
 
@@ -278,6 +322,11 @@ class Blueprint:
     version: str = ""
     ingredients: list[IngredientSlot] = field(default_factory=list)
     missions: list[Mission] = field(default_factory=list)
+    obtainable: bool = False       # known by default or given by a reward pool
+    sources: list[str] = field(default_factory=list)   # reward pools (datamine)
+    output_class: str = ""
+    dismantle_seconds: int = 0
+    dismantle_efficiency: float = 0.0
     _raw: dict = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -295,6 +344,11 @@ class Blueprint:
             version=d.get("version", ""),
             ingredients=[IngredientSlot.from_dict(i) for i in d.get("ingredients", [])],
             missions=[Mission.from_dict(m) for m in d.get("missions", [])],
+            obtainable=bool(d.get("obtainable", d.get("default_owned", 0))),
+            sources=[str(x) for x in d.get("sources") or []],
+            output_class=d.get("output_class", ""),
+            dismantle_seconds=_safe_int(d.get("dismantle_seconds", 0)),
+            dismantle_efficiency=_safe_float(d.get("dismantle_efficiency", 0)),
             _raw=d,
         )
 
@@ -325,7 +379,12 @@ class Blueprint:
 
     @property
     def ingredient_names(self) -> list[str]:
-        return [slot.name for slot in self.ingredients if slot.name]
+        names = []
+        for slot in self.ingredients:
+            for n in [slot.name] + [o.name for o in slot.options]:
+                if n and n not in names:
+                    names.append(n)
+        return names
 
     @property
     def raw_dict(self) -> dict:

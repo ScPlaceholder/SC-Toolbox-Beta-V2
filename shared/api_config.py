@@ -90,18 +90,8 @@ MARKET_FINDER_TIMEOUT: int = 30  # seconds
 # ---------------------------------------------------------------------------
 MINING_LOADOUT_USER_AGENT: str = "WingmanAI-MiningLoadout/1.0"
 
-# ---------------------------------------------------------------------------
-# SC Craft Tools  (Craft Database)
-# ---------------------------------------------------------------------------
-SC_CRAFT_BASE_URL: str = "https://sc-craft.tools/api"
-
-SC_CRAFT_USER_AGENT: str = "SC_Toolbox/1.0"
-SC_CRAFT_HEADERS: dict[str, str] = {
-    "User-Agent": SC_CRAFT_USER_AGENT,
-    "Accept": "application/json",
-}
-SC_CRAFT_TIMEOUT: int = 30        # seconds
-SC_CRAFT_VERSION: str = "LIVE-4.7.0-11518367"
+# Craft Database: no web API. Blueprints come from the pinned scunpacked-data
+# datamine (shared/scunpacked.py, skills/Craft_Database/data/datamine.py).
 
 # ---------------------------------------------------------------------------
 # Cache TTL defaults  (seconds)
@@ -112,4 +102,3 @@ CACHE_TTL_DEFAULT: int = 3600       # 1 h    — Market Finder disk cache
 CACHE_TTL_ERKUL: int = 2 * 3600     # 2 h    — DPS Calculator / Mission DB
 CACHE_TTL_CARGO: int = 6 * 3600     # 6 h    — Cargo Loader / FY hardpoints
 CACHE_TTL_MINING: int = 86400       # 24 h   — Mining Loadout API cache
-CACHE_TTL_CRAFT: int = 3600        # 1 h    — Craft Database blueprints

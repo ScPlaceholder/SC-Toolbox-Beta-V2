@@ -1,6 +1,6 @@
 """
 SC Toolbox — Craft Database
-Star Citizen crafting blueprint browser cloned from sc-craft.tools.
+Star Citizen crafting blueprint browser (datamined blueprints, pinned game build).
 """
 import os
 import sys

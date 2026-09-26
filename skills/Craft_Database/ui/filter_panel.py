@@ -21,7 +21,7 @@ from ui.constants import TOOL_COLOR
 
 
 class FilterPanel(QFrame):
-    """Left-side filter panel mirroring sc-craft.tools filters."""
+    """Left-side filter panel. Mission filters show only when the data has them."""
 
     filters_changed = Signal(dict)
 
@@ -66,8 +66,11 @@ class FilterPanel(QFrame):
 
         self._layout.addSpacing(4)
 
-        # Ownable checkbox
-        self._ownable_cb = QCheckBox("Ownable")
+        # Obtainable checkbox (key stays "ownable" for callers)
+        self._ownable_cb = QCheckBox("Obtainable")
+        self._ownable_cb.setToolTip(
+            "Only blueprints a player can get: known by default or given by a "
+            "mission reward pool")
         self._ownable_cb.setChecked(True)
         self._ownable_cb.setStyleSheet(f"color: {P.fg}; font-size: 9pt;")
         self._ownable_cb.stateChanged.connect(self._emit_filters)
@@ -94,27 +97,27 @@ class FilterPanel(QFrame):
 
         self._layout.addSpacing(6)
 
-        # Mission type
-        self._add_label("MISSION TYPE")
+        # Mission filters: hidden unless the data carries missions (the
+        # datamine names reward pools only, not missions / places / givers)
+        self._mission_lbl = self._add_label("MISSION TYPE")
         self._mission_combo = SCFuzzyCombo(placeholder="All mission types")
         self._mission_combo.item_selected.connect(lambda _: self._emit_filters())
         self._layout.addWidget(self._mission_combo)
 
-        self._layout.addSpacing(6)
-
         # Location
-        self._add_label("LOCATION")
+        self._location_lbl = self._add_label("LOCATION")
         self._location_combo = SCFuzzyCombo(placeholder="All locations")
         self._location_combo.item_selected.connect(lambda _: self._emit_filters())
         self._layout.addWidget(self._location_combo)
 
-        self._layout.addSpacing(6)
-
         # Contractor
-        self._add_label("CONTRACTOR")
+        self._contractor_lbl = self._add_label("CONTRACTOR")
         self._contractor_combo = SCFuzzyCombo(placeholder="All contractors")
         self._contractor_combo.item_selected.connect(lambda _: self._emit_filters())
         self._layout.addWidget(self._contractor_combo)
+        for w in (self._mission_lbl, self._mission_combo, self._location_lbl,
+                  self._location_combo, self._contractor_lbl, self._contractor_combo):
+            w.hide()
 
         self._layout.addStretch()
 
@@ -136,18 +139,29 @@ class FilterPanel(QFrame):
         )
         self._layout.addWidget(lbl)
 
-    def _add_label(self, text: str):
+    def _add_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setStyleSheet(
             f"color: {P.fg_dim}; font-size: 7pt; font-weight: bold;"
             f"letter-spacing: 1px;"
         )
         self._layout.addWidget(lbl)
+        return lbl
+
+    @staticmethod
+    def _with_parents(categories: list[str]) -> list[str]:
+        """'Armour / Heavy / Core' also offers 'Armour' and 'Armour / Heavy'."""
+        out = set()
+        for c in categories:
+            parts = c.split(" / ")
+            for i in range(1, len(parts) + 1):
+                out.add(" / ".join(parts[:i]))
+        return sorted(out)
 
     def set_hints(self, hints: FilterHints):
         self._category_combo.clear()
         self._category_combo.addItem("")
-        self._category_combo.addItems(hints.categories)
+        self._category_combo.addItems(self._with_parents(hints.categories))
 
         self._resource_combo.clear()
         self._resource_combo.addItem("")
@@ -164,6 +178,12 @@ class FilterPanel(QFrame):
         self._contractor_combo.clear()
         self._contractor_combo.addItem("")
         self._contractor_combo.addItems(hints.contractors)
+
+        for lbl, combo, items in ((self._mission_lbl, self._mission_combo, hints.mission_types),
+                                  (self._location_lbl, self._location_combo, hints.locations),
+                                  (self._contractor_lbl, self._contractor_combo, hints.contractors)):
+            lbl.setVisible(bool(items))
+            combo.setVisible(bool(items))
 
     def get_filters(self) -> dict:
         return {

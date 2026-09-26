@@ -207,13 +207,21 @@ class BlueprintCard(QFrame):
         tag_container.setStyleSheet("background: transparent;")
         tag_flow = FlowLayout(tag_container, spacing=4)
         for slot in self.bp.ingredients[:4]:
-            tag = IngredientTag(slot.name, slot.quantity_scu)
+            tag = IngredientTag(slot.name, slot.quantity_scu, slot.unit)
             tag_flow.addWidget(tag)
         main_lay.addWidget(tag_container)
 
-        # ── Missions count
+        # ── How it is obtained: missions (legacy data) or reward pools
+        src = ""
         if self.bp.mission_count > 0:
-            missions_lbl = QLabel(f"{self.bp.mission_count} missions \u2022")
+            src = f"{self.bp.mission_count} missions \u2022"
+        elif self.bp.default_owned:
+            src = "Known by default"
+        elif self.bp.sources:
+            n = len(self.bp.sources)
+            src = f"{n} reward pool{'s' if n != 1 else ''} \u2022"
+        if src:
+            missions_lbl = QLabel(src)
             missions_lbl.setStyleSheet(
                 f"color: {P.fg_dim}; font-size: 8pt; border: none;"
             )

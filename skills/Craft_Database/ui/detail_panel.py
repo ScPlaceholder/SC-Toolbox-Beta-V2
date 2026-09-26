@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from shared.qt.theme import P
-from domain.models import Blueprint, IngredientSlot, QualityEffect, Mission
+from domain.models import Blueprint, IngredientSlot, QualityEffect, Mission, format_qty
 from ui.constants import (
     TOOL_COLOR,
     STAT_POSITIVE,
@@ -265,6 +265,16 @@ class BlueprintPopup(QDialog):
             f"border: 1px solid {P.border}; border-radius: 10px; padding: 2px 8px;"
         )
         info_row.addWidget(tier_lbl)
+
+        if bp.dismantle_seconds:
+            dis_lbl = QLabel(f"DISMANTLE  {bp.dismantle_seconds}s")
+            dis_lbl.setToolTip(f"Dismantling takes {bp.dismantle_seconds}s and returns "
+                               f"{bp.dismantle_efficiency * 100:.0f}% of the materials")
+            dis_lbl.setStyleSheet(
+                f"color: {P.fg_dim}; font-size: 8pt; background: {P.bg_input};"
+                f"border: 1px solid {P.border}; border-radius: 3px; padding: 2px 6px;"
+            )
+            info_row.addWidget(dis_lbl)
         info_row.addStretch()
         lay.addLayout(info_row)
 
@@ -300,7 +310,30 @@ class BlueprintPopup(QDialog):
         # ── Stats summary
         self._build_stats_table()
 
-        # ── Missions
+        # ── Missions (legacy data) or reward pools (datamine)
+        if not bp.missions and (bp.sources or bp.default_owned):
+            self._add_section_header("OBTAINED FROM")
+            names = (["Known by default"] if bp.default_owned else []) + list(bp.sources)
+            for name in names:
+                row = QLabel(name)
+                row.setWordWrap(True)
+                row.setStyleSheet(
+                    f"color: {P.fg}; background: {P.bg_card}; font-size: 8pt;"
+                    f"border-left: 3px solid {TOOL_COLOR}; padding: 3px 8px;"
+                )
+                lay.addWidget(row)
+            if bp.sources:
+                note = QLabel("Reward pools as named in the game files. "
+                              "The Mission Database lists the missions.")
+                note.setWordWrap(True)
+                note.setStyleSheet(f"color: {P.fg_dim}; font-size: 7pt;")
+                lay.addWidget(note)
+        elif not bp.missions:
+            self._add_section_header("OBTAINED FROM")
+            none_lbl = QLabel("Not given by any mission in this game build.")
+            none_lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 8pt;")
+            lay.addWidget(none_lbl)
+
         if bp.missions:
             self._add_section_header(f"DROPS ({len(bp.missions)} MISSIONS)")
             lawful = [m for m in bp.missions if m.lawful]
@@ -343,14 +376,13 @@ class BlueprintPopup(QDialog):
         dot = QLabel("\u25cf")
         dot.setStyleSheet(f"color: {color}; font-size: 8pt; border: none;")
         slot_header.addWidget(dot)
-        slot_lbl = QLabel(f"{slot.slot}  x1")
+        slot_lbl = QLabel(f"{slot.slot}  ({slot.choose})" if slot.choose else slot.slot)
         slot_lbl.setStyleSheet(f"color: {P.fg}; font-size: 9pt; font-weight: bold; border: none;")
         slot_header.addWidget(slot_lbl, 1)
         card_lay.addLayout(slot_header)
 
         # Resource name + quantity
-        qty_str = f"{slot.quantity_scu:g}" if slot.quantity_scu == int(slot.quantity_scu) else f"{slot.quantity_scu:.2f}"
-        res_lbl = QLabel(f"{slot.name}   {qty_str} cSCU")
+        res_lbl = QLabel(f"{slot.name}   {format_qty(slot.quantity_scu, slot.unit)}")
         res_lbl.setStyleSheet(f"color: {color}; font-size: 9pt; font-weight: bold; border: none;")
         card_lay.addWidget(res_lbl)
 
@@ -529,9 +561,8 @@ class BlueprintPopup(QDialog):
 
     def _update_effect_tag(self, tag: QLabel, qe: QualityEffect, quality: int):
         pct = qe.pct_at(quality)
-        sign = "+" if pct >= 0 else ""
         color = STAT_POSITIVE if pct > 0 else (STAT_NEGATIVE if pct < 0 else STAT_NEUTRAL)
-        tag.setText(f"{qe.stat} {sign}{pct:.0f}%")
+        tag.setText(f"{qe.stat} {qe.label_at(quality)}")
         tag.setStyleSheet(
             f"color: {color}; background: {P.bg_input};"
             f"border: 1px solid {P.border}; border-radius: 3px;"
@@ -539,14 +570,16 @@ class BlueprintPopup(QDialog):
         )
 
     def _update_stat_label(self, lbl: QLabel, qe_list: list[tuple[QualityEffect, int]]):
-        """Average the modifier across all slots contributing to this stat."""
+        """Average the % modifier across all slots contributing to this stat;
+        whole-number (additive) effects such as Power Pips are summed."""
         total = 0.0
+        additive = bool(qe_list) and all(qe.additive for qe, _ in qe_list)
         for qe, slot_idx in qe_list:
             total += qe.pct_at(self._slot_qualities[slot_idx])
-        pct = total / len(qe_list) if qe_list else 0.0
+        pct = total if additive else (total / len(qe_list) if qe_list else 0.0)
         sign = "+" if pct >= 0 else ""
         color = STAT_POSITIVE if pct > 0 else (STAT_NEGATIVE if pct < 0 else STAT_NEUTRAL)
-        lbl.setText(f"{sign}{pct:.0f}%")
+        lbl.setText(f"{sign}{pct:.0f}" if additive else f"{sign}{pct:.0f}%")
         lbl.setStyleSheet(f"color: {color}; font-size: 8pt; font-weight: bold; border: none;")
 
     def _on_slot_quality_changed(self, slot_idx: int, val: int):

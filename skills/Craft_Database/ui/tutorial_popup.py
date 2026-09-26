@@ -53,19 +53,20 @@ def _html(body: str) -> str:
 _TAB_GETTING_STARTED = _html(f"""
 {_h3("Welcome to the Craft Database", _C_START)}
 <p>This tool lets you browse and filter all <b>crafting blueprints</b>
-available in Star Citizen, powered by
-<span style="{_ACC}">sc-craft.tools</span> data.</p>
+in Star Citizen, read from the game's own data files as datamined by
+<span style="{_ACC}">StarCitizenWiki/scunpacked-data</span>.</p>
 
 {_h4("Data Loading", _C_START)}
-<p>On launch the tool fetches blueprint data from sc-craft.tools and caches it
-locally for <b>1 hour</b>. The stats bar at the top shows the total blueprint
-count, unique ingredient count, and current game version once loading is complete.</p>
+<p>The blueprints come from one pinned game build (shown at the top right,
+e.g. <b>Game data: 4.10.1-LIVE</b>). They are downloaded once (about 4 MB)
+with the <b>Download</b> button and kept on disk, so the tool then works
+fully offline. The stats bar shows the blueprint and ingredient counts.</p>
 
 {_h4("Layout", _C_START)}
 <p>The window is split into two areas:</p>
 <ul>
-  <li><b>Left panel</b> &mdash; Filter controls (category, resource, mission type,
-      location, contractor, ownable toggle)</li>
+  <li><b>Left panel</b> &mdash; Filter controls (category, resource,
+      obtainable toggle)</li>
   <li><b>Center</b> &mdash; Search bar, blueprint grid, and pagination</li>
 </ul>
 
@@ -88,7 +89,8 @@ debounce delay.</p>
   <li><b>Blueprint name</b> and <b>craft time</b></li>
   <li>An <b>Own</b> button to add the blueprint to your inventory</li>
   <li>Up to four <b>ingredient pills</b> with resource name and quantity</li>
-  <li>Number of <b>source missions</b> that reward this blueprint</li>
+  <li>How the blueprint is obtained: <b>known by default</b> or the number
+      of <b>mission reward pools</b> that give it</li>
 </ul>
 <p>Click anywhere on a card (or the <span style="{_ACC}">\u2197</span> button)
 to open a <b>detail popup</b> with full crafting information.</p>
@@ -102,29 +104,25 @@ blueprints match the current filters.</p>
 _TAB_FILTERS = _html(f"""
 {_h3("Filter Panel", _C_FILTER)}
 
-{_h4("Ownable Only", _C_FILTER)}
-<p>Check this box to show only blueprints that can be <b>owned</b>
-(i.e. learnable by the player rather than faction-locked).</p>
+{_h4("Obtainable Only", _C_FILTER)}
+<p>Check this box to show only blueprints a player can actually get:
+known by default, or given by at least one mission reward pool. The game
+files also hold recipes nothing hands out yet.</p>
 
 {_h4("Category", _C_FILTER)}
-<p>Filter by item type + subtype, e.g. <b>Weapons / Sniper</b> or
-<b>Armour / Combat / Heavy</b>. Type to fuzzy-search the dropdown.</p>
+<p>Filter by item type, e.g. <b>Weapons / Sniper</b>,
+<b>Armour / Heavy / Core</b> or <b>Ship Components / Shield</b>. Picking a
+top level (<b>Armour</b>) includes everything under it. Type to fuzzy-search
+the dropdown.</p>
 
 {_h4("Resource", _C_FILTER)}
 <p>Show only blueprints that require a specific crafting material,
 e.g. <b>Tungsten</b> or <b>Taranite</b>.</p>
 
-{_h4("Mission Type", _C_FILTER)}
-<p>Filter blueprints by the type of mission that drops them,
-e.g. <b>Mercenary</b>, <b>Bounty Hunter</b>, or <b>Delivery</b>.</p>
-
-{_h4("Location", _C_FILTER)}
-<p>Show only blueprints dropped by missions available in a specific
-star system or location, e.g. <b>Pyro</b> or <b>Stanton</b>.</p>
-
-{_h4("Contractor", _C_FILTER)}
-<p>Filter by the mission-giving faction, e.g. <b>BHG</b>, <b>Shubin</b>,
-or <b>CfP</b>.</p>
+{_h4("Missions", _C_FILTER)}
+<p>The game data names the <b>reward pool</b> a blueprint comes from, not
+the individual missions, contractors or drop chances. For which missions
+give a blueprint, use the <b>Mission Database</b>.</p>
 
 {_h4("Clear Filters", _C_FILTER)}
 <p>Click the <span style="{_DIM}">Clear Filters</span> button at the bottom
@@ -147,8 +145,8 @@ blueprints you currently own. When active, the button highlights and the
 grid switches to show only your owned blueprints.</p>
 
 {_h4("Filtering Your Inventory", _C_INV)}
-<p>All sidebar filters (category, resource, mission type, location,
-contractor) and the search bar work in inventory mode too, letting you
+<p>All sidebar filters (category, resource) and the search bar work in
+inventory mode too, letting you
 quickly find specific blueprints among your collection.</p>
 
 {_h4("Removing a Blueprint", _C_INV)}
@@ -185,10 +183,10 @@ update in real time as you move each slider.</p>
 <p>A table below the parts lists every affected stat with its crafted
 modifier at the current quality value.</p>
 
-{_h4("Source Missions", _C_DETAIL)}
-<p>If the blueprint is rewarded by missions, they are listed at the
-bottom grouped by lawfulness and mission type. Each entry shows the
-mission name, contractor, location, and drop chance.</p>
+{_h4("Obtained From", _C_DETAIL)}
+<p>At the bottom: <b>known by default</b>, or the mission reward pools
+that give this blueprint (as named in the game files). The dismantle time is shown next to
+the craft time (hover it for the share of materials returned).</p>
 
 {_h4("Pin &amp; Close", _C_DETAIL)}
 <p>Click <span style="{_GRN}">Pin</span> to lock a popup in place so it
@@ -206,8 +204,7 @@ closed to keep the screen tidy. Pinned popups are never auto-closed.</p>
 
 {_h4("Combined Filters", _C_TIPS)}
 <p>All filters work together. For example, set <b>Resource = Tungsten</b> and
-<b>Location = Pyro</b> to find blueprints that need Tungsten <em>and</em>
-are rewarded by Pyro missions.</p>
+<b>Category = Ship Components</b> to find components that need Tungsten.</p>
 
 {_h4("Fuzzy Search in Dropdowns", _C_TIPS)}
 <p>Every filter dropdown supports fuzzy matching &mdash; you don't need to
@@ -218,8 +215,8 @@ type the exact name. Typing <b>sni</b> will find <b>Weapons / Sniper</b>.</p>
 Drag the title bar to move it out of the way.</p>
 
 {_h4("Data Refresh", _C_TIPS)}
-<p>Cached data expires after 1 hour. Restart the tool or send a
-<b>refresh</b> IPC command to force a fresh fetch from sc-craft.tools.</p>
+<p>The data is pinned to one game build and does not expire. A toolbox
+update moves it to a newer build; the tool then offers the download again.</p>
 """)
 
 _TABS = [

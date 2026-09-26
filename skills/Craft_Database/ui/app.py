@@ -63,6 +63,7 @@ class CraftDatabaseApp(SCWindow):
         self._current_page = 1
         self._search_text = ""
         self._inventory_mode = False
+        self._hints_set = False
 
         self._build_ui()
         self._data_ready.connect(self._on_data_ready)
@@ -129,7 +130,11 @@ class CraftDatabaseApp(SCWindow):
         self._inv_btn.clicked.connect(self._toggle_inventory)
         stats_lay.addWidget(self._inv_btn)
 
-        self._version_lbl = QLabel("")
+        # Which game build the data is from (pinned datamine, not a live feed)
+        self._version_lbl = QLabel(self._repo.game_label())
+        self._version_lbl.setToolTip(
+            "Crafting blueprints datamined from the game files "
+            "(StarCitizenWiki/scunpacked-data, pinned build)")
         self._version_lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 8pt;")
         stats_lay.addWidget(self._version_lbl)
 
@@ -156,7 +161,7 @@ class CraftDatabaseApp(SCWindow):
 
         # Search bar
         self._search_bar = SCSearchBar(
-            placeholder="Search by name, resource, contractor...",
+            placeholder="Search by name, category, resource...",
             debounce_ms=400,
         )
         self._search_bar.search_changed.connect(self._on_search)
@@ -166,6 +171,31 @@ class CraftDatabaseApp(SCWindow):
         self._result_lbl = QLabel("")
         self._result_lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 8pt;")
         center_lay.addWidget(self._result_lbl)
+
+        # No data yet: one line + Download (hidden once data is loaded)
+        self._nodata = QWidget()
+        nd_lay = QHBoxLayout(self._nodata)
+        nd_lay.setContentsMargins(0, 4, 0, 4)
+        nd_lay.setSpacing(8)
+        self._nodata_lbl = QLabel("")
+        self._nodata_lbl.setWordWrap(True)
+        self._nodata_lbl.setStyleSheet(f"color: {P.fg}; font-size: 9pt;")
+        nd_lay.addWidget(self._nodata_lbl, 1)
+        self._download_btn = QPushButton("Download")
+        self._download_btn.setCursor(Qt.PointingHandCursor)
+        self._download_btn.setToolTip(
+            "Download the crafting blueprints (about 4 MB, pinned game build) "
+            "from GitHub. Needed once; after that the tool works offline.")
+        self._download_btn.setStyleSheet(
+            f"QPushButton {{ color: {TOOL_COLOR}; background: transparent;"
+            f"border: 1px solid {TOOL_COLOR}; border-radius: 3px;"
+            f"padding: 3px 12px; font-size: 8pt; font-weight: bold; }}"
+            f"QPushButton:hover {{ background: {P.bg_input}; }}"
+        )
+        self._download_btn.clicked.connect(self._start_download)
+        nd_lay.addWidget(self._download_btn)
+        self._nodata.hide()
+        center_lay.addWidget(self._nodata)
 
         # Blueprint grid
         self._grid = BlueprintGrid()
@@ -220,20 +250,48 @@ class CraftDatabaseApp(SCWindow):
 
     def _start_loading(self):
         self._loading_lbl.show()
+        self._result_lbl.setText("Loading blueprints...")
         self._repo.load_async(on_done=lambda: self._data_ready.emit())
+
+    def _start_download(self):
+        self._download_btn.setEnabled(False)
+        self._nodata_lbl.setText("Downloading crafting data...")
+        self._repo.download_async(on_done=lambda: self._data_ready.emit())
+
+    def _show_nodata(self, text: str):
+        self._nodata_lbl.setText(text)
+        self._download_btn.setEnabled(True)
+        self._nodata.show()
 
     def _on_data_ready(self):
         self._loading_lbl.hide()
 
+        if not self._repo.is_loaded():
+            err = self._repo.get_error() or ""
+            if self._repo.is_missing() or err.startswith("Download failed"):
+                msg = (f"Crafting data for {self._repo.game_label()[len('Game data: '):]}"
+                       " is not downloaded yet.")
+                if err.startswith("Download failed"):
+                    msg = "Download failed. Check the connection and try again."
+                self._show_nodata(msg)
+                self._result_lbl.setText("")
+            else:
+                self._show_nodata(f"Crafting data could not be read: {err}")
+                self._result_lbl.setText("")
+            if self._inventory_mode:
+                self._refresh_inventory_grid()
+            return
+
+        self._nodata.hide()
         stats = self._repo.get_stats()
         if stats:
             self._bp_count_lbl.setText(f"{stats.total_blueprints:,}")
             self._ing_count_lbl.setText(f"{stats.unique_ingredients}")
-            self._version_lbl.setText(str(stats.version))
 
         hints = self._repo.get_hints()
-        if hints:
+        if hints and not self._hints_set:
             self._filter_panel.set_hints(hints)
+            self._hints_set = True
 
         self._refresh_grid()
 
@@ -250,7 +308,7 @@ class CraftDatabaseApp(SCWindow):
 
         self._grid.set_blueprints(blueprints, owned_ids=owned_ids, inventory_mode=False)
         self._pagination.set_pagination(pag.page, pag.pages)
-        self._result_lbl.setText(f"{pag.total} results")
+        self._result_lbl.setText(f"{pag.total:,} results")
 
     def _get_filter_values(self) -> dict[str, str]:
         """Return sanitised filter values from the sidebar."""
@@ -311,6 +369,8 @@ class CraftDatabaseApp(SCWindow):
     def _fetch_with_filters(self, page: int = 1):
         if self._inventory_mode:
             self._refresh_inventory_grid()
+            return
+        if not self._repo.is_loaded():
             return
 
         fv = self._get_filter_values()
@@ -388,7 +448,10 @@ class CraftDatabaseApp(SCWindow):
         elif action == "quit":
             QApplication.instance().quit()
         elif action == "refresh":
-            self._fetch_with_filters(page=self._current_page)
+            if self._repo.is_loaded():
+                self._fetch_with_filters(page=self._current_page)
+            else:
+                self._start_loading()
         else:
             self.handle_ipc_command(cmd)
 

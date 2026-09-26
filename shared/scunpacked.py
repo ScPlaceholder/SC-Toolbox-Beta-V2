@@ -72,6 +72,13 @@ FILES = ("ships.json", "ship-items.json")
 # the DPS path): every FPS item (26 MB) and the full item list (67 MB, where
 # the Stor*All crates live), from the SAME pinned commit.
 LOOT_FILES = ("fps-items.json", "items.json")
+# Craft Database: the crafting blueprints of the SAME pinned commit (3.7 MB,
+# 1,607 recipes with ingredient names already resolved). Never fetched by the
+# DPS path. The sha256 is pinned so a changed or corrupted file is refused.
+CRAFT_FILES = ("blueprints.json",)
+PINNED_SHA256 = {
+    "blueprints.json": "1166b9b77382e6866c7a3f42be971204ca242ca5e2fa136073ba6e212e788cf3",
+}
 INDEX_FILE = "guns_index.json"
 ADAPTER_VERSION = 7          # 7: Slayer fire interval + per-shot-overheat sustain; 6: camera-turret ports; 5: pellets, spread, range
 
@@ -156,12 +163,16 @@ def _sha256_file(path: str) -> str:
 
 
 def fetch_raw(build: str = BUILD, commit: str = COMMIT, timeout: float = 120.0,
-              files_wanted: tuple = FILES, dest: Optional[str] = None) -> dict:
+              files_wanted: tuple = FILES, dest: Optional[str] = None,
+              expect_sha256: Optional[dict] = None) -> dict:
     """Download the raw files once (skips files already on disk); writes meta.json.
 
     files_wanted: which files of the pinned commit (default: the DPS pair;
-    the Cargo Loader's crates ask for ``("ship-items.json",) + LOOT_FILES``).
+    the Cargo Loader's crates ask for ``("ship-items.json",) + LOOT_FILES``;
+    the Craft Database asks for CRAFT_FILES).
     dest: a directory to use instead of the cache (tests, verification).
+    expect_sha256: {file: sha256}; a file (new or already on disk) whose hash
+    differs is deleted and ScunpackedError is raised. Default: no check.
     Each file asked for gets its size and sha256 recorded in meta.json.
     """
     d = dest or cache_dir(build)
@@ -184,7 +195,13 @@ def fetch_raw(build: str = BUILD, commit: str = COMMIT, timeout: float = 120.0,
             if data.lstrip()[:1] not in (b"[", b"{"):
                 raise ScunpackedError(f"{name} from {REPO} is not JSON (LFS pointer?)")
             _atomic_write(path, data)
-        files[name] = {"bytes": os.path.getsize(path), "sha256": _sha256_file(path)}
+        sha = _sha256_file(path)
+        want = (expect_sha256 or {}).get(name)
+        if want and sha != want:
+            os.remove(path)
+            raise ScunpackedError(f"{name} from {REPO} failed its sha256 check "
+                                  f"(got {sha[:12]}, pinned {want[:12]})")
+        files[name] = {"bytes": os.path.getsize(path), "sha256": sha}
     meta.update({
         "source": REPO, "build": build, "commit": commit, "files": files,
         "fetched_at": meta.get("fetched_at")
