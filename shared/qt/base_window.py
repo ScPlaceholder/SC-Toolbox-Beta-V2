@@ -443,6 +443,11 @@ class SCWindow(QMainWindow):
         screen = QGuiApplication.primaryScreen()
         if screen:
             sg = screen.availableGeometry()
+            # Clamp the SIZE too, not just the position: a default sized for a 1440p/4K
+            # screen opened Cargo Loader at 2925x1800 on a 2560x1600 laptop (150% scaling)
+            # in the 2.4.0 install test, with its right-hand panel off-screen.
+            w = min(w, sg.width())
+            h = min(h, sg.height())
             x = max(sg.x(), min(x, sg.right() - w))
             y = max(sg.y(), min(y, sg.bottom() - h))
         self.resize(w, h)
