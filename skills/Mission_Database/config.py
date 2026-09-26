@@ -8,6 +8,11 @@ SCMDB_BASE = SCMDB_BASE_URL
 API_HEADERS = SCMDB_HEADERS
 CACHE_TTL     = CACHE_TTL_ERKUL
 CACHE_VERSION = 1
+# How often showing (or launching) the window may ask scmdb.net whether a new
+# game version / patch has been published.  One small versions.json GET per
+# check; a check already in flight is reused, never duplicated.  Showing the
+# window twice inside this interval does not contact scmdb.net again.
+VERSION_RECHECK_INTERVAL = 5 * 60   # seconds
 
 # ── Tag colours (background, foreground) ─────────────────────────────────────
 TAG_COLORS = {

@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 
 from shared.api_config import SCMDB_TIMEOUT
+from shared.errors import Result
 from shared.http_client import HttpClient
 
 from config import SCMDB_BASE, API_HEADERS
@@ -32,6 +33,24 @@ def fetch_json(url: str, timeout: int = 30) -> Optional[dict]:
     return None
 
 
+def fetch_json_result(url: str) -> Result:
+    """Like :func:`fetch_json` but keeps the failure reason.
+
+    Lets callers tell "scmdb.net has no such file" (HTTP 404) apart from
+    "could not reach scmdb.net", which need different messages.
+    """
+    endpoint = url[len(SCMDB_BASE):] if url.startswith(SCMDB_BASE) else url
+    result = _client.get_json(endpoint)
+    if not result.ok:
+        log.warning("Fetch error for %s: %s", url, result.error)
+    return result
+
+
+def is_not_found(result: Result) -> bool:
+    """True when a failed Result means the file does not exist upstream."""
+    return (not result.ok) and str(result.error or "").startswith("HTTP 404")
+
+
 def fetch_versions() -> list:
     return fetch_json(f"{SCMDB_BASE}/data/versions.json") or []
 
@@ -42,6 +61,14 @@ def fetch_game_data(file_name: str) -> Optional[dict]:
 
 def fetch_crafting_blueprints(version: str) -> Optional[dict]:
     return fetch_json(f"{SCMDB_BASE}/data/crafting_blueprints-{version}.json")
+
+
+def fetch_crafting_blueprints_result(version: str) -> Result:
+    return fetch_json_result(f"{SCMDB_BASE}/data/crafting_blueprints-{version}.json")
+
+
+def fetch_crafting_items_result(version: str) -> Result:
+    return fetch_json_result(f"{SCMDB_BASE}/data/crafting_items-{version}.json")
 
 
 def fetch_crafting_items(version: str) -> Optional[dict]:

@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Optional
 
-from config import MINING_GROUP_TYPES, HIDDEN_LOCATIONS
+from config import MINING_GROUP_TYPES, HIDDEN_LOCATIONS, VERSION_RECHECK_INTERVAL
 from data import api, cache
 from services.indexing import (
     index_contracts,
@@ -14,6 +14,13 @@ from services.indexing import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def format_as_of(ts: float) -> str:
+    """Human 'as of' stamp for a cache timestamp (local time)."""
+    if not ts:
+        return "an unknown time"
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
 
 
 class MissionDataManager:
@@ -50,6 +57,16 @@ class MissionDataManager:
         self.max_reward = 0
         self.available_versions: list = []  # [{version, file}, ...]
 
+        # Freshness of the mission data currently held.
+        #   data_source: "network" | "cache" (within TTL) | "stale" (expired
+        #   cache served because scmdb.net could not be reached)
+        self.data_source = ""
+        self.data_as_of = 0.0
+        self.notice: Optional[str] = None   # player-facing status override
+        # Upstream version check (one versions.json GET per show, throttled)
+        self._check_inflight = False
+        self._last_check = 0.0              # time.monotonic() of last attempt
+
         # Crafting / Fabricator data
         self.crafting_blueprints: list = []
         self.crafting_items: list = []
@@ -63,6 +80,14 @@ class MissionDataManager:
         self.crafting_manufacturers: dict = {}
         self.crafting_loaded = False
         self.crafting_loading = False
+        # Which game version the crafting data belongs to ("" = never tried).
+        # A load that FAILED still records the version it tried, so a page
+        # switch does not re-hit the network; the show-check retries it.
+        self.crafting_version = ""
+        self.crafting_as_of = 0.0
+        self.crafting_stale = False          # served from expired cache
+        self.crafting_error: Optional[str] = None   # network failure, no cache
+        self._crafting_force = False
 
         # Mining / Resources data
         self.mining_locations: list = []
@@ -89,7 +114,14 @@ class MissionDataManager:
     # Core load (latest LIVE or PTU)
     # ------------------------------------------------------------------
 
-    def load(self, on_done=None) -> None:
+    def load(self, on_done=None, force: bool = False) -> None:
+        """Load the latest mission data.
+
+        Order: fresh cache (within CACHE_TTL) -> scmdb.net -> expired cache.
+        ``force`` skips the fresh-cache step (manual refresh) but still falls
+        back to the cache if scmdb.net cannot be reached, so a refresh while
+        offline never empties the window.
+        """
         with self._lock:
             if self.loading:
                 return
@@ -97,32 +129,146 @@ class MissionDataManager:
 
         def _run():
             try:
-                data = cache.load_cache()
-                if data:
-                    # Restore metadata that the original code stored in cache
-                    self.version = data.get("_scmdb_version", "")
-                    self.available_versions = data.get("_versions", [])
-                else:
-                    data = self._fetch_fresh()
+                data = None
+                source = ""
+                if not force:
+                    data = cache.load_cache()
                     if data:
-                        cache.save_cache(data)
+                        source = "cache"
+                if not data:
+                    with self._lock:
+                        self._last_check = time.monotonic()
+                    fresh = self._fetch_fresh()
+                    if fresh:
+                        cache.save_cache(fresh)
+                        data, source = fresh, "network"
+                if not data:
+                    data = cache.load_cache_any_age()
+                    if data:
+                        source = "stale"
+                        log.warning("scmdb.net unreachable; serving cache as of %s",
+                                    format_as_of(cache.cache_timestamp(data)))
 
                 if not data:
-                    self.error = "Failed to fetch mission data"
+                    with self._lock:
+                        self.error = ("Could not reach scmdb.net and no cached "
+                                      "mission data exists yet")
                     return
 
+                if source != "network":
+                    # Restore metadata that was stored in the cache
+                    self.version = data.get("_scmdb_version", "")
+                    self.available_versions = data.get("_versions", [])
+
                 indexed = index_contracts(data)
+                with self._lock:
+                    self.error = None
+                    self.data_source = source
+                    self.data_as_of = cache.cache_timestamp(data)
+                    self.notice = self._stale_notice() if source == "stale" else None
                 self._apply_index(indexed, mark_loaded=True)
 
             except (OSError, KeyError, TypeError, ValueError) as exc:
                 self.error = str(exc)
+            finally:
                 with self._lock:
                     self.loading = False
-            finally:
                 if on_done:
                     on_done()
 
         threading.Thread(target=_run, daemon=True).start()
+
+    def _stale_notice(self) -> str:
+        return ("scmdb.net unreachable -- showing cached data as of "
+                f"{format_as_of(self.data_as_of)}")
+
+    # ------------------------------------------------------------------
+    # Per-show upstream check (new patch detection)
+    # ------------------------------------------------------------------
+
+    def check_for_update(self, channel: str, on_reload=None, on_checked=None,
+                         force: bool = False) -> bool:
+        """Ask scmdb.net (versions.json) whether *channel* has a new version.
+
+        Called every time the window is shown and once after launch.  At most
+        one check runs at a time and, unless ``force``, at most one per
+        VERSION_RECHECK_INTERVAL, so rapid show/hide never hammers scmdb.net.
+
+        * new version  -> ``load_version`` it; ``on_reload`` fires when done.
+        * same version but we were serving an expired cache -> reload fresh.
+        * unreachable  -> keep current data, set ``notice``; ``on_checked``.
+        * current      -> clear any offline notice; ``on_checked``.
+
+        Returns True if a check was started.
+        """
+        now = time.monotonic()
+        with self._lock:
+            if self.loading or self._check_inflight or not self.loaded:
+                return False
+            if (not force and self._last_check
+                    and now - self._last_check < VERSION_RECHECK_INTERVAL):
+                return False
+            self._check_inflight = True
+            self._last_check = now
+
+        def _run():
+            reload_started = False
+            try:
+                fresh = api.fetch_versions()
+                if not fresh:
+                    with self._lock:
+                        self.notice = ("scmdb.net unreachable -- showing cached data "
+                                       f"as of {format_as_of(self.data_as_of)}")
+                    return
+                chan = (channel or "live").lower()
+                new_ver = ""
+                for v in fresh:
+                    ver = v.get("version", "")
+                    if chan in ver.lower():
+                        new_ver = ver
+                        break
+                with self._lock:
+                    self.available_versions = fresh
+                    stale = self.data_source == "stale"
+                    current = self.version
+                if new_ver and new_ver != current:
+                    log.info("scmdb.net has a new version: %s (was %s)", new_ver, current)
+                    reload_started = True
+                    self.load_version(new_ver, on_done=on_reload)
+                elif stale:
+                    reload_started = True
+                    # Back online on the same version: replace the expired cache.
+                    self.load(on_done=on_reload, force=True)
+                else:
+                    with self._lock:
+                        self.notice = None
+            except (OSError, KeyError, TypeError, ValueError) as exc:
+                log.warning("version check failed: %s", exc)
+            finally:
+                with self._lock:
+                    self._check_inflight = False
+                if not reload_started and on_checked:
+                    on_checked()
+
+        threading.Thread(target=_run, daemon=True).start()
+        return True
+
+    def crafting_needs_load(self) -> bool:
+        """True if crafting data was never attempted for the current version."""
+        with self._lock:
+            return bool(self.version) and self.crafting_version != self.version
+
+    def crafting_needs_retry(self) -> bool:
+        """True if the crafting data we hold is not a fresh copy (failed/stale)."""
+        with self._lock:
+            return (self.crafting_version == self.version and bool(self.version)
+                    and (self.crafting_stale or self.crafting_error is not None))
+
+    def invalidate_crafting(self, force_network: bool = False) -> None:
+        """Mark crafting data as needing a reload (e.g. manual refresh)."""
+        with self._lock:
+            self.crafting_version = ""
+            self._crafting_force = force_network
 
     def _fetch_fresh(self, prefer: str = "live") -> Optional[dict]:
         """Fetch versions.json then the preferred merged data (live or ptu)."""
@@ -161,50 +307,79 @@ class MissionDataManager:
         """Load a specific game version (e.g. '4.7.0-ptu...' or '4.6.0-live...')."""
         ver_cache_path = cache.version_cache_path(version_str)
 
+        def _find(versions):
+            for v in versions or []:
+                if v.get("version") == version_str:
+                    return v
+            return None
+
         def _run():
             try:
                 # Try version-specific cache first
                 data = cache.load_cache(ver_cache_path)
+                source = "cache" if data else ""
+                failure = ""
 
                 if not data:
-                    # Find the file for this version
-                    versions = self.available_versions or api.fetch_versions()
-                    target = None
-                    for v in versions:
-                        if v.get("version") == version_str:
-                            target = v
-                            break
+                    # Find the file for this version.  The in-memory list may
+                    # predate the version (e.g. restored from an old cache),
+                    # so ask scmdb.net once if it is not listed.
+                    versions = self.available_versions
+                    target = _find(versions)
                     if not target:
-                        self.error = f"Version {version_str} not found"
-                        return
-
-                    file_name = target.get("file", "")
-                    data = api.fetch_game_data(file_name)
-                    if data:
-                        data["_scmdb_version"] = version_str
-                        data["_versions"] = versions
-                        cache.save_cache(data, ver_cache_path)
+                        versions = api.fetch_versions() or versions
+                        target = _find(versions)
+                        if versions:
+                            self.available_versions = versions
+                    if not target:
+                        failure = f"Version {version_str} not found"
+                    else:
+                        file_name = target.get("file", "")
+                        data = api.fetch_game_data(file_name) if file_name else None
+                        if data:
+                            data["_scmdb_version"] = version_str
+                            data["_versions"] = versions
+                            cache.save_cache(data, ver_cache_path)
+                            source = "network"
+                        else:
+                            failure = f"Failed to fetch {version_str}"
 
                 if not data:
-                    self.error = f"Failed to fetch {version_str}"
+                    data = cache.load_cache_any_age(ver_cache_path)
+                    if data:
+                        source = "stale"
+
+                if not data:
+                    with self._lock:
+                        if had_data:
+                            # Keep showing what we had rather than blanking it.
+                            self.loaded = True
+                            self.error = None
+                            self.notice = (f"{failure} from scmdb.net -- still "
+                                           f"showing {self.version}")
+                        else:
+                            self.error = failure or f"Failed to fetch {version_str}"
                     return
 
                 self.version = version_str
                 indexed = index_contracts(data)
-                self._apply_index(indexed, mark_loaded=True)
-
                 with self._lock:
                     self.error = None
+                    self.data_source = source
+                    self.data_as_of = cache.cache_timestamp(data)
+                    self.notice = self._stale_notice() if source == "stale" else None
+                self._apply_index(indexed, mark_loaded=True)
 
             except (OSError, KeyError, TypeError, ValueError) as exc:
                 self.error = str(exc)
+            finally:
                 with self._lock:
                     self.loading = False
-            finally:
                 if on_done:
                     on_done()
 
         with self._lock:
+            had_data = self.loaded
             self.loading = True
             self.loaded = False
         threading.Thread(target=_run, daemon=True).start()
@@ -213,13 +388,21 @@ class MissionDataManager:
     # Crafting / Fabricator data
     # ------------------------------------------------------------------
 
-    def load_crafting(self, on_done=None) -> None:
-        """Fetch crafting_blueprints and crafting_items JSONs for the current version."""
+    def load_crafting(self, on_done=None, force: bool = False) -> None:
+        """Load crafting_blueprints + crafting_items for the current version.
+
+        Order: fresh per-version cache (within CACHE_TTL) -> scmdb.net ->
+        expired per-version cache.  A network failure is recorded in
+        ``crafting_error`` (never reported as "no data for this version"),
+        and an expired cache is flagged ``crafting_stale`` with its time.
+        """
         with self._lock:
             if self.crafting_loading:
                 log.debug("load_crafting: already in progress, skipping")
                 return
             self.crafting_loading = True
+            force = force or self._crafting_force
+            self._crafting_force = False
 
         ver = self.version
         if not ver:
@@ -231,8 +414,43 @@ class MissionDataManager:
 
         def _run():
             try:
-                bp_data = api.fetch_crafting_blueprints(ver)
-                items_data = api.fetch_crafting_items(ver) if bp_data else None
+                path = cache.crafting_cache_path(ver)
+                bp_data = items_data = None
+                source = ""
+                net_error: Optional[str] = None
+                as_of = 0.0
+
+                cached = None if force else cache.load_cache(path)
+                if cached and cached.get("_scmdb_version") == ver:
+                    bp_data, items_data = cached.get("bp"), cached.get("items")
+                    source = "cache"
+                    as_of = cache.cache_timestamp(cached)
+                else:
+                    bp_res = api.fetch_crafting_blueprints_result(ver)
+                    if bp_res.ok and bp_res.data:
+                        items_res = api.fetch_crafting_items_result(ver)
+                        if items_res.ok:
+                            bp_data, items_data = bp_res.data, items_res.data
+                            source = "network"
+                            cache.save_cache({"_scmdb_version": ver, "bp": bp_data,
+                                              "items": items_data}, path)
+                        else:
+                            net_error = items_res.error or "crafting items fetch failed"
+                    elif not api.is_not_found(bp_res):
+                        net_error = bp_res.error or "crafting blueprints fetch failed"
+
+                    if source != "network":
+                        stale = cache.load_cache_any_age(path)
+                        if stale and stale.get("_scmdb_version") == ver:
+                            bp_data, items_data = stale.get("bp"), stale.get("items")
+                            source = "stale"
+                            as_of = cache.cache_timestamp(stale)
+                        elif net_error and bp_res.ok and bp_res.data:
+                            # Blueprints arrived, item names did not and there is
+                            # no cache: show blueprints (names fall back) and say so.
+                            bp_data, source = bp_res.data, "partial"
+                    if source == "network":
+                        as_of = time.time()
 
                 # Build all data in local variables first
                 _blueprints = bp_data.get("blueprints", []) if bp_data else []
@@ -258,6 +476,10 @@ class MissionDataManager:
 
                 # Atomically swap under lock
                 with self._lock:
+                    self.crafting_version = ver
+                    self.crafting_as_of = as_of
+                    self.crafting_stale = source in ("stale", "partial")
+                    self.crafting_error = net_error if source in ("", "partial") else None
                     self.crafting_blueprints = _blueprints
                     self.crafting_resources = _resources
                     self.crafting_gem_items = _gem_items
@@ -278,6 +500,8 @@ class MissionDataManager:
                 log.warning("load_crafting error: %s", exc)
                 with self._lock:
                     self.crafting_loaded = False
+                    self.crafting_version = ver
+                    self.crafting_error = str(exc)
             finally:
                 with self._lock:
                     self.crafting_loading = False

@@ -18,7 +18,7 @@ from shared.qt.theme import P
 from shared.qt.base_window import SCWindow
 from shared.qt.title_bar import SCTitleBar
 from shared.qt.ipc_thread import IPCWatcher
-from data.manager import MissionDataManager
+from data.manager import MissionDataManager, format_as_of
 from data import api, cache
 from services.inventory import InventoryService
 from ui.pages.missions import MissionsPage
@@ -65,6 +65,14 @@ class MissionDBApp(SCWindow):
         self._sig_version.fire_str.connect(self._version_label_set)
         self._sig_apply = _ThreadSignal(self)
         self._sig_apply.fire_object.connect(self._run_on_main)
+        self._sig_checked = _ThreadSignal(self)
+        self._sig_checked.fire.connect(self._on_update_checked)
+
+        # ONE repeating timer (a singleShot re-armed from every data load
+        # multiplied into parallel chains, each polling scmdb.net).
+        self._auto_timer = QTimer(self)
+        self._auto_timer.setInterval(30 * 60 * 1000)
+        self._auto_timer.timeout.connect(self._check_auto_refresh)
 
         self._build_ui()
         self._start_ipc()
@@ -230,10 +238,7 @@ class MissionDBApp(SCWindow):
                     on_open_detail=self._open_blueprint_detail_q)
                 self._fab_idx = self._stack.addWidget(self._fabricator)
             self._stack.setCurrentIndex(self._fab_idx)
-            if not self._data.is_crafting_loaded() and self._data.is_data_loaded():
-                self._status_label.setText(_("Loading crafting data..."))
-                self._data.load_crafting(
-                    on_done=lambda: self._sig_crafting_loaded.fire.emit())
+            self._ensure_crafting()
 
         elif page_key == "resources":
             if self._resources is None:
@@ -253,10 +258,27 @@ class MissionDBApp(SCWindow):
                 self._owned_idx = self._stack.addWidget(self._owned_page)
             self._stack.setCurrentIndex(self._owned_idx)
             self._owned_page.refresh()
-            if not self._data.is_crafting_loaded() and self._data.is_data_loaded():
-                self._status_label.setText(_("Loading crafting data..."))
-                self._data.load_crafting(
-                    on_done=lambda: self._sig_crafting_loaded.fire.emit())
+            self._ensure_crafting()
+
+    def _crafting_wanted(self) -> bool:
+        """True if a page that shows blueprints is open or has been built."""
+        return (self._current_page in ("fabricator", "owned")
+                or self._fabricator is not None or self._owned_page is not None)
+
+    def _ensure_crafting(self, retry: bool = False) -> None:
+        """Load crafting blueprints if they do not belong to the current version.
+
+        Never refetches on navigation once a version has been attempted;
+        ``retry`` (used by the show-check) re-attempts a failed/stale load.
+        """
+        if not self._data.is_data_loaded():
+            return
+        if self._data.crafting_needs_load() or (retry and self._data.crafting_needs_retry()):
+            self._status_label.setText(_("Loading crafting data..."))
+            if self._fabricator:
+                self._fabricator.set_count_message(_("Loading crafting data..."))
+            self._data.load_crafting(
+                on_done=lambda: self._sig_crafting_loaded.fire.emit())
 
     def _open_blueprint_detail(self, bp: dict):
         self._open_blueprint_detail_q(bp, 750)
@@ -279,7 +301,7 @@ class MissionDBApp(SCWindow):
             self._status_label.setText(f"Error: {self._data.error}")
             return
 
-        self._status_label.setText(_("Ready"))
+        self._status_label.setText(self._data.notice or _("Ready"))
         self._version_label.setText(self._data.version)
 
         ver_lower = self._data.version.lower()
@@ -289,16 +311,27 @@ class MissionDBApp(SCWindow):
         self._missions.populate_dropdowns()
         self._missions.on_filter_change()
 
-        if self._current_page == "fabricator":
-            self._status_label.setText(_("Loading crafting data..."))
-            if self._fabricator:
-                self._fabricator.set_count_message(_("Loading crafting data..."))
-            self._data.load_crafting(
-                on_done=lambda: self._sig_crafting_loaded.fire.emit())
+        # Blueprints belong to a game version: after a patch (or refresh) the
+        # old version's blueprints must not stay on screen.
+        if self._crafting_wanted():
+            self._ensure_crafting()
 
         self._schedule_auto_refresh()
 
+        # Served from disk without asking scmdb.net: check for a new patch
+        # now (one versions.json GET; throttled and de-duplicated).
+        if self._data.data_source != "network":
+            self._check_upstream()
+
     def _on_crafting_loaded(self):
+        if not self._data.crafting_loaded and self._data.crafting_error:
+            # Network failure with no cached copy.  This is NOT "this version
+            # has no crafting data" -- do not switch channels over it.
+            msg = _("Could not reach scmdb.net for crafting blueprints and none are cached -- will retry when the window is shown again")
+            self._status_label.setText(msg)
+            if self._fabricator:
+                self._fabricator.set_count_message(msg)
+            return
         if not self._data.crafting_loaded or not self._data.crafting_blueprints:
             ver = self._data.version or "?"
             is_live = "live" in ver.lower()
@@ -317,7 +350,13 @@ class MissionDBApp(SCWindow):
                 self._fabricator.set_count_message(msg)
             return
 
-        self._status_label.setText(_("Ready"))
+        if self._data.crafting_stale:
+            self._status_label.setText(
+                _("Crafting blueprints: cached, as of") + " "
+                + format_as_of(self._data.crafting_as_of)
+                + " " + _("(scmdb.net unreachable)"))
+        else:
+            self._status_label.setText(self._data.notice or _("Ready"))
         if self._fabricator:
             self._fabricator.on_filter_change()
         if self._owned_page is not None:
@@ -351,34 +390,41 @@ class MissionDBApp(SCWindow):
     # ── Auto refresh ──
 
     def _schedule_auto_refresh(self):
-        QTimer.singleShot(30 * 60 * 1000, self._check_auto_refresh)
+        if not self._auto_timer.isActive():
+            self._auto_timer.start()
 
     def _check_auto_refresh(self):
-        if not self._data.is_data_loaded() or self._data.is_data_loading():
-            self._schedule_auto_refresh()
+        # A hidden window is re-checked when it is next shown; do not poll
+        # scmdb.net on a timer for a window nobody is looking at.
+        if self.isVisible():
+            self._check_upstream()
+
+    def _check_upstream(self, force: bool = False) -> bool:
+        """One (throttled, de-duplicated) new-patch check against scmdb.net."""
+        return self._data.check_for_update(
+            self._active_channel,
+            on_reload=lambda: self._sig_data_loaded.fire.emit(),
+            on_checked=lambda: self._sig_checked.fire.emit(),
+            force=force)
+
+    def _on_shown(self):
+        """Every show of an already-running window re-validates the data."""
+        if not self._data.is_data_loaded():
+            if not self._data.is_data_loading():
+                # A launch that failed outright: try again now.
+                self._status_label.setText(_("Loading data..."))
+                self._data.load(on_done=lambda: self._sig_data_loaded.fire.emit())
             return
+        self._check_upstream()
 
-        def _do_check():
-            fresh = api.fetch_versions()
-            if not fresh:
-                return
-            channel = self._active_channel
-            new_ver = None
-            for v in fresh:
-                if channel in v.get("version", "").lower():
-                    new_ver = v.get("version", "")
-                    break
-            if new_ver and new_ver != self._data.version:
-                def _apply():
-                    self._data.available_versions = fresh
-                    self._status_label.setText(f"Update found: {new_ver} -- refreshing...")
-                self._sig_apply.fire_object.emit(_apply)
-                self._data.load_version(
-                    new_ver,
-                    on_done=lambda: self._sig_data_loaded.fire.emit())
-
-        threading.Thread(target=_do_check, daemon=True).start()
-        self._schedule_auto_refresh()
+    def _on_update_checked(self):
+        """Version check finished without a reload (current, or offline)."""
+        if self._data.is_data_loading():
+            return
+        self._status_label.setText(self._data.notice or _("Ready"))
+        if self._data.notice is None and self._crafting_wanted():
+            # Back online / confirmed current: replace failed or stale blueprints.
+            self._ensure_crafting(retry=True)
 
     # ── Version switching ──
 
@@ -506,16 +552,16 @@ class MissionDBApp(SCWindow):
         elif t == "show":
             self.show()
             self.raise_()
+            self._on_shown()
         elif t == "hide":
             self.hide()
         elif t == "refresh":
             self._status_label.setText("Refreshing...")
-            try:
-                os.remove(cache.default_cache_path())
-            except OSError:
-                pass
-            self._data.set_loaded(False)
+            # Do NOT delete the cache first: it is the offline fallback.
+            # force=True bypasses it for the fetch and keeps it if that fails.
+            self._data.invalidate_crafting(force_network=True)
             self._data.load(
+                force=True,
                 on_done=lambda: self._sig_data_loaded.fire.emit())
         elif t == "search":
             query = cmd.get("query", "")
