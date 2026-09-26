@@ -19,6 +19,7 @@ panel can show progress in the ears status line.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -28,6 +29,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
 
 from shared.qt.theme import P
+
+_log = logging.getLogger(__name__)
 
 _TOOLBOX_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
@@ -397,17 +400,21 @@ class RouteCalibrationDialog(QDialog):
         super().keyPressEvent(ev)
 
     def _stop_listener(self) -> None:
+        # pynput's Listener.stop() only posts WM_STOP to its own message loop, so on Windows the reachable
+        # failures are AttributeError (the loop was never created) and OSError from the ctypes post. A global
+        # input hook that will not let go is worth a line in the log: the next calibration run cannot start a
+        # second listener, and the dialog is closing either way.
         if self._listener is not None:
             try:
                 self._listener.stop()
-            except Exception:
-                pass
+            except (AttributeError, OSError, RuntimeError) as exc:
+                _log.warning("calibration: the global click listener would not stop (%s)", exc)
             self._listener = None
         if getattr(self, "_kb_listener", None) is not None:
             try:
                 self._kb_listener.stop()
-            except Exception:
-                pass
+            except (AttributeError, OSError, RuntimeError) as exc:
+                _log.warning("calibration: the global keyboard listener would not stop (%s)", exc)
             self._kb_listener = None
 
     def reject(self) -> None:

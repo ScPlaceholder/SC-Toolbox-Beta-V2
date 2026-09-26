@@ -103,7 +103,11 @@ def _persona() -> str:
     try:
         from shared.character_voice import persona_prompt
         return persona_prompt()
-    except Exception:
+    except ImportError as exc:
+        # persona_prompt() reads the setting through its own guarded get_voice(), so the import is the only
+        # way out: shared/ not on sys.path. The assistant then answers in the neutral voice, which is a
+        # cosmetic loss - hence debug, once per answer, rather than a warning.
+        log.debug("assistant: no character persona available (%s); using the neutral voice", exc)
         return ""
 
 

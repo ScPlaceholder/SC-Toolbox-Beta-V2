@@ -15,6 +15,7 @@ model, which can take a while — the status signal says so).
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Optional
@@ -23,6 +24,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 from .input_devices import HotkeyMonitor, InputBinding
 
+_log = logging.getLogger(__name__)
 _SAMPLE_RATE = 16000
 _VOICE_RMS = 0.012          # above this counts as speech
 _MIN_VOICE_MS = 300         # utterances shorter than this are discarded
@@ -163,19 +165,26 @@ class EarsController(QObject):
             try:
                 from shared.mic import stream_device
                 _dev = stream_device(refresh=False)
-            except Exception:
+            except Exception as exc:
+                # Broad on purpose (the ears must still open on the Windows default), but NOT silent: this is
+                # the player's chosen microphone being dropped. Swallowed, it is indistinguishable from the
+                # right mic simply hearing nothing.
+                _log.warning("ears: could not resolve the chosen microphone (%s); "
+                             "opening the Windows default instead", exc)
                 _dev = None
             self._stream = sd.InputStream(
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
                 blocksize=1600, callback=self._audio_cb, device=_dev)
             self._stream.start()
             try:
-                import logging as _logging
-                _logging.getLogger(__name__).info(
-                    "ears: listening on input %r", sd.query_devices(
-                        _dev if _dev is not None else sd.default.device[0])["name"])
-            except Exception:
-                pass
+                _log.info("ears: listening on input %r", sd.query_devices(
+                    _dev if _dev is not None else sd.default.device[0])["name"])
+            except Exception as exc:
+                # Broad on purpose, and no longer silent. The stream is ALREADY STARTED here; this block only
+                # names the device for the log. Anything escaping it lands in the enclosing handler, which
+                # reports "mic error" and sets self._stream = None - tearing down a working microphone because
+                # a diagnostic failed. So it stays broad, and it says what went wrong.
+                _log.warning("ears: listening, but could not name the input device: %s", exc)
         except Exception as exc:
             self.statusChanged.emit("mic error: %s" % exc)
             self._stream = None
@@ -190,8 +199,18 @@ class EarsController(QObject):
             self._frames.append(indata.copy())
             try:
                 self._last_rms = float(self._np.sqrt(self._np.mean(indata ** 2)))
-            except Exception:
+            except Exception as exc:
+                # Broad on purpose: this runs on the PortAudio callback thread, where a raised exception aborts
+                # the stream outright. But it is NOT silent any more, and that matters more here than anywhere
+                # else in the file: falling back to 0.0 makes a BROKEN loudness measurement look exactly like a
+                # silent room, so the ears would report "heard nothing" forever and nothing would say why.
+                # Logged once per controller (not per block) so the audio callback is not turned into a
+                # log flood; the flag is never cleared, so one line per app run is the whole budget.
                 self._last_rms = 0.0
+                if not getattr(self, "_rms_fail_logged", False):
+                    self._rms_fail_logged = True
+                    _log.warning("ears: cannot measure input loudness (%s); every block now reads as "
+                                 "silence, so the ears will report hearing nothing", exc)
 
     def _watch_silence(self) -> None:
         if not self._recording:

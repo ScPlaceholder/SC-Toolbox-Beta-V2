@@ -214,9 +214,14 @@ class CharacterMouth:
             pass
         try:
             import sounddevice as sd  # type: ignore
-            sd.stop()
-        except Exception:
-            pass
+            sd.stop()                 # ignore_errors=True by default, so this call itself does not raise
+        except ImportError as exc:
+            # No sounddevice means no Piper line was ever playing: there is nothing to cut. A normal state on
+            # a Windows-voice-only install, so debug rather than a warning on every stop().
+            log.debug("character_voice: no sounddevice to stop (%s)", exc)
+        except OSError as exc:
+            log.warning("character_voice: sounddevice could not load PortAudio (%s); "
+                        "a Piper line may still be playing", exc)
         self._kill()
 
     def close(self) -> None:
@@ -268,13 +273,17 @@ class CharacterMouth:
         if proc is not None and proc.poll() is None:
             try:
                 proc.kill()
-            except Exception:
-                pass
+            except OSError as exc:
+                # The usual case is the benign race: the speech process exited between poll() and kill().
+                log.debug("character_voice: could not kill the speech process (%s)", exc)
 
 
 def _piper_importable() -> bool:
     try:
         import importlib.util
         return importlib.util.find_spec("piper") is not None
-    except Exception:
+    except (ImportError, ValueError) as exc:
+        # find_spec raises ImportError when piper is present but broken, and ValueError when it is imported
+        # yet has no __spec__. Both mean "cannot use Piper", which is a fallback to the Windows voice.
+        log.debug("character_voice: piper is not usable (%s)", exc)
         return False

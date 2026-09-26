@@ -169,7 +169,12 @@ class EarsController(QObject):
             try:
                 from shared.mic import stream_device
                 _dev = stream_device(refresh=True)
-            except Exception:
+            except Exception as exc:
+                # Broad on purpose (the ears must still open on the Windows default), but NOT silent: this is
+                # the player's chosen microphone being dropped. Swallowed, it is indistinguishable from the
+                # right mic simply hearing nothing.
+                _log.warning("ears: could not resolve the chosen microphone (%s); "
+                             "opening the Windows default instead", exc)
                 _dev = None
             self._stream = sd.InputStream(
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
@@ -179,8 +184,12 @@ class EarsController(QObject):
                 _log.info("ears: listening on input %r (mode %s)",
                           sd.query_devices(_dev if _dev is not None else sd.default.device[0])["name"],
                           self._mode)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Broad on purpose, and no longer silent. The stream is ALREADY STARTED here; this block only
+                # names the device for the log. Anything escaping it lands in the enclosing handler, which
+                # reports "mic error" and sets self._stream = None - tearing down a working microphone because
+                # a diagnostic failed. So it stays broad, and it says what went wrong.
+                _log.warning("ears: listening, but could not name the input device: %s", exc)
         except Exception as exc:
             self.statusChanged.emit("mic error: %s" % exc)
             self._stream = None
@@ -195,8 +204,18 @@ class EarsController(QObject):
             self._frames.append(indata.copy())
             try:
                 self._last_rms = float(self._np.sqrt(self._np.mean(indata ** 2)))
-            except Exception:
+            except Exception as exc:
+                # Broad on purpose: this runs on the PortAudio callback thread, where a raised exception aborts
+                # the stream outright. But it is NOT silent any more, and that matters more here than anywhere
+                # else in the file: falling back to 0.0 makes a BROKEN loudness measurement look exactly like a
+                # silent room, so the ears would report "heard nothing" forever and nothing would say why.
+                # Logged once per controller (not per block) so the audio callback is not turned into a
+                # log flood; the flag is never cleared, so one line per app run is the whole budget.
                 self._last_rms = 0.0
+                if not getattr(self, "_rms_fail_logged", False):
+                    self._rms_fail_logged = True
+                    _log.warning("ears: cannot measure input loudness (%s); every block now reads as "
+                                 "silence, so the ears will report hearing nothing", exc)
 
     def _watch_silence(self) -> None:
         if not self._recording:
@@ -244,8 +263,14 @@ class EarsController(QObject):
             peak = float(_np.sqrt((pcm[:n].reshape(-1, 1600) ** 2).mean(axis=1)).max()) if n else 0.0
             _log.info("ears: attempt ended: %d ms of speech, loudest block %.4f rms (speech line %.3f)",
                       voice_ms, peak, _VOICE_RMS)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Broad on purpose, and no longer silent. This is the "was the mic actually hearing anything"
+            # diagnostic; _abort_recording() on the next line is what closes the stream, and _finish() runs
+            # from a QTimer slot, so an exception escaping here would skip the teardown and leave the ears
+            # stuck open with self._recording True. The arithmetic can raise ImportError / ValueError /
+            # TypeError; the handler covers the rest too, but it reports instead of swallowing.
+            _log.warning("ears: could not measure the captured audio (%s); "
+                         "loudness unknown for this attempt", exc)
         self._abort_recording()
         if self._mode == "always" and self._armed:
             # Keep the mic open: the next utterance starts capturing while

@@ -30,7 +30,13 @@ def get_choice() -> str:
     try:
         from shared import sc_install
         return str(sc_install._load().get(SETTING_KEY) or "")
-    except Exception:
+    except (ImportError, AttributeError) as exc:
+        # sc_install._load() handles its own OSError / bad JSON and returns {}, so the only ways out are the
+        # import failing (shared/ not on sys.path) and the private _load helper being renamed under us. Both
+        # mean the player's mic choice is being ignored, which is the "nothing could hear me" bug this module
+        # was written to fix - say so instead of quietly answering "Windows default".
+        log.warning("mic: cannot read the %s setting (%s); falling back to the Windows default",
+                    SETTING_KEY, exc)
         return ""
 
 
@@ -48,14 +54,24 @@ def refresh_if_idle() -> bool:
     sounddevice convenience stream (sd.play) is active, because re-initialising PortAudio would kill it."""
     try:
         import sounddevice as sd
-    except Exception:
+    except ImportError as exc:
+        log.debug("mic: sounddevice is not installed (%s); no device list to refresh", exc)
+        return False
+    except OSError as exc:
+        # sounddevice raises OSError at import when it cannot dlopen PortAudio. That is deaf ears, not a
+        # missing optional feature, and silence here is indistinguishable from a quiet room.
+        log.warning("mic: sounddevice could not load PortAudio (%s); no microphone can be opened", exc)
         return False
     try:
         if sd.get_stream().active:
             return False
     except RuntimeError:
         pass                       # no convenience stream exists: nothing to interrupt
-    except Exception:
+    except sd.PortAudioError as exc:
+        # Pa_IsStreamActive failed, so we cannot prove the refresh is safe and must skip it - which means a
+        # headset plugged in after launch stays invisible for the session. That is the second bug in this
+        # module's docstring; it must not fail silently.
+        log.warning("mic: cannot tell whether a stream is playing (%s); skipping the device-list refresh", exc)
         return False
     try:
         sd._terminate()
@@ -94,7 +110,12 @@ def stream_device(refresh: bool = True) -> Optional[int]:
     chosen mic is not connected, so the ears never go deaf because a saved device vanished)."""
     try:
         import sounddevice as sd
-    except Exception:
+    except ImportError as exc:
+        log.debug("mic: sounddevice is not installed (%s); the caller gets the Windows default", exc)
+        return None
+    except OSError as exc:
+        # See refresh_if_idle: a PortAudio load failure here means the ears are about to open nothing at all.
+        log.warning("mic: sounddevice could not load PortAudio (%s); no microphone can be opened", exc)
         return None
     if refresh:
         refresh_if_idle()
