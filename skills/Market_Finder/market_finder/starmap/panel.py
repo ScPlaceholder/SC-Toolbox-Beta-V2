@@ -70,6 +70,7 @@ class MarketMapPanel(QWidget):
         self._popouts: List[ItemPopOut] = []
         self._restored = False
         self._nav: List[Tuple[str, QWidget]] = []
+        self._shop_stops: List[dict] = []     # the grocery route on the map, in visit order
 
         # Terminal -> items index, built off-thread from UEX items_prices_all.
         self._index_loader = ItemsIndexLoader(getattr(data_service, "_api", None))
@@ -287,6 +288,7 @@ class MarketMapPanel(QWidget):
         view.jumpRequested.connect(self._jump_to_system)
         view.bodyActivated.connect(self._on_body_activated)
         view.loreRequested.connect(self._show_lore)
+        self._apply_shop_route(view, code)
         self._push(f"{name.upper()} system", view)
 
     def _on_body_activated(self, name: str, code: str) -> None:
@@ -529,6 +531,9 @@ class MarketMapPanel(QWidget):
         g = self._galaxy
         if g is None:
             return
+        if self._shop_stops:
+            self.clear_shopping_route()
+            return
         if g.route_active:
             g.clear_route()
             self._btn_route.setText("⤳ Route")
@@ -537,19 +542,104 @@ class MarketMapPanel(QWidget):
             self._btn_route.setText("✕ Cancel")
 
     def plot_shopping_route(self, stops: List[dict]) -> None:
-        """Public hook for the Grocery List's "Plot Optimal Route" button.
+        """Public hook for the Grocery List's "Plot Route" button.
 
-        *stops* is the ordered list of shopping stops from
-        :mod:`market_finder.route_planner` (each with a ``system`` name).
-        The map pops back to the galaxy and draws the multi-stop jump route
-        through each stop's system.
+        *stops* is the ordered stop list from
+        :func:`market_finder.route_planner.plan_route` (one per item; items
+        at the same site are consecutive).  Drawn in exactly that order:
+
+        * across systems, the galaxy shows the jump route through each
+          visited system with numbered badges;
+        * inside a system, the stops are drawn as a numbered path between
+          their stations / cities / outposts, via the gateways where the
+          route enters or leaves.  A route that never leaves one system
+          opens straight into that system's view.
+
+        An empty list clears the shopping route.
         """
         if self._galaxy is None:
             return
-        codes = [self._sys_code(s.get("system") or "") for s in stops]
+        self._shop_stops = list(stops or [])
+        if not self._shop_stops:
+            self.clear_shopping_route()
+            return
+        seq = self._shop_system_seq()
         self._go_galaxy()
-        self._galaxy.plot_multi_route(codes)
+        if len(seq) >= 2:
+            self._galaxy.plot_multi_route(seq)
+        else:
+            self._galaxy.clear_route()
+            if seq:
+                self._enter_system(seq[0])
+                view = self._nav[-1][1]
+                if hasattr(view, "frame_trade_route"):
+                    view.frame_trade_route()
         self._btn_route.setText("Clear route")
+
+    def has_shopping_route(self) -> bool:
+        """True while a grocery route is shown (so list edits may update it)."""
+        return bool(self._shop_stops)
+
+    def clear_shopping_route(self) -> None:
+        self._shop_stops = []
+        if self._galaxy is not None:
+            self._galaxy.clear_route()
+        for _lbl, w in self._nav:
+            if hasattr(w, "set_trade_route"):
+                w.set_trade_route([])
+        self._btn_route.setText("⤳ Route")
+
+    def _shop_visits(self) -> List[dict]:
+        from ..route_planner import visits
+        return visits(self._shop_stops)
+
+    def _shop_system_seq(self) -> List[str]:
+        """System codes in visit order, consecutive repeats collapsed."""
+        seq: List[str] = []
+        for v in self._shop_visits():
+            c = self._sys_code(v["system"])
+            if c and (not seq or seq[-1] != c):
+                seq.append(c)
+        return seq
+
+    def shopping_route_points(self, code: str) -> list:
+        """The in-system leg of the shopping route for system *code*:
+        ``[(name, x, y, z, role)]`` in visit order, role ``"stop:<n>"`` for
+        stop n (1 = first stop of the whole route) or ``"jump"`` for the
+        gateway where the route arrives from / leaves for another system."""
+        from .distances import jump_path, resolve_site
+        vs = self._shop_visits()
+        codes = [self._sys_code(v["system"]) for v in vs]
+        gal = self._galaxy_data
+        bodies = {b.name: b for b in self._bodies.get(code.upper(), [])}
+
+        def gateway_to(other: str):
+            path = jump_path(code, other) or [code, other]
+            nxt = gal.get(path[1]) if gal is not None and len(path) > 1 else None
+            b = bodies.get(f"{nxt.name} Gateway") if nxt is not None else None
+            return (b.name, b.x, b.y, b.z, "jump") if b is not None else None
+
+        pts: list = []
+        for i, v in enumerate(vs):
+            if codes[i] != code:
+                continue
+            if i > 0 and codes[i - 1] != code:
+                g = gateway_to(codes[i - 1])
+                if g is not None:
+                    pts.append(g)
+            _c, body = resolve_site(v["system"], v["places"])
+            label = (v["places"] or [v.get("location") or "?"])[0]
+            if body is not None:
+                pts.append((label, body.x, body.y, body.z, f"stop:{i + 1}"))
+            if i + 1 < len(vs) and codes[i + 1] != code:
+                g = gateway_to(codes[i + 1])
+                if g is not None:
+                    pts.append(g)
+        return pts
+
+    def _apply_shop_route(self, view, code: str) -> None:
+        if self._shop_stops and hasattr(view, "set_trade_route"):
+            view.set_trade_route(self.shopping_route_points(code))
 
     # ── persistence ──────────────────────────────────────────────────────
     def _save_soon(self) -> None:

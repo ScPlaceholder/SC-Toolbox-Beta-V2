@@ -51,9 +51,9 @@ class _CardSignal(QObject):
 
 
 class _RouteSignal(QObject):
-    """Delivers background UEX distance-fetch progress to the bubble."""
+    """Delivers background telemetry-fetch progress and the planned route."""
     progress = Signal(int, int)   # fetched, total
-    done = Signal()
+    done = Signal(list)           # ordered stops (route_planner.plan_route)
 
 
 
@@ -90,11 +90,13 @@ class GroceryItemCard(QFrame):
         data_service,
         on_remove: Callable[["GroceryItemCard"], None],
         parent: QWidget | None = None,
+        on_loaded: Callable[["GroceryItemCard"], None] | None = None,
     ) -> None:
         super().__init__(parent)
         self._item = item
         self._data = data_service
         self._on_remove = on_remove
+        self._on_loaded = on_loaded
         self._expanded: bool = True          # default: show all locations
         self._buy_rows: list[dict] = []
         self._loaded: bool = False
@@ -178,7 +180,10 @@ class GroceryItemCard(QFrame):
     def flash(self) -> None:
         """Briefly highlight the card (used when a duplicate is dropped)."""
         self._apply_border(P.green)
-        QTimer.singleShot(700, lambda: self._apply_border(P.border))
+        # Context object = self: Qt drops the timer if the card is deleted
+        # first (removed / list cleared within 0.7 s), instead of calling into
+        # a dead widget from the event loop.
+        QTimer.singleShot(700, self, lambda: self._apply_border(P.border))
 
     # -- styling ---------------------------------------------------------
 
@@ -231,6 +236,8 @@ class GroceryItemCard(QFrame):
         self._loaded = True
         self._buy_rows = buy_locations(prices)
         self._rebuild_rows()
+        if self._on_loaded is not None:
+            self._on_loaded(self)
 
     # -- rendering -------------------------------------------------------
 
@@ -423,6 +430,15 @@ class GroceryListBubble(QWidget):
         tb_lay.addWidget(self._route_status)
 
         self._route_busy = False
+        # Once a route is on the map it follows the list: adding, removing or
+        # clearing items (or prices arriving) re-plans it after a short pause.
+        self._route_live = False
+        self._route_pending = False
+        self._route_requested = False     # clicked before any price had loaded
+        self._replot_timer = QTimer(self)
+        self._replot_timer.setSingleShot(True)
+        self._replot_timer.setInterval(350)
+        self._replot_timer.timeout.connect(lambda: self._plot_route(auto=True))
         tb_lay.addStretch(1)
 
         clear_btn = QLabel(_("Clear"))
@@ -438,8 +454,9 @@ class GroceryListBubble(QWidget):
 
 
         plot_btn = QLabel(_("⤳ Plot Route"))
-        plot_btn.setToolTip(_("Plot the optimal shopping route for every item "
-                              "on this list on the Star Map (UEX distance telemetry)"))
+        plot_btn.setToolTip(_("Plot the shortest shopping route for every item "
+                              "on this list on the Star Map (UEX distance telemetry). "
+                              "The route follows the list as you change it."))
         plot_btn.setCursor(Qt.PointingHandCursor)
         plot_btn.setStyleSheet(f"""
             font-family: Consolas; font-size: 8pt; font-weight: bold;
@@ -531,11 +548,13 @@ class GroceryListBubble(QWidget):
             return
 
         self._empty_lbl.hide()
-        card = GroceryItemCard(item, self._data, self._remove_card, parent=self._inner)
+        card = GroceryItemCard(item, self._data, self._remove_card, parent=self._inner,
+                               on_loaded=lambda _c: self._list_changed())
         self._cards[item_id] = card
         # Insert before the trailing stretch.
         self._inner_layout.insertWidget(self._inner_layout.count() - 1, card)
         self._update_count()
+        self._list_changed()
 
     def _remove_card(self, card: GroceryItemCard) -> None:
         self._cards.pop(card.item_id(), None)
@@ -544,6 +563,7 @@ class GroceryListBubble(QWidget):
         self._update_count()
         if not self._cards:
             self._empty_lbl.show()
+        self._list_changed()
 
     def clear(self) -> None:
         for card in list(self._cards.values()):
@@ -552,6 +572,12 @@ class GroceryListBubble(QWidget):
         self._cards.clear()
         self._empty_lbl.show()
         self._update_count()
+        self._list_changed()
+
+    def _list_changed(self) -> None:
+        """Re-plan the shown route (debounced) whenever the list changes."""
+        if self._route_live:
+            self._replot_timer.start()
 
     def _update_count(self) -> None:
         self._count_lbl.setText(f"({len(self._cards)})")
@@ -563,98 +589,81 @@ class GroceryListBubble(QWidget):
         self._route_status.setText(text or "")
         self._route_status.setVisible(bool(text))
 
-    def _plot_route(self) -> None:
-        """Order the grocery stops by UEX distance telemetry and ask the
-        Star Map to draw the multi-stop shopping route.
+    def _plot_route(self, auto: bool = False) -> None:
+        """Plan the shopping route and ask the Star Map to draw it.
 
-        Distances are cached on disk; any terminal pair not yet cached is
-        fetched from the UEX API in the background first, so the ordering
-        reflects real in-game travel distances instead of guesses.  While
-        the fetch runs, the title bar shows progress and further clicks
-        are ignored.
+        :func:`market_finder.route_planner.plan_route` picks the terminal for
+        every item and the visit order that minimise travel (Gm, see
+        :func:`market_finder.starmap.distances.site_distance`).  Missing UEX
+        distance telemetry is fetched first and planning runs on the same
+        worker thread, so the UI never blocks; the title bar shows progress.
+
+        *auto* = re-plan after the list changed (the map is only updated if
+        it is still showing a shopping route).
         """
-        from itertools import permutations
-
         from ..route_planner import (
-            collect_stops, missing_price_cards, order_stops, unique_terminals,
+            candidate_sites, collect_wants, missing_price_cards, plan_route,
         )
         from ..starmap import distances as uex_dist
 
         if self._route_busy:
+            self._route_pending = True        # re-plan once the current one lands
             return
         cards = list(self._cards.values())
-        if not cards:
+        if not auto:
+            self._route_live = True
+            for card in missing_price_cards(cards):
+                card.flash()
+        wants = collect_wants(cards)
+        if not wants:
+            if not auto:
+                self._route_requested = True           # plot as soon as prices arrive
+            elif self._on_plot_route is not None:
+                self._on_plot_route([], auto=True)     # list emptied: clear the map
             return
-        for card in missing_price_cards(cards):
-            card.flash()
-        stops = collect_stops(cards)
-        if not stops:
-            return
+        if auto and self._route_requested:
+            auto = False                               # the click that had nothing to plot yet
+        self._route_requested = False
 
-        # The distance matrix only needs the unique shopping terminals.
-        terminal_ids = [tid for tid, _sys in unique_terminals(stops)]
-        pairs = {(a, b) for a, b in permutations(terminal_ids, 2)}
-
-        galaxy_ref: list = []
-
-        def _galaxy():
-            if not galaxy_ref:
-                from ..starmap.data import Galaxy
-                galaxy_ref.append(Galaxy.load())
-            return galaxy_ref[0]
-
-        def _sys_code(gal, sysname: str) -> str:
-            for s in gal.systems:
-                if s.name.lower() == sysname.lower() or s.code.lower() == sysname.lower():
-                    return s.code
-            return (sysname or "").upper()
-
-        def dist_fn(a: dict, b: dict):
-            d = uex_dist.get_distance(a.get("terminal_id") or 0,
-                                      b.get("terminal_id") or 0)
-            if d is not None:
-                return d
-            # Fallback: galaxy jump-graph distance between the two systems.
-            sa, sb = a.get("system") or "", b.get("system") or ""
-            if sa and sb:
-                try:
-                    gal = _galaxy()
-                    path = gal.shortest_path(_sys_code(gal, sa), _sys_code(gal, sb))
-                    if path:
-                        return gal.path_distance(path)
-                except Exception:
-                    pass
-            return None
-
-        def _finish() -> None:
-            self._route_busy = False
-            self._set_route_status(None)
-            ordered = order_stops(stops, dist_fn)
-            if self._on_plot_route is not None:
-                self._on_plot_route(ordered)
-
-        if not pairs:
-            _finish()
-            return
+        sites, _eligible = candidate_sites(wants)
+        pairs = uex_dist.telemetry_pairs(sites)
 
         self._route_busy = True
-        self._set_route_status(_("Fetching UEX distance telemetry…"))
+        if pairs:
+            self._set_route_status(_("Fetching UEX distance telemetry…"))
 
         sig = _RouteSignal(self)
         sig.progress.connect(
             lambda done, total: self._set_route_status(
                 _("Fetching UEX distance telemetry… {done}/{total}").format(
                     done=done, total=total)))
-        sig.done.connect(lambda: _finish())
+        sig.done.connect(lambda ordered: self._route_ready(ordered, auto))
 
         def _work() -> None:
+            ordered: list = []
             try:
-                uex_dist.fetch_missing(
-                    pairs, on_progress=lambda d, t: sig.progress.emit(d, t))
+                if pairs:
+                    uex_dist.fetch_missing(
+                        pairs, on_progress=lambda d, t: sig.progress.emit(d, t))
+                ordered = plan_route(wants, uex_dist.site_distance)
+            except Exception:
+                ordered = []
             finally:
-                sig.done.emit()
+                try:
+                    sig.done.emit(ordered)
+                except RuntimeError:
+                    pass  # bubble already destroyed
 
         threading.Thread(target=_work, daemon=True).start()
+
+    def _route_ready(self, ordered: list, auto: bool) -> None:
+        self._route_busy = False
+        self._set_route_status(None)
+        if self._on_plot_route is not None and (ordered or auto):
+            self._on_plot_route(ordered, auto=auto)
+        if self._route_pending:
+            self._route_pending = False
+            self._replot_timer.start()
 
     # -- drag & drop -----------------------------------------------------
 

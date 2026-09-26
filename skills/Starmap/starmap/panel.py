@@ -77,6 +77,7 @@ class StarmapPanel(QWidget):
         self._location_dlg: Optional[LocationDialog] = None
         self._restored = False
         self._nav: List[Tuple[str, QWidget]] = []
+        self._shop_stops: List[dict] = []     # the grocery route on the map, in visit order
         self._ipc = None
         self._dest_engine = None
         self._setter_obj = None
@@ -134,6 +135,7 @@ class StarmapPanel(QWidget):
         # self._grocery.setVisible there. Built after it, the map died on "no attribute '_grocery'".
         self._grocery = GroceryPanel()
         self._grocery.plotRequested.connect(self._plot_grocery_route)
+        self._grocery.changed.connect(self._grocery_changed)
         self._grocery.setVisible(False)
         # Side views, cloned from their origin tools: the Market Finder
         # terminal/items browser and the Trade Hub commodities grid. They
@@ -410,6 +412,9 @@ class StarmapPanel(QWidget):
         return "showing %s (set a home system to route)" % code
 
     def cmd_clear_route(self) -> str:
+        if self._shop_stops:
+            self.clear_shopping_route()
+            return "route cleared"
         if self._galaxy is not None and self._galaxy.route_active:
             self._galaxy.clear_route()
             self._btn_route.setText("Route")
@@ -470,6 +475,7 @@ class StarmapPanel(QWidget):
         view.jumpRequested.connect(self._jump_to_system)
         view.bodyActivated.connect(self._on_body_activated)
         view.loreRequested.connect(self._show_lore)
+        self._apply_shop_route(view, code)
         self._push(f"{name.upper()} system", view)
 
     def _enter_neighborhood(self, code: str, planet_name: str) -> None:
@@ -674,17 +680,124 @@ class StarmapPanel(QWidget):
         self._popouts.append(bub)
 
     def _plot_grocery_route(self) -> None:
-        """Grocery List's 'Plot shopping route': multi-stop jump route through
-        every system on the list."""
+        """Grocery List's 'Plot shopping route'.
+
+        Every item is pinned to the location it was added from, so the stops
+        are fixed; they are ORDERED for the shortest trip
+        (:func:`.route_planner.order_stops` over
+        :func:`.distances.site_distance`, exact for up to 10 locations) and
+        drawn in that order: the jump route across systems on the galaxy,
+        numbered stops (via the gateways) inside each system.  A route that
+        stays in one system opens straight into that system's view.
+        """
+        from .distances import site_distance
+        from .route_planner import order_stops
         if self._galaxy is None:
             return
-        codes = [self._sys_code(s) for s in self._grocery.systems()]
-        codes = [c for c in codes if c]
-        if not codes:
+        stops = []
+        for it in self._grocery.items():
+            system = str(it.get("system") or "").strip()
+            loc = str(it.get("location") or "").strip()
+            if not system:
+                continue
+            stops.append({"item_id": it.get("id"), "name": it.get("name") or "",
+                          "terminal": loc, "terminal_id": 0, "system": system,
+                          "location": loc, "places": [loc] if loc else [],
+                          "price": it.get("price") or 0})
+        if not stops:
+            self.clear_shopping_route()
             return
+        self.plot_shopping_route(order_stops(stops, site_distance))
+
+    def _grocery_changed(self) -> None:
+        """Keep a plotted grocery route in step with the list."""
+        if self._shop_stops:
+            QTimer.singleShot(0, self._plot_grocery_route)
+
+    def plot_shopping_route(self, stops: List[dict]) -> None:
+        """Draw an ordered stop list (see :meth:`_plot_grocery_route`)."""
+        if self._galaxy is None:
+            return
+        self._shop_stops = list(stops or [])
+        if not self._shop_stops:
+            self.clear_shopping_route()
+            return
+        seq = self._shop_system_seq()
         self._go_galaxy()
-        self._galaxy.plot_multi_route(codes)
+        if len(seq) >= 2:
+            self._galaxy.plot_multi_route(seq)
+        else:
+            self._galaxy.clear_route()
+            if seq:
+                self._enter_system(seq[0])
+                view = self._nav[-1][1]
+                if hasattr(view, "frame_trade_route"):
+                    view.frame_trade_route()
         self._btn_route.setText("Clear route")
+
+    def has_shopping_route(self) -> bool:
+        return bool(self._shop_stops)
+
+    def clear_shopping_route(self) -> None:
+        self._shop_stops = []
+        if self._galaxy is not None:
+            self._galaxy.clear_route()
+        for _lbl, w in self._nav:
+            if hasattr(w, "set_trade_route"):
+                w.set_trade_route([])
+        self._btn_route.setText("Route")
+
+    def _shop_visits(self) -> List[dict]:
+        from .route_planner import visits
+        return visits(self._shop_stops)
+
+    def _shop_system_seq(self) -> List[str]:
+        """System codes in visit order, consecutive repeats collapsed."""
+        seq: List[str] = []
+        for v in self._shop_visits():
+            c = self._sys_code(v["system"])
+            if c and (not seq or seq[-1] != c):
+                seq.append(c)
+        return seq
+
+    def shopping_route_points(self, code: str) -> list:
+        """The in-system leg of the shopping route for system *code*:
+        ``[(name, x, y, z, role)]`` in visit order, role ``"stop:<n>"`` for
+        stop n (1 = first stop of the whole route) or ``"jump"`` for the
+        gateway where the route arrives from / leaves for another system."""
+        from .distances import jump_path, resolve_site
+        vs = self._shop_visits()
+        codes = [self._sys_code(v["system"]) for v in vs]
+        gal = self._galaxy_data
+        bodies = {b.name: b for b in self._bodies.get(code.upper(), [])}
+
+        def gateway_to(other: str):
+            path = jump_path(code, other) or [code, other]
+            nxt = gal.get(path[1]) if gal is not None and len(path) > 1 else None
+            b = bodies.get(f"{nxt.name} Gateway") if nxt is not None else None
+            return (b.name, b.x, b.y, b.z, "jump") if b is not None else None
+
+        pts: list = []
+        for i, v in enumerate(vs):
+            if codes[i] != code:
+                continue
+            if i > 0 and codes[i - 1] != code:
+                g = gateway_to(codes[i - 1])
+                if g is not None:
+                    pts.append(g)
+            _c, body = resolve_site(v["system"], v["places"])
+            label = (v["places"] or [v.get("location") or "?"])[0]
+            if body is not None:
+                pts.append((label, body.x, body.y, body.z, f"stop:{i + 1}"))
+            if i + 1 < len(vs) and codes[i + 1] != code:
+                g = gateway_to(codes[i + 1])
+                if g is not None:
+                    pts.append(g)
+        return pts
+
+    def _apply_shop_route(self, view, code: str) -> None:
+        if self._shop_stops and hasattr(view, "set_trade_route"):
+            view.set_trade_route(self.shopping_route_points(code))
 
     # ── search / snap-to-destination ──────────────────────────────────────
     def _all_place_names(self) -> list:
@@ -785,6 +898,9 @@ class StarmapPanel(QWidget):
     def _route_clicked(self) -> None:
         g = self._galaxy
         if g is None:
+            return
+        if self._shop_stops:
+            self.clear_shopping_route()
             return
         if g.route_active:
             g.clear_route()

@@ -720,8 +720,19 @@ class MarketFinderApp(SCWindow):
         if self._grocery_bubble is not None:
             self._grocery_bubble.add_item(item)
 
-    def _plot_grocery_route(self, stops: list) -> None:
-        """Grocery List "Plot Optimal Route" -> draw it on the Star Map."""
+    def _plot_grocery_route(self, stops: list, auto: bool = False) -> None:
+        """Grocery List "Plot Route" -> draw it on the Star Map.
+
+        *auto* = the list changed after a route was plotted: update the map
+        only if it is open and still showing a shopping route (never pop the
+        map open, never bring back a route the user cleared); an empty
+        *stops* then clears it.
+        """
+        if auto:
+            panel = self._starmap_panel
+            if panel is not None and panel.has_shopping_route():
+                panel.plot_shopping_route(stops)
+            return
         if not stops:
             return
         self._open_starmap()

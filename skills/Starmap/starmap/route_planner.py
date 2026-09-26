@@ -1,5 +1,10 @@
 """Pure helpers for the grocery list's "Plot Route" feature.
 
+(Copy of ``market_finder.route_planner`` for the standalone Starmap tool --
+keep the two in sync.  The Starmap grocery list pins each item to the
+location it was added from, so it only uses :func:`order_stops` and
+:func:`visits`.)
+
 No Qt imports here.  This module turns the grocery cards' buy rows into an
 ordered list of shopping stops that
 
@@ -14,7 +19,7 @@ between them costs no travel, so the route is planned over sites.
 
 Cost model: ``dist_fn(site_a, site_b)`` returns the travel cost between two
 sites in gigametres (the real one is
-:func:`market_finder.starmap.distances.site_distance`: UEX telemetry, else
+:func:`.distances.site_distance`: UEX telemetry, else
 body coordinates, plus a flat penalty per system-gateway jump).  ``None``
 means unknown; such pairs cost :data:`UNKNOWN_DISTANCE`, so they are avoided
 but never make an item vanish.

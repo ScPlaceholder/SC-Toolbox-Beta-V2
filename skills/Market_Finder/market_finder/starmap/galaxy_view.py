@@ -211,22 +211,32 @@ class GalaxyView(QWidget):
         p.drawPolyline(QPolygonF(pts))
 
     def _draw_route_stops(self, p: QPainter, pos: Dict[str, Tuple[float, float, float]]) -> None:
-        """Numbered badges on each shopping-route stop system (1 = first stop)."""
+        """Numbered badges on each shopping-route stop system (1 = first stop;
+        a system the route comes back to shows every visit, e.g. "1,3")."""
         if not self._route_stops:
             return
         f = QFont(); f.setPointSizeF(8.5); f.setBold(True); p.setFont(f)
-        for i, code in enumerate(self._route_stops, 1):
+        fm = p.fontMetrics()
+        for code, label in self.route_stop_labels().items():
             pt = pos.get(code)
             if pt is None:
                 continue
             x, y = pt[0], pt[1]
-            badge = QRectF(x - 9, y - 24, 18, 16)
+            bw = max(18, fm.horizontalAdvance(label) + 8)
+            badge = QRectF(x - bw / 2.0, y - 24, bw, 16)
             p.setPen(Qt.NoPen)
             bg = QColor(P.tool_trade)
             p.setBrush(bg)
             p.drawRoundedRect(badge, 4, 4)
             p.setPen(QColor("#1a1400"))
-            p.drawText(badge, Qt.AlignCenter, str(i))
+            p.drawText(badge, Qt.AlignCenter, label)
+
+    def route_stop_labels(self) -> Dict[str, str]:
+        """{system code: badge text} for the shopping-route stops, in visit order."""
+        out: Dict[str, str] = {}
+        for i, code in enumerate(self._route_stops, 1):
+            out[code] = f"{out[code]},{i}" if code in out else str(i)
+        return out
 
     # ── trade-activity overlay ────────────────────────────────────────────────
     def set_overlay(self, overlay, flags: Dict[str, bool]) -> None:
@@ -549,8 +559,12 @@ class GalaxyView(QWidget):
 
     def plot_multi_route(self, stops: List[str]) -> None:
         """Plot a multi-stop route: shortest jump path concatenated across
-        each consecutive pair of stop system codes (shopping-route mode)."""
-        stops = [c for c in dict.fromkeys(stops) if c]
+        each consecutive pair of stop system codes (shopping-route mode).
+
+        Stops are drawn in the order given.  Only CONSECUTIVE repeats collapse
+        (two shops in one system are one visit); a system the route returns
+        to later is kept, so A -> B -> A is not flattened to A -> B."""
+        stops = [c for i, c in enumerate(stops) if c and (i == 0 or c != stops[i - 1])]
         self._route_mode = False
         if len(stops) < 2:
             self.clear_route()

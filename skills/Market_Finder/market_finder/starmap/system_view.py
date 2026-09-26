@@ -168,8 +168,16 @@ class SystemView(QWidget):
         p.end()
 
     def set_trade_route(self, points) -> None:
+        """Draw a route through *points* ``[(name, x, y, z, role)]`` in order.
+
+        role: "buy" / "sell" / "jump" (gateway), or "stop:<label>" for a
+        numbered shopping stop (the label is drawn in the badge)."""
         self._trade_route = list(points or [])
         self.update()
+
+    def trade_route_points(self) -> list:
+        """The route currently drawn, ``[(name, x, y, z, role)]`` in order."""
+        return list(self._trade_route)
 
     def center_on(self, body, zoom: float = 4.0) -> None:
         """Snap the camera onto a body (search / snap-to / route-start)."""
@@ -290,7 +298,20 @@ class SystemView(QWidget):
             core.setCapStyle(Qt.RoundCap); core.setJoinStyle(Qt.RoundJoin)
             p.setPen(core); p.drawPolyline(QPolygonF(qpts))
         f = QFont(); f.setPointSizeF(9.5); f.setBold(True); p.setFont(f)
-        for ((sx, sy), role) in proj:
+        for k, ((sx, sy), role) in enumerate(proj):
+            if str(role).startswith("stop:"):
+                label = str(role)[5:]
+                name = str(self._trade_route[k][0])
+                fm = p.fontMetrics()
+                bw = max(20.0, fm.horizontalAdvance(label) + 10.0)
+                badge = QRectF(sx - bw / 2.0, sy - 9.0, bw, 18.0)
+                p.setPen(Qt.NoPen); p.setBrush(QColor(P.tool_trade))
+                p.drawRoundedRect(badge, 5, 5)
+                p.setPen(QColor("#1a1400"))
+                p.drawText(badge, Qt.AlignCenter, label)
+                p.setPen(QColor(P.tool_trade))
+                p.drawText(QPointF(sx + bw / 2.0 + 5, sy + 4), name)
+                continue
             if role == "buy":
                 col, tag = QColor(P.green), "BUY"
             elif role == "sell":

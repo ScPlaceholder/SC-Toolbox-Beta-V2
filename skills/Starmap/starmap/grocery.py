@@ -3,8 +3,8 @@
 A slim port of the Market Finder grocery concept: item pop-outs and
 items-dialog rows drop onto this panel (SC_ITEM_MIME) or add via button,
 the list persists to ~/.sctoolbox/starmap/grocery.json, and "Plot
-route" hands the panel the shopping-stop systems so it can draw a
-multi-stop jump route on the galaxy view.
+route" hands the panel the items; it orders their locations for the shortest
+trip (:func:`.route_planner.order_stops`) and draws the route on the map.
 """
 from __future__ import annotations
 
@@ -91,6 +91,7 @@ class GroceryPanel(QWidget):
     """Dockable grocery list; accepts SC_ITEM_MIME drops."""
 
     plotRequested = Signal()
+    changed = Signal()          # items added / removed / cleared
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -144,7 +145,8 @@ class GroceryPanel(QWidget):
             f"QToolButton:hover {{ background: {P.sc_cyan}; }} "
             f"QToolButton:disabled {{ background: {P.bg_input}; color: {P.fg_disabled}; }}")
         self._plot_btn.setToolTip(
-            "Draw a multi-stop jump route through every system on the list (nearest-first)")
+            "Draw the shortest route through every location on the list, in visit order. "
+            "It follows the list as you change it.")
         self._plot_btn.clicked.connect(lambda: self.plotRequested.emit())
         root.addWidget(self._plot_btn)
 
@@ -206,6 +208,7 @@ class GroceryPanel(QWidget):
         n = len(self._items)
         self._title.setText(f"GROCERY LIST ({n})")
         self._plot_btn.setEnabled(n > 0)
+        self.changed.emit()
 
     # dnd
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
