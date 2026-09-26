@@ -199,8 +199,8 @@ class TutorialPopup(QDialog):
 
             _section("Refresh"),
             _body(
-                "The \u27f3 Refresh button re-fetches data from erkul.games. "
-                "Data is cached for 2 hours and updates automatically."
+                "The \u27f3 Refresh button checks StarCitizenWiki/scunpacked-data for a newer "
+                "game-data build and switches to it. Data is stored locally between patches."
             ),
         ])
 
