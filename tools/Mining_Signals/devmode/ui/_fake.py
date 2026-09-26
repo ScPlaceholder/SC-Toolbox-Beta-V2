@@ -5,7 +5,8 @@ It implements every function in the Dev Mode interface contract with
 plausible data: ~60 synthetic crops that look like the in-game signal
 panel (dark teal box, location pin, a value such as ``12,810``), a mix of
 consensus / single-reader / imported proposals (some of them wrong, as
-real imported file names are), glyph thumbnails, a simulated PyTorch
+real imported file names are), glyph thumbnails (real "capture" ones and a
+few rendered from the game font, source "font"), a simulated PyTorch
 install and a simulated training run.
 
 Selected by ``devmode.ui.backend`` when ``SC_DEVMODE_FAKE=1`` or when the
@@ -120,6 +121,18 @@ def draw_hud(value: str, kind: str, rng: random.Random) -> Image.Image:
     return img
 
 
+def draw_font_glyph(ch: str, rng: random.Random, kind: str) -> Image.Image:
+    """A crisp, white-padded tile, the way the real font renderer's look."""
+    img = Image.new("RGB", (28, 28), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    d.rectangle((2, 2, 25, 25), fill=(30 + rng.randint(0, 20), 44, 48))
+    d.text((14, 14), ch, font=_font(rng.randint(20, 24)), anchor="mm",
+           fill=(230, 245, 240 - rng.randint(0, 30)))
+    if kind.endswith("_inv"):
+        img = Image.eval(img, lambda v: 255 - v)
+    return img
+
+
 def draw_glyph(ch: str, rng: random.Random, kind: str) -> Image.Image:
     img = Image.new("L", (28, 28), rng.randint(0, 25))
     d = ImageDraw.Draw(img)
@@ -162,6 +175,9 @@ class FakeBackend:
         self._order: list[str] = []
         self._glyphs: dict[str, dict] = {}
         self._capture_on = False
+        # Measured: Furore matches the HUD, no bundled font matches the scanner.
+        self._fonts = {"hud": {"font": "furore", "lookalike_share": 0.15},
+                       "signal": {"font": None, "lookalike_share": 0.15}}
         self._candidates: dict[str, dict] = {}      # kind -> {"path", "acc"}
         self._active: dict[str, dict] = {}          # kind -> {"path", "acc"}
         self._next = 1
@@ -258,12 +274,32 @@ class FakeBackend:
                   ",": (48, 0)}
         for ch, (appr, pend) in counts.items():
             for j in range(appr + pend):
-                gid = self._new_id("gly")
-                self._glyphs[gid] = {
-                    "id": gid, "kind": "signal_rgb", "char": ch,
-                    "image_path": self._save(draw_glyph(ch, rng, "signal_rgb"), "glyphs", gid),
-                    "status": "approved" if j < appr else "pending",
-                }
+                self._add_glyph("signal_rgb", ch, "approved" if j < appr else "pending", "capture")
+        # The HUD has a matching bundled font (Furore); the scanner does not,
+        # so only HUD glyphs have font renders. (approved, pending):
+        hud = {"0": (60, 4), "1": (51, 3), "2": (22, 5), "3": (14, 2), "4": (35, 1),
+               "5": (18, 6), "6": (27, 2), "7": (31, 0), "8": (24, 3), "9": (6, 2),
+               ".": (44, 0), "%": (38, 1)}
+        # '9' was topped up from the font; '5' has a fresh batch waiting for review.
+        hud_font = {"9": (40, 6), "5": (0, 12)}
+        for ch, (appr, pend) in hud.items():
+            for j in range(appr + pend):
+                self._add_glyph("hud_rgb", ch, "approved" if j < appr else "pending", "capture")
+        for ch, (appr, pend) in hud_font.items():
+            for j in range(appr + pend):
+                self._add_glyph("hud_rgb", ch, "approved" if j < appr else "pending", "font")
+
+    def _add_glyph(self, kind: str, ch: str, status: str, source: str) -> str:
+        gid = self._new_id("gly")
+        draw = draw_font_glyph if source == "font" else draw_glyph
+        path = self._save(draw(ch, self._rng, kind), "glyphs", gid)
+        with self._lock:
+            self._glyphs[gid] = {
+                "id": gid, "kind": kind, "char": ch, "image_path": path, "status": status,
+                "source": source, "font": "furore.otf" if source == "font" else None,
+                "capture_id": "" if source == "font" else "cap_seed",
+            }
+        return gid
 
     # ── paths ──────────────────────────────────────────────────────────
     def dev_root(self) -> Path:
@@ -372,11 +408,7 @@ class FakeBackend:
             for ch in (c["label"] or ""):
                 if ch == " ":
                     continue
-                gid = self._new_id("gly")
-                path = self._save(draw_glyph(ch, self._rng, kind), "glyphs", gid)
-                with self._lock:
-                    self._glyphs[gid] = {"id": gid, "kind": kind, "char": ch,
-                                         "image_path": path, "status": "pending"}
+                self._add_glyph(kind, ch, "pending", "capture")
                 made += 1
             if progress:
                 progress((i + 1) / max(1, len(src)), f"capture {i + 1}/{len(src)}")
@@ -386,13 +418,15 @@ class FakeBackend:
         return made
 
     def list_glyphs(self, kind: str, char: Optional[str] = None,
-                    status: Optional[str] = None) -> list[dict]:
+                    status: Optional[str] = None, source: Optional[str] = None) -> list[dict]:
         with self._lock:
             rows = [g for g in self._glyphs.values() if g["kind"] == kind]
             if char is not None:
                 rows = [g for g in rows if g["char"] == char]
             if status:
                 rows = [g for g in rows if g["status"] == status]
+            if source:
+                rows = [g for g in rows if g["source"] == source]
             return [{k: v for k, v in g.items() if k != "kind"} for g in rows]
 
     def approve_glyph(self, glyph_id: str) -> None:
@@ -406,16 +440,74 @@ class FakeBackend:
             self._glyphs[glyph_id]["status"] = "rejected"
 
     def glyph_stats(self, kind: str) -> dict:
+        """Totals plus the same counts per source ("capture" = real, "font")."""
+        def zero():
+            return {"approved": 0, "pending": 0, "rejected": 0}
         out: dict[str, dict] = {}
         with self._lock:
             for g in self._glyphs.values():
-                if g["kind"] != kind or g["status"] == "rejected":
+                if g["kind"] != kind:
                     continue
-                s = out.setdefault(g["char"], {"approved": 0, "pending": 0})
+                s = out.setdefault(g["char"], {**zero(), "capture": zero(), "font": zero()})
                 s[g["status"]] += 1
+                s[g["source"]][g["status"]] += 1
         return dict(sorted(out.items()))
 
+    def region_font(self, kind_or_family: str) -> dict:
+        fam = kind_or_family if kind_or_family in self._fonts else (
+            "signal" if kind_or_family.startswith("signal") else "hud")
+        font = self._fonts[fam]["font"]
+        where = "the scanner (signal) panel" if fam == "signal" else "the mining HUD"
+        reason = (f"No matching font bundled for {where}: none of the bundled fonts matches "
+                  "its real glyphs, and a wrong font would teach the wrong shapes."
+                  if font is None else f"{where} renders in {font}")
+        return {"family": fam, "font": font, "lookalike_share": self._fonts[fam]["lookalike_share"],
+                "available": ["furore", "jura", "orbitron", "quantico"], "reason": reason}
+
+    def set_region_font(self, family: str, font: Optional[str],
+                        lookalike_share: Optional[float] = None) -> dict:
+        self._log("set_region_font", family, font)
+        if family not in self._fonts:
+            raise ValueError("family must be 'signal' or 'hud'")
+        self._fonts[family]["font"] = font
+        if lookalike_share is not None:
+            self._fonts[family]["lookalike_share"] = float(lookalike_share)
+        return self.region_font(family)
+
+    def render_font_glyphs(self, kind: str, char: str, count: int,
+                           progress: Progress = None) -> int:
+        """Like devmode.fontglyphs: a region without a matching font refuses,
+        colour kinds refuse until real glyphs of that kind are approved;
+        renders queue as pending, source "font"."""
+        self._log("render_font_glyphs", kind, char, count)
+        if not 1 <= int(count) <= 2000:
+            raise ValueError("count must be between 1 and 2000")
+        setting = self.region_font(kind)
+        if setting["font"] is None:
+            raise RuntimeError(setting["reason"])
+        if "rgb" in kind:
+            with self._lock:
+                real = any(g["kind"] == kind and g["source"] == "capture"
+                           and g["status"] == "approved" for g in self._glyphs.values())
+            if not real:
+                raise RuntimeError(
+                    f"{kind} is a colour kind and has no approved REAL glyphs yet, so the game's "
+                    "colours are unknown. Approve a few real glyphs first.")
+        for i in range(int(count)):
+            self._add_glyph(kind, char, "pending", "font")
+            if progress and (i % 10 == 0 or i == count - 1):
+                progress((i + 1) / count, f"rendering {char!r} {i + 1}/{count}")
+                self._sleep()
+        return int(count)
+
     # ── synth ──────────────────────────────────────────────────────────
+    def synth_seeds(self, kind: str) -> dict:
+        out = {}
+        for ch, s in self.glyph_stats(kind).items():
+            real, font = s["capture"]["approved"], s["font"]["approved"]
+            out[ch] = {"real": real, "font": font, "stock": 0 if real or font else 1}
+        return out
+
     def generate_synth(self, kind: str, per_class: int, progress: Progress = None) -> dict:
         self._log("generate_synth", kind, per_class)
         stats = self.glyph_stats(kind)

@@ -9,7 +9,10 @@ miss for every model, so it never favours one side.
 per_class is per-character accuracy over captures that segmented cleanly.
 
 Only captures with status 'confirmed' are ever scored; proposals are not
-ground truth. Any capture id listed in a model's sidecar ``trainCaptureIds``
+ground truth. Only REAL captures are ever scored: this module never reads
+the glyph table, so font-rendered glyphs (devmode.fontglyphs, training-only)
+cannot reach it, and a tripwire refuses any scored item that is not a
+confirmed held-out capture file under dev_root()/captures. Any capture id listed in a model's sidecar ``trainCaptureIds``
 is excluded as well (belt and braces for labels edited after training).
 """
 from __future__ import annotations
@@ -22,7 +25,7 @@ from typing import Iterable, Optional
 import numpy as np
 from PIL import Image
 
-from . import kinds, labels, segment
+from . import kinds, labels, paths, segment
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +82,20 @@ def heldout_captures(kind: str, exclude_ids: Iterable[str] = ()) -> list[dict]:
     return [c for c in labels.confirmed_rows(kinds.family(kind), "heldout") if c["id"] not in ex]
 
 
+def assert_real_heldout_capture(cap: dict) -> None:
+    """Tripwire: a scored item must be a confirmed, held-out capture whose
+    file lives under dev_root()/captures (never a glyph, font render or synth)."""
+    root = (paths.dev_root() / "captures").resolve()
+    p = Path(str(cap.get("image_path") or "")).resolve()
+    try:
+        p.relative_to(root)
+    except ValueError:
+        raise BenchmarkError(f"tripwire: benchmark item {cap.get('id')!r} is not a capture file: {p}")
+    if cap.get("status") != "confirmed" or cap.get("split") != "heldout":
+        raise BenchmarkError(f"tripwire: benchmark item {cap.get('id')!r} is not a confirmed "
+                             f"held-out capture (status={cap.get('status')!r}, split={cap.get('split')!r})")
+
+
 def _tiles_for(cap: dict, kind: str):
     key = (cap["id"], cap["label"], kinds.is_rgb(kind))
     if key in _tiles:
@@ -114,6 +131,7 @@ def benchmark(kind: str, model_path: Optional[str] = None, *,
     pc_ok: dict[str, int] = {}
     pc_n: dict[str, int] = {}
     for cap in captures:
+        assert_real_heldout_capture(cap)
         label = cap["label"]
         tiles = _tiles_for(cap, kind)
         if not tiles:

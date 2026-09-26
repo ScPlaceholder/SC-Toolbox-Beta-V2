@@ -7,14 +7,22 @@ Each class of the kind's model is topped up to ``per_class`` samples
               (shift, icon-edge artefact, neighbour ghosting, contrast, noise)
   RGB pools:  scripts/augment_rgb_signal_glyphs._augment_one
 
-Seeds are the class's APPROVED glyphs (train split only). A class with no
-approved glyph at all falls back to stock seeds so training is not blocked
-by one missing class:
+Seeds, in priority order:
+  1. the class's APPROVED REAL glyphs (cut from train-split captures);
+  2. its APPROVED FONT glyphs (devmode.fontglyphs), after the real ones:
+     when a class has both, at least REAL_SEED_MIN_SHARE of the synthetic
+     images (more if real seeds are the majority) grow from real seeds;
+  3. only when a class has neither, stock seeds so training is not blocked
+     by one missing class:
   digits (grey)  -> ocr/synth_data._load_sc_templates (hand-curated SC digits)
   '.' '%' (grey) -> ocr/synth_data._render_char
   '@' icon       -> tools/Mining_Signals/training_data_blacklist/*.png (read-only)
 RGB pools get no template fallback (the templates carry no colour); such a
 class stays at 0 and train() will name it.
+
+Approved real + font glyphs both count toward ``per_class``: they are
+training samples themselves (train.build_dataset). ``synth_seeds(kind)``
+reports, per class, how many seeds are real / font / stock.
 
 Synthetic glyphs are regenerated from scratch on every call and never
 enter the benchmark.
@@ -34,6 +42,9 @@ from . import glyphs, kinds, paths
 log = logging.getLogger(__name__)
 
 Progress = Optional[Callable[[float, str], None]]
+
+
+REAL_SEED_MIN_SHARE = 0.5
 
 
 def synth_dir(kind: str):
@@ -105,32 +116,32 @@ def generate_synth(kind: str, per_class: int, progress: Progress = None) -> dict
     shutil.rmtree(root, ignore_errors=False)
     root.mkdir(parents=True, exist_ok=True)
 
-    by_class: dict[str, list[np.ndarray]] = {ch: [] for ch in classes}
-    for g in glyphs.approved_training_glyphs(kind):
-        t = _load_tile(g["image_path"], rgb)
-        if t is not None and g["char"] in by_class:
-            by_class[g["char"]].append(t)
+    real, font = _approved_tiles(kind)
 
     result: dict[str, int] = {}
     for ci, ch in enumerate(classes):
         if progress:
             progress(ci / max(1, len(classes)), f"class {ch!r}")
-        need = per_class - len(by_class[ch])
+        need = per_class - len(real[ch]) - len(font[ch])
         if need <= 0:
             result[ch] = 0
             continue
-        seeds = by_class[ch] or _fallback_seeds(kind, ch)
-        if not seeds:
+        r_seeds, f_seeds = real[ch], font[ch]
+        if not r_seeds and not f_seeds:
+            r_seeds = _fallback_seeds(kind, ch)       # stock, last resort
+        if not r_seeds and not f_seeds:
             result[ch] = 0
             continue
         rng = random.Random(1337 + ci)
         nrng = np.random.default_rng(1337 + ci)
         np.random.seed(1337 + ci)          # _augment_one draws from the global RNG
-        others = [t for c, ts in by_class.items() if c != ch for t in ts] if not rgb else []
+        others = ([t for c in classes if c != ch for t in real[c] + font[c]]
+                  if not rgb else [])
         out_dir = root / kinds.class_dirname(ch)
         out_dir.mkdir(parents=True, exist_ok=True)
+        pick = _seed_picker(r_seeds, f_seeds, random.Random(7331 + ci))
         for i in range(need):
-            seed = seeds[i % len(seeds)]
+            seed = pick()
             if rgb:
                 v = aug_rgb._augment_one(seed, rng)
                 Image.fromarray(v, "RGB").save(out_dir / f"syn_{i:05d}.png")
@@ -141,6 +152,54 @@ def generate_synth(kind: str, per_class: int, progress: Progress = None) -> dict
     if progress:
         progress(1.0, f"{sum(result.values())} synthetic glyphs")
     return result
+
+
+def _approved_tiles(kind: str) -> tuple[dict, dict]:
+    rgb = kinds.is_rgb(kind)
+    classes = kinds.classes_for(kind)
+    real: dict[str, list[np.ndarray]] = {ch: [] for ch in classes}
+    font: dict[str, list[np.ndarray]] = {ch: [] for ch in classes}
+    for dest, rows in ((real, glyphs.approved_real_glyphs(kind)),
+                       (font, glyphs.approved_font_glyphs(kind))):
+        for g in rows:
+            if g["char"] not in dest:
+                continue
+            t = _load_tile(g["image_path"], rgb)
+            if t is not None:
+                dest[g["char"]].append(t)
+    return real, font
+
+
+def _seed_picker(real: list, font: list, rng: random.Random):
+    """Real seeds first: each list is cycled in order (every seed used
+    before any repeats); when both exist, a draw is real with probability
+    max(REAL_SEED_MIN_SHARE, real share of the seeds)."""
+    share = 1.0 if not font else (0.0 if not real else
+                                  max(REAL_SEED_MIN_SHARE, len(real) / (len(real) + len(font))))
+    idx = {"r": 0, "f": 0}
+
+    def pick():
+        key, pool = ("r", real) if rng.random() < share else ("f", font)
+        seed = pool[idx[key] % len(pool)]
+        idx[key] += 1
+        return seed
+    return pick
+
+
+def synth_seeds(kind: str) -> dict[str, dict[str, int]]:
+    """Per class: how many synth seeds are real / font / stock right now.
+    Stock seeds are only used (and only counted) when a class has neither."""
+    classes = kinds.classes_for(kind)
+    out = {ch: {"real": 0, "font": 0, "stock": 0} for ch in classes}
+    for key, rows in (("real", glyphs.approved_real_glyphs(kind)),
+                      ("font", glyphs.approved_font_glyphs(kind))):
+        for g in rows:
+            if g["char"] in out:
+                out[g["char"]][key] += 1
+    for ch, d in out.items():
+        if not d["real"] and not d["font"]:
+            d["stock"] = len(_fallback_seeds(kind, ch))
+    return out
 
 
 def synth_files(kind: str) -> dict[str, list[str]]:

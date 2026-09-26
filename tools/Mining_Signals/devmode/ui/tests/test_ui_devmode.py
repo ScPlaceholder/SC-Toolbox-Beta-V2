@@ -291,7 +291,8 @@ def test_synth_generates_and_shows_counts(win, fake):
     sp.generate()
     assert drain()
     assert ("generate_synth", "signal_rgb", 100) in fake.calls
-    assert sp.table.item(0, 4).text() != "—"
+    from devmode.ui.pages.synth import COLS
+    assert sp.table.item(0, COLS.index("Generated")).text() != "—"
     assert "Generated" in sp.status.text()
 
 
@@ -374,3 +375,134 @@ def test_close_does_not_quit_host_app(win, monkeypatch):
     win.title_bar._on_close_btn()
     drain()
     assert not quit_called
+
+
+# ── glyphs from the game font ────────────────────────────────────────────
+
+def _glyph_page(win, kind="hud_rgb"):
+    win.select_step(3)
+    drain()
+    gp = win.pages[3]
+    gp.kind.setCurrentIndex(gp.kind.findData(kind))
+    drain()
+    return gp
+
+
+def test_render_from_font_shows_the_new_pending_font_tiles(win, fake):
+    gp = _glyph_page(win)
+    gp.set_char("3")
+    drain()
+    assert gp.font_count.value() == 100                    # the default
+    assert gp.render_btn.isEnabled()
+    gp.font_count.setValue(25)
+    gp.render_from_font()
+    assert drain()
+    assert ("render_font_glyphs", "hud_rgb", "3", 25) in fake.calls
+    assert gp.show_combo.currentData() == "pending" and gp.source_combo.currentData() == "font"
+    assert gp.current_char == "3" and gp.grid.count() == 25
+    assert {gp.grid.item(i).data(Qt.UserRole + 1) for i in range(gp.grid.count())} == {"font"}
+    assert "Rendered 25" in gp.status.text()
+    assert "FONT" in gp.grid.item(0).toolTip()
+    # approving them goes through the normal path
+    gp.grid.selectAll()
+    gp.approve_selected()
+    assert drain()
+    st = fake.glyph_stats("hud_rgb")["3"]
+    assert st["font"]["approved"] == 25 and st["capture"]["approved"] == 14
+
+
+def test_font_tiles_are_badged_and_real_ones_are_not(win):
+    from PySide6.QtGui import QColor
+    from devmode.ui.pages.glyphs import FONT_COLOUR
+    gp = _glyph_page(win)
+    gp.show_combo.setCurrentIndex(gp.show_combo.findData(None))      # all statuses
+    gp.set_char("9")
+    drain()
+    want = QColor(FONT_COLOUR)
+    seen = set()
+    for i in range(gp.grid.count()):
+        it = gp.grid.item(i)
+        img = it.icon().pixmap(56, 56).toImage()
+        px = QColor(img.pixel(2, img.height() - 2))             # bottom-left: the badge strip
+        is_badge = (abs(px.red() - want.red()) < 12 and abs(px.green() - want.green()) < 12
+                    and abs(px.blue() - want.blue()) < 12)
+        src = it.data(Qt.UserRole + 1)
+        seen.add(src)
+        assert is_badge == (src == "font"), (i, src, px.name())
+    assert seen == {"font", "capture"}
+
+
+def test_source_filter_and_char_button_counts(win, fake):
+    gp = _glyph_page(win)
+    gp.show_combo.setCurrentIndex(gp.show_combo.findData("approved"))
+    gp.source_combo.setCurrentIndex(gp.source_combo.findData("capture"))
+    gp.set_char("9")
+    drain()
+    assert gp.grid.count() == 6
+    gp.source_combo.setCurrentIndex(gp.source_combo.findData("font"))
+    drain()
+    assert gp.grid.count() == 40
+    b = gp.char_buttons[gp._chars.index("9")]
+    assert "6 real, 40 font" in b.toolTip() and "Mostly FONT" in b.toolTip()
+    # 6 real + 40 font: not weak, but called out as font-filled
+    assert "few real (font-filled): 9" in gp.status.text()
+    assert gp.font_note.text() == "font: furore"
+
+
+def test_render_failure_is_shown_not_swallowed(win, fake, monkeypatch):
+    gp = _glyph_page(win)
+    gp.set_char("7")
+    drain()
+
+    def refuse(kind, char, count, progress=None):
+        raise RuntimeError("hud_rgb is a colour kind and has no approved REAL glyphs yet")
+    monkeypatch.setattr(fake, "render_font_glyphs", refuse)
+    gp.render_from_font()
+    assert drain()
+    assert "Rendering from font failed" in gp.status.text()
+    assert "approved REAL glyphs" in gp.status.text()
+    assert gp.render_btn.isEnabled()                       # usable again after the error
+
+
+def test_fake_render_refuses_colour_kind_without_real_glyphs(fake):
+    fake._glyphs.clear()
+    with pytest.raises(RuntimeError, match="approved REAL glyphs"):
+        fake.render_font_glyphs("hud_rgb", "3", 5)
+    assert fake.render_font_glyphs("hud", "3", 5) == 5      # grey kinds need no colours
+    with pytest.raises(RuntimeError, match="No matching font bundled"):
+        fake.render_font_glyphs("signal", "3", 5)
+
+
+def test_scanner_region_says_no_matching_font_and_cannot_render(win, fake):
+    gp = _glyph_page(win, "signal_rgb")
+    gp.set_char("9")
+    drain()
+    assert gp.font_note.text() == "No matching font bundled for this region"
+    assert not gp.render_btn.isEnabled()
+    assert "No matching font bundled" in gp.render_btn.toolTip()
+    gp.render_from_font()                                  # a stray call must not render
+    assert drain()
+    assert not _calls(fake, "render_font_glyphs")
+    gp.kind.setCurrentIndex(gp.kind.findData("hud"))
+    drain()
+    assert gp.font_note.text() == "font: furore"
+
+
+def test_synth_table_shows_real_and_font_counts(win, fake):
+    from devmode.ui.pages.synth import COLS
+    win.select_step(4)
+    drain()
+    sp = win.pages[4]
+    sp.kind.setCurrentIndex(sp.kind.findData("hud_rgb"))
+    drain()
+    t = sp.table
+    rows = {t.item(r, 0).text().split()[0]: r for r in range(t.rowCount())}
+    r9 = rows["9"]
+    assert t.item(r9, COLS.index("Approved real")).text() == "6"
+    assert t.item(r9, COLS.index("Approved font")).text() == "40"
+    assert t.item(r9, COLS.index("Seeds")).text() == "6 real / 40 font"
+    sp.per_class.setValue(100)
+    assert t.item(r9, COLS.index("Will generate")).text() == "54"      # 100 - (6 + 40)
+    r0 = rows["0"]
+    assert t.item(r0, COLS.index("Approved font")).text() == "0"
+    assert t.item(r0, COLS.index("Seeds")).text() == "60 real / 0 font"

@@ -24,6 +24,7 @@ CONTRACT = (
     "extract_glyphs", "list_glyphs", "approve_glyph", "reject_glyph", "glyph_stats",
     "generate_synth", "torch_status", "install_torch", "train", "benchmark",
     "compare", "activate", "revert", "active_model_path", "export_preview", "export_zip",
+    "render_font_glyphs", "synth_seeds", "region_font",
 )
 
 

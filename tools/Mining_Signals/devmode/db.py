@@ -63,6 +63,22 @@ CREATE TABLE IF NOT EXISTS extractions (
 
 _initialised: set[str] = set()
 
+# Columns added after the first release. ``source`` tells a glyph cut from a
+# real capture ("capture") from one rendered from the game font ("font");
+# font glyphs carry capture_id = '' and the font file name in ``font``.
+_GLYPH_COLUMNS = (
+    ("source", "TEXT NOT NULL DEFAULT 'capture'"),
+    ("font", "TEXT"),
+)
+
+
+def _migrate(con) -> None:
+    have = {r[1] for r in con.execute("PRAGMA table_info(glyphs)").fetchall()}
+    for name, decl in _GLYPH_COLUMNS:
+        if name not in have:
+            con.execute(f"ALTER TABLE glyphs ADD COLUMN {name} {decl}")
+    con.execute("CREATE INDEX IF NOT EXISTS ix_glyph_source ON glyphs(pool, source, status)")
+
 
 def db_path() -> Path:
     return paths.dev_root() / "devmode.sqlite3"
@@ -77,6 +93,7 @@ def connect():
         key = str(p)
         if key not in _initialised or not p.exists():
             con.executescript(_SCHEMA)
+            _migrate(con)
             _initialised.add(key)
         yield con
         con.commit()
@@ -91,6 +108,7 @@ DEFAULT_STATE = {
     "cap_bytes": 500 * 1024 * 1024,
     "game_resolution": None,
     "hud_colour": None,
+    "region_fonts": {},          # family -> {"font", "lookalike_share"}; see fontglyphs
 }
 
 

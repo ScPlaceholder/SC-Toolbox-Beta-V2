@@ -18,9 +18,11 @@ from ..style import (
     page_frame, subtext,
 )
 from .base import StepPage, progress_bar, status_label
-from .glyphs import WEAK, _char_name
+from .glyphs import FONT_COLOUR, WEAK, _char_name, _src
 
-COLS = ("Character", "Approved (real)", "Waiting review", "Will generate", "Generated")
+COLS = ("Character", "Approved real", "Approved font", "Waiting review", "Will generate",
+        "Seeds", "Generated")
+C_REAL, C_FONT, C_WAIT, C_NEED, C_SEEDS, C_GOT = range(1, 7)
 
 
 class SynthPage(StepPage):
@@ -29,11 +31,14 @@ class SynthPage(StepPage):
     def __init__(self, handle, parent: Optional[QWidget] = None):
         super().__init__(handle, parent)
         self._stats: dict = {}
+        self._seeds: dict = {}
         self._result: dict = {}
         _, root = page_frame(self, "Synthetic data",
                              "Real samples are uneven: some digits turn up far more than others. "
                              "This renders extra training images for the weak characters so every "
-                             "class reaches the target. Real, approved glyphs always count first.")
+                             "class reaches the target. Real, approved glyphs always count first; "
+                             "approved font renders come after them, and the stock templates "
+                             "only stand in for a character that has neither.")
 
         card = Card(self, "Settings")
         row = QHBoxLayout()
@@ -79,6 +84,8 @@ class SynthPage(StepPage):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(C_SEEDS, QHeaderView.ResizeToContents)
         self.table.verticalHeader().setDefaultSectionSize(26)
         tcard.body.addWidget(self.table, 1)
         root.addWidget(tcard, 1)
@@ -91,11 +98,17 @@ class SynthPage(StepPage):
 
     def refresh(self) -> None:
         self._result = {}
-        self.runner.start("Counting glyphs", self.api.glyph_stats, self.kind.currentData(),
+        self.runner.start("Counting glyphs", self._fetch, self.kind.currentData(),
                           on_done=self._got_stats)
 
-    def _got_stats(self, stats: dict) -> None:
-        self._stats = dict(stats or {})
+    def _fetch(self, kind: str) -> dict:
+        seeds_fn = getattr(self.api, "synth_seeds", None)
+        return {"stats": self.api.glyph_stats(kind),
+                "seeds": seeds_fn(kind) if callable(seeds_fn) else {}}
+
+    def _got_stats(self, data: dict) -> None:
+        self._stats = dict((data or {}).get("stats") or {})
+        self._seeds = dict((data or {}).get("seeds") or {})
         self._fill()
 
     def _fill(self) -> None:
@@ -106,20 +119,39 @@ class SynthPage(StepPage):
         for r, ch in enumerate(chars):
             s = self._stats.get(ch, {})
             appr, pend = int(s.get("approved", 0)), int(s.get("pending", 0))
+            real, font = _src(s, "capture", "approved"), _src(s, "font", "approved")
             need = max(0, target - appr)
             total += need
             got = self._result.get(ch)
+            sd = self._seeds.get(ch) or {}
+            if sd.get("real") or sd.get("font"):
+                seeds = f"{int(sd.get('real', 0)):,} real / {int(sd.get('font', 0)):,} font"
+            elif sd.get("stock"):
+                seeds = "stock template"
+            else:
+                seeds = "none" if self._seeds else "—"
             vals = (f"{ch}   ({_char_name(ch)})" if _char_name(ch) != ch else ch,
-                    f"{appr:,}", f"{pend:,}", f"{need:,}", "—" if got is None else f"{got:,}")
+                    f"{real:,}", f"{font:,}", f"{pend:,}", f"{need:,}", seeds,
+                    "—" if got is None else f"{got:,}")
             for c, v in enumerate(vals):
                 it = QTableWidgetItem(v)
                 it.setTextAlignment(Qt.AlignCenter)
-                if c == 1 and appr < WEAK:
-                    it.setForeground(QColor(P.red))
-                    it.setToolTip(f"Weak: under {WEAK} real samples")
-                if c == 3 and need:
+                if c == C_REAL and real < WEAK:
+                    it.setForeground(QColor(P.red if appr < WEAK else FONT_COLOUR))
+                    it.setToolTip(f"Under {WEAK} real samples"
+                                  + ("" if appr < WEAK else "; topped up by font renders"))
+                if c == C_FONT and font:
+                    it.setForeground(QColor(FONT_COLOUR))
+                    it.setToolTip("Rendered from the game font: training only, never benchmarked")
+                if c == C_NEED and need:
                     it.setForeground(QColor(P.yellow))
-                if c == 4 and got:
+                if c == C_SEEDS:
+                    it.setToolTip("What the synthetic images grow from: approved real glyphs "
+                                  "first, then approved font renders; stock templates only "
+                                  "when a character has neither.")
+                    if seeds in ("stock template", "none"):
+                        it.setForeground(QColor(P.fg_dim))
+                if c == C_GOT and got:
                     it.setForeground(QColor(ACCENT))
                 self.table.setItem(r, c, it)
         if not self.runner.is_running("Generating synthetic data"):

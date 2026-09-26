@@ -15,7 +15,8 @@ effects) — and the loop/data plumbing lives in ``train_worker.py``:
   hud                       ocr/train_hud_cnn.py::build_model
   hud_rgb                   ocr/train_hud_rgb_cnn.py::build_model
 
-Data = APPROVED glyphs from TRAIN-split confirmed captures + this kind's
+Data = APPROVED glyphs from TRAIN-split confirmed captures + APPROVED
+font-rendered glyphs (training-only, see devmode.fontglyphs) + this kind's
 synthetic glyphs. Nothing proposed, pending, rejected or held-out.
 The candidate is written under dev_root()/models/<kind>/ — never the
 install tree — and only becomes live through activate().
@@ -115,11 +116,14 @@ def build_dataset(kind: str) -> tuple[list[tuple[str, int]], dict[str, int], lis
     for g in glyphs.approved_training_glyphs(kind):
         if g["capture_id"] in heldout:
             raise TrainError(f"tripwire: glyph {g['id']} comes from held-out capture {g['capture_id']}")
+        if g["source"] == "font" and g["capture_id"]:
+            raise TrainError(f"tripwire: font glyph {g['id']} claims capture {g['capture_id']}")
         if g["status"] != "approved" or g["char"] not in counts:
             continue
         samples.append((g["image_path"], classes.index(g["char"])))
         counts[g["char"]] += 1
-        cap_ids.add(g["capture_id"])
+        if g["source"] == "capture":
+            cap_ids.add(g["capture_id"])
     synth_root = (paths.dev_root() / "synth").resolve()
     for ch, files in synth.synth_files(kind).items():
         for f in files:
@@ -127,6 +131,15 @@ def build_dataset(kind: str) -> tuple[list[tuple[str, int]], dict[str, int], lis
             samples.append((f, classes.index(ch)))
             counts[ch] += 1
     return samples, counts, sorted(cap_ids)
+
+
+def source_counts(kind: str) -> dict[str, int]:
+    """How many training samples came from real captures, the font, and synth."""
+    out = {"capture": 0, "font": 0, "synth": 0}
+    for g in glyphs.approved_training_glyphs(kind):
+        out[g["source"]] = out.get(g["source"], 0) + 1
+    out["synth"] = sum(len(v) for v in synth.synth_files(kind).values())
+    return out
 
 
 def train(kind: str, progress: Progress = None) -> str:
@@ -202,6 +215,7 @@ def train(kind: str, progress: Progress = None) -> str:
         "trainedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "trainingSeconds": round(time.time() - t0, 1),
         "perClassCounts": counts,
+        "perSourceCounts": source_counts(kind),
         "trainSamples": len(samples),
         "trainCaptureIds": cap_ids,
         "internalValAccuracy": val_acc,

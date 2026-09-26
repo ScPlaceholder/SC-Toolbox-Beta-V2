@@ -21,7 +21,12 @@ Errors raised (all subclasses of built-ins, safe to show to users):
   engine.TorchInstallError (RuntimeError)       pip missing / pip failed
   train.TorchMissingError / NotEnoughDataError / TrainError (RuntimeError)
   bench.BenchmarkError (RuntimeError)
+  fontglyphs.NeedRealGlyphsError / NoMatchingFontError / FontRenderError (RuntimeError)
   KeyError                    unknown capture / glyph id
+
+Glyph sources: every glyph is ``"capture"`` (cut from a confirmed capture)
+or ``"font"`` (render_font_glyphs). Font glyphs are TRAINING-ONLY; the
+benchmark scores held-out captures and never reads glyphs.
 """
 from __future__ import annotations
 
@@ -31,11 +36,13 @@ from .captures import (CapFullError, ScreenshotRefusedError, add_capture, captur
                        capture_stats, import_folder, set_capture_cap, set_capture_enabled)
 from .engine import TorchInstallError, install_torch, torch_status
 from .export import export_preview, export_zip, set_game_info
+from .fontglyphs import (FontRenderError, NeedRealGlyphsError, NoMatchingFontError, region_font,
+                         render_font_glyphs, set_region_font)
 from .glyphs import approve_glyph, extract_glyphs, glyph_stats, list_glyphs, reject_glyph
 from .kinds import KINDS
 from .labels import confirm, get_capture, label_stats, list_captures, reject
 from .paths import dev_root
-from .synth import generate_synth
+from .synth import generate_synth, synth_seeds
 from .train import NotEnoughDataError, TorchMissingError, TrainError, train
 
 __all__ = [
@@ -49,8 +56,11 @@ __all__ = [
     "get_capture",                          # EXTRA
     # glyphs
     "extract_glyphs", "list_glyphs", "approve_glyph", "reject_glyph", "glyph_stats",
+    "render_font_glyphs",                   # EXTRA (2026-09-25): glyphs from the game font
+    "region_font", "set_region_font",       # EXTRA: which bundled font a region family renders in
     # synth
     "generate_synth",
+    "synth_seeds",                          # EXTRA: per class real / font / stock seeds
     # engine
     "torch_status", "install_torch",
     # train / bench / activate
@@ -60,5 +70,6 @@ __all__ = [
     "set_game_info",                        # EXTRA
     # constants / errors (EXTRA)
     "KINDS", "CapFullError", "ScreenshotRefusedError", "TorchInstallError", "TorchMissingError",
-    "NotEnoughDataError", "TrainError", "BenchmarkError",
+    "NotEnoughDataError", "TrainError", "BenchmarkError", "FontRenderError", "NeedRealGlyphsError",
+    "NoMatchingFontError",
 ]

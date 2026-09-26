@@ -4,6 +4,11 @@ Pools follow the registry's glyph_staging_dir, so ``signal`` and
 ``signal_inv`` share one pool (and one set of approvals), as do
 ``signal_rgb`` / ``signal_rgb_inv``. Held-out captures are never cut into
 glyphs, so nothing from them can reach synth or training.
+
+Every glyph has a SOURCE: ``"capture"`` (cut from a human-confirmed
+capture here) or ``"font"`` (rendered from the game font by
+devmode.fontglyphs). Font glyphs have no capture (capture_id = '') and are
+TRAINING-ONLY: the benchmark reads captures, never this table.
 """
 from __future__ import annotations
 
@@ -20,6 +25,11 @@ log = logging.getLogger(__name__)
 
 Progress = Optional[Callable[[float, str], None]]
 GLYPH_STATUSES = ("pending", "approved", "rejected")
+GLYPH_SOURCES = ("capture", "font")
+
+
+class GlyphIntegrityError(RuntimeError):
+    """The glyph index contradicts itself (e.g. a font glyph tied to a capture)."""
 
 
 def extract_glyphs(kind: str, progress: Progress = None) -> int:
@@ -74,11 +84,20 @@ def extract_glyphs(kind: str, progress: Progress = None) -> int:
 
 def _gdict(r) -> dict:
     return {"id": r["id"], "char": r["char"], "image_path": str(paths.dev_root() / r["file"]),
-            "status": r["status"], "capture_id": r["capture_id"], "pool": r["pool"]}
+            "status": r["status"], "capture_id": r["capture_id"], "pool": r["pool"],
+            "source": r["source"], "font": r["font"]}
 
 
-def list_glyphs(kind: str, char: Optional[str] = None, status: Optional[str] = None) -> list[dict]:
+def list_glyphs(kind: str, char: Optional[str] = None, status: Optional[str] = None,
+                source: Optional[str] = None) -> list[dict]:
+    """Glyphs of ``kind``'s pool. Each dict carries ``source``
+    ("capture" | "font") and ``font`` (font file name, font glyphs only)."""
     sql, args = "SELECT * FROM glyphs WHERE pool=?", [kinds.pool(kind)]
+    if source is not None:
+        if source not in GLYPH_SOURCES:
+            raise ValueError(f"source must be one of {GLYPH_SOURCES}")
+        sql += " AND source=?"
+        args.append(source)
     if char is not None:
         sql += " AND char=?"
         args.append(char)
@@ -107,19 +126,48 @@ def reject_glyph(glyph_id: str) -> None:
     _set(glyph_id, "rejected")
 
 
+def _zero() -> dict:
+    return {"approved": 0, "pending": 0, "rejected": 0}
+
+
 def glyph_stats(kind: str) -> dict:
-    out = {ch: {"approved": 0, "pending": 0, "rejected": 0} for ch in kinds.classes_for(kind)}
+    """Per character: totals over every source (``approved`` / ``pending`` /
+    ``rejected``, as before) plus the same counts split by source under
+    ``"capture"`` (real) and ``"font"``."""
+    def blank() -> dict:
+        return {**_zero(), "capture": _zero(), "font": _zero()}
+
+    out = {ch: blank() for ch in kinds.classes_for(kind)}
     with db.connect() as con:
-        for ch, st, n in con.execute(
-                "SELECT char, status, COUNT(*) FROM glyphs WHERE pool=? GROUP BY char, status",
-                (kinds.pool(kind),)).fetchall():
-            out.setdefault(ch, {"approved": 0, "pending": 0, "rejected": 0})[st] = int(n)
+        for ch, src, st, n in con.execute(
+                "SELECT char, source, status, COUNT(*) FROM glyphs WHERE pool=?"
+                " GROUP BY char, source, status", (kinds.pool(kind),)).fetchall():
+            d = out.setdefault(ch, blank())
+            d[st] += int(n)
+            d.setdefault(src, _zero())[st] += int(n)
+    return out
+
+
+def approved_real_glyphs(kind: str) -> list[dict]:
+    """Approved glyphs cut from captures that are STILL confirmed and in the
+    train split (re-checked here, not trusted from extraction time)."""
+    fam = kinds.family(kind)
+    train_ids = {c["id"] for c in labels.confirmed_rows(fam, "train")}
+    return [g for g in list_glyphs(kind, status="approved", source="capture")
+            if g["capture_id"] in train_ids]
+
+
+def approved_font_glyphs(kind: str) -> list[dict]:
+    """Approved font-rendered glyphs. A font glyph that claims a capture is
+    corrupt (it was never cut from one): refuse loudly rather than guess."""
+    out = list_glyphs(kind, status="approved", source="font")
+    for g in out:
+        if g["capture_id"]:
+            raise GlyphIntegrityError(
+                f"font glyph {g['id']} claims capture {g['capture_id']!r}; font glyphs have no capture")
     return out
 
 
 def approved_training_glyphs(kind: str) -> list[dict]:
-    """Approved glyphs whose source capture is STILL confirmed and in the
-    train split (re-checked here, not trusted from extraction time)."""
-    fam = kinds.family(kind)
-    train_ids = {c["id"] for c in labels.confirmed_rows(fam, "train")}
-    return [g for g in list_glyphs(kind, status="approved") if g["capture_id"] in train_ids]
+    """Everything approved that may TRAIN: real glyphs first, then font ones."""
+    return approved_real_glyphs(kind) + approved_font_glyphs(kind)

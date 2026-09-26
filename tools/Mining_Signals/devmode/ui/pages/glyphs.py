@@ -1,15 +1,19 @@
 """Step 4 — approve or reject the single-character glyphs cut from
-confirmed captures, one character at a time, with weak classes flagged."""
+confirmed captures, one character at a time, with weak classes flagged.
+
+A rare character can also be rendered from the game font ("Render from
+font"): those tiles queue here as pending, badged FONT, and are
+training-only (never benchmarked)."""
 
 from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QKeySequence, QShortcut
+from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QHBoxLayout, QLabel, QListView, QListWidget,
-    QListWidgetItem, QPushButton, QButtonGroup, QVBoxLayout, QWidget,
+    QListWidgetItem, QPushButton, QButtonGroup, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from shared.qt.theme import P
@@ -25,26 +29,68 @@ WEAK = 30
 ICON = QSize(56, 56)
 SHOW = (("Waiting for review", "pending"), ("Approved", "approved"), ("Rejected", "rejected"),
         ("All", None))
+SOURCES = (("Real + font", None), ("Real only", "capture"), ("Font only", "font"))
+FONT_COLOUR = "#ff9f43"          # the FONT badge; distinct from every status colour
+DEFAULT_FONT_COUNT = 100
 
 
-def _char_button(ch: str, approved: int, pending: int, weak: bool) -> QPushButton:
-    """Two-line toggle: the character large, its counts small underneath."""
-    colour = P.red if weak else P.fg
+def _src(stats: dict, source: str, key: str) -> int:
+    """Per-source count from glyph_stats; a backend without the split
+    counts everything as real."""
+    sub = stats.get(source)
+    if isinstance(sub, dict):
+        return int(sub.get(key, 0))
+    return int(stats.get(key, 0)) if source == "capture" else 0
+
+
+def _char_button(ch: str, approved: int, pending: int, weak: bool,
+                 real: Optional[int] = None, font: int = 0) -> QPushButton:
+    """Two-line toggle: the character large, its counts small underneath.
+    Red = weak (too few approved samples of any kind); amber = enough only
+    because of font renders (few REAL examples)."""
+    real = approved if real is None else real
+    font_filled = not weak and real < WEAK
+    colour = P.red if weak else (FONT_COLOUR if font_filled else P.fg)
     counts = f"{approved}✓ {pending}?" if pending else f"{approved}✓"
     b = QPushButton(f"{ch}\n{counts}")
     b.setCheckable(True)
     b.setCursor(Qt.PointingHandCursor)
     b.setFixedSize(64, 48)
-    tip = f"'{_char_name(ch)}': {approved} approved, {pending} waiting for review"
-    b.setToolTip(tip + (f"\nWEAK: under {WEAK} approved samples" if weak else ""))
+    tip = (f"'{_char_name(ch)}': {approved} approved ({real} real, {font} font), "
+           f"{pending} waiting for review")
+    if weak:
+        tip += f"\nWEAK: under {WEAK} approved samples"
+    elif font_filled:
+        tip += f"\nMostly FONT renders: under {WEAK} real samples"
+    b.setToolTip(tip)
+    border = P.red if weak else (FONT_COLOUR if font_filled else P.border_card)
     b.setStyleSheet(
         f"QPushButton {{ background: {P.bg_card}; color: {colour}; border: 1px solid "
-        f"{P.red if weak else P.border_card}; border-radius: 3px; padding: 2px; "
+        f"{border}; border-radius: 3px; padding: 2px; "
         f"font-family: {MONO}; font-size: 9pt; font-weight: bold; min-height: 0px; }}"
         f"QPushButton:hover {{ border-color: {ACCENT}; }}"
         f"QPushButton:checked {{ background: rgba(51, 221, 136, 45); border: 2px solid {ACCENT}; "
-        f"color: {P.fg_bright if not weak else P.red}; }}")
+        f"color: {colour if (weak or font_filled) else P.fg_bright}; }}")
     return b
+
+
+def badge_pixmap(pm: QPixmap, text: str = "FONT", colour: str = FONT_COLOUR) -> QPixmap:
+    """Stamp a small label strip across the bottom of a thumbnail."""
+    if pm.isNull():
+        return pm
+    out = QPixmap(pm)
+    p = QPainter(out)
+    h = max(11, out.height() // 4)
+    strip = QRect(0, out.height() - h, out.width(), h)
+    p.fillRect(strip, QColor(colour))
+    f = QFont("Consolas")
+    f.setPixelSize(h - 2)
+    f.setBold(True)
+    p.setFont(f)
+    p.setPen(QColor("#10131a"))
+    p.drawText(strip, Qt.AlignCenter, text)
+    p.end()
+    return out
 
 
 def _char_name(ch: str) -> str:
@@ -57,6 +103,7 @@ class GlyphsPage(StepPage):
     def __init__(self, handle, parent: Optional[QWidget] = None):
         super().__init__(handle, parent)
         self._stats: dict = {}
+        self._font: dict = {}
         self._chars: list[str] = []
         self._rows: list[dict] = []
         self._note = ""
@@ -71,6 +118,7 @@ class GlyphsPage(StepPage):
         top.addSpacing(12)
         self.kind = QComboBox(self)
         self.kind.setStyleSheet(COMBO_QSS)
+        self.kind.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         for k in KINDS:
             self.kind.addItem(KIND_LABELS[k], k)
         self.kind.setCurrentIndex(KINDS.index("signal_rgb"))
@@ -78,12 +126,22 @@ class GlyphsPage(StepPage):
         top.addWidget(self.kind)
         self.show_combo = QComboBox(self)
         self.show_combo.setStyleSheet(COMBO_QSS)
+        self.show_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         for text, val in SHOW:
             self.show_combo.addItem(text, val)
         self.show_combo.currentIndexChanged.connect(lambda _i: self._load_char())
         top.addWidget(self.show_combo)
+        self.source_combo = QComboBox(self)
+        self.source_combo.setStyleSheet(COMBO_QSS)
+        self.source_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        for text, val in SOURCES:
+            self.source_combo.addItem(text, val)
+        self.source_combo.setToolTip("Real = cut from your confirmed captures. "
+                                     "Font = rendered from the game font (training only).")
+        self.source_combo.currentIndexChanged.connect(lambda _i: self._load_char())
+        top.addWidget(self.source_combo)
         top.addStretch(1)
-        self.extract_btn = button("Cut glyphs from confirmed captures", self, "primary",
+        self.extract_btn = button("Cut glyphs from captures", self, "primary",
                                   "Splits every confirmed crop of this kind into single "
                                   "characters and queues them here for review.")
         self.extract_btn.clicked.connect(self.extract)
@@ -93,7 +151,9 @@ class GlyphsPage(StepPage):
         root.addWidget(subtext(
             f"Each button is one character. Red ones are weak: fewer than {WEAK} approved samples, "
             "so the model sees too few real examples of it. Reject anything cut badly (two "
-            "digits, half a digit, wrong character).", self))
+            "digits, half a digit, wrong character). Can't find enough of one? Render it from "
+            "the game font: those tiles are badged FONT, need the same review, and only ever "
+            "train, never score a model.", self))
         self.bar = progress_bar(self)
         root.addWidget(self.bar)
         self.status = status_label(self)
@@ -144,6 +204,33 @@ class GlyphsPage(StepPage):
         brow.addWidget(self.counts)
         card.body.addLayout(brow)
 
+        # Rare character? Render it from the game font (its own row).
+        frow = QHBoxLayout()
+        frow.setSpacing(8)
+        cap = QLabel("NOT ENOUGH OF ONE? RENDER IT FROM THE GAME FONT:", card)
+        cap.setStyleSheet(f"color: {P.fg_dim}; font-family: {HEAD}; font-size: 8pt; "
+                          f"background: transparent;")
+        frow.addWidget(cap)
+        self.font_count = QSpinBox(card)
+        self.font_count.setRange(1, 2000)
+        self.font_count.setSingleStep(25)
+        self.font_count.setValue(DEFAULT_FONT_COUNT)
+        self.font_count.setFixedWidth(84)
+        self.font_count.setToolTip("How many tiles to render")
+        self.font_count.setStyleSheet(
+            f"QSpinBox {{ background: rgba(28, 34, 51, 200); color: {P.fg_bright}; "
+            f"border: 1px solid {P.border_card}; border-radius: 3px; padding: 4px 6px; "
+            f"font-family: {MONO}; font-size: 10pt; }}")
+        frow.addWidget(self.font_count)
+        self.render_btn = button("Render from font…", card, "normal")
+        self.render_btn.clicked.connect(self.render_from_font)
+        frow.addWidget(self.render_btn)
+        self.font_note = QLabel("", card)
+        self.font_note.setStyleSheet(status_style(P.fg_dim))
+        frow.addWidget(self.font_note)
+        frow.addStretch(1)
+        card.body.addLayout(frow)
+
         for keys, slot in (("A", self.approve_selected), ("X", self.reject_selected),
                            ("Delete", self.reject_selected)):
             sc = QShortcut(QKeySequence(keys), self)
@@ -167,11 +254,24 @@ class GlyphsPage(StepPage):
             self._load_char()
 
     def refresh(self) -> None:
-        self.runner.start("Counting glyphs", self.api.glyph_stats, self.current_kind,
+        self.runner.start("Counting glyphs", self._fetch_stats, self.current_kind,
                           on_done=self._got_stats)
 
-    def _got_stats(self, stats: dict) -> None:
-        self._stats = dict(stats or {})
+    def _fetch_stats(self, kind: str) -> dict:
+        return {"stats": self.api.glyph_stats(kind), "font": self.api.region_font(kind)}
+
+    def _got_stats(self, data: dict) -> None:
+        self._stats = dict(data.get("stats") or {})
+        self._font = dict(data.get("font") or {})
+        font = self._font.get("font")
+        if font:
+            self.font_note.setText(f"font: {font}")
+            self.font_note.setStyleSheet(status_style(P.fg_dim))
+            self.font_note.setToolTip(self._font.get("reason", ""))
+        else:
+            self.font_note.setText("No matching font bundled for this region")
+            self.font_note.setStyleSheet(status_style(P.yellow))
+            self.font_note.setToolTip(self._font.get("reason", ""))
         keep = self.current_char
         for b in self.char_buttons:
             self.char_group.removeButton(b)
@@ -181,7 +281,8 @@ class GlyphsPage(StepPage):
         for i, ch in enumerate(self._chars):
             s = self._stats[ch]
             appr, pend = int(s.get("approved", 0)), int(s.get("pending", 0))
-            b = _char_button(ch, appr, pend, appr < WEAK)
+            b = _char_button(ch, appr, pend, appr < WEAK, _src(s, "capture", "approved"),
+                             _src(s, "font", "approved"))
             self.char_group.addButton(b, i)
             self.char_row.insertWidget(i, b)
             self.char_buttons.append(b)
@@ -191,14 +292,23 @@ class GlyphsPage(StepPage):
             self.char_buttons[self._chars.index(pick)].setChecked(True)
         weak = [c for c in self._chars if int(self._stats[c].get("approved", 0)) < WEAK]
         pending = sum(int(s.get("pending", 0)) for s in self._stats.values())
+        font_ok = sum(_src(s, "font", "approved") for s in self._stats.values())
+        font_wait = sum(_src(s, "font", "pending") for s in self._stats.values())
         self.set_summary(f"{pending:,} waiting" if pending else
                          (f"{len(weak)} weak" if weak else "all approved"))
         if not self._chars:
             self.status.setText("No glyphs for this kind yet. Confirm some captures in step 3, "
                                 "then cut glyphs from them.")
         else:
+            font_part = (f" · font: {font_ok:,} approved, {font_wait:,} waiting"
+                         if font_ok or font_wait else "")
+            filled = [c for c in self._chars if c not in weak
+                      and _src(self._stats[c], "capture", "approved") < WEAK]
+            if filled:
+                font_part += " · few real (font-filled): " + ", ".join(_char_name(c) for c in filled)
             self.status.setText(
-                self._note + f"{len(self._chars)} characters · {pending:,} waiting for review · weak: "
+                self._note + f"{len(self._chars)} characters · {pending:,} waiting for review"
+                + font_part + " · weak: "
                 + (", ".join(_char_name(c) for c in weak) if weak else "none"))
         self._note = ""
         self._load_char()
@@ -211,11 +321,14 @@ class GlyphsPage(StepPage):
             self._sel_changed()
             return
         self.runner.start("Loading glyphs", self._fetch, self.current_kind, ch,
-                          self.show_combo.currentData(), on_done=self._got_rows)
+                          self.show_combo.currentData(), self.source_combo.currentData(),
+                          on_done=self._got_rows)
 
-    def _fetch(self, kind: str, ch: str, status: Optional[str]) -> dict:
+    def _fetch(self, kind: str, ch: str, status: Optional[str],
+               source: Optional[str] = None) -> dict:
         rows = []
-        for r in self.api.list_glyphs(kind, char=ch, status=status):
+        kw = {"source": source} if source else {}
+        for r in self.api.list_glyphs(kind, char=ch, status=status, **kw):
             d = dict(r)
             d["_img"] = load_qimage(d.get("image_path"))
             rows.append(d)
@@ -228,9 +341,14 @@ class GlyphsPage(StepPage):
         self.grid.clear()
         for r in self._rows:
             li = QListWidgetItem()
-            li.setIcon(scaled_pixmap(r.get("_img"), ICON.width(), ICON.height()))
+            pm = scaled_pixmap(r.get("_img"), ICON.width(), ICON.height())
+            is_font = r.get("source") == "font"
+            li.setIcon(badge_pixmap(pm) if is_font else pm)
             li.setData(Qt.UserRole, r["id"])
-            li.setToolTip(f"{r['id']} · {r.get('status')}")
+            li.setData(Qt.UserRole + 1, r.get("source") or "capture")
+            origin = (f"FONT render ({r.get('font') or 'font'}) · training only" if is_font
+                      else "real capture")
+            li.setToolTip(f"{r['id']} · {r.get('status')} · {origin}")
             self.grid.addItem(li)
         self._sel_changed()
 
@@ -242,6 +360,20 @@ class GlyphsPage(StepPage):
         ch = self.current_char
         self.counts.setText(f"'{_char_name(ch)}': {self.grid.count()} shown · {n} selected"
                             if ch is not None else "")
+        busy = self.runner.is_running("Rendering from font")
+        has_font = bool(self._font.get("font"))
+        self.render_btn.setEnabled(ch is not None and ch != "@" and has_font and not busy)
+        self.font_count.setEnabled(has_font and not busy)
+        if not has_font:
+            tip = self._font.get("reason") or "No matching font bundled for this region."
+        elif ch == "@":
+            tip = "The location-pin icon is not a font character; collect it from captures."
+        else:
+            tip = (f"Render {self.font_count.value()} tiles of '{_char_name(ch)}' in "
+                   f"{self._font.get('font')} (plus a few look-alikes), cut like real glyphs and "
+                   "tinted with your real glyphs' colours. They wait here for review, badged "
+                   "FONT, and only ever train.")
+        self.render_btn.setToolTip(tip)
 
     # ── actions ──
     def extract(self) -> None:
@@ -249,6 +381,25 @@ class GlyphsPage(StepPage):
         self.run_long("Cutting glyphs", self.api.extract_glyphs, kind,
                       bar=self.bar, status=self.status, disable=(self.extract_btn, self.kind),
                       on_done=lambda n: self._extracted(n))
+
+    def render_from_font(self) -> None:
+        ch, kind, n = self.current_char, self.current_kind, int(self.font_count.value())
+        if ch is None or ch == "@" or not self._font.get("font"):
+            return                       # no character, the icon, or no matching font
+        self.run_long("Rendering from font", self.api.render_font_glyphs, kind, ch, n,
+                      bar=self.bar, status=self.status,
+                      disable=(self.render_btn, self.font_count, self.kind, self.extract_btn),
+                      on_done=lambda made, ch=ch: self._rendered(ch, made))
+
+    def _rendered(self, ch: str, made: int) -> None:
+        """Show exactly the new tiles: this character, pending, font only."""
+        self._note = (f"Rendered {int(made):,} '{_char_name(ch)}' tiles from the font, shown "
+                      "below badged FONT. Approve the ones that look like the game. ")
+        for combo, val in ((self.show_combo, "pending"), (self.source_combo, "font")):
+            combo.blockSignals(True)
+            combo.setCurrentIndex(combo.findData(val))
+            combo.blockSignals(False)
+        self.refresh()
 
     def _extracted(self, n: int) -> None:
         self._note = f"Cut {n:,} new glyphs. "
