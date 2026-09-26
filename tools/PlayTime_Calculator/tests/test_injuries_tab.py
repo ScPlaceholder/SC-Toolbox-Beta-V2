@@ -47,3 +47,18 @@ def test_with_data_renders_diagram_and_rate(app):
     tab.stack.set_hover(0)
     tab.stack.grab()
     tab.deleteLater()
+
+
+def test_pico_art_ships_and_hotspots_hit_the_right_parts(app):
+    """The diagram is J's X-ray Pico; a missing file would silently fall back to shapes."""
+    from PySide6.QtCore import QPointF
+    from ui.injuries_tab import BodyDiagram, _PATHS, _PICO
+    assert os.path.isfile(_PICO)
+    b = BodyDiagram()
+    assert not b._pixmap.isNull()
+    assert (b._pixmap.width(), b._pixmap.height()) == (1088, 1280)   # hotspots are in this space
+    # Front view: the player's left is on the viewer's right.
+    assert _PATHS["left_arm"].boundingRect().center().x() > _PATHS["right_arm"].boundingRect().center().x()
+    assert _PATHS["head"].contains(QPointF(544, 440))                 # the beak
+    assert _PATHS["torso"].contains(QPointF(544, 820))                # the ribcage
+    b.deleteLater()

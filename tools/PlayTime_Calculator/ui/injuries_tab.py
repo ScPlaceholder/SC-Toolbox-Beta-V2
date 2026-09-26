@@ -4,16 +4,17 @@ Shares the window's full-content scan with Fun Stats + Career (the per-file
 parse lives in :mod:`core.injuries` and is cached with the rest), so opening
 this tab costs nothing extra once either of those has run.
 
-Layout: headline cards, a front-facing body diagram shaded by how often each
-part was hit (hover for the per-tier split), a per-part chart stacked by tier,
+Layout: headline cards, an X-ray Pico (J's art) with each body part lit by how
+often it was hit (hover for the per-tier split), a per-part chart stacked by tier,
 and injuries per week.  Tiers count DOWN: Tier 1 is the most severe.
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from PySide6.QtCore import Qt, QRectF, QPointF
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
 from PySide6.QtWidgets import (
     QWidget, QLabel, QGridLayout, QHBoxLayout, QSizePolicy, QFrame, QVBoxLayout,
 )
@@ -25,8 +26,9 @@ from ui.charts import BarChart, Bar
 from ui.fun_stats_tab import _ScanTab
 from ui.stat_widgets import stat_card, section_label, facts_box, count_fmt, ACCENT, GOLD, GREEN
 
-# Tier colours: severity reads hot → cool.  Frequency on the body uses the
-# app's usual cyan ramp so red keeps meaning "severe" everywhere on the page.
+# Tier colours: severity reads hot → cool.  Frequency on the body is an amber
+# glow: the X-ray Pico is already cyan, so cyan would vanish into him, and red
+# has to keep meaning "severe" everywhere on the page.
 TIER_COLORS = {1: P.red, 2: P.yellow, 3: ACCENT}
 
 
@@ -34,13 +36,12 @@ def _tier_name(t: int) -> str:
     return f"Tier {t} · {TIER_LABELS.get(t, '?')}"
 
 
-def _ramp(t: float) -> QColor:
-    """Dim slate → accent cyan by normalised frequency ``t`` in [0,1]."""
-    lo, hi = QColor(P.bg_input), QColor(ACCENT)
+def _heat(t: float) -> QColor:
+    """Frequency glow for normalised ``t`` in [0,1]: faint amber → strong amber."""
     t = max(0.0, min(1.0, t))
-    return QColor(int(lo.red() + (hi.red() - lo.red()) * t),
-                  int(lo.green() + (hi.green() - lo.green()) * t),
-                  int(lo.blue() + (hi.blue() - lo.blue()) * t))
+    c = QColor(GOLD)
+    c.setAlpha(int(45 + 150 * t))
+    return c
 
 
 def _paint_tip(p: QPainter, anchor: QPointF, bounds: QRectF, lines: list[tuple[str, str]]) -> None:
@@ -69,38 +70,40 @@ def _paint_tip(p: QPainter, anchor: QPointF, bounds: QRectF, lines: list[tuple[s
 # Body diagram
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Part shapes in a 200 × 400 design space, figure facing the viewer — so the
-# player's LEFT side is drawn on the viewer's RIGHT.
-_W, _H = 200.0, 400.0
+# Part hotspots in the image's own pixel space (1088 × 1280).  Pico faces the
+# viewer, so the player's LEFT side is on the viewer's RIGHT.  The image is
+# symmetric about x = 544, so each left shape is its right twin mirrored.
+_W, _H = 1088.0, 1280.0
+_PICO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     "assets", "injury_pico.jpg")
+
+_RIGHT_ARM = [(330, 640), (380, 690), (360, 790), (210, 1005), (105, 990), (200, 770), (262, 670)]
+_RIGHT_LEG = [(300, 1020), (530, 1020), (530, 1250), (275, 1250)]
+
+
+def _mirror(pts):
+    return [(_W - x, y) for x, y in pts]
+
+
+def _poly(pts) -> QPainterPath:
+    path = QPainterPath()
+    path.addPolygon(QPolygonF([QPointF(x, y) for x, y in pts]))
+    path.closeSubpath()
+    return path
 
 
 def _part_paths() -> dict[str, QPainterPath]:
-    def rr(x, y, w, h, r):
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(x, y, w, h), r, r)
-        return path
-
     head = QPainterPath()
-    head.addEllipse(QRectF(77, 8, 46, 56))
-    torso = QPainterPath()
-    torso.moveTo(92, 66)            # neck
-    torso.lineTo(108, 66)
-    torso.lineTo(109, 76)
-    torso.quadTo(132, 78, 134, 92)  # right shoulder (viewer)
-    torso.lineTo(130, 150)
-    torso.quadTo(128, 190, 132, 222)
-    torso.lineTo(68, 222)
-    torso.quadTo(72, 190, 70, 150)
-    torso.lineTo(66, 92)
-    torso.quadTo(68, 78, 91, 76)
-    torso.closeSubpath()
+    head.addEllipse(QRectF(250, 225, 588, 430))       # helmet, ear-cups included
+    torso = _poly([(395, 655), (693, 655), (735, 760), (745, 900), (725, 1020),
+                   (363, 1020), (343, 900), (353, 760)])
     return {
         "head": head,
         "torso": torso,
-        "right_arm": rr(42, 84, 22, 140, 10),   # viewer's left
-        "left_arm": rr(136, 84, 22, 140, 10),   # viewer's right
-        "right_leg": rr(70, 226, 28, 164, 11),
-        "left_leg": rr(102, 226, 28, 164, 11),
+        "right_arm": _poly(_RIGHT_ARM),               # viewer's left
+        "left_arm": _poly(_mirror(_RIGHT_ARM)),       # viewer's right
+        "right_leg": _poly(_RIGHT_LEG),
+        "left_leg": _poly(_mirror(_RIGHT_LEG)),
     }
 
 
@@ -108,13 +111,17 @@ _PATHS = _part_paths()
 
 
 class BodyDiagram(QWidget):
-    """Front-facing silhouette, each part shaded by injury count."""
+    """X-ray Pico, each body part glowing by injury count.
+
+    If the image is missing the hotspot shapes are drawn on their own, which
+    still reads as a (rough) figure, so the tab never goes blank."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._stats = InjuryStats()
         self._hover: Optional[str] = None
         self._hover_pos = QPointF()
+        self._pixmap = QPixmap(_PICO)
         self.setMouseTracking(True)
         self.setMinimumSize(260, 360)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -197,37 +204,66 @@ class BodyDiagram(QWidget):
         p.drawText(QRectF(fr.right() - 40, 2, 40, 16), Qt.AlignRight | Qt.AlignVCenter, "L")
         p.drawText(QRectF(0, 2, self.width(), 16), Qt.AlignCenter, "FRONT VIEW")
 
+        have_art = not self._pixmap.isNull()
+        if have_art:
+            clip = QPainterPath()
+            clip.addRoundedRect(fr, 8, 8)
+            p.save()
+            p.setClipPath(clip)
+            p.drawPixmap(fr, self._pixmap, QRectF(self._pixmap.rect()))
+            p.restore()
+
         p.save()
         p.translate(fr.left(), fr.top())
         p.scale(s, s)
         for key, path in _PATHS.items():
             n = st.by_part.get(key, 0)
-            fill = _ramp(n / mx) if (mx and n) else QColor(P.bg_card)
-            if key == self._hover:
-                fill = fill.lighter(135)
+            hot = key == self._hover
+            if mx and n:
+                fill = _heat(n / mx)
+            elif have_art:
+                fill = QColor(0, 0, 0, 0)          # unhurt: let Pico show through
+            else:
+                fill = QColor(P.bg_card)
+            if hot:
+                fill.setAlpha(min(255, fill.alpha() + 50))
             p.setBrush(fill)
-            pen = QPen(QColor(ACCENT if key == self._hover else P.border_card))
-            pen.setWidthF(1.6 / max(s, 0.01))
+            if hot:
+                pen = QPen(QColor(ACCENT))
+                pen.setWidthF(2.4 / max(s, 0.01))
+            elif have_art:
+                pen = QPen(Qt.NoPen)
+            else:
+                pen = QPen(QColor(P.border_card))
+                pen.setWidthF(1.6 / max(s, 0.01))
             p.setPen(pen)
             p.drawPath(path)
         p.restore()
 
-        # Counts on each part.
-        font = QFont("Electrolize", max(8, int(11 * s)), QFont.Bold)
+        # Count badges: a dark pill per part so the number reads over the art.
+        font = QFont("Electrolize", max(8, int(40 * s)), QFont.Bold)
         p.setFont(font)
+        fm = QFontMetrics(font)
         for key, path in _PATHS.items():
             n = st.by_part.get(key, 0)
             c = self._to_widget(path.boundingRect().center())
-            t = n / mx if mx else 0
-            p.setPen(QColor(P.bg_deepest) if t > 0.55 else QColor(P.fg_bright if n else P.fg_dim))
-            p.drawText(QRectF(c.x() - 30, c.y() - 12, 60, 24), Qt.AlignCenter, f"{n:,}")
+            text = f"{n:,}"
+            bw, bh = fm.horizontalAdvance(text) + 12, fm.height() + 2
+            pill = QRectF(c.x() - bw / 2, c.y() - bh / 2, bw, bh)
+            bg = QColor(P.bg_deepest)
+            bg.setAlpha(210)
+            p.setBrush(bg)
+            p.setPen(QPen(QColor(GOLD if n else P.border_card), 1))
+            p.drawRoundedRect(pill, bh / 2, bh / 2)
+            p.setPen(QColor(P.fg_bright if n else P.fg_dim))
+            p.drawText(pill, Qt.AlignCenter, text)
 
         # Frequency legend.
         lg_w = min(160.0, self.width() - 40.0)
         lx = (self.width() - lg_w) / 2
         ly = self.height() - 22
         for i in range(int(lg_w)):
-            p.setPen(_ramp(i / max(1.0, lg_w - 1)))
+            p.setPen(_heat(i / max(1.0, lg_w - 1)))
             p.drawLine(QPointF(lx + i, ly), QPointF(lx + i, ly + 6))
         p.setFont(QFont("Consolas", 7))
         p.setPen(QColor(P.fg_dim))
