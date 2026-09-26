@@ -243,3 +243,93 @@ class TestSiteDistance:
         sites, _eligible = rp.candidate_sites(wants)
         assert len(sites) == 2
         assert d.telemetry_pairs(sites) == {(94, 108)}
+
+
+# -- "Shorter trip over cheapest price" (plan_shopping) ---------------------------
+
+def _brute_force_premium(wants, dist, premium):
+    """Optimal travel when each item may be bought at up to cheapest * (1 + premium)."""
+    options = []
+    for w in wants:
+        cap = min(r["price"] for r in w["rows"]) * (1 + premium) + 1e-6
+        options.append({r["places"][0] for r in w["rows"] if r["price"] <= cap})
+    best = math.inf
+    for combo in itertools.product(*options):
+        for perm in itertools.permutations(set(combo)):
+            best = min(best, sum(dist({"places": [a]}, {"places": [b]})
+                                 for a, b in zip(perm, perm[1:])))
+    return best
+
+
+def _premium_instance(rng, n_items, n_sites):
+    """Like _random_instance, but with prices a few percent apart."""
+    coords = {f"S{i}": (rng.uniform(0, 100), rng.uniform(0, 100)) for i in range(n_sites)}
+    wants, tid = [], 1
+    for i in range(n_items):
+        rows = []
+        for s in rng.sample(sorted(coords), rng.randint(1, min(4, n_sites))):
+            rows.append(_row(tid, s, rng.choice([100, 100, 104, 108, 110, 115, 130])))
+            tid += 1
+        wants.append({"item_id": i, "name": f"item{i}", "rows": rows})
+    return wants, Plane(coords)
+
+
+class TestShorterTripOption:
+    def test_zero_percent_is_identical_to_the_cheapest_price_planner(self):
+        rng = random.Random(2026)
+        for _ in range(80):
+            wants, dist = _premium_instance(rng, rng.randint(1, 6), rng.randint(1, 7))
+            plan = rp.plan_shopping(wants, dist, max_price_premium=0.0)
+            assert plan["stops"] == rp.plan_route(wants, dist)       # today's route, unchanged
+            assert plan["cheapest"] is None                          # nothing to compare with
+            assert plan["totals"]["auec"] == sum(s["price"] for s in plan["stops"])
+
+    def test_ten_percent_buys_a_pricier_stop_that_shortens_the_trip(self):
+        # a: only at Near (50).  b: 100 at Far, 105 (+5 %) at Near.
+        dist = Plane({"Near": (0, 0), "Far": (100, 0)})
+        wants = [{"item_id": 1, "name": "a", "rows": [_row(1, "Near", 50)]},
+                 {"item_id": 2, "name": "b", "rows": [_row(2, "Far", 100), _row(3, "Near", 105)]}]
+        plan = rp.plan_shopping(wants, dist, max_price_premium=0.10)
+        assert {s["terminal_id"] for s in plan["stops"]} == {1, 3}
+        assert plan["totals"] == {"auec": 155.0, "gm": 0.0, "stops": 1}
+        assert plan["cheapest"] == {"auec": 150.0, "gm": 100.0, "stops": 2}
+        # +5 % is over a 4 % allowance: back to the cheapest price.
+        plan4 = rp.plan_shopping(wants, dist, max_price_premium=0.04)
+        assert {s["terminal_id"] for s in plan4["stops"]} == {1, 2}
+
+    def test_ten_percent_is_exact_and_never_over_ten_percent_on_any_item(self):
+        rng = random.Random(77)
+        shorter = 0
+        for _ in range(120):
+            wants, dist = _premium_instance(rng, rng.randint(2, 5), rng.randint(2, 6))
+            plan = rp.plan_shopping(wants, dist, max_price_premium=0.10)
+            stops = plan["stops"]
+            assert sorted(s["item_id"] for s in stops) == sorted(w["item_id"] for w in wants)
+            for s in stops:
+                w = next(w for w in wants if w["item_id"] == s["item_id"])
+                cheapest = min(r["price"] for r in w["rows"])
+                assert s["price"] <= cheapest * 1.10 + 1e-9, "paid more than +10 %"
+                assert s["terminal_id"] in {r["terminal_id"] for r in w["rows"]}
+            got = rp.route_cost(stops, dist)
+            assert got == pytest.approx(_brute_force_premium(wants, dist, 0.10), abs=1e-6)
+            base = plan["cheapest"]
+            assert got <= base["gm"] + 1e-6                       # never a longer trip
+            if got < base["gm"] - 1e-6:
+                shorter += 1
+            else:                                                 # no shorter trip -> no premium paid
+                assert plan["totals"]["auec"] == base["auec"]
+        assert shorter >= 10, "the instances never exercised a pricier, shorter route"
+
+    def test_unknown_distance_is_reported_as_unknown_not_a_million_gm(self):
+        wants = [{"item_id": i, "name": str(i), "rows": [_row(i, f"P{i}", 10)]} for i in range(3)]
+        plan = rp.plan_shopping(wants, lambda a, b: None, max_price_premium=0.10)
+        assert plan["totals"]["gm"] is None and plan["totals"]["auec"] == 30.0
+
+    def test_performance_guard_still_holds_with_the_widest_premium(self):
+        rng = random.Random(3)
+        wants, dist = _premium_instance(rng, 30, 60)
+        t = time.perf_counter()
+        plan = rp.plan_shopping(wants, dist, max_price_premium=rp.PREMIUM_PCT_MAX / 100.0)
+        assert time.perf_counter() - t < 10.0                   # two plans (premium + cheapest)
+        assert len(plan["stops"]) == 30
+        assert (rp.PREMIUM_PCT_MAX, rp.PREMIUM_PCT_DEFAULT) == (25, 10)

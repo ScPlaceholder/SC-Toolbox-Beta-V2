@@ -19,6 +19,7 @@ from typing import Callable, Optional
 from PySide6.QtCore import Qt, Signal, QObject, QPoint, QTimer
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
+    QCheckBox, QSpinBox, QSizePolicy,
 )
 
 import shared.path_setup  # noqa: E402  # centralised path config
@@ -42,6 +43,60 @@ def _tooltip_show() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Route option: "Shorter trip over cheapest price"
+# ---------------------------------------------------------------------------
+
+#: Key of the route option in Item Finder's saved state
+#: (``~/.sctoolbox/market_finder/starmap_state.json``, shared with the Star
+#: Map's view state; each writer read-modify-writes only its own key).
+ROUTE_STATE_KEY = "grocery_route"
+
+
+def load_route_options() -> dict:
+    """The saved route option: ``{"shorter": bool, "premium_pct": int}``.
+
+    Off, at :data:`~market_finder.route_planner.PREMIUM_PCT_DEFAULT` %, on
+    first run or when the saved value is unusable.
+    """
+    from ..route_planner import PREMIUM_PCT_DEFAULT, PREMIUM_PCT_MAX
+    from ..starmap import data as sm_data
+    saved = sm_data.load_state().get(ROUTE_STATE_KEY)
+    saved = saved if isinstance(saved, dict) else {}
+    try:
+        pct = int(saved.get("premium_pct", PREMIUM_PCT_DEFAULT))
+    except (TypeError, ValueError):
+        pct = PREMIUM_PCT_DEFAULT
+    return {"shorter": bool(saved.get("shorter", False)),
+            "premium_pct": max(0, min(PREMIUM_PCT_MAX, pct))}
+
+
+def save_route_options(shorter: bool, premium_pct: int) -> None:
+    from ..starmap import data as sm_data
+    st = sm_data.load_state()
+    st[ROUTE_STATE_KEY] = {"shorter": bool(shorter), "premium_pct": int(premium_pct)}
+    sm_data.save_state(st)
+
+
+def route_summary_text(totals: dict, cheapest: "Optional[dict]" = None) -> str:
+    """One short line: the route's total aUEC and travel, plus -- when the
+    shorter-trip option planned it -- the difference to the cheapest-price
+    route, e.g. ``15,120 aUEC · 1,877 Gm  (+1,240 aUEC, -38 Gm)``."""
+    gm = totals.get("gm")
+    text = "{auec} aUEC · {gm} Gm".format(
+        auec=f"{int(round(totals.get('auec') or 0)):,}",
+        gm=f"{int(round(gm)):,}" if gm is not None else "?")
+    if cheapest is None:
+        return text
+    d_auec = int(round((totals.get("auec") or 0) - (cheapest.get("auec") or 0)))
+    base_gm = cheapest.get("gm")
+    d_gm = (int(round(gm - base_gm)) if gm is not None and base_gm is not None else None)
+    if d_auec == 0 and d_gm == 0:
+        return text + "  " + _("(cheapest is shortest)")
+    return text + "  ({a} aUEC, {g} Gm)".format(
+        a=f"{d_auec:+,}", g=f"{d_gm:+,}" if d_gm is not None else "?")
+
+
+# ---------------------------------------------------------------------------
 # Thread-safe price delivery for a single card
 # ---------------------------------------------------------------------------
 
@@ -53,7 +108,7 @@ class _CardSignal(QObject):
 class _RouteSignal(QObject):
     """Delivers background telemetry-fetch progress and the planned route."""
     progress = Signal(int, int)   # fetched, total
-    done = Signal(list)           # ordered stops (route_planner.plan_route)
+    done = Signal(object)         # route_planner.plan_shopping() result
 
 
 
@@ -477,6 +532,7 @@ class GroceryListBubble(QWidget):
         tb_lay.addWidget(close_btn)
 
         outer.addWidget(title_bar)
+        outer.addWidget(self._build_route_options())
 
         # ── Drop area (gets the highlight border during a drag) ──
         self._drop_frame = QFrame()
@@ -582,6 +638,99 @@ class GroceryListBubble(QWidget):
     def _update_count(self) -> None:
         self._count_lbl.setText(f"({len(self._cards)})")
 
+    # -- route option ----------------------------------------------------
+
+    def _build_route_options(self) -> QWidget:
+        """The "Shorter trip over cheapest price" toggle + its percentage,
+        and the one-line summary of the last planned route under them."""
+        from ..route_planner import PREMIUM_PCT_MAX
+
+        box = QWidget()
+        box.setStyleSheet(f"background-color: {P.bg_secondary};")
+        v = QVBoxLayout(box)
+        v.setContentsMargins(8, 3, 6, 3)
+        v.setSpacing(1)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        tip = _("Let the route pay up to this much more than an item's cheapest "
+                "price when that makes the trip shorter. Off = always the "
+                "cheapest price (equal prices are still used to shorten it).")
+        self._shorter_cb = QCheckBox(_("Shorter trip over cheapest price"))
+        self._shorter_cb.setToolTip(tip)
+        self._shorter_cb.setCursor(Qt.PointingHandCursor)
+        self._shorter_cb.setStyleSheet(
+            f"QCheckBox {{ font-family: Consolas; font-size: 8pt; color: {P.fg}; "
+            f"background: transparent; }}")
+        row.addWidget(self._shorter_cb)
+
+        self._premium_spin = QSpinBox()
+        self._premium_spin.setRange(0, PREMIUM_PCT_MAX)
+        self._premium_spin.setPrefix("+")
+        self._premium_spin.setSuffix(" %")
+        self._premium_spin.setToolTip(tip)
+        self._premium_spin.setFixedWidth(74)
+        self._premium_spin.setStyleSheet(
+            f"QSpinBox {{ font-family: Consolas; font-size: 8pt; color: {P.fg}; "
+            f"background-color: {P.bg_input}; border: 1px solid {P.border}; "
+            f"border-radius: 3px; padding: 0px 2px; }} "
+            f"QSpinBox:disabled {{ color: {P.fg_dim}; }}")
+        row.addWidget(self._premium_spin)
+        row.addStretch(1)
+        v.addLayout(row)
+
+        # One fixed line, no word wrap; it never widens the bubble (Ignored
+        # horizontal policy) -- the tooltip carries the detail.
+        self._route_summary = QLabel("")
+        self._route_summary.setWordWrap(False)
+        self._route_summary.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self._route_summary.setStyleSheet(
+            f"font-family: Consolas; font-size: 8pt; color: {P.green}; background: transparent;")
+        self._route_summary.setVisible(False)
+        v.addWidget(self._route_summary)
+
+        opts = load_route_options()
+        self._shorter_cb.setChecked(opts["shorter"])
+        self._premium_spin.setValue(opts["premium_pct"])
+        self._premium_spin.setEnabled(opts["shorter"])
+        self._shorter_cb.toggled.connect(self._route_option_changed)
+        self._premium_spin.valueChanged.connect(self._route_option_changed)
+        return box
+
+    def route_premium(self) -> float:
+        """The price premium the planner may use (0.0 when the option is off)."""
+        if not self._shorter_cb.isChecked():
+            return 0.0
+        return self._premium_spin.value() / 100.0
+
+    def _route_option_changed(self, *_args) -> None:
+        """Save the option and re-plan the shown route with it right away."""
+        on = self._shorter_cb.isChecked()
+        self._premium_spin.setEnabled(on)
+        save_route_options(on, self._premium_spin.value())
+        if self._route_live:
+            self._plot_route(auto=True)
+
+    def _show_route_summary(self, plan: "Optional[dict]") -> None:
+        totals = (plan or {}).get("totals")
+        if not (plan or {}).get("stops") or not totals:
+            self._route_summary.setText("")
+            self._route_summary.setVisible(False)
+            return
+        cheapest = plan.get("cheapest")
+        self._route_summary.setText(route_summary_text(totals, cheapest))
+        tip = _("This route: {auec} for {n} item(s), {stops} stop(s), {gm}.").format(
+            auec=format_price(totals["auec"]), n=len(plan["stops"]), stops=totals["stops"],
+            gm=(f"{totals['gm']:,.0f} Gm" if totals["gm"] is not None else _("travel unknown")))
+        if cheapest is not None:
+            tip += "\n" + _("Cheapest-price route: {auec}, {stops} stop(s), {gm}.").format(
+                auec=format_price(cheapest["auec"]), stops=cheapest["stops"],
+                gm=(f"{cheapest['gm']:,.0f} Gm" if cheapest["gm"] is not None
+                    else _("travel unknown")))
+        self._route_summary.setToolTip(tip)
+        self._route_summary.setVisible(True)
+
     # -- optimal route ---------------------------------------------------
 
     def _set_route_status(self, text: "Optional[str]") -> None:
@@ -602,7 +751,7 @@ class GroceryListBubble(QWidget):
         it is still showing a shopping route).
         """
         from ..route_planner import (
-            candidate_sites, collect_wants, missing_price_cards, plan_route,
+            candidate_sites, collect_wants, missing_price_cards, plan_shopping,
         )
         from ..starmap import distances as uex_dist
 
@@ -618,14 +767,20 @@ class GroceryListBubble(QWidget):
         if not wants:
             if not auto:
                 self._route_requested = True           # plot as soon as prices arrive
-            elif self._on_plot_route is not None:
-                self._on_plot_route([], auto=True)     # list emptied: clear the map
+            else:
+                self._show_route_summary(None)
+                if self._on_plot_route is not None:
+                    self._on_plot_route([], auto=True)  # list emptied: clear the map
             return
         if auto and self._route_requested:
             auto = False                               # the click that had nothing to plot yet
         self._route_requested = False
 
-        sites, _eligible = candidate_sites(wants)
+        # Read on the UI thread; the worker plans with this value.  The
+        # premium's candidate sites are a superset of the cheapest-price
+        # ones, so one telemetry fetch serves both plans.
+        premium = self.route_premium()
+        sites, _eligible = candidate_sites(wants, premium)
         pairs = uex_dist.telemetry_pairs(sites)
 
         self._route_busy = True
@@ -637,28 +792,31 @@ class GroceryListBubble(QWidget):
             lambda done, total: self._set_route_status(
                 _("Fetching UEX distance telemetry… {done}/{total}").format(
                     done=done, total=total)))
-        sig.done.connect(lambda ordered: self._route_ready(ordered, auto))
+        sig.done.connect(lambda plan: self._route_ready(plan, auto))
 
         def _work() -> None:
-            ordered: list = []
+            plan: dict = {}
             try:
                 if pairs:
                     uex_dist.fetch_missing(
                         pairs, on_progress=lambda d, t: sig.progress.emit(d, t))
-                ordered = plan_route(wants, uex_dist.site_distance)
+                plan = plan_shopping(wants, uex_dist.site_distance,
+                                     max_price_premium=premium)
             except Exception:
-                ordered = []
+                plan = {}
             finally:
                 try:
-                    sig.done.emit(ordered)
+                    sig.done.emit(plan)
                 except RuntimeError:
                     pass  # bubble already destroyed
 
         threading.Thread(target=_work, daemon=True).start()
 
-    def _route_ready(self, ordered: list, auto: bool) -> None:
+    def _route_ready(self, plan: dict, auto: bool) -> None:
         self._route_busy = False
         self._set_route_status(None)
+        ordered = list((plan or {}).get("stops") or [])
+        self._show_route_summary(plan)
         if self._on_plot_route is not None and (ordered or auto):
             self._on_plot_route(ordered, auto=auto)
         if self._route_pending:

@@ -394,3 +394,104 @@ class TestStarMapDrawing:
         assert _pump(lambda: len(sink) > n, 5)
         assert panel.has_shopping_route() is False
         assert view.trade_route_points() == [] and panel._galaxy._route is None
+
+
+# -- "Shorter trip over cheapest price" option ------------------------------------
+
+def _near_far(monkeypatch, sandbox):
+    """Item 301 only at Near (50); item 302 at Far (100) or Near (105, +5 %).
+    Near and Far are 100 Gm apart; terminals 1 and 3 share the Near site."""
+    _line_distances(monkeypatch, sandbox, {1: 0.0, 2: 100.0, 3: 0.0})
+    return {301: [_price(1, "Near", 50)],
+            302: [_price(2, "Far", 100), _price(3, "Near", 105)]}
+
+
+def _state(tmp_path):
+    import json
+    p = tmp_path / "starmap_state.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+class TestShorterTripOption:
+    def test_off_by_default_at_ten_percent_and_persists(self, sandbox, tmp_path):
+        import json
+        (tmp_path / "starmap_state.json").write_text(json.dumps({"galaxy": {"home": "PYRO"}}))
+        b1 = _bubble({}, [])
+        assert b1._shorter_cb.isChecked() is False
+        assert b1._premium_spin.value() == 10
+        assert (b1._premium_spin.minimum(), b1._premium_spin.maximum()) == (0, 25)
+        assert b1.route_premium() == 0.0
+        b1._shorter_cb.setChecked(True)
+        b1._premium_spin.setValue(15)
+        st = _state(tmp_path)
+        assert st["grocery_route"] == {"shorter": True, "premium_pct": 15}
+        assert st["galaxy"] == {"home": "PYRO"}               # the star map's state is kept
+        b2 = _bubble({}, [])                                  # a later session
+        assert b2._shorter_cb.isChecked() is True and b2._premium_spin.value() == 15
+        assert b2.route_premium() == pytest.approx(0.15)
+
+    def test_toggling_replans_the_shown_route_immediately(self, sandbox, monkeypatch, tmp_path):
+        sink = []
+        bubble = _bubble(_near_far(monkeypatch, sandbox), sink)
+        _fill(bubble, [301, 302])
+        stops = _plot(bubble, sink)
+        assert {s["terminal_id"] for s in stops} == {1, 2}    # off: cheapest price, 100 Gm
+
+        n = len(sink)
+        bubble._shorter_cb.setChecked(True)
+        assert bubble._route_busy, "turning it on did not start a re-plan right away"
+        assert _pump(lambda: len(sink) > n, 5), "turning it on did not re-plan"
+        assert {s["terminal_id"] for s in sink[-1][0]} == {1, 3}    # +5 % saves the 100 Gm trip
+        assert sink[-1][1] is True                                   # an update, never pops the map
+        assert _state(tmp_path)["grocery_route"]["shorter"] is True
+
+        n = len(sink)
+        bubble._premium_spin.setValue(4)                      # +5 % no longer allowed
+        assert _pump(lambda: len(sink) > n, 5), "changing the percentage did not re-plan"
+        assert {s["terminal_id"] for s in sink[-1][0]} == {1, 2}
+
+    def test_option_never_plots_a_route_nobody_asked_for(self, sandbox, monkeypatch):
+        sink = []
+        bubble = _bubble(_near_far(monkeypatch, sandbox), sink)
+        _fill(bubble, [301, 302])
+        bubble._shorter_cb.setChecked(True)
+        _pump(lambda: False, 0.5)
+        assert sink == [] and not bubble._route_summary.isVisible()
+
+    def test_summary_line_shows_totals_and_the_difference(self, sandbox, monkeypatch):
+        sink = []
+        bubble = _bubble(_near_far(monkeypatch, sandbox), sink)
+        _fill(bubble, [301, 302])
+        _plot(bubble, sink)
+        lbl = bubble._route_summary
+        assert not lbl.isHidden()
+        assert lbl.text() == "150 aUEC · 100 Gm"             # off: totals only
+        assert lbl.wordWrap() is False
+
+        n = len(sink)
+        bubble._shorter_cb.setChecked(True)
+        assert _pump(lambda: len(sink) > n, 5)
+        assert lbl.text() == "155 aUEC · 0 Gm  (+5 aUEC, -100 Gm)"
+        assert "Cheapest-price route: 150 aUEC" in lbl.toolTip()
+        # One fixed line: its height is one text line whatever the bubble width.
+        bubble.resize(320, 400)
+        lbl.adjustSize()
+        assert lbl.sizeHint().height() < 2 * lbl.fontMetrics().height()
+
+        n = len(sink)
+        bubble._premium_spin.setValue(4)
+        assert _pump(lambda: len(sink) > n, 5)
+        assert lbl.text() == "150 aUEC · 100 Gm  (cheapest is shortest)"
+
+        n = len(sink)
+        bubble.clear()
+        assert _pump(lambda: len(sink) > n, 5)
+        assert lbl.isHidden()                                  # no route, no summary
+
+    def test_summary_text_formatting(self):
+        from market_finder.ui.grocery_list import route_summary_text
+        t = {"auec": 1_523_400.0, "gm": 1877.4, "stops": 5}
+        c = {"auec": 1_522_160.0, "gm": 1915.6, "stops": 7}
+        assert route_summary_text(t) == "1,523,400 aUEC · 1,877 Gm"
+        assert route_summary_text(t, c) == "1,523,400 aUEC · 1,877 Gm  (+1,240 aUEC, -38 Gm)"
+        assert route_summary_text({"auec": 10, "gm": None, "stops": 2}, c).endswith(", ? Gm)")

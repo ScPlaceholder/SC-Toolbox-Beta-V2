@@ -5,8 +5,10 @@ ordered list of shopping stops that
 
 * covers every item that has a buy price (an item is never dropped),
 * chooses WHICH terminal to buy each item at so the trip is as short as
-  possible, among the terminals whose price is within
-  :data:`MAX_PRICE_PREMIUM` of that item's cheapest price, and
+  possible, among the terminals whose price is within the
+  ``max_price_premium`` argument of that item's cheapest price (default
+  :data:`MAX_PRICE_PREMIUM`; the grocery list's "Shorter trip over cheapest
+  price" option passes the user's percentage), and
 * orders the stops to minimise total travel.
 
 Terminals at the same station / city / outpost form one *site*: moving
@@ -44,6 +46,14 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 #: the bill is exactly what each card's cheapest row shows.  Raise it (e.g.
 #: 0.10 = up to 10 % more per item) to trade aUEC for fewer stops.
 MAX_PRICE_PREMIUM = 0.0
+
+#: The grocery list's "Shorter trip over cheapest price" option: the premium
+#: the user may allow, in whole percent (0..PREMIUM_PCT_MAX), and the value
+#: it starts at.  Measured on Stanton lists: +10 % cut travel by 39 % for
+#: about 0.5 % more aUEC.  The option itself is OFF by default, so the
+#: planner keeps :data:`MAX_PRICE_PREMIUM` until the user turns it on.
+PREMIUM_PCT_MAX = 25
+PREMIUM_PCT_DEFAULT = 10
 
 #: Cost of a site pair whose distance is unknown (Gm).  Large enough that any
 #: known leg wins, finite so a route always exists.
@@ -262,6 +272,57 @@ def route_cost(stops: List[dict],
     for a, b in zip(vs, vs[1:]):
         total += _dist(dist_fn, a, b)
     return total
+
+
+def route_totals(stops: List[dict],
+                 dist_fn: Callable[[dict, dict], Optional[float]],
+                 start: Optional[dict] = None) -> dict:
+    """What a planned route costs: ``{"auec", "gm", "stops"}``.
+
+    *auec* is the sum of the stop prices (one of each item), *stops* the
+    number of site visits, and *gm* the travel in Gm -- or ``None`` when any
+    leg's distance is unknown (never the :data:`UNKNOWN_DISTANCE` stand-in,
+    which is a planning weight, not a distance anyone flies).
+    """
+    vs = visits(stops)
+    legs = list(zip(vs, vs[1:]))
+    if start is not None and vs:
+        legs.insert(0, (start, vs[0]))
+    gm: Optional[float] = 0.0
+    for a, b in legs:
+        try:
+            d = dist_fn(a, b)
+        except Exception:
+            d = None
+        if d is None or d != d or d < 0:
+            gm = None
+            break
+        gm += float(d)
+    return {"auec": sum(_price(s) for s in stops), "gm": gm, "stops": len(vs)}
+
+
+def plan_shopping(wants: List[dict],
+                  dist_fn: Callable[[dict, dict], Optional[float]],
+                  max_price_premium: float = MAX_PRICE_PREMIUM,
+                  start: Optional[dict] = None) -> dict:
+    """:func:`plan_route` at *max_price_premium*, with its trade-off.
+
+    Returns ``{"stops", "totals", "cheapest"}``: the route, its
+    :func:`route_totals`, and -- when a premium is allowed -- the totals of
+    the cheapest-price route (``max_price_premium=0``) it is compared with,
+    else ``None``.  If the premium buys no shorter trip (a tie, or the
+    heuristic fallback on a huge list) the cheapest-price route is returned
+    instead: paying more is never the answer to a trip that is not shorter.
+    """
+    premium = max(0.0, float(max_price_premium or 0.0))
+    stops = plan_route(wants, dist_fn, start=start, max_price_premium=premium)
+    if premium <= 0.0:
+        return {"stops": stops, "totals": route_totals(stops, dist_fn, start), "cheapest": None}
+    base = plan_route(wants, dist_fn, start=start, max_price_premium=0.0)
+    if not (route_cost(stops, dist_fn, start) < route_cost(base, dist_fn, start) - 1e-9):
+        stops = base
+    return {"stops": stops, "totals": route_totals(stops, dist_fn, start),
+            "cheapest": route_totals(base, dist_fn, start)}
 
 
 def order_stops(stops: List[dict],
