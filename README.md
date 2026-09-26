@@ -67,8 +67,8 @@
 
 | Hotkey | Tool | Description | Data Source |
 |--------|------|-------------|------------|
-| Shift+1 | **DPS Calculator** | Ship loadout viewer & DPS calculator with power allocator | erkul.games, fleetyards.net |
-| Shift+2 | **Cargo Loader** | 3D isometric cargo grid viewer & container optimizer | sc-cargo.space |
+| Shift+1 | **DPS Calculator** | Ship loadout viewer & DPS calculator with power allocator | StarCitizenWiki/scunpacked-data (calculator lineage: erkul.games), fleetyards.net |
+| Shift+2 | **Cargo Loader** | 3D isometric cargo grid viewer & container optimizer | StarCitizenWiki/scunpacked-data (sc-cargo.space fallback) |
 | Shift+3 | **Mission Database** | Browse missions, crafting blueprints & mining resources | scmdb.net |
 | Shift+4 | **Mining Loadout** | Mining laser, module & gadget optimizer | uexcorp.space |
 | Shift+5 | **Market Finder** | Searchable catalog of all purchasable items with buy/sell locations | uexcorp.space |
@@ -188,7 +188,8 @@ If you prefer to run from source instead of the installer:
 
 ## Data Sources & Credits
 
-- [erkul.games](https://erkul.games) — DPS calculator data, weapon stats ([Patreon](https://patreon.com/erkul))
+- [StarCitizenWiki/scunpacked-data](https://github.com/StarCitizenWiki/scunpacked-data) — per-patch game data: ships, weapons, components, cargo grids
+- [erkul.games](https://erkul.games) — the DPS calculator's lineage and original data source ([Patreon](https://patreon.com/erkul))
 - [uexcorp.space](https://uexcorp.space) — Market prices, trade routes, ship data, mining equipment
 - [scmdb.net](https://scmdb.net) — Mission database, crafting blueprints, mining resources
 - [fleetyards.net](https://fleetyards.net) — Ship hardpoint data
