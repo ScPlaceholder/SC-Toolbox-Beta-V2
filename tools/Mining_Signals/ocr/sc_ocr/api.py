@@ -2285,7 +2285,6 @@ def _find_mineral_row_universal(img: Image.Image) -> Optional[tuple[int, int]]:
 # HUD geometry ratios (fraction of panel HEIGHT from mineral-row center
 # to each value row). Measured from the 397x541 test fixture and
 # verified to scale proportionally across panel sizes.
-_ROW_HEIGHT_HALF_RATIO = 0.028  # ±15/541
 _OFFSET_RATIOS = {"mass": 0.079, "resistance": 0.152, "instability": 0.222}
 # Label right-edge ratios (fraction of panel WIDTH)
 _LABEL_RIGHT_RATIOS = {"mass": 0.277, "resistance": 0.504, "instability": 0.516}
@@ -7742,7 +7741,7 @@ _HUD_CRNN_RGB_BLANK: int = -1
 _HUD_CRNN_RGB_H_TARGET: int = 48
 
 
-def _classify_hud_value_via_crnn_rgb(
+def _classify_hud_value_via_crnn_rgb_raw(
     value_crop: "Image.Image",
     field: str,
     beam_width: int = 0,
@@ -9542,7 +9541,7 @@ def _ocr_full_row(
     return voted
 
 
-def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list[float]]:
+def _ocr_value_crop_impl(value_crop: Image.Image, field: str = "") -> tuple[str, list[float]]:
     """OCR a tight value crop → (text, per_char_confidences).
 
     Parallel CRNN + Tesseract voting for digit-only fields — both
@@ -11784,6 +11783,36 @@ def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list
                     and (sum(_confs_pri) / len(_confs_pri)) >= 0.70
                     and (sum(_confs_rgb) / len(_confs_rgb)) >= 0.70
                 )
+                # Lexicon-relaxed STRICT gate: when the composed value
+                # is one the user has already confirmed this session
+                # (``hud_lexicon.is_known``), relax the per-glyph
+                # floor from 0.85 to 0.70 — the 0.70 bar matches the
+                # dual-agree / rgb-agree gates, and an in-lexicon
+                # value is the same discrete-confirmation evidence the
+                # gate-0a CRNN uses to relax its threshold. Promote-
+                # not-reject: out-of-lexicon reads are untouched and
+                # keep the original 0.85 bar.
+                _strict_lex_pass = False
+                if (
+                    _gate_chars_ok
+                    and not _strict_pass
+                    and min(_confs_pri) >= 0.70
+                ):
+                    try:
+                        _sl_digits = "".join(
+                            c for c in _txt_pri if c.isdigit() or c == "."
+                        )
+                        if _sl_digits:
+                            from . import hud_lexicon as _hud_lex_sl
+                            _strict_lex_pass = _hud_lex_sl.is_known(
+                                field, float(_sl_digits),
+                            )
+                    except Exception as _sl_exc:
+                        log.debug(
+                            "sc_ocr.hud: lexicon-relaxed strict gate "
+                            "lookup failed (%s)", _sl_exc,
+                        )
+                        _strict_lex_pass = False
                 # Structural-anchor gate: suppress the 3-lane accept
                 # when the primary text fails the %/. anchor check.
                 # This composes with the existing strict / dual /
@@ -11795,12 +11824,20 @@ def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list
                 # segmented read.
                 if _anchor_reject_pri:
                     _strict_pass = False
+                    _strict_lex_pass = False
                     _dual_agree_pass = False
                     _rgb_agree_pass = False
-                if _strict_pass or _dual_agree_pass or _rgb_agree_pass:
+                if (
+                    _strict_pass
+                    or _strict_lex_pass
+                    or _dual_agree_pass
+                    or _rgb_agree_pass
+                ):
                     _mean = sum(_confs_pri) / len(_confs_pri)
                     if _strict_pass:
                         _gate = "strict"
+                    elif _strict_lex_pass:
+                        _gate = "strict-lexicon"
                     elif _dual_agree_pass:
                         _gate = "dual-agree"
                     else:
@@ -11845,6 +11882,169 @@ def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list
                     _clear_viewer_entry(field, "tesseract")
                     return _txt_pri, _confs_pri
 
+                # -- LEXICON BACKTRACK GATE (single-glyph top-K reroute) --
+                # When every per-glyph accept gate above failed, one
+                # more recovery path before falling through to the
+                # CRNN+Tesseract vote: re-classify the primary crops
+                # with top-K softmax and try SINGLE-POSITION
+                # substitutions. If the raw composition is not in the
+                # learned lexicon but a one-glyph swap lands on a
+                # value the user has already confirmed this session,
+                # adopt the swap. Mirrors the signal segmenter
+                # lexicon-driven backtracking and the gate-0a CRNN
+                # beam+lexicon rerank: lexicon membership is a
+                # DISCRETE predicate, so this only fires when there
+                # is a specific in-lexicon alternative -- cold-start /
+                # unseen values are untouched (promote-not-reject).
+                #
+                # Guards (every condition must hold to adopt):
+                #   * all four fast-path gates above failed
+                #   * field lexicon is non-empty
+                #   * the raw composed value is NOT already in the
+                #     lexicon (if it is, nothing to fix here)
+                #   * exactly the SAME glyph count (single-position
+                #     swap only -- no insert/delete, so box geometry
+                #     and anchors stay valid)
+                #   * alt conf >= 0.30 at the swapped position
+                #   * adopted string passes the field %/. anchor check
+                #   * adopted per-glyph mean conf >= 0.60
+                if not (
+                    _strict_pass
+                    or _strict_lex_pass
+                    or _dual_agree_pass
+                    or _rgb_agree_pass
+                ):
+                    try:
+                        from . import hud_lexicon as _hud_lex_bt
+                        _bt_lex_size = _hud_lex_bt.size(field)
+                    except Exception:
+                        _bt_lex_size = 0
+                    if (
+                        _bt_lex_size > 0
+                        and _primary_crops
+                        and _primary_results
+                        and len(_primary_results) == len(_confs_pri)
+                    ):
+                        _bt_raw_digits = "".join(
+                            c for c in _txt_pri if c.isdigit() or c == "."
+                        )
+                        _bt_raw_known = False
+                        if _bt_raw_digits:
+                            try:
+                                _bt_raw_known = _hud_lex_bt.is_known(
+                                    field, float(_bt_raw_digits),
+                                )
+                            except Exception:
+                                _bt_raw_known = False
+                        if not _bt_raw_known:
+                            try:
+                                _topk_bt = _classify_crops_topk(
+                                    _primary_crops, k=3,
+                                )
+                            except Exception as _bt_exc:
+                                log.debug(
+                                    "sc_ocr.hud: lexicon backtrack "
+                                    "top-K failed (%s)", _bt_exc,
+                                )
+                                _topk_bt = []
+                            if (
+                                _topk_bt
+                                and len(_topk_bt) == len(_primary_crops)
+                            ):
+                                _bt_best = None
+                                for _bi, _brow in enumerate(_topk_bt):
+                                    if not _brow:
+                                        continue
+                                    _cur_ch = _txt_pri[_bi] if (
+                                        _bi < len(_txt_pri)
+                                    ) else ""
+                                    for _alt_ch, _alt_conf in _brow:
+                                        if (
+                                            _alt_ch == _cur_ch
+                                            or _alt_ch not in "0123456789.%"
+                                            or _alt_conf < 0.30
+                                        ):
+                                            continue
+                                        _cand = (
+                                            _txt_pri[:_bi]
+                                            + _alt_ch
+                                            + _txt_pri[_bi + 1:]
+                                        )
+                                        _cand_digits = "".join(
+                                            c for c in _cand
+                                            if c.isdigit() or c == "."
+                                        )
+                                        if not _cand_digits:
+                                            continue
+                                        try:
+                                            _cand_known = (
+                                                _hud_lex_bt.is_known(
+                                                    field,
+                                                    float(_cand_digits),
+                                                )
+                                            )
+                                        except Exception:
+                                            _cand_known = False
+                                        if not _cand_known:
+                                            continue
+                                        # The adopted string must be
+                                        # fully numeric -- a leftover
+                                        # non-digit class (e.g. the
+                                        # icon-class ') would leak
+                                        # into the returned read.
+                                        if any(
+                                            c not in "0123456789.%"
+                                            for c in _cand
+                                        ):
+                                            continue
+                                        if field == "mass" and not all(
+                                            c.isdigit() for c in _cand
+                                        ):
+                                            continue
+                                        if field in (
+                                            "resistance", "instability",
+                                        ):
+                                            try:
+                                                _bt_ok, _bt_reason = (
+                                                    validate.check_hud_anchors(
+                                                        _cand, field,
+                                                        boxes=_primary_boxes,
+                                                    )
+                                                )
+                                            except Exception:
+                                                _bt_ok, _bt_reason = True, ""
+                                            if not _bt_ok:
+                                                continue
+                                        _bt_confs = list(_confs_pri)
+                                        _bt_confs[_bi] = float(_alt_conf)
+                                        _bt_mean = sum(_bt_confs) / len(
+                                            _bt_confs,
+                                        )
+                                        if _bt_mean < 0.60:
+                                            continue
+                                        if (
+                                            _bt_best is None
+                                            or _bt_mean > _bt_best[2]
+                                        ):
+                                            _bt_best = (
+                                                _cand, _bt_confs, _bt_mean,
+                                            )
+                                if _bt_best is not None:
+                                    _bt_text, _bt_confs, _bt_mean = _bt_best
+                                    log.info(
+                                        "sc_ocr.hud: LEXICON BACKTRACK "
+                                        "adopted field=%s %r -> %r "
+                                        "(mean=%.2f, lex=%d) -- "
+                                        "single-glyph swap",
+                                        field, _txt_pri, _bt_text,
+                                        _bt_mean, _bt_lex_size,
+                                    )
+                                    _dump_voter(
+                                        field, "winner", _bt_text, _bt_mean,
+                                    )
+                                    _clear_viewer_entry(field, "crnn")
+                                    _clear_viewer_entry(field, "tesseract")
+                                    return _bt_text, _bt_confs
                 # ── (1-JOINT) HUD-RGB CRNN ↔ per-glyph CNN agreement gate ──
                 # Mirror of the signature pipeline's (0-JOINT) gate.
                 # The per-glyph CNN's strict + dual-agree gates above
@@ -17190,8 +17390,8 @@ def scan_hud_onnx(
                 # through to the auto crop on miss. The crop is in
                 # HUD-region-relative coordinates; we still account for
                 # the panel-image upscale that happened at the top of
-                # this function (img was resized to REF_H=541 when the
-                # capture was smaller — the saved needle box references
+                # this function (img is normalized to REF_H=670 at the top,
+                # up- OR downscaled — the saved needle box references
                 # the upscaled image_size, so no further scaling here).
                 _left = None
                 try:
@@ -17285,7 +17485,7 @@ def scan_hud_onnx(
     # Fallback to fixed offsets from mineral row if label detection fails
     if not label_rows:
         mr_center = (mineral_row[0] + mineral_row[1]) // 2
-        scale = H / 541
+        scale = H / REF_H  # img is normalized to REF_H (670) above; was /541
         _ROW_H = int(15 * scale)
         for field, off, lr in [("mass",43,110),("resistance",82,200),("instability",120,205)]:
             c = mr_center + int(off * scale)
@@ -18582,3 +18782,57 @@ def scan_refinery(region: dict, station: str = "") -> Optional[list[dict]]:
     except Exception as exc:
         log.debug("sc_ocr.scan_refinery: legacy fallback: %s", exc)
         return None
+
+
+# ── DOT-RESTORE (2026-09-23) ──
+# Measured on 377 labelled HUD crops: 9 instability reads came out exactly
+# 100x (17.84 -> "1784") because a dotless read from another voter won, while
+# the HUD-RGB CRNN had read the SAME digits WITH the decimal point for that
+# very crop. The digits agree, so the only disagreement is the dot, and the
+# HUD model is the one trained on real HUD rendering. Offline simulation over
+# the 377 crops: 6 fixed, 0 broken. Deliberately narrow: it never changes a
+# digit, never invents a dot the HUD model did not see, and does nothing when
+# the final read already has a dot.
+_HUD_RGB_SEEN: list = []
+
+
+def _classify_hud_value_via_crnn_rgb(
+    value_crop: "Image.Image",
+    field: str,
+    beam_width: int = 0,
+):
+    out = _classify_hud_value_via_crnn_rgb_raw(value_crop, field, beam_width)
+    try:
+        if out and out[0]:
+            _HUD_RGB_SEEN.append(str(out[0]))
+    except Exception:
+        pass
+    return out
+
+
+def _dot_restore(text: str, confs: list, seen: list) -> tuple:
+    """Pure helper: return (text, confs), with the dot restored when safe."""
+    if not text or "." in text:
+        return text, confs
+    for cand in seen:
+        if "." in cand and cand.count(".") == 1 and cand.replace(".", "") == text:
+            pos = cand.index(".")
+            if confs and len(confs) == len(text):
+                mean = sum(confs) / len(confs)
+                confs = list(confs[:pos]) + [mean] + list(confs[pos:])
+            else:
+                confs = list(confs or [])
+            return cand, confs
+    return text, confs
+
+
+def _ocr_value_crop(value_crop: Image.Image, field: str = "") -> tuple[str, list[float]]:
+    """OCR a tight value crop -> (text, per_char_confidences). See ``_ocr_value_crop_impl``;
+    this wrapper only adds DOT-RESTORE on top of it."""
+    _HUD_RGB_SEEN.clear()
+    text, confs = _ocr_value_crop_impl(value_crop, field=field)
+    new_text, new_confs = _dot_restore(text, confs, list(_HUD_RGB_SEEN))
+    if new_text != text:
+        log.info("sc_ocr.hud: DOT-RESTORE field=%s %r -> %r (HUD-RGB read the same digits with a dot)",
+                 field, text, new_text)
+    return new_text, new_confs

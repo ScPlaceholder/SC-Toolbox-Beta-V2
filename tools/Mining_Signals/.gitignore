@@ -3,3 +3,16 @@ __pycache__/
 .coverage
 *.log
 .claude/
+
+# Generated font-variant training crops — 6,000 files, regenerated in ~1 min by
+# `python _gen_font_variants.py --n 6000`. The MANIFEST is tracked, the pixels are not:
+# the hand-labeled crops in pending/ are irreplaceable and stay tracked, these are not.
+training_data_crnn/fontvar_*
+
+# 625 MB archive nothing in the tree references. Kept on disk, never in history —
+# once a blob that size is committed it cannot be removed without rewriting every hash.
+ocr.zip
+
+# NOTE: *.bak_* is deliberately NOT ignored. This repo COMMITS its backups as an
+# archival convention -- 7 are tracked (predotfix, preoverride, polluted, presigtree).
+# An ignore rule here would silently hide the next deliberate one.

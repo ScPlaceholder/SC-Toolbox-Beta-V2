@@ -1,0 +1,57 @@
+{
+  "schema": "signal_crnn_rgb_v1",
+  "model_base": "model_signal_crnn_rgb_inv",
+  "inverse": true,
+  "alphabet": "0123456789,",
+  "num_classes": 12,
+  "blank_idx": 11,
+  "input_height": 48,
+  "input_channels": 3,
+  "input_dtype": "float32 in [0, 1]",
+  "input_layout": "NCHW",
+  "output_layout": "TBC",
+  "polarity_canon": "per-channel _canonicalize_polarity (text-bright on dark)",
+  "scaling": "Lanczos resize to height=H_TARGET, width preserved proportionally",
+  "training": {
+    "source_captures": 91,
+    "train_n": 17670,
+    "val_n": 930,
+    "augmentation_factor": 5,
+    "expanded_train_n": 17670,
+    "epochs_target": 12,
+    "early_stop_patience": 15,
+    "batch_size": 16,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "best_val_loss": 0.00026979538147392984,
+    "best_val_acc": 0.9827956989247312,
+    "final_val_acc": 0.9967741935483871,
+    "duration_sec": 1346.0949625968933
+  },
+  "spot_check": [
+    {
+      "file": "cap_20260418_085400_739.png",
+      "gt": "17,020",
+      "pred": "17,020",
+      "match": true
+    },
+    {
+      "file": "cap_20260418_085431_378.png",
+      "gt": "11,520",
+      "pred": "11,520",
+      "match": true
+    },
+    {
+      "file": "cap_20260418_085436_978.png",
+      "gt": "21,200",
+      "pred": "21,200",
+      "match": true
+    }
+  ],
+  "onnx": {
+    "size_bytes": 34847361,
+    "ort_smoke_test": true,
+    "exported": true,
+    "opset": 14
+  }
+}

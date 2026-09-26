@@ -141,7 +141,53 @@ def build_model(size: str = "small"):
 # ── Real labeled crops ─────────────────────────────────────────────
 
 
-def _load_real_samples(augment_per_sample: int = 200) -> list[tuple[np.ndarray, str]]:
+def _real_group(entry: dict) -> str:
+    """The unit a real crop must NOT be split across: its capture SESSION.
+
+    Added 2026-09-22 after finding the old split leaked. Augmentation ran FIRST and the 90/10 split
+    SECOND, so each crop's 1 + real_aug copies landed on both sides and val graded the model on
+    jittered copies of its own training images. Adjacent captures in one session are near-identical
+    frames of the same rock, so even a per-capture split would leak; the session is the honest unit.
+    HUD crops are named ``user_<session>__cap_<capture>__<value>.png``. Anything else (e.g. the
+    synthetic font variants) is its own group, since each row is an independent render.
+    """
+    import re
+    base = str(entry.get("path", "")).replace("\\", "/").rsplit("/", 1)[-1]
+    m = re.match(r"(user_\d+_\d+)__cap_", base)
+    return m.group(1) if m else "row:" + base
+
+
+def _real_capture(entry: dict) -> str:
+    """Finer unit than the session: one capture (its mass/resistance/instability crops share it)."""
+    import re
+    base = str(entry.get("path", "")).replace("\\", "/").rsplit("/", 1)[-1]
+    m = re.match(r"(user_\d+_\d+__cap_\d+_\d+_\d+)__", base)
+    return m.group(1) if m else "row:" + base
+
+
+def _prep_real_crop(img) -> np.ndarray:
+    """Grayscale PIL crop -> the canonical training/eval array: dark-on-light inverted, height CANVAS_H.
+
+    Factored out so evaluation preprocesses EXACTLY as training does; two copies drift.
+    """
+    from PIL import Image
+    base = np.array(img, dtype=np.uint8)
+    if float(np.median(base)) > 140:
+        base = 255 - base
+    H, W = base.shape
+    w_new = max(16, int(round(W * CANVAS_H / max(1, H))))
+    return np.array(
+        Image.fromarray(base).resize((w_new, CANVAS_H), Image.BILINEAR),
+        dtype=np.uint8,
+    )
+
+
+def _load_real_samples(
+    augment_per_sample: int = 200,
+    include_groups: Optional[set] = None,
+    exclude_groups: Optional[set] = None,
+    group_key=None,
+) -> list[tuple[np.ndarray, str]]:
     """Load (image, label) pairs from training_data_crnn/ and augment.
 
     Reads ``manifest.json`` for labels. Each real crop gets
@@ -184,21 +230,17 @@ def _load_real_samples(augment_per_sample: int = 200) -> list[tuple[np.ndarray, 
         label = entry.get("label", "")
         if not path.is_file() or not label:
             continue
+        g = (group_key or _real_group)(entry)
+        if include_groups is not None and g not in include_groups:
+            continue
+        if exclude_groups is not None and g in exclude_groups:
+            continue
         try:
             img = Image.open(path).convert("L")
         except Exception:
             continue
 
-        base = np.array(img, dtype=np.uint8)
-        if float(np.median(base)) > 140:
-            base = 255 - base
-        # Normalize to CANVAS_H height preserving aspect
-        H, W = base.shape
-        w_new = max(16, int(round(W * CANVAS_H / max(1, H))))
-        base = np.array(
-            Image.fromarray(base).resize((w_new, CANVAS_H), Image.BILINEAR),
-            dtype=np.uint8,
-        )
+        base = _prep_real_crop(img)
 
         # Emit the unaugmented version once so the model sees the
         # "canonical" real crop.
@@ -362,6 +404,46 @@ def _cer(pred: str, truth: str) -> float:
 # ── Training loop ──────────────────────────────────────────────────
 
 
+def _plan_real_split(manifest_rows, holdout_session="auto", seed=42):
+    """-> (sessions, holdout_session, test_groups, val_caps). Pure, so it can be tested without training.
+
+    TEST = one whole session ('auto' = the smallest; ties by name). VAL = ~10% of the CAPTURES in the
+    remaining sessions. Everything else trains. No capture, and no session, is ever on two sides.
+    """
+    real_rows = [e for e in manifest_rows if e.get("label") and _real_group(e).startswith("user_")]
+    sessions = sorted({_real_group(e) for e in real_rows})
+    if holdout_session == "auto":
+        sizes = {g: sum(_real_group(e) == g for e in real_rows) for g in sessions}
+        holdout_session = min(sizes, key=lambda g: (sizes[g], g)) if len(sessions) > 1 else None
+    test_groups = {holdout_session} if holdout_session else set()
+    train_rows = [e for e in real_rows if _real_group(e) not in test_groups]
+    caps = sorted({_real_capture(e) for e in train_rows})
+    random.Random(seed).shuffle(caps)
+    val_caps = set(caps[: max(1, len(caps) // 10)]) if caps else set()
+    return sessions, holdout_session, test_groups, val_caps
+
+
+def _evaluate(model, samples, device, batch_size=64):
+    """(string accuracy, CER, n) over a list of (img, label). Empty list -> (None, None, 0)."""
+    if not samples:
+        return None, None, 0
+    import torch
+    from torch.utils.data import DataLoader
+    loader = DataLoader(_SynthDataset(samples), batch_size=batch_size, shuffle=False,
+                        collate_fn=_collate, num_workers=0)
+    correct, total, cer_sum = 0, 0, 0.0
+    model.eval()
+    with torch.no_grad():
+        for padded, _tf, _il, _tl, labels in loader:
+            log_probs = model(padded.to(device)).log_softmax(-1).cpu().numpy()
+            for b, truth in enumerate(labels):
+                pred = greedy_decode(log_probs[:, b, :])
+                total += 1
+                correct += pred == truth
+                cer_sum += _cer(pred, truth)
+    return correct / max(1, total), cer_sum / max(1, total), total
+
+
 def train(
     epochs: int,
     n_samples: int,
@@ -371,6 +453,7 @@ def train(
     real_aug_multiplier: int = 200,
     init_from: Optional[str] = None,
     size: str = "small",
+    holdout_session: Optional[str] = "auto",
 ) -> None:
     import torch
     import torch.nn as nn
@@ -381,22 +464,42 @@ def train(
     np.random.seed(seed)
     torch.manual_seed(seed)
 
+    # ── THE SPLIT, AND WHY IT CHANGED (2026-09-22) ───────────────────────────────────
+    # It used to augment every real crop FIRST and split 90/10 SECOND, so each crop's copies landed
+    # on BOTH sides and val scored the model on jittered versions of its own training images. And
+    # ~84% of val was synthetic, so "val 93%" was mostly a font score. Now:
+    #   TEST  = one whole held-out capture SESSION, un-augmented. Measured every epoch, NEVER used
+    #           to pick the model. This is the honest "new evening of play" number.
+    #   VAL   = held-out CAPTURES from the training sessions (un-augmented) + 10% of synthetic.
+    #           Selection happens here; real and synthetic accuracy are printed separately.
+    # --no-holdout restores training on every real crop (for a final production run, after the
+    # honest number has been read).
+    import json as _json
+    manifest_rows = []
+    if _CRNN_MANIFEST_PATH.is_file():
+        manifest_rows = _json.load(open(_CRNN_MANIFEST_PATH)).get("files", [])
+    sessions, holdout_session, test_groups, val_caps = _plan_real_split(manifest_rows, holdout_session, seed)
+
     print(f"Loading real labeled crops from {_CRNN_TRAINING_DIR}/...")
-    real_samples = _load_real_samples(augment_per_sample=real_aug_multiplier)
-    real_labels = set(l for _, l in real_samples)
-    print(f"  {len(real_samples)} real+augmented samples covering {len(real_labels)} unique labels")
+    print(f"  sessions: {sessions}  held-out TEST session: {holdout_session or 'NONE (--no-holdout)'}")
+    real_train = _load_real_samples(real_aug_multiplier, exclude_groups=test_groups | val_caps,
+                                    group_key=lambda e: _real_capture(e) if _real_capture(e) in val_caps else _real_group(e))
+    real_val = _load_real_samples(0, include_groups=val_caps, group_key=_real_capture)
+    real_test = _load_real_samples(0, include_groups=test_groups) if test_groups else []
+    print(f"  real: train {len(real_train)} (augmented), val {len(real_val)} ({len(val_caps)} captures), "
+          f"test {len(real_test)} (whole session, un-augmented)")
 
     print(f"Generating {n_samples} synthetic samples (seed={seed})...")
     synth_samples = generate_dataset(n=n_samples, seed=seed)
+    random.Random(seed).shuffle(synth_samples)
+    s_split = int(len(synth_samples) * 0.9)
+    synth_train, synth_val = synth_samples[:s_split], synth_samples[s_split:]
 
-    # Combine: put real FIRST so if the dataset is tiny, CTC still
-    # sees every unique label. Shuffle after combining.
-    all_samples = real_samples + synth_samples
-    print(f"  total: {len(all_samples)} samples ({len(real_samples)} real, {len(synth_samples)} synth)")
-    random.Random(seed).shuffle(all_samples)
-    split = int(len(all_samples) * 0.9)
-    train_samples = all_samples[:split]
-    val_samples = all_samples[split:]
+    train_samples = real_train + synth_train
+    random.Random(seed).shuffle(train_samples)
+    val_samples = real_val + synth_val
+    print(f"  total: train {len(train_samples)}, val {len(val_samples)} "
+          f"({len(real_val)} real + {len(synth_val)} synth), test {len(real_test)} real")
 
     train_ds = _SynthDataset(train_samples)
     val_ds = _SynthDataset(val_samples)
@@ -437,6 +540,8 @@ def train(
     print("-" * 68)
 
     best_val_acc = -1.0
+    best_real_val = best_test = best_test_cer = None
+    best_epoch = 0
     best_state = None
 
     for epoch in range(epochs):
@@ -480,20 +585,28 @@ def train(
         val_acc = correct / max(1, total)
         val_cer = cer_sum / max(1, total)
         avg_loss = train_loss_sum / max(1, n_batches)
+        rv_acc, _, rv_n = _evaluate(model, real_val, device)
+        te_acc, te_cer, te_n = _evaluate(model, real_test, device)
+        _pct = lambda a: "n/a" if a is None else f"{a*100:.1f}%"
         print(
             f"  Epoch {epoch+1:3d}/{epochs}: "
             f"loss={avg_loss:.3f}  val_str_acc={val_acc*100:.1f}%  val_cer={val_cer*100:.2f}%"
+            f"  | real_val={_pct(rv_acc)} (n={rv_n})  TEST_real={_pct(te_acc)} (n={te_n})"
         )
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
+            best_real_val, best_test, best_test_cer, best_epoch = rv_acc, te_acc, te_cer, epoch + 1
 
     print("-" * 68)
     if best_state is None:
         print("No improvement — nothing to export.")
         return
-    print(f"Best val string-accuracy: {best_val_acc*100:.2f}%")
+    print(f"Best val string-accuracy: {best_val_acc*100:.2f}%  (epoch {best_epoch}; mixes real + synthetic)")
+    if best_test is not None:
+        print(f"HELD-OUT SESSION ({holdout_session}) at that epoch: {best_test*100:.2f}% string acc, "
+              f"{best_test_cer*100:.2f}% CER over {len(real_test)} crops  <- the honest number")
 
     model.load_state_dict(best_state)
     model.eval()
@@ -522,6 +635,11 @@ def train(
         run_meta = {
             "stamp": stamp,
             "val_string_acc": float(best_val_acc),
+            "val_real_string_acc": None if best_real_val is None else float(best_real_val),
+            "test_holdout_session": holdout_session,
+            "test_real_string_acc": None if best_test is None else float(best_test),
+            "test_real_n": len(real_test),
+            "split": "session-holdout + capture-level val, un-augmented eval (2026-09-22)",
             "epochs": epochs,
             "n_samples": n_samples,
             "lr": lr,
@@ -569,6 +687,8 @@ def train(
         "numTokens": NUM_TOKENS,
         "inputHeight": CANVAS_H,
         "valStringAcc": float(best_val_acc),
+        "testRealStringAcc": None if best_test is None else float(best_test),
+        "testHoldoutSession": holdout_session,
         "trainSamples": len(train_ds),
         "valSamples": len(val_ds),
         "modelKind": "crnn",
@@ -602,7 +722,30 @@ def main() -> None:
         "--size", type=str, default="small", choices=("small", "large"),
         help="Model capacity: 'small' (1.3M, legacy) or 'large' (~5M)",
     )
+    parser.add_argument(
+        "--holdout-session", type=str, default="auto",
+        help="Real capture SESSION held out as a pure test set ('auto' = the smallest). See train().",
+    )
+    parser.add_argument(
+        "--out-dir", type=str, default=None,
+        help="Write checkpoints/ONNX/meta HERE instead of ocr/models. Use for experiments and smoke "
+             "tests: without it EVERY run, even a 1-epoch test, overwrites the production model.",
+    )
+    parser.add_argument(
+        "--no-holdout", action="store_true",
+        help="Train on every real crop (production run). The honest TEST number is then unavailable.",
+    )
     args = parser.parse_args()
+
+    if args.out_dir:
+        # ⚠ Added 2026-09-22 after a 1-epoch smoke test replaced the production model_crnn.onnx/.pt/
+        #   .json with a 19%-accuracy model (restored from a hashed backup). The export always wrote
+        #   to ocr/models, so there was no way to train WITHOUT shipping the result.
+        global _MODEL_DIR, _OUT_ONNX, _OUT_META
+        _MODEL_DIR = Path(args.out_dir).resolve()
+        _OUT_ONNX = _MODEL_DIR / "model_crnn.onnx"
+        _OUT_META = _MODEL_DIR / "model_crnn.json"
+        print(f"--out-dir: exporting to {_MODEL_DIR} (production ocr/models untouched)")
 
     # Force line-buffered stdout so per-epoch progress is visible when
     # the output is piped to a log file (default Python buffering only
@@ -629,6 +772,7 @@ def main() -> None:
         real_aug_multiplier=args.real_aug,
         init_from=args.init_from,
         size=args.size,
+        holdout_session=None if args.no_holdout else args.holdout_session,
     )
 
 

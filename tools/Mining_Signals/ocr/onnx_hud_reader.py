@@ -4928,6 +4928,145 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
     return result
 
 
+def _text_row_spans_below(gray: "np.ndarray", y_min: int) -> list[tuple[int, int]]:
+    """Text-row spans at or below *y_min* — same recipe as
+    ``_find_mineral_row`` (brightness mask → row counts → spans),
+    kept as a separate helper so the legacy engine-mode path can
+    walk the rows under the mineral-name band without re-deriving
+    the mask. Returns at most 3 spans (mass / resistance /
+    instability)."""
+    text_mask = _build_text_mask(gray, deviation=30)
+    row_counts = text_mask.sum(axis=1)
+    h = len(row_counts)
+    min_row_h = max(6, min(14, int(h * 0.026)))
+    spans: list[tuple[int, int]] = []
+    in_row = False
+    start = 0
+    for y in range(h + 1):
+        val = row_counts[y] if y < h else 0
+        if val > 3 and not in_row:
+            in_row = True
+            start = y
+        elif val <= 3 and in_row:
+            in_row = False
+            if y - start >= min_row_h and start >= y_min:
+                spans.append((start, y))
+                if len(spans) >= 3:
+                    break
+    return spans
+
+
+def _legacy_read_field(crop: "Image.Image", field: str) -> Optional[float]:
+    """Tesseract + PaddleOCR read of one HUD value crop.
+
+    Runs a few grayscale polarity variants through Tesseract with a
+    digit/dot whitelist, cross-checks with the PaddleOCR sidecar when
+    it's up, validates every raw read with the SC-OCR field
+    validators, and returns the majority valid value (Tesseract wins
+    ties). Returns None when nothing validates.
+    """
+    from collections import Counter
+
+    from .sc_ocr.validate import (
+        validate_instability,
+        validate_mass,
+        validate_pct,
+    )
+
+    validator = {
+        "mass": validate_mass,
+        "resistance": validate_pct,
+        "instability": validate_instability,
+    }.get(field)
+    if validator is None:
+        return None
+
+    from PIL import ImageOps
+
+    from . import screen_reader as _sr
+
+    gray = crop.convert("L")
+    scale = 3
+    variants = [
+        gray.resize((gray.width * scale, gray.height * scale), Image.LANCZOS),
+        ImageOps.invert(gray).resize(
+            (gray.width * scale, gray.height * scale), Image.LANCZOS
+        ),
+        ImageOps.autocontrast(gray).resize(
+            (gray.width * scale, gray.height * scale), Image.LANCZOS
+        ),
+    ]
+    cands: list[float] = []
+    for v in variants:
+        try:
+            txt = _sr._try_ocr(
+                v, "--psm 7 -c tessedit_char_whitelist=0123456789.%"
+            )
+        except Exception:
+            continue
+        val = validator(txt)
+        if val is not None:
+            cands.append(val)
+
+    # PaddleOCR sidecar cross-check (the "wire Paddle back into the
+    # legacy line" half of the engine-mode request).
+    try:
+        from . import paddle_client
+        if paddle_client.is_available():
+            regions = paddle_client.recognize(crop.convert("RGB"))
+            if regions:
+                txt = " ".join(str(r.get("text", "")) for r in regions)
+                val = validator(txt)
+                if val is not None:
+                    cands.append(val)
+    except Exception:
+        pass
+
+    if not cands:
+        return None
+    return Counter(cands).most_common(1)[0][0]
+
+
+def _legacy_scan_hud(region: dict) -> dict:
+    """Legacy HUD read for engine mode "legacy".
+
+    Reconstructed from the pre-SC-OCR v1 primitives that survive in
+    this module: brightness-profile row detection anchored on the
+    mineral-name row, ``_find_value_crop`` value segmentation, then a
+    per-row Tesseract read with a PaddleOCR sidecar cross-check.
+    Slower and less accurate than the SC-OCR engine — this exists so
+    a regression in the fast path can be A/B'd against the old line.
+    """
+    result: dict[str, Optional[float]] = {
+        "mass": None,
+        "resistance": None,
+        "instability": None,
+        "panel_visible": False,
+    }
+    try:
+        from . import screen_reader as _sr
+
+        img = _sr.capture_region(region)
+        if img is None:
+            return result
+        gray = np.array(img.convert("L"), dtype=np.uint8)
+        mineral = _find_mineral_row(img)
+        if mineral is None:
+            return result
+        result["panel_visible"] = True
+        rows = _text_row_spans_below(gray, mineral[1])
+        fields = ["mass", "resistance", "instability"]
+        for field, (y1, y2) in zip(fields, rows):
+            crop = _find_value_crop(img, gray, y1, y2, x_min=0)
+            if crop is None:
+                continue
+            val = _legacy_read_field(crop, field)
+            if val is not None:
+                result[field] = val
+        return result
+    except Exception as exc:
+        log.error("legacy HUD scan failed: %s", exc, exc_info=True)
+        return result
 def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
     """Capture HUD region and extract mass + resistance + instability.
 
@@ -4961,6 +5100,30 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
         "panel_visible": False,
     }
 
+    t0 = time.time()  # start clock before legacy branch (legacy path logs elapsed)
+
+    # ── LEGACY ENGINE-MODE BRANCH ──────────────────────────────────
+    # Engine-mode toggle (ocr/engine_mode.py): MINING_SIGNALS_OCR_MODE
+    # env var or the "ocr_engine_mode" config key. Legacy runs the
+    # reconstructed Tesseract+Paddle HUD line (see _legacy_scan_hud)
+    # and deliberately skips the SC-OCR engine AND the ONNX model
+    # requirement — the legacy line needs neither.
+    try:
+        from .engine_mode import get_engine_mode as _get_engine_mode
+        _engine_mode = _get_engine_mode()
+    except Exception:
+        _engine_mode = "fast"
+    if _engine_mode == "legacy":
+        legacy_result = _legacy_scan_hud(region)
+        elapsed = (time.time() - t0) * 1000
+        log.info(
+            "legacy HUD scan: mass=%s resistance=%s instability=%s "
+            "panel_visible=%s in %.0fms",
+            legacy_result.get("mass"), legacy_result.get("resistance"),
+            legacy_result.get("instability"),
+            legacy_result.get("panel_visible"), elapsed,
+        )
+        return legacy_result
     if not _ensure_model():
         return result
 

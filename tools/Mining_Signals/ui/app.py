@@ -291,6 +291,9 @@ def _load_config() -> dict:
         "active_ship": None,
         "gadget_quantities": {},
         "always_use_best_gadget": False,
+        # OCR engine mode: "fast" (SC-OCR, default) or "legacy"
+        # (Tesseract A+B + PaddleOCR sidecar vote). See ocr/engine_mode.py.
+        "ocr_engine_mode": "fast",
         "fleet_loadouts": [],
         "fleet_player_counts": {},  # path -> int (override default crew)
         "module_uses_remaining": {},  # ship_id -> [remaining_per_turret]
@@ -825,6 +828,29 @@ class MiningSignalsApp(SCWindow):
             background: transparent;
         """)
         ocr_layout.addWidget(self._hotkey_hint)
+
+        # -- Legacy OCR engine toggle (ocr/engine_mode.py) --
+        # Checked = "legacy" (Tesseract A+B + PaddleOCR sidecar vote,
+        # ~1.2 s/scan); unchecked = "fast" (SC-OCR, ~23 ms/scan).
+        # Takes effect on the next scan -- the OCR loop re-reads the
+        # config every tick via engine_mode._read_config_mode.
+        self._legacy_engine_cb = QCheckBox("Legacy OCR (Tesseract+Paddle)", self._ocr_row)
+        self._legacy_engine_cb.setChecked(
+            self._config.get("ocr_engine_mode", "fast") == "legacy"
+        )
+        self._legacy_engine_cb.setToolTip(
+            "Diagnostic: use the original three-engine OCR line "
+            "(Tesseract A + B + PaddleOCR vote) instead of the fast "
+            "SC-OCR engine. Much slower (~1 s per scan) -- only use "
+            "for A/B comparison when the fast engine misbehaves. "
+            "Takes effect on the next scan."
+        )
+        self._legacy_engine_cb.setStyleSheet(
+            f"font-family: Consolas, monospace; font-size: 8pt; "
+            f"color: {P.fg_dim}; background: transparent;"
+        )
+        self._legacy_engine_cb.stateChanged.connect(self._on_legacy_engine_changed)
+        ocr_layout.addWidget(self._legacy_engine_cb)
 
         ocr_layout.addStretch(1)
         layout.addWidget(self._ocr_row)
@@ -2362,6 +2388,14 @@ class MiningSignalsApp(SCWindow):
         popup.move(self.mapToGlobal(self.rect().center()) - popup.rect().center())
         self._fleet_admiral_popup = popup
         popup.show()
+
+    def _on_legacy_engine_changed(self, state: int) -> None:
+        # engine_mode.set_engine_mode validates the value and writes
+        # the "ocr_engine_mode" key; _save_config does the atomic
+        # tmp-file + os.replace persist (ui owns config writes).
+        from ocr.engine_mode import set_engine_mode
+        set_engine_mode("legacy" if state else "fast", self._config)
+        _save_config(self._config)
 
     def _on_always_best_changed(self, state: int) -> None:
         self._config["always_use_best_gadget"] = bool(state)

@@ -19,6 +19,8 @@ import urllib.request
 import zipfile
 from typing import Optional
 
+from .engine_mode import get_engine_mode
+
 log = logging.getLogger(__name__)
 
 # ── Tesseract binary management ──
@@ -698,6 +700,51 @@ def extract_number(image) -> Optional[int]:
 _last_capture = None  # most recent signal region image (for training collection)
 
 
+def _dump_live_sample(img, result) -> None:
+    """Persist a captured signal panel alongside the value the
+    production reader returned, so live in-game captures can be
+    collected for offline accuracy diagnosis. Two ways to enable
+    (so it works no matter how the app is launched):
+      1. env var  SC_LIVE_SAMPLES=<dir>
+      2. sentinel  <Mining_Signals>/live_samples/.enabled  (dumps
+         into that live_samples/ dir)
+    Completely inert (one cheap env lookup + one path check, no file
+    I/O) when neither is present — changes no production behaviour.
+    """
+    _devmode_capture(img, result)
+    _ls_dir = os.environ.get("SC_LIVE_SAMPLES")
+    if not _ls_dir:
+        try:
+            _cand = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "live_samples",
+            )
+            if os.path.exists(os.path.join(_cand, ".enabled")):
+                _ls_dir = _cand
+        except Exception:
+            _ls_dir = None
+    if _ls_dir and img is not None:
+        try:
+            os.makedirs(_ls_dir, exist_ok=True)
+            _ts = time.strftime("%H%M%S")
+            _ms = int((time.time() % 1) * 1000)
+            _tag = result if result is not None else "none"
+            img.convert("RGB").save(
+                os.path.join(_ls_dir, f"sig_{_ts}_{_ms:03d}_{_tag}.png")
+            )
+            log.info("live-sample: saved panel read=%s", _tag)
+        except Exception as _ls_exc:
+            log.debug("scan_region: live-sample dump failed: %s", _ls_exc)
+
+
+def _paddle_usable() -> bool:
+    """True when the PaddleOCR py313 sidecar is installed and
+    startable. Never raises — used for log lines only."""
+    try:
+        from . import paddle_client
+        return bool(paddle_client.is_available())
+    except Exception:
+        return False
 def get_last_capture():
     """Return the most recent signal region image, or None."""
     return _last_capture
@@ -733,8 +780,11 @@ def scan_region(region: dict) -> Optional[int]:
     animation (see ``capture_region_averaged`` docstring). Falls
     back to a single capture if averaging fails.
 
-    Pipeline (v2.2.7+): SC_OCR ONLY. The legacy 3-engine fallback
-    (Tesseract A + B + Paddle) was removed because:
+    Engine mode (ocr/engine_mode.py): "fast" (default) runs the
+    SC_OCR ensemble below; "legacy" routes to the original
+    three-engine extract_number() vote (Tesseract A + B +
+    PaddleOCR sidecar). The legacy fallback was dropped from
+    the default path because:
       * SC_OCR's voter set is a strict superset of legacy's
         (CRNN + dual-polarity CNN + multi-PSM/scale Tesseract vs.
         legacy's Tesseract A + B + Paddle), so legacy could never
@@ -748,7 +798,7 @@ def scan_region(region: dict) -> Optional[int]:
         was never cleaned up when SC_OCR shipped.
 
     Returns the extracted integer or None. None means SC_OCR
-    couldn't produce a confident read on this frame — caller treats
+    could not produce a confident read on this frame — caller treats
     that as "no data this scan" rather than retrying with a weaker
     engine. Entirely in-memory.
     """
@@ -760,6 +810,23 @@ def scan_region(region: dict) -> Optional[int]:
         return None
     _last_capture = img
 
+    # ── LEGACY ENGINE-MODE BRANCH ──────────────────────────────────
+    # Engine-mode toggle (ocr/engine_mode.py): MINING_SIGNALS_OCR_MODE
+    # env var or the "ocr_engine_mode" config key. Legacy routes
+    # through extract_number() — the original three-engine
+    # Tesseract A + B + PaddleOCR sidecar vote. This is also what
+    # re-wires Paddle back into the live line: extract_number's
+    # engine C calls paddle_client, which spawns the py313 sidecar
+    # on first use and votes its candidates alongside Tesseract.
+    if get_engine_mode() == "legacy":
+        result = extract_number(img)
+        log.info(
+            "scan_region: legacy 3-engine read=%s (Paddle %s)",
+            result,
+            "in vote" if _paddle_usable() else "unavailable",
+        )
+        _dump_live_sample(img, result)
+        return result
     # SC_OCR ensemble — CRNN primary, multi-PSM/scale Tesseract,
     # dual-polarity CNN cross-validator. Returns None when no voter
     # produced a 4-5 digit value in [1000, 35000].
@@ -769,38 +836,5 @@ def scan_region(region: dict) -> Optional[int]:
     except Exception as exc:
         log.debug("scan_region: sc_ocr raised %s", exc)
         result = None
-    # ── LIVE SAMPLE CAPTURE (debug, gated) ──────────────────────────
-    # Persist every captured signal panel alongside the value the
-    # production reader returned, so live in-game captures can be
-    # collected for offline accuracy diagnosis. Two ways to enable
-    # (so it works no matter how the app is launched):
-    #   1. env var  SC_LIVE_SAMPLES=<dir>
-    #   2. sentinel  <Mining_Signals>/live_samples/.enabled  (dumps
-    #      into that live_samples/ dir)
-    # Completely inert (one cheap env lookup + one path check, no file
-    # I/O) when neither is present — changes no production behaviour.
-    _devmode_capture(img, result)
-    _ls_dir = os.environ.get("SC_LIVE_SAMPLES")
-    if not _ls_dir:
-        try:
-            _cand = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "live_samples",
-            )
-            if os.path.exists(os.path.join(_cand, ".enabled")):
-                _ls_dir = _cand
-        except Exception:
-            _ls_dir = None
-    if _ls_dir and img is not None:
-        try:
-            os.makedirs(_ls_dir, exist_ok=True)
-            _ts = time.strftime("%H%M%S")
-            _ms = int((time.time() % 1) * 1000)
-            _tag = result if result is not None else "none"
-            img.convert("RGB").save(
-                os.path.join(_ls_dir, f"sig_{_ts}_{_ms:03d}_{_tag}.png")
-            )
-            log.info("live-sample: saved panel read=%s", _tag)
-        except Exception as _ls_exc:
-            log.debug("scan_region: live-sample dump failed: %s", _ls_exc)
+    _dump_live_sample(img, result)
     return result
