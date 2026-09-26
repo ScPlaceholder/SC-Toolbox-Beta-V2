@@ -69,7 +69,7 @@ REPO = "StarCitizenWiki/scunpacked-data"
 RAW_URL = "https://raw.githubusercontent.com/" + REPO + "/{commit}/{file}"
 FILES = ("ships.json", "ship-items.json")
 INDEX_FILE = "guns_index.json"
-ADAPTER_VERSION = 6          # 6: camera-turret ports are not gun slots; 5: pellets, spread, range
+ADAPTER_VERSION = 7          # 7: Slayer fire interval + per-shot-overheat sustain; 6: camera-turret ports; 5: pellets, spread, range
 
 ATTRIBUTION = ("Ship and weapon data: StarCitizenWiki/scunpacked-data. "
                "Calculator lineage: erkul.games. Star Citizen content (c) "
@@ -192,6 +192,24 @@ def _f(x) -> Optional[float]:
         return None
 
 
+# scunpacked reads a fire rate whose game unit is seconds (an interval) as rounds per minute. The Slayer's
+# 12 is one shot every 12 s, not 12 a minute, which turned 2,667 DPS into 6,400. Keyed by class AND the
+# value we expect, so if scunpacked fixes it (or the gun changes) the override stops applying on its own.
+# Same table as SuitMk2's tools/build_ship_weapons.py, where this was found (2026-09-25).
+_SECONDS_NOT_RPM = {"hrst_nova_ballisticcannon_s5": 12.0}
+
+
+def _per_shot_overheat(alpha: float, interval: float, heat: dict) -> Optional[float]:
+    """Sustained DPS for a gun that overheats on EVERY shot (the Slayer: 91,125 heat per shot against a
+    limit of 100). scunpacked's Sustained reads ~5 DPS for it because its duty-cycle formula assumes many
+    shots per overheat. The real cycle is the longer of the fire interval and the overheat lockout."""
+    hps = _f(heat.get("HeatPerShot")) or 0.0
+    limit = _f(heat.get("OverheatTemperature")) or 0.0
+    if limit <= 0 or hps < limit or interval <= 0 or not alpha:
+        return None
+    return alpha / max(interval, _f(heat.get("OverheatFixTime")) or 0.0)
+
+
 def weapon_stats(item: dict) -> Optional[dict]:
     """Normalised stats for one ship-items.json WeaponGun, or None if not a gun.
 
@@ -214,6 +232,9 @@ def weapon_stats(item: dict) -> Optional[dict]:
     dmg = w.get("Damage") or {}
     per_shot = _f(m.get("DamagePerShot")) or 0.0
     rpm = _f(m.get("RoundsPerMinute")) or 0.0
+    cls_key = str(item.get("className") or "").lower()
+    if cls_key in _SECONDS_NOT_RPM and rpm == _SECONDS_NOT_RPM[cls_key]:
+        rpm = 60.0 / rpm
     fire_type = m.get("FireType")
     if fire_type == "beam":
         burst = _f(m.get("Dps")) or 0.0
@@ -223,6 +244,10 @@ def weapon_stats(item: dict) -> Optional[dict]:
     alpha = _f(dmg.get("AlphaTotal"))
     if alpha is None and fire_type != "beam":
         alpha = per_shot
+    if fire_type != "beam" and rpm:
+        pso = _per_shot_overheat(per_shot, 60.0 / rpm, w.get("Heat") or {})
+        if pso is not None:
+            sus = pso
     tags = list(std.get("Tags") or [])
     pellets = int(_f(m.get("PelletsPerShot")) or 1)
     spread = m.get("Spread") or {}
