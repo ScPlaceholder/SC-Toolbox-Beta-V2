@@ -105,6 +105,89 @@ def _fy_hp_group(fy_list: list) -> dict:
 _log = logging.getLogger(__name__)
 
 
+# ── The one port-fit rule ─────────────────────────────────────────────────────
+#
+# ``shared/scunpacked.py``'s ``fits()`` is the real port constraint, stated in
+# that module's docstring: MinSize <= item size <= MaxSize (the port's stock
+# item exempt from MinSize only, because CIG ships a few undersized stock
+# items), player-usable items only, every tag the item REQUIRES offered at the
+# port, and a port marked not Editable keeps what it has.
+#
+# It is what got the weapon pickers right -- weapon_candidates_for_slot ->
+# data/scunpacked_provider.candidates -> fits -- while the component pickers
+# below tested ``size <= max_size`` alone and so offered undersized items and a
+# swappable list for ports the game locks.  They now route through the SAME
+# function.  Not a copy of it: a second, parallel size rule is how these two
+# paths diverged in the first place.
+
+_FITS = None
+_NO_STOCK = object()        # a "stock item" token no real item can equal
+
+
+def _fit_rule():
+    """``fits`` from the shared scunpacked adapter, resolved once and cached.
+
+    Loaded through ``scunpacked_provider.adapter()`` (by path, under the module
+    name ``_assist_scunpacked``) so this process shares the single adapter
+    instance with the DPS worker rather than importing a second copy of the
+    rule.  Lazy on purpose: importing this module must not depend on the
+    adapter being loadable, and a failure here belongs in the data-load error
+    the window already shows -- not swallowed into the permissive old rule,
+    which is exactly the defect being fixed.
+    """
+    global _FITS
+    if _FITS is None:
+        from data.scunpacked_provider import adapter
+        _FITS = adapter().fits
+    return _FITS
+
+
+def _as_port(max_size, min_size=0, editable=True, stock_ref="",
+             required_tags: str = None) -> dict:
+    """One component port in the shape ``fits()`` reads as its *slot*.
+
+    ``required_tags is None`` means "do not judge tags here": the port offers
+    no tags and :func:`_as_item` gives every item an empty requirement list, so
+    the rule's tag clause is vacuously true.  That is what the
+    ``_list_for_size*`` helpers have always done -- the tagged variants keep
+    their own ``required_tags`` equality test instead.
+    """
+    return {
+        "max_size": 0 if max_size is None else int(max_size),
+        "min_size": int(min_size or 0),
+        "editable": bool(editable),
+        "stock": (stock_ref or "").lower() or _NO_STOCK,
+        "tags": (required_tags or "").split(),
+    }
+
+
+def _as_item(row: dict, port: dict, *, match_tags: bool = False,
+             require_listable: bool = True) -> dict:
+    """One component stats row in the shape ``fits()`` reads as its *w*.
+
+    ``listable`` is the component catalog's name for what the gun catalog calls
+    mountable-and-player: False for NPC / placeholder / ship-locked rows (erkul
+    rows carry no such key and so are always listable).
+
+    ``require_listable=False`` forces that clause true -- for
+    ``_list_for_size_tagged``, which never applied a listable filter; only its
+    size / editable / stock decision is delegated, so its callers see no change.
+    """
+    ok = True if not require_listable else (row.get("listable") is not False)
+    cls = row.get("local_name") or ""
+    stock = port.get("stock")
+    if stock is not _NO_STOCK and stock in {(row.get("ref") or "").lower(),
+                                            cls.lower()}:
+        cls = stock                 # == port["stock"]: the stock-item exemption
+    return {
+        "size": row.get("size") or 0,
+        "cls": cls,
+        "mountable": ok,
+        "player": ok,
+        "req": (row.get("required_tags") or "").split() if match_tags else [],
+    }
+
+
 # ── Snapshot ──────────────────────────────────────────────────────────────────
 
 class _IndexSnapshot:
@@ -1031,30 +1114,172 @@ class ComponentRepository:
         idx = self._idx
         return self._find(idx.mining_lasers_by_ref, idx.mining_lasers_by_name, q, max_size)
 
-    def _list_for_size(self, by_name: dict, max_size: int) -> list:
-        # scunpacked rows carry "listable" (False for NPC / placeholder / ship-
-        # locked items); erkul rows have no such key and are unaffected.
+    def _list_for_size(self, by_name: dict, max_size: int, *,
+                       min_size: int = 0, editable: bool = True,
+                       stock_ref: str = "", required_tags: str = None) -> list:
+        """Items a port may take, judged by the ONE fit rule (``_fit_rule``).
+
+        ``max_size`` / ``min_size`` / ``editable`` / ``stock_ref`` describe the
+        PORT, not the item: MinSize..MaxSize, whether the game lets the player
+        change what is in it, and what it ships with (exempt from MinSize --
+        CIG fits a few undersized stock components).
+
+        The defaults are deliberately INERT, so a caller that passes only a
+        size gets exactly the old behaviour (``size <= max_size`` and
+        ``listable is not False``): ``min_size=0`` can reject nothing,
+        ``editable=True`` can reject nothing, and no stock ref means no
+        exemption to apply.  That keeps every existing call site unchanged
+        while letting a slot-aware caller get the real answer -- see
+        ``components_for_slot``.
+
+        scunpacked rows carry "listable" (False for NPC / placeholder / ship-
+        locked items); erkul rows have no such key and are unaffected.
+        """
+        fits = _fit_rule()
+        port = _as_port(max_size, min_size, editable, stock_ref, required_tags)
+        match_tags = required_tags is not None
         return sorted(
             [v for v in by_name.values()
-             if v["size"] <= max_size and v.get("listable") is not False],
+             if fits(port, _as_item(v, port, match_tags=match_tags))],
             key=lambda x: (-x["size"], x["name"]),
         )
 
-    def _list_for_size_tagged(self, by_name: dict, max_size: int, required_tags: str) -> list:
-        """Like _list_for_size but also filters by required_tags equality."""
+    def _list_for_size_tagged(self, by_name: dict, max_size: int, required_tags: str,
+                              *, min_size: int = 0, editable: bool = True,
+                              stock_ref: str = "") -> list:
+        """Like _list_for_size but also filters by required_tags equality.
+
+        The tag test stays an EQUALITY on the row's own ``required_tags`` --
+        this variant's long-standing convention, and not the fit rule's
+        "every required tag is offered at the port".  Only the size / editable
+        / stock part of the decision is delegated, so nothing here changes for
+        the callers that already get the right answer.
+        """
+        fits = _fit_rule()
+        port = _as_port(max_size, min_size, editable, stock_ref)
         return sorted(
             [v for v in by_name.values()
-             if v["size"] <= max_size and v.get("required_tags", "") == required_tags],
+             if v.get("required_tags", "") == required_tags
+             and fits(port, _as_item(v, port, require_listable=False))],
             key=lambda x: (-x["size"], x["name"]),
         )
 
-    def _list_for_size_no_tags(self, by_name: dict, max_size: int) -> list:
+    def _list_for_size_no_tags(self, by_name: dict, max_size: int, *,
+                               min_size: int = 0, editable: bool = True,
+                               stock_ref: str = "") -> list:
         """Return only items with no required_tags (generic, fits any slot)."""
+        fits = _fit_rule()
+        port = _as_port(max_size, min_size, editable, stock_ref)
         return sorted(
             [v for v in by_name.values()
-             if v["size"] <= max_size and not v.get("required_tags", "")
-             and v.get("listable") is not False],
+             if not v.get("required_tags", "")
+             and fits(port, _as_item(v, port))],
             key=lambda x: (-x["size"], x["name"]),
+        )
+
+    # ── slot-aware component pickers ──────────────────────────────────────
+    #
+    # The *_for_size methods below take a size and nothing else, so they cannot
+    # honour a port's MinSize or its Editable flag.  These two can.
+
+    # accept_type passed to services.slot_extractor.extract_slots_by_type
+    # -> the index dict its picker draws from.
+    _COMPONENT_KINDS = {
+        "Shield":                       "shields_by_name",
+        "Cooler":                       "coolers_by_name",
+        "Radar":                        "radars_by_name",
+        "PowerPlant":                   "powerplants_by_name",
+        "QuantumDrive":                 "qdrives_by_name",
+        "EMP":                          "emps_by_name",
+        "QuantumInterdictionGenerator": "qeds_by_name",
+        "BombLauncher":                 "bombs_by_name",
+        "MissileLauncher":              "missiles_by_name",
+        "ToolArm":                      "tool_arms_by_name",
+        "SalvageHead":                  "salvage_heads_by_name",
+        "OrePod":                       "ore_pods_by_name",
+        "FuelTank":                     "fuel_tanks_by_name",
+        "Module":                       "erkul_modules_by_name",
+    }
+
+    @staticmethod
+    def port_constraints(ship: dict, slot: dict) -> dict:
+        """The real ``min_size`` / ``max_size`` / ``editable`` / ``required_tags``
+        of one component slot's port, read back off *ship*'s loadout tree.
+
+        ``services.slot_extractor.extract_slots_by_type`` returns component
+        slots as ``{id, label, max_size, editable, local_ref}``: it drops the
+        port's ``minSize`` and ``requiredTags``.  The data is not missing, only
+        unplumbed -- the erkul-shaped port dicts the slot was built FROM carry
+        both (``data/scunpacked_provider._translate``: ``"minSize":
+        e.get("MinSize")``).  A component slot's ``id`` is its
+        ``itemPortName``, so the port is recovered by name.
+
+        Falls back to whatever the slot itself states, so a caller with no ship
+        (or a slot whose port cannot be found) is no worse off than before.
+        """
+        out = {
+            "min_size":      int(slot.get("min_size") or 0),
+            "max_size":      slot.get("max_size"),
+            "editable":      bool(slot.get("editable", True)),
+            "required_tags": slot.get("required_tags") or None,
+        }
+        want = (slot.get("id") or "").lower()
+        if not want or not ship:
+            return out
+        found = None
+
+        def walk(ports):
+            nonlocal found
+            for p in ports or []:
+                if found is not None:
+                    return
+                if (p.get("itemPortName") or "").lower() == want:
+                    found = p
+                    return
+                walk(p.get("loadout"))
+
+        walk(ship.get("loadout") or [])
+        if found is None:
+            return out
+        if found.get("minSize") is not None:
+            out["min_size"] = int(found["minSize"])
+        if found.get("maxSize") is not None:
+            out["max_size"] = int(found["maxSize"])
+        out["editable"] = bool(found.get("editable", out["editable"]))
+        if found.get("requiredTags"):
+            out["required_tags"] = found["requiredTags"]
+        return out
+
+    def components_for_slot(self, kind: str, slot: dict, ship: dict = None) -> list:
+        """Items one component slot may take -- the whole port rule, not just
+        its size ceiling.
+
+        *kind* is the ``accept_type`` the slot was extracted with (``"Cooler"``,
+        ``"Shield"`` ...); *slot* a dict from
+        ``services.slot_extractor.extract_slots_by_type``; *ship* the record
+        from :meth:`get_ship_data`, which carries the loadout tree the port's
+        MinSize is recovered from.
+
+        A NON-EDITABLE port returns exactly the component the game has fitted
+        there -- a one-item list, or an empty one only when the port is itself
+        empty.  Deliberately not "no picker": the fitted part is a fact about
+        the ship the player came to read, so the row still renders, labelled
+        and stat-complete, with nothing else to choose.  Dropping the row
+        instead would erase the port from the window and read as a missing
+        feature, which is this change's own complaint inverted.
+        """
+        attr = self._COMPONENT_KINDS.get(kind)
+        if not attr:
+            raise ValueError(f"no component picker for slot type {kind!r}")
+        pc = self.port_constraints(ship, slot)
+        mx = pc["max_size"]
+        if mx is None:
+            mx = slot.get("max_size") or 1
+        return self._list_for_size(
+            getattr(self._idx, attr), mx,
+            min_size=pc["min_size"], editable=pc["editable"],
+            stock_ref=slot.get("local_ref") or "",
+            required_tags=pc["required_tags"],
         )
 
     def weapons_for_size(self, sz):      return self._list_for_size(self._idx.weapons_by_name,      sz)
