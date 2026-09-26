@@ -289,7 +289,10 @@ class EventParser:
         # Health events — top-level checks (no SHUDEvent wrapper required)
         if "<MED BED HEAL>" in line and "Perform surgery event Success" in line:
             return "med_bed_heal"
-        if "Medical Bed:" in line and "restored your health" in line:
+        # Same trap as injuries below: one bed heal is logged ~5 times (the queued
+        # notification, queue dumps, UpdateNotificationItem). Across J's logs 16,867 lines
+        # mention it and 3,325 are "Added notification", one per distinct second.
+        if "Medical Bed:" in line and "restored your health" in line and "Added notification" in line:
             return "med_bed_heal"
         # One real injury appears on 4+ lines (the queued notification, queue dumps, then
         # Next/StartFade/Remove updates). Only the "Added notification" line is the event:
