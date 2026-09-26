@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QSplitter, QFrame, QTabWidget, QLineEdit, QDialog, QScrollArea,
     QMessageBox, QInputDialog,
     QCheckBox, QRadioButton, QButtonGroup, QSpinBox, QDialogButtonBox,
+    QCheckBox, QRadioButton, QButtonGroup, QSpinBox, QDialogButtonBox, QSlider,
 )
 
 from shared.qt.theme import P, apply_theme
@@ -246,6 +247,14 @@ class RouteDetailDialog(QDialog):
         self.resize(500, 560)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self._pinned = False
+
+        # Adjustable cargo amounts ("Override default"): keyed per route leg /
+        # cargo slot / basket pick. Financial rows registered in _fin_labels
+        # are re-rendered live whenever an amount changes.
+        self._amounts: Dict[str, int] = {}
+        self._amount_defaults: Dict[str, int] = {}
+        self._fin_labels: list = []
+        self._updating = False
         self._drag_pos = None
         self._resize_edge = None  # which edge is being dragged
         self._resize_margin = 6   # px from edge to trigger resize
@@ -409,6 +418,130 @@ class RouteDetailDialog(QDialog):
             if sl:
                 wps.append((sl, ss, "sell" if i == len(legs) - 1 else "stop"))
         return wps
+    # ── adjustable cargo amounts (Override default) ──────────────────────────
+    def _amt(self, key: str) -> int:
+        return int(self._amounts.get(key, self._amount_defaults.get(key, 0)))
+
+    def _refresh_financials(self) -> None:
+        for lbl, fn in self._fin_labels:
+            try:
+                lbl.setText(fn())
+            except Exception:
+                pass
+
+    def _write_back_amount(self, key: str, val: int) -> None:
+        """Sync route_data so Complete Route / favorites log the ACTUAL cargo
+        amounts the user ran with, not the theoretical default."""
+        d = self._route_data
+        try:
+            t = d.get("type", "single")
+            if t == "single" and key == "main":
+                d["eff_scu"] = val
+                d["profit"] = val * d.get("margin", 0)
+            elif t == "multi" and key.startswith("leg") and "_slot" not in key:
+                leg = d["legs"][int(key[3:])]
+                leg["eff_scu"] = val
+                leg["profit"] = val * leg.get("margin", 0)
+                d["total_profit"] = sum(
+                    l.get("eff_scu", 0) * l.get("margin", 0)
+                    for l in d.get("legs", []))
+            elif t == "mixed" and "_slot" in key:
+                li, si = key.split("_slot")
+                leg = d["legs"][int(li[3:])]
+                slot = leg["slots"][int(si)]
+                slot["scu_loaded"] = val
+                slot["profit"] = val * (slot.get("price_sell", 0) - slot.get("price_buy", 0))
+                leg["leg_profit"] = sum(
+                    s.get("profit", 0) for s in leg.get("slots", []))
+                d["total_profit"] = sum(
+                    l.get("leg_profit", 0) for l in d.get("legs", []))
+                d["total_investment"] = sum(
+                    s.get("scu_loaded", 0) * s.get("price_buy", 0)
+                    for l in d.get("legs", []) for s in l.get("slots", []))
+            elif t == "basket" and key.startswith("stop"):
+                si, pi = key[len("stop"):].split("_pick")
+                pick = d["stops"][int(si)]["picks"][int(pi)]
+                pick["scu"] = val
+        except Exception:
+            pass
+
+
+    def _add_amount_editor(self, key: str, default_scu: int, max_scu: int,
+                           label: str = "Load:") -> None:
+        """Slider + text box for one adjustable cargo amount, gated behind an
+        'Override default' toggle. Either control live-updates every registered
+        financial row and writes the amount back into route_data."""
+        default_scu = max(int(default_scu or 0), 0)
+        max_scu = max(int(max_scu or 0), default_scu * 10, default_scu + 100, 1000)
+        self._amount_defaults[key] = default_scu
+        self._amounts[key] = default_scu
+
+        row_w = QWidget()
+        row_w.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_w)
+        row.setSpacing(8)
+        row.setContentsMargins(0, 0, 0, 0)
+        k = QLabel(label)
+        k.setFixedWidth(140)
+        k.setStyleSheet(f"font-family: Consolas; font-size: 9pt; color: {P.fg_dim}; background: transparent;")
+        row.addWidget(k)
+
+        slider = QSlider(Qt.Horizontal)
+        slider.setRange(0, max_scu)
+        slider.setValue(default_scu)
+        slider.setFixedHeight(18)
+        slider.setStyleSheet(
+            f"QSlider::groove:horizontal {{ height: 4px; background: {P.bg_input}; border-radius: 2px; }}"
+            f"QSlider::handle:horizontal {{ width: 12px; margin: -5px 0; border-radius: 6px; background: {P.yellow}; }}"
+        )
+        row.addWidget(slider, 1)
+
+        spin = QSpinBox()
+        spin.setRange(0, max_scu)
+        spin.setValue(default_scu)
+        spin.setSuffix(" SCU")
+        spin.setButtonSymbols(QSpinBox.NoButtons)
+        spin.setFixedWidth(96)
+        spin.setStyleSheet(
+            f"background: {P.bg_input}; color: {P.fg}; border: 1px solid {P.border}; "
+            f"border-radius: 4px; padding: 2px 6px; font-family: Consolas; font-size: 9pt;"
+        )
+        row.addWidget(spin)
+
+        btn = QPushButton("Override default")
+        btn.setCheckable(True)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(_pin_btn_qss(False))
+        row.addWidget(btn)
+
+        def _apply(val: int) -> None:
+            if self._updating:
+                return
+            self._updating = True
+            try:
+                slider.setValue(val)
+                spin.setValue(val)
+            finally:
+                self._updating = False
+            self._amounts[key] = val
+            self._write_back_amount(key, val)
+            self._refresh_financials()
+
+        def _toggle(on: bool) -> None:
+            slider.setEnabled(on)
+            spin.setEnabled(on)
+            btn.setText("Override: ON" if on else "Override default")
+            btn.setStyleSheet(_pin_btn_qss(on))
+            if not on:
+                _apply(self._amount_defaults[key])
+
+        slider.valueChanged.connect(lambda v: _apply(int(v)))
+        spin.valueChanged.connect(lambda v: _apply(int(v)))
+        btn.toggled.connect(_toggle)
+        slider.setEnabled(False)
+        spin.setEnabled(False)
+
+        self._content_layout.addWidget(row_w)
 
     def _build_content(self, d: dict):
         """Build the detail content from route data dict."""
@@ -464,8 +597,11 @@ class RouteDetailDialog(QDialog):
         row.addWidget(v, 1)
         self._content_layout.addWidget(row_w)
 
-    def _add_colored_row(self, label: str, value: str, label_color: str = "", value_color: str = ""):
-        """Row where both the label and value have custom colours."""
+    def _add_colored_row(self, label: str, value: str, label_color: str = "", value_color: str = "",
+                         dyn=None):
+        """Row where both the label and value have custom colours.
+        Pass dyn=callable for an amount-dependent value — the label text is
+        re-rendered whenever an override slider/text box changes."""
         row_w = QWidget()
         row_w.setFixedHeight(26)
         row_w.setStyleSheet("background: transparent;")
@@ -480,7 +616,8 @@ class RouteDetailDialog(QDialog):
         v.setStyleSheet(f"font-family: Consolas; font-size: 9pt; font-weight: bold; color: {value_color or P.fg}; background: transparent;")
         row.addWidget(v, 1)
         self._content_layout.addWidget(row_w)
-
+        if dyn is not None:
+            self._fin_labels.append((v, dyn))
     def _add_value_row(self, label: str, value: str, color: str = ""):
         """Large value row for financial figures."""
         row_w = QWidget()
@@ -516,19 +653,37 @@ class RouteDetailDialog(QDialog):
         self._add_separator()
         self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
         self._add_colored_row("Commodity:", commodity, P.tool_trade, P.fg_bright)
-        self._add_colored_row("Load:", f"{eff_scu:,} SCU", P.yellow, P.yellow)
+        self._add_amount_editor(
+            "main", eff_scu,
+            max(d.get("scu_available", 0), d.get("scu_demand", 0), eff_scu, 1),
+        )
         if distance > 0:
             self._add_colored_row("Distance:", fmt_distance(distance), P.energy_cyan, P.energy_cyan)
             self._add_colored_row("Travel Time:", fmt_eta(distance), P.energy_cyan, P.energy_cyan)
 
         self._add_header("FINANCIALS", P.green)
         self._add_separator()
-        self._add_colored_row("Total Cost:", f"{total_cost:,.0f} aUEC", P.red, P.red)
-        self._add_colored_row("Total Revenue:", f"{total_revenue:,.0f} aUEC", P.accent, P.accent)
-        self._add_colored_row("Profit:", f"+{profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row(
+            "Total Cost:", f"{total_cost:,.0f} aUEC", P.red, P.red,
+            dyn=lambda: f"{self._amt('main') * price_buy:,.0f} aUEC",
+        )
+        self._add_colored_row(
+            "Total Revenue:", f"{total_revenue:,.0f} aUEC", P.accent, P.accent,
+            dyn=lambda: f"{self._amt('main') * price_sell:,.0f} aUEC",
+        )
+        self._add_colored_row(
+            "Profit:", f"+{profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda: f"+{self._amt('main') * margin:,.0f} aUEC",
+        )
         self._add_colored_row("Margin/SCU:", f"{margin:,.0f} aUEC/SCU", P.green, P.accent)
         roi_color = P.green if roi > 50 else P.yellow
-        self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+        self._add_colored_row(
+            "ROI:", f"{roi:.1f}%", roi_color, roi_color,
+            dyn=lambda: (
+                f"{(self._amt('main') * margin) / (self._amt('main') * price_buy) * 100:,.1f}%"
+                if self._amt('main') * price_buy else "0.0%"
+            ),
+        )
 
         self._add_header("BUY LOCATION", P.accent)
         self._add_separator()
@@ -537,7 +692,10 @@ class RouteDetailDialog(QDialog):
         self._add_colored_row("System:", d.get("buy_system", "?"), P.energy_cyan, P.energy_cyan)
         self._add_colored_row("Price:", f"{price_buy:,.0f} aUEC/SCU", P.red, P.red)
         self._add_colored_row("Available:", f"{d.get('scu_available', 0):,} SCU", P.yellow, P.yellow)
-        self._add_colored_row("Purchase Total:", f"{total_cost:,.0f} aUEC", P.red, P.red)
+        self._add_colored_row(
+            "Purchase Total:", f"{total_cost:,.0f} aUEC", P.red, P.red,
+            dyn=lambda: f"{self._amt('main') * price_buy:,.0f} aUEC",
+        )
 
         self._add_header("SELL LOCATION", P.orange)
         self._add_separator()
@@ -546,9 +704,14 @@ class RouteDetailDialog(QDialog):
         self._add_colored_row("System:", d.get("sell_system", "?"), P.energy_cyan, P.energy_cyan)
         self._add_colored_row("Price:", f"{price_sell:,.0f} aUEC/SCU", P.accent, P.accent)
         self._add_colored_row("Demand:", f"{d.get('scu_demand', 0):,} SCU", P.yellow, P.yellow)
-        self._add_colored_row("Sale Revenue:", f"{total_revenue:,.0f} aUEC", P.green, P.green)
-        self._add_colored_row("Profit Here:", f"+{profit:,.0f} aUEC", P.green, P.green)
-
+        self._add_colored_row(
+            "Sale Revenue:", f"{total_revenue:,.0f} aUEC", P.green, P.green,
+            dyn=lambda: f"{self._amt('main') * price_sell:,.0f} aUEC",
+        )
+        self._add_colored_row(
+            "Profit Here:", f"+{profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda: f"+{self._amt('main') * margin:,.0f} aUEC",
+        )
     def _build_multi_route(self, d: dict):
         ship = d.get("ship", "No ship")
         total_profit = d.get("total_profit", 0)
@@ -561,7 +724,12 @@ class RouteDetailDialog(QDialog):
         self._add_header(f"MULTI-LEG ROUTE  \u2022  {num_legs} legs", P.tool_trade)
         self._add_separator()
         self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
-        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row(
+            "Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda legs=legs: (
+                f"+{sum(self._amt(f'leg{j}') * legs[j].get('margin', 0) for j in range(len(legs))):,.0f} aUEC"
+            ),
+        )
         if total_distance > 0:
             self._add_colored_row("Total Distance:", fmt_distance(total_distance), P.energy_cyan, P.energy_cyan)
             self._add_colored_row("Total Travel:", fmt_eta(total_distance), P.energy_cyan, P.energy_cyan)
@@ -575,25 +743,47 @@ class RouteDetailDialog(QDialog):
             leg_profit = eff * leg.get("margin", 0)
             leg_dist = leg.get("distance", 0)
             running_investment += leg_cost
+            leg_key = f"leg{i - 1}"
 
             self._add_header(f"LEG {i}:  {leg.get('commodity', '?')}", P.accent)
             self._add_separator()
             self._add_colored_row("Buy:", f"{leg.get('buy_terminal', '?')} ({leg.get('buy_system', '?')})", P.accent, P.fg_bright)
             self._add_colored_row("Sell:", f"{leg.get('sell_terminal', '?')} ({leg.get('sell_system', '?')})", P.orange, P.fg_bright)
-            self._add_colored_row("Load:", f"{eff:,} SCU", P.yellow, P.yellow)
+            self._add_amount_editor(
+                leg_key, eff,
+                max(leg.get("scu_available", 0), leg.get("scu_demand", 0), eff, 1),
+            )
             if leg_dist > 0:
                 self._add_colored_row("Travel:", f"{fmt_distance(leg_dist)} \u2022 {fmt_eta(leg_dist)}", P.energy_cyan, P.energy_cyan)
-            self._add_colored_row("Purchase:", f"{leg_cost:,.0f} aUEC", P.red, P.red)
-            self._add_colored_row("Revenue:", f"{leg_revenue:,.0f} aUEC", P.accent, P.accent)
-            self._add_colored_row("Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green)
+            self._add_colored_row(
+                "Purchase:", f"{leg_cost:,.0f} aUEC", P.red, P.red,
+                dyn=lambda k=leg_key, b=buy_price: f"{self._amt(k) * b:,.0f} aUEC",
+            )
+            self._add_colored_row(
+                "Revenue:", f"{leg_revenue:,.0f} aUEC", P.accent, P.accent,
+                dyn=lambda k=leg_key, s=sell_price: f"{self._amt(k) * s:,.0f} aUEC",
+            )
+            self._add_colored_row(
+                "Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green,
+                dyn=lambda k=leg_key, m=leg.get("margin", 0): f"+{self._amt(k) * m:,.0f} aUEC",
+            )
 
         self._add_header("TOTALS", P.green)
         self._add_separator()
-        self._add_colored_row("Total Investment:", f"{running_investment:,.0f} aUEC", P.red, P.red)
-        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row(
+            "Total Investment:", f"{running_investment:,.0f} aUEC", P.red, P.red,
+            dyn=lambda legs=legs: (
+                f"{sum(self._amt(f'leg{j}') * legs[j].get('price_buy', 0) for j in range(len(legs))):,.0f} aUEC"
+            ),
+        )
+        self._add_colored_row(
+            "Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda legs=legs: (
+                f"+{sum(self._amt(f'leg{j}') * legs[j].get('margin', 0) for j in range(len(legs))):,.0f} aUEC"
+            ),
+        )
         if total_distance > 0:
             self._add_colored_row("Total Travel:", f"{fmt_distance(total_distance)} \u2022 {fmt_eta(total_distance)}", P.energy_cyan, P.energy_cyan)
-
     def _build_mixed_route(self, d: dict):
         ship = d.get("ship", "No ship")
         total_profit = d.get("total_profit", 0)
@@ -604,15 +794,37 @@ class RouteDetailDialog(QDialog):
         num_legs = len(legs)
         total_dist = d.get("total_distance", 0)
 
-        # ── Route overview (gold) ─────────────────────────────────────
+        def _mixed_totals():
+            cost = 0.0
+            prof = 0.0
+            for li, leg in enumerate(legs):
+                for jj, sl in enumerate(leg.get("slots", []) or []):
+                    a = self._amt(f"leg{li}_slot{jj}")
+                    cost += a * sl.get("price_buy", 0)
+                    prof += a * (sl.get("price_sell", 0) - sl.get("price_buy", 0))
+            return cost, prof
+
+        # -- Route overview (gold) --
         self._add_header(f"MIXED FREIGHT  \u2022  {num_legs} legs  \u2022  {fill_eff:.0f}% fill", P.tool_trade)
         self._add_separator()
         self._add_colored_row("Ship:", ship, P.tool_trade, P.fg_bright)
-        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row(
+            "Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda: f"+{_mixed_totals()[1]:,.0f} aUEC",
+        )
         if total_invest > 0:
-            self._add_colored_row("Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red)
+            self._add_colored_row(
+                "Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red,
+                dyn=lambda: f"{_mixed_totals()[0]:,.0f} aUEC",
+            )
             roi_color = P.green if roi > 50 else P.yellow
-            self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+            self._add_colored_row(
+                "ROI:", f"{roi:.1f}%", roi_color, roi_color,
+                dyn=lambda: (
+                    f"{_mixed_totals()[1] / _mixed_totals()[0] * 100:,.1f}%"
+                    if _mixed_totals()[0] else "0.0%"
+                ),
+            )
         self._add_colored_row("Bay Efficiency:", f"{fill_eff:.1f}%", P.yellow, P.yellow)
         if total_dist > 0:
             self._add_colored_row("Total Distance:", fmt_distance(total_dist), P.energy_cyan, P.energy_cyan)
@@ -625,15 +837,15 @@ class RouteDetailDialog(QDialog):
             leg_dist = leg.get("distance", 0)
             slots = leg.get("slots", [])
 
-            # ── Leg header (blue) ─────────────────────────────────────
+            # -- Leg header (blue) --
             self._add_header(f"LEG {i}:  {leg.get('buy_terminal', '?')}  \u2192  {leg.get('sell_terminal', '?')}", P.accent)
             self._add_separator()
             self._add_colored_row("System:", f"{leg.get('buy_system', '?')} \u2192 {leg.get('sell_system', '?')}", P.energy_cyan, P.energy_cyan)
             if leg_dist > 0:
                 self._add_colored_row("Travel:", f"{fmt_distance(leg_dist)} \u2022 {fmt_eta(leg_dist)}", P.energy_cyan, P.energy_cyan)
 
-            # ── Cargo slots ───────────────────────────────────────────
-            for slot in slots:
+            # -- Cargo slots --
+            for j, slot in enumerate(slots):
                 is_primary = slot.get("is_primary", False)
                 is_illegal = slot.get("is_illegal", False)
                 scu = slot.get("scu_loaded", 0)
@@ -641,6 +853,8 @@ class RouteDetailDialog(QDialog):
                 sell_p = slot.get("price_sell", 0)
                 slot_profit = slot.get("profit", 0)
                 commodity = slot.get("commodity", "?")
+                slot_key = f"leg{i - 1}_slot{j}"
+                slot_margin = sell_p - buy_p
 
                 # Primary = green, Filler = purple, Illegal = red
                 if is_illegal:
@@ -654,29 +868,56 @@ class RouteDetailDialog(QDialog):
                 tag = "Primary" if is_primary else "Filler"
                 illegal_tag = "  \u26a0 ILLEGAL" if is_illegal else ""
 
-                # Commodity header — role on the left, commodity name on the right
                 self._add_colored_row(f"{role_icon}  {tag}{illegal_tag}", commodity, name_color, name_color)
-                self._add_colored_row("    SCU:", f"{scu:,}", P.yellow, P.yellow)
+                self._add_amount_editor(
+                    slot_key, scu,
+                    max(scu, slot.get("scu_available", 0), 1),
+                    label="    SCU:",
+                )
                 self._add_colored_row("    Buy:", f"{buy_p:,.2f} aUEC/SCU", P.red, P.red)
                 self._add_colored_row("    Sell:", f"{sell_p:,.2f} aUEC/SCU", P.accent, P.accent)
                 profit_color = P.green if is_primary else P.purple
-                self._add_colored_row("    Profit:", f"+{slot_profit:,.0f} aUEC", profit_color, profit_color)
+                self._add_colored_row(
+                    "    Profit:", f"+{slot_profit:,.0f} aUEC", profit_color, profit_color,
+                    dyn=lambda k=slot_key, m=slot_margin: f"+{self._amt(k) * m:,.0f} aUEC",
+                )
 
-            # ── Leg totals ─────────────────────────────────────────────
+            # -- Leg totals --
             self._add_separator()
-            self._add_colored_row("Leg Fill:", f"{leg_scu:,} SCU  ({leg_fill:.1f}%)", P.yellow, P.yellow)
-            self._add_colored_row("Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green)
+            self._add_colored_row(
+                "Leg Fill:", f"{leg_scu:,} SCU  ({leg_fill:.1f}%)", P.yellow, P.yellow,
+                dyn=lambda li=i - 1, lf=leg_fill, ns=len(slots): (
+                    f"{sum(self._amt(f'leg{li}_slot{jj}') for jj in range(ns)):,} SCU  ({lf:.1f}%)"
+                ),
+            )
+            self._add_colored_row(
+                "Leg Profit:", f"+{leg_profit:,.0f} aUEC", P.green, P.green,
+                dyn=lambda li=i - 1, slots=slots: (
+                    f"+{sum(self._amt(f'leg{li}_slot{jj}') * (slots[jj].get('price_sell', 0) - slots[jj].get('price_buy', 0)) for jj in range(len(slots))):,.0f} aUEC"
+                ),
+            )
 
-        # ── Grand totals ─────────────────────────────────────────────
+        # -- Grand totals --
         self._add_header("TOTALS", P.green)
         self._add_separator()
-        self._add_colored_row("Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green)
+        self._add_colored_row(
+            "Total Profit:", f"+{total_profit:,.0f} aUEC", P.green, P.green,
+            dyn=lambda: f"+{_mixed_totals()[1]:,.0f} aUEC",
+        )
         if total_invest > 0:
-            self._add_colored_row("Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red)
+            self._add_colored_row(
+                "Total Cost:", f"{total_invest:,.0f} aUEC", P.red, P.red,
+                dyn=lambda: f"{_mixed_totals()[0]:,.0f} aUEC",
+            )
             roi_color = P.green if roi > 50 else P.yellow
-            self._add_colored_row("ROI:", f"{roi:.1f}%", roi_color, roi_color)
+            self._add_colored_row(
+                "ROI:", f"{roi:.1f}%", roi_color, roi_color,
+                dyn=lambda: (
+                    f"{_mixed_totals()[1] / _mixed_totals()[0] * 100:,.1f}%"
+                    if _mixed_totals()[0] else "0.0%"
+                ),
+            )
         self._add_colored_row("Bay Efficiency:", f"{fill_eff:.1f}% avg", P.yellow, P.yellow)
-
     def _build_basket_route(self, d: dict):
         mode = d.get("mode", "buy")  # "buy" | "sell"
         sell = mode == "sell"
@@ -697,7 +938,6 @@ class RouteDetailDialog(QDialog):
         if unresolved:
             self._add_colored_row("Unresolved:", ", ".join(unresolved), P.red, P.red)
 
-        qty_label = "DEMAND" if sell else "STOCK"
         price_label = "Sell:" if sell else "Buy:"
         price_color = P.green if sell else P.red
         totals_label = "Est. Revenue (demand):" if sell else "Est. Spend (stocked):"
@@ -721,14 +961,14 @@ class RouteDetailDialog(QDialog):
                     f"{fmt_distance(leg_dist)} \u2022 {fmt_eta(leg_dist)}",
                     P.energy_cyan, P.energy_cyan,
                 )
-            for pick in stop.get("picks", []):
+            for j, pick in enumerate(stop.get("picks", []) or []):
                 cm = pick.get("commodity", "?")
                 scu = pick.get("scu", 0) or 0
                 price = pick.get("price", 0) or 0
-                self._add_colored_row(
-                    f"  \u2605 {cm}",
-                    f"{scu:,} SCU {qty_label}",
-                    P.yellow, P.yellow,
+                self._add_amount_editor(
+                    f"stop{i - 1}_pick{j}", scu,
+                    max(scu * 2, scu + 32, 1),
+                    label=f"  \u2605 {cm}",
                 )
                 self._add_colored_row(
                     f"    {price_label}",
@@ -744,8 +984,13 @@ class RouteDetailDialog(QDialog):
             self._add_colored_row("Total Distance:", fmt_distance(total_dist), P.energy_cyan, P.energy_cyan)
             self._add_colored_row("Travel Time:", fmt_eta(total_dist), P.energy_cyan, P.energy_cyan)
         if money > 0:
-            self._add_colored_row(totals_label, f"{money:,.0f} aUEC", totals_color, totals_color)
-
+            self._add_colored_row(
+                totals_label, f"{money:,.0f} aUEC", totals_color, totals_color,
+                dyn=lambda stops=stops: (
+                    f"{sum(self._amt(f'stop{si}_pick{pj}') * (stops[si].get('picks', [])[pj].get('price', 0) or 0)
+                          for si in range(len(stops)) for pj in range(len(stops[si].get('picks', []) or []))):,.0f} aUEC"
+                ),
+            )
     def _toggle_pin(self):
         if self._pinned:
             self._pinned = False
@@ -1855,27 +2100,80 @@ class TradeHubWindow(SCWindow):
 
     # ── career ledger (from the route popup buttons) ──────────────────────────
     def _career_entry(self, data: dict) -> dict:
-        # BUG FIX (2026-07-21): MULTI-LEG routes store totals as 'total_profit' + per-leg 'eff_scu',
-        # NOT the flat single-route keys — so multi-leg runs were logged with profit=0, scu=0
-        # ("totals not transferred to career"). Fall back to the multi-leg fields.
-        legs = data.get("legs") or []
-        scu = int(data.get("eff_scu") or (max((int(l.get("eff_scu") or 0) for l in legs), default=0)))
-        pb = float(data.get("price_buy") or 0)
-        ps = float(data.get("price_sell") or 0)
-        profit = float(data.get("profit") or data.get("total_profit") or 0)
-        return {
+        # Built from the CURRENT (possibly Override-adjusted) amounts in
+        # route_data, per route type, so My Career logs what was actually run.
+        # Multi-leg / mixed / basket routes don't carry the flat single-route
+        # keys — previously they logged blank routes and stale/zero totals.
+        t = data.get("type", "single")
+        entry = {
             "commodity": data.get("commodity", ""),
             "ship": self._ship_name or "—",
-            "scu": scu,
-            "price_buy": pb,
-            "price_sell": ps,
-            "profit": profit,
-            "investment": pb * scu,
+            "scu": 0, "price_buy": 0.0, "price_sell": 0.0,
+            "profit": 0.0, "investment": 0.0,
             "buy_system": data.get("buy_system", ""),
             "sell_system": data.get("sell_system", ""),
             "buy_location": data.get("buy_location", ""),
             "sell_location": data.get("sell_location", ""),
         }
+        if t == "multi":
+            legs = data.get("legs") or []
+            if legs:
+                entry["buy_location"] = entry["buy_location"] or legs[0].get("buy_terminal", "")
+                entry["buy_system"] = entry["buy_system"] or legs[0].get("buy_system", "")
+                entry["sell_location"] = entry["sell_location"] or legs[-1].get("sell_terminal", "")
+                entry["sell_system"] = entry["sell_system"] or legs[-1].get("sell_system", "")
+                entry["commodity"] = entry["commodity"] or " → ".join(
+                    dict.fromkeys(l.get("commodity", "?") for l in legs))
+                entry["price_buy"] = float(legs[0].get("price_buy") or 0)
+                entry["price_sell"] = float(legs[-1].get("price_sell") or 0)
+            entry["scu"] = max((int(l.get("eff_scu") or 0) for l in legs), default=0)
+            entry["profit"] = float(sum(
+                (l.get("eff_scu") or 0) * l.get("margin", 0) for l in legs) or 0)
+            entry["investment"] = float(sum(
+                (l.get("eff_scu") or 0) * l.get("price_buy", 0) for l in legs) or 0)
+        elif t == "mixed":
+            legs = data.get("legs") or []
+            slots = [s for l in legs for s in (l.get("slots") or [])]
+            if legs:
+                entry["buy_location"] = entry["buy_location"] or legs[0].get("buy_terminal", "")
+                entry["buy_system"] = entry["buy_system"] or legs[0].get("buy_system", "")
+                entry["sell_location"] = entry["sell_location"] or legs[-1].get("sell_terminal", "")
+                entry["sell_system"] = entry["sell_system"] or legs[-1].get("sell_system", "")
+            names = list(dict.fromkeys(s.get("commodity", "?") for s in slots))
+            entry["commodity"] = entry["commodity"] or (
+                "Mixed: " + ", ".join(names[:3]) + ("…" if len(names) > 3 else ""))
+            entry["scu"] = sum(int(s.get("scu_loaded") or 0) for s in slots)
+            entry["investment"] = float(sum(
+                (s.get("scu_loaded") or 0) * s.get("price_buy", 0) for s in slots) or 0)
+            entry["profit"] = float(sum(
+                (s.get("scu_loaded") or 0)
+                * (s.get("price_sell", 0) - s.get("price_buy", 0)) for s in slots) or 0)
+        elif t == "basket":
+            stops = data.get("stops") or []
+            picks = [p for s in stops for p in (s.get("picks") or [])]
+            if stops:
+                entry["buy_location"] = entry["buy_location"] or data.get("start", "")
+                entry["buy_system"] = entry["buy_system"] or stops[0].get("system", "")
+                entry["sell_location"] = entry["sell_location"] or stops[-1].get("terminal", "")
+                entry["sell_system"] = entry["sell_system"] or stops[-1].get("system", "")
+            names = list(dict.fromkeys(p.get("commodity", "?") for p in picks))
+            entry["commodity"] = entry["commodity"] or (
+                "Basket: " + ", ".join(names[:3]) + ("…" if len(names) > 3 else ""))
+            entry["scu"] = sum(int(p.get("scu") or 0) for p in picks)
+            entry["investment"] = float(sum(
+                (p.get("scu") or 0) * p.get("price", 0) for p in picks) or 0)
+            entry["profit"] = float(data.get("profit") or 0)  # sell side unknown at plan time
+        else:  # single route
+            scu = int(data.get("eff_scu") or 0)
+            pb = float(data.get("price_buy") or 0)
+            ps = float(data.get("price_sell") or 0)
+            entry["scu"] = scu
+            entry["price_buy"] = pb
+            entry["price_sell"] = ps
+            entry["profit"] = float(data.get("profit") or scu * (ps - pb) or 0)
+            entry["investment"] = pb * scu
+        return entry
+
 
     def _career_complete(self, data: dict) -> None:
         self._career.complete(self._career_entry(data))
@@ -1903,6 +2201,14 @@ class TradeHubWindow(SCWindow):
     def _career_favorite(self, data: dict) -> bool:
         fav = dict(data)
         fav["ship"] = self._ship_name or "—"
+        # Fill the flat display keys for non-single routes so the My Career
+        # favorites table shows the route instead of blank Buy@/Sell@ cells
+        # (and so favorite dedupe keys are distinct per route).
+        e = self._career_entry(data)
+        for k in ("commodity", "buy_location", "buy_system",
+                  "sell_location", "sell_system"):
+            if not fav.get(k):
+                fav[k] = e.get(k, "")
         ok = self._career.add_favorite(fav)
         self._refresh_career()
         return ok
@@ -2430,6 +2736,19 @@ class TradeHubWindow(SCWindow):
                 self._set_freight_mode(mode)
         elif t == "set_illegal_cargo":
             self._set_allow_illegal(bool(cmd.get("allow", False)))
+        elif t == "route_detail":
+            # AI Assistant: open a Route Detail popup from a data dict,
+            # optionally pinned and drawn on the star map.
+            data = cmd.get("data")
+            if isinstance(data, dict):
+                self.show()
+                self.raise_()
+                self._visible = True
+                dlg = self._open_route_data(data)
+                if cmd.get("pin") and not dlg._pinned:
+                    dlg._toggle_pin()
+                if cmd.get("show_on_map"):
+                    QTimer.singleShot(100, dlg._show_on_map)
 
     def closeEvent(self, event) -> None:
         if hasattr(self, '_starmap_panel'):
