@@ -1,0 +1,35 @@
+=== GEOMETRY ===
+anchor_geometry_eval
+== region1 (HUD) ==
+  instability  n=67  hit= 62 ( 92.5%)  weak=0  bad=5  miss=0   medIoU=0.41  y_err med/p90=5.0/6.0px
+  mass         n=71  hit= 64 ( 90.1%)  weak=0  bad=7  miss=0   medIoU=0.41  y_err med/p90=0.0/4.0px
+  resistance   n=66  hit= 61 ( 92.4%)  weak=0  bad=5  miss=0   medIoU=0.41  y_err med/p90=0.0/2.5px
+  resource     n=69  hit= 54 ( 78.3%)  weak=1  bad=14 miss=0   medIoU=0.68  y_err med/p90=0.5/52.0px
+  title        n=70  hit= 46 ( 65.7%)  weak=1  bad=21 miss=2   medIoU=1.00  y_err med/p90=0.0/68.0px
+    worst: cap_20260425_095527_234.png            title        IoU=MISS  MISS
+    worst: cap_20260425_095530_825.png            title        IoU=MISS  MISS
+    worst: cap_20260418_155721_243.png            title        IoU=0.00  (105, 131, 95, 17)
+    worst: cap_20260418_155746_172.png            title        IoU=0.00  (174, 130, 95, 17)
+    worst: cap_20260418_155746_172.png            mass         IoU=0.00  y=495-528
+    worst: cap_20260418_155746_172.png            resistance   IoU=0.00  y=524-556
+    worst: cap_20260418_155746_172.png            instability  IoU=0.00  y=553-585
+    worst: cap_20260418_155746_172.png            resource     IoU=0.00  y=475-491
+== region2 (signature) ==
+  icon         n=59  hit= 43 ( 72.9%)  weak=7  bad=2  miss=7   medIoU=1.00  y_err med/p90=0.0/4.0px
+  pill         n=58  hit= 54 ( 93.1%)  weak=0  bad=1  miss=3   medIoU=1.00  y_err med/p90=0.0/0.0px
+  value        n=60  hit= 54 ( 90.0%)  weak=1  bad=0  miss=5   medIoU=0.84  y_err med/p90=0.5/1.5px
+  value_legacy n=60  hit=  0 (  0.0%)  weak=0  bad=3  miss=57  medIoU=0.09  y_err med/p90=30.5/30.5px
+    worst: cap_20260418_155450_009.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155454_815.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155457_886.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155500_306.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155503_607.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155506_006.png            icon         IoU=MISS  MISS
+    worst: cap_20260418_155506_006.png            value_legacy IoU=MISS  MISS
+    worst: cap_20260418_155508_981.png            value_legacy IoU=MISS  MISS
+detail -> C:\Users\prjgn\AppData\Local\Temp\_anchor_geometry_detail.csv
+=== VALUES ===
+  mass       : 52/89 correct (58.4%)  wrong=20  none=17
+  resistance : 27/44 correct (61.4%)  wrong=17  none=0
+  instability: 28/70 correct (40.0%)  wrong=21  none=21
+  mineral    : 83/129 correct (64.3%)  wrong=9  none=37
