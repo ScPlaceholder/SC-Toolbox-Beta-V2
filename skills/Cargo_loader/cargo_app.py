@@ -75,11 +75,12 @@ _DIR       = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(_DIR, ".cargo_cache.json")
 CACHE_TTL  = CACHE_TTL_CARGO
 
-# Grid data source switch. "sc_cargo_space" (default) uses the live
-# sc-cargo.space scrape cached in .cargo_cache.json. "scunpacked" uses
-# datamine/cargo_grids_scunpacked.json, rebuilt from scunpacked-data by
-# datamine/refresh_grids.py (no network needed at load time). Flip with:
-#   {"grid_source": "scunpacked"}   in cargo_loader_config.json
+# Grid data source switch. "scunpacked" (default since 2026-09-25, J: "Let's trust the
+# datamine files") uses datamine/cargo_grids_scunpacked.json, rebuilt from the game's own
+# data by datamine/refresh_grids.py (no network needed at load time); it also carries over
+# every ship the game files lack (concepts), so no ship disappears. "sc_cargo_space" uses
+# the old sc-cargo.space scrape cached in .cargo_cache.json. Choose with:
+#   {"grid_source": "sc_cargo_space"}   in cargo_loader_config.json
 CONFIG_FILE      = os.path.join(_DIR, "cargo_loader_config.json")
 SCUNPACKED_FILE  = os.path.join(_DIR, "datamine", "cargo_grids_scunpacked.json")
 
@@ -93,8 +94,8 @@ def load_loader_config() -> dict:
 
 
 def grid_source() -> str:
-    src = load_loader_config().get("grid_source", "sc_cargo_space")
-    return src if src in ("sc_cargo_space", "scunpacked") else "sc_cargo_space"
+    src = load_loader_config().get("grid_source", "scunpacked")
+    return src if src in ("sc_cargo_space", "scunpacked") else "scunpacked"
 
 HEADERS = SC_CARGO_HEADERS
 
