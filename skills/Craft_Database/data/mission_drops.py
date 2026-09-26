@@ -52,6 +52,25 @@ Both factors are real fields. Neither is invented, and neither is normalised.
 ⚠ VERSION SKEW is real and is reported rather than hidden: the blueprints are 4.10.1-LIVE
 and the drop data is whatever ``source_version`` says. Show it in the UI instead of
 implying the drop list is current.
+
+⛔⛔ THE CACHE THIS READS IS **NOT SHIPPED**, AND ON A FRESH INSTALL THERE IS NONE.
+  Found 2026-09-26, immediately after wiring this up and testing it green on a dev box —
+  which is the whole problem. ``build_installer.bat`` deletes ``.scmdb_cache*.json`` from
+  staging (correctly: it is a downloaded cache, not source), and
+  ``Mission_Database/data/cache.py`` names even its crafting variant
+  ``.scmdb_cache_crafting_*`` explicitly so the same rule covers it.
+  ⇒ So on a user's machine this returns None until **Mission Database** has run and
+    fetched its cache. Craft Database therefore has a SILENT CROSS-SKILL DEPENDENCY: the
+    drop list is complete here and absent there, and nothing on screen explains why.
+  ★ This is the failure this file spends four notes warning about, arriving one level up:
+    every guard here distinguishes "no data" from "does not drop" *per blueprint*, and
+    none of them noticed that on a fresh install the answer is "no data" for ALL of them
+    for a reason the user can do something about. A correct per-item verdict is not a
+    correct product.
+  ⇒ ``build_index`` records ``dropData.source = None`` when this returns None, so the
+    absence is already carried in the index and the UI can say WHY rather than showing an
+    empty section. Wiring that message is the open piece; J's call whether the fix is that
+    message, Craft Database triggering the fetch, or shipping a seed cache.
 """
 from __future__ import annotations
 
