@@ -146,16 +146,20 @@ if !errorlevel! neq 0 (
 :: import smoke test in Step 7e CANNOT see them missing - they are checked by
 :: file existence in Step 7c instead. piper-tts reuses the onnxruntime above;
 :: its own wheel is ~24 MB (bundled espeak-ng data). sounddevice is <1 MB.
-:: NOT shipped, deliberately: faster-whisper (~140 MB of ctranslate2 + av/ffmpeg +
-:: tokenizers, plus a ~480 MB model fetched on first use) and pygame-ce (joystick
-:: push-to-talk). SuitMk2 degrades without them: ears report the missing module.
-echo  [*] Installing PySide6, requests, pynput, mss, pytesseract, Pillow, scipy, onnxruntime, numpy, piper-tts, sounddevice...
+:: faster-whisper was left out on purpose until 2.4.0 (~140 MB of ctranslate2 + av/ffmpeg +
+:: tokenizers, plus a ~480 MB small.en model fetched on first use). J reversed that on 2026-09-26:
+:: "We do need the fast whispers for the assistant and companion". Still NOT shipped: pygame-ce
+:: (joystick push-to-talk); SuitMk2 degrades without it and the ears report the missing module.
+echo  [*] Installing PySide6, requests, pynput, mss, pytesseract, Pillow, scipy, onnxruntime, numpy, piper-tts, sounddevice, faster-whisper...
 :: Each package spec is quoted so cmd doesn't parse the `>=` as a
 :: stdout redirect (which created stray zero-byte files like
 :: build\1.15.0, build\1.24.0, build\42.0.0 from earlier builds —
 :: harmless cosmetic cruft but noise in the build dir).  Fixed in
 :: the v2.2.10 audit pass.
-"%STAGE%\python\python.exe" -m pip install "PySide6>=6.5.0" "requests>=2.28.0" "pynput>=1.7.6" "mss>=9.0.0" "pytesseract>=0.3.10" "Pillow>=10.0.0" "cryptography>=42.0.0" "onnxruntime>=1.17.0" "numpy>=1.24.0" "scipy>=1.11.0" "onnx>=1.15.0" "piper-tts>=1.4.0" "sounddevice>=0.5.0" --no-warn-script-location --quiet
+:: faster-whisper: voice input for SuitMk2 and the Assistant (see the note above). Note this pip
+:: line, not requirements.txt, is what the build installs - requirements.txt listed faster-whisper
+:: the whole time it was excluded here, so read THIS line to know what ships.
+"%STAGE%\python\python.exe" -m pip install "PySide6>=6.5.0" "requests>=2.28.0" "pynput>=1.7.6" "mss>=9.0.0" "pytesseract>=0.3.10" "Pillow>=10.0.0" "cryptography>=42.0.0" "onnxruntime>=1.17.0" "numpy>=1.24.0" "scipy>=1.11.0" "onnx>=1.15.0" "piper-tts>=1.4.0" "sounddevice>=0.5.0" "faster-whisper>=1.0.0" --no-warn-script-location --quiet
 if !errorlevel! neq 0 (
     echo  [!] Dependency installation failed.
     goto :fail
@@ -843,6 +847,14 @@ if exist "%STAGE%\tools\SuitMk2" (
     )
     if not exist "%STAGE%\python\Lib\site-packages\sounddevice.py" (
         echo  [FAIL] MISSING: sounddevice pip package - SuitMk2 playback and push-to-talk broken
+        set "VALIDATION_OK=0"
+    )
+    if not exist "%STAGE%\python\Lib\site-packages\faster_whisper" (
+        echo  [FAIL] MISSING: faster-whisper pip package - SuitMk2 voice input cannot transcribe
+        set "VALIDATION_OK=0"
+    )
+    if not exist "%STAGE%\python\Lib\site-packages\ctranslate2" (
+        echo  [FAIL] MISSING: ctranslate2 - faster-whisper imports but cannot load a model
         set "VALIDATION_OK=0"
     )
     for %%M in (elah montaigne) do (
