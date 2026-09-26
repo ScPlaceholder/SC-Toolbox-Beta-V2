@@ -19,6 +19,7 @@ import threading
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple
 
+import urllib.error
 import urllib.request
 import json
 
@@ -72,18 +73,39 @@ def get_current_version() -> str:
     return "0.0.0"
 
 
-def _github_get(url: str) -> Optional[object]:
-    """Perform a GitHub API GET request; return parsed JSON or None on error."""
+def _github_get(url: str) -> Tuple[Optional[object], str]:
+    """Perform a GitHub API GET request.
+
+    Returns ``(parsed_json, error)``.  The error string is what separates
+    "the check could not be performed" from "the check ran and found no
+    releases" — without it, an offline check falls through to the
+    no-release-info branch and is reported to the user as *Up to date*,
+    which is a worse bug than the hang it hides behind.
+
+    A 404 is deliberately NOT an error: ``/releases/latest`` 404s on a repo
+    that has never published a release, and the tags endpoint can still
+    answer.  Every other failure (no DNS, no route, timeout, 403 rate
+    limit, malformed JSON) is a genuine "we do not know".
+    """
     try:
         req = urllib.request.Request(
             url,
             headers={"Accept": "application/vnd.github+json", "User-Agent": "SC-Toolbox"},
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
+            return json.loads(resp.read().decode()), ""
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            log.info("update_checker: %s returned 404 (nothing published)", url)
+            return None, ""
+        log.warning("update_checker: GitHub API HTTP %s (%s)", exc.code, url)
+        return None, f"GitHub returned HTTP {exc.code}"
+    except urllib.error.URLError as exc:
+        log.warning("update_checker: network error (%s): %s", url, exc.reason)
+        return None, f"Could not reach GitHub: {exc.reason}"
     except Exception as exc:
         log.warning("update_checker: GitHub API request failed (%s): %s", url, exc)
-        return None
+        return None, f"Update check failed: {exc}"
 
 
 def _version_from_asset_name(name: str) -> Tuple[int, ...]:
@@ -99,7 +121,7 @@ def check_for_updates() -> UpdateResult:
     releases_url = f"{REPO_URL}/releases"
 
     # ── Attempt 1: GitHub Releases ──
-    data = _github_get(RELEASES_URL)
+    data, releases_err = _github_get(RELEASES_URL)
     if data and isinstance(data, dict):
         tag = data.get("tag_name", "")
         release_url = data.get("html_url", releases_url)
@@ -143,7 +165,7 @@ def check_for_updates() -> UpdateResult:
             )
 
     # ── Attempt 2: Tags ──
-    tags = _github_get(TAGS_URL)
+    tags, tags_err = _github_get(TAGS_URL)
     if tags and isinstance(tags, list):
         for t in tags:
             name = t.get("name", "")
@@ -157,7 +179,16 @@ def check_for_updates() -> UpdateResult:
                     release_url     = tag_url,
                 )
 
-    # ── No release info available ──
+    # ── Neither endpoint told us anything ──
+    # Distinguish the two ways of getting here.  If either request actually
+    # FAILED, we do not know the latest version, and saying "Up to date" in
+    # green would be a confident lie.  Only report up-to-date when both
+    # endpoints answered and genuinely had no version to offer.
+    err = releases_err or tags_err
+    if err:
+        log.warning("update_checker: check could not be completed: %s", err)
+        return UpdateResult(False, current, current, releases_url, error=err)
+
     log.info("update_checker: no releases or version tags found on %s", GITHUB_REPO)
     return UpdateResult(False, current, current, releases_url)
 

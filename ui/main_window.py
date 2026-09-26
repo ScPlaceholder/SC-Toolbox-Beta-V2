@@ -389,6 +389,18 @@ class LauncherWindow(SCWindow):
         self._settings_popup: Optional[SettingsPopup] = None
         self._update_bubble: Optional[UpdateBubble] = None
 
+        # Background threads hand GUI work back through this queue, drained by
+        # a window-owned QTimer on the GUI thread.  The same pattern UpdateBubble
+        # uses for its download worker.  ``QTimer.singleShot`` CANNOT be used to
+        # marshal from a plain ``threading.Thread``: the timer is created in the
+        # calling thread, which has no Qt event dispatcher, so it never fires and
+        # the callback is simply lost.
+        self._cb_queue: _queue.Queue = _queue.Queue()
+        self._cb_timer = QTimer(self)
+        self._cb_timer.setInterval(50)
+        self._cb_timer.timeout.connect(self._drain_cb_queue)
+        self._cb_timer.start()
+
         self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
 
         # ── Title bar ──
@@ -746,18 +758,51 @@ class LauncherWindow(SCWindow):
         """Called once after launch to silently check for updates."""
         check_for_updates_async(self._on_startup_update_result)
 
+    def _drain_cb_queue(self) -> None:
+        """Run queued callbacks on the GUI thread (see ``_cb_queue``)."""
+        while True:
+            try:
+                fn = self._cb_queue.get_nowait()
+            except _queue.Empty:
+                break
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 - one bad callback must not stop the drain
+                log.exception("main_window: queued GUI callback failed")
+
     def _on_update_result(self, result: UpdateResult) -> None:
-        """Callback from manual update check (runs on background thread)."""
-        QTimer.singleShot(0, lambda: self._show_update_result(result, silent=False))
+        """Callback from manual update check (runs on the update-checker thread).
+
+        Must hand the result to the GUI thread via ``_cb_queue``.  A
+        ``QTimer.singleShot`` here would never fire — see ``_cb_queue``.
+        """
+        self._cb_queue.put(lambda: self._show_update_result(result, silent=False))
 
     def _on_startup_update_result(self, result: UpdateResult) -> None:
-        """Callback from startup update check — only show if update available."""
-        QTimer.singleShot(0, lambda: self._show_update_result(result, silent=True))
+        """Callback from startup update check — only show if update available.
+
+        Runs on the update-checker thread; marshals via ``_cb_queue``.
+        """
+        self._cb_queue.put(lambda: self._show_update_result(result, silent=True))
 
     def _show_update_result(self, result: UpdateResult, silent: bool) -> None:
-        if result.error and not silent:
-            self.set_status(_t("Update check failed"), P.red)
-            QTimer.singleShot(4000, lambda: self.set_status(_t("Ready")))
+        # A failed check must never render as a success.  Returning here for
+        # BOTH silent and loud checks is what makes that structural rather
+        # than incidental: a check that could not reach GitHub knows nothing
+        # about the latest version, so neither "NEW" nor a green "Up to date"
+        # is honest.
+        if result.error:
+            if not silent:
+                self.set_status(_t("Update check failed"), P.red)
+                # The reason is worth keeping: "failed" alone does not tell
+                # the user whether to retry or check their connection.
+                self._status_label.setToolTip(result.error)
+
+                def _restore() -> None:
+                    self._status_label.setToolTip("")
+                    self.set_status(_t("Ready"))
+
+                QTimer.singleShot(4000, _restore)
             return
 
         if result.available:
