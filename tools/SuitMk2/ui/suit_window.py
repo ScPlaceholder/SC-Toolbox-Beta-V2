@@ -338,7 +338,12 @@ class SuitWindow(SCWindow):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
         self._timer.start(1000)
-        QTimer.singleShot(600, self._maybe_show_notice)
+        # The notice waits for the window to be SEEN. The launcher preloads SuitMk2 hidden at startup,
+        # and a 600 ms timer from construction popped this dialog on the first launch of the toolbox,
+        # on top of the Star Citizen folder prompt, for a tool the user had not opened (2.4.0 laptop test).
+        self._notice_pending = True
+        if self.isVisible():
+            QTimer.singleShot(600, self._maybe_show_notice)
         threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
 
     # -- boot off the UI thread: finding the log and waking the model service can take seconds ------------------
@@ -550,8 +555,16 @@ class SuitWindow(SCWindow):
         except Exception as e:
             self.core and self.core._note(f"memory export FAILED: {type(e).__name__}: {e}")
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if getattr(self, "_notice_pending", False):
+            QTimer.singleShot(600, self._maybe_show_notice)
+
     def _maybe_show_notice(self) -> None:
         """Once per notice wording: what the companion is (a narrator, nothing more) + the screenshot opt-in."""
+        if not getattr(self, "_notice_pending", False) or not self.isVisible():
+            return                                  # shown already this run, or the window is hidden again
+        self._notice_pending = False
         from PySide6.QtWidgets import QMessageBox
         import training_shots as ts
         if int(self.s.get("notice_ack", 0) or 0) >= ts.NOTICE_VERSION:
