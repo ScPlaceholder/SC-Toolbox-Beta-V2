@@ -296,16 +296,26 @@ class CompanionCore:
 
     def stop(self) -> None:
         self._stop.set()
+        # LEFT BROAD DELIBERATELY, both of them, and the reason is the third step below rather than either of these.
+        # stop() is a three-step teardown and the LAST step is the only one that persists anything: recorder.close()
+        # plus recap_record() are what write this play session into the pilot's memory. An exception escaping from
+        # the sound classifier or the log monitor would skip that write and silently lose the session - so every
+        # earlier step has to be survivable whatever it raises. self.sound and self._monitor are also injectable
+        # (the selftests pass fakes), so their close paths have no fixed exception set to narrow to.
+        # What changes is that a failed teardown is now on the record, matching the recorder branch below, which has
+        # always logged. Level: warning, not exception - a failure here costs a leaked thread, not the session.
         if self.sound is not None:
             try:
                 self.sound.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("companion stop: the sound classifier did not stop (%s: %s); its tap may still be "
+                            "capturing", type(e).__name__, e, exc_info=True)
         if self._monitor is not None:
             try:
                 self._monitor.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("companion stop: the Game.log monitor did not stop (%s: %s); its poll thread may still "
+                            "be running", type(e).__name__, e, exc_info=True)
         if self.recorder is not None:
             try:
                 closed = self.recorder.close()          # instant: the dream queue processes it next launch
@@ -575,12 +585,25 @@ class CompanionCore:
         CIG removed the in-the-moment death lines build by build (Actor Death to Nov 2025, incap log to Feb 2026,
         ActorState Dead to Jul 2026); the death/respawn screen is still unmistakable on screen."""
         last = None
+        warned = False
         while not self._stop.wait(3.0):
             try:
                 st = self.eyes.state() or {}
                 scene = st.get("scene")
-            except Exception:
+            except Exception as e:
+                # LEFT BROAD DELIBERATELY: self.eyes is injected (RemoteEyes over HTTP, a local Eyes, or a fake in
+                # the selftests), so there is no exception set to narrow to, and an escape would end this thread for
+                # good - taking the death watcher with it permanently instead of for one tick.
+                # But `continue` is NOT harmless, which is why it must not be silent: it also skips the `last = scene`
+                # at the bottom, so a failure on the tick after a death loses the dead->respawn transition outright.
+                # Per this method's own docstring that is the ONE event the game log no longer reports in time, so a
+                # loop that quietly continues forever means the companion never notices the pilot dying again.
+                if not warned:
+                    warned = True
+                    log.warning("eyes loop: cannot read the eyes' scene (%s: %s); the death/respawn screen will not "
+                                "be noticed while this lasts", type(e).__name__, e, exc_info=True)
                 continue
+            warned = False
             if scene == "dead" and last != "dead":
                 class _Ev:
                     event_type, data = "incapacitated", {"source": "vision", "state": "dead"}
@@ -1168,8 +1191,18 @@ class CompanionCore:
             for t, _spk, txt in list(getattr(self.speech, "spoken", None) or [])[-6:]:
                 if txt == inf["text"] and t >= inf["t"]:
                     return False
-        except Exception:
-            pass
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
+            # TypeError/ValueError: a `spoken` row that is not a (t, speaker, text) triple. KeyError: inf without
+            # "text"/"t". True is the conservative answer - the companion assumes the dev fact is still playing and
+            # holds its own line back - and the damage is bounded by the `inf["dur"]` check above, which returns
+            # False once the fact's own duration has elapsed. So this is a real degradation (Elah's callout is
+            # suppressed for up to one fact's length) rather than a permanent one, and it should still be visible:
+            # a Speech implementation whose `spoken` shape drifted would otherwise degrade the callout timing
+            # silently, forever.
+            if not getattr(self, "_dev_inflight_warned", False):
+                self._dev_inflight_warned = True
+                log.warning("dev facts: cannot read what Speech has played (%s: %s); assuming the fact is still in "
+                            "flight, so callouts will be held back", type(e).__name__, e, exc_info=True)
         return True
 
     def _dev_fact_urgent(self, et: str, data: dict) -> None:

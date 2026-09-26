@@ -18,6 +18,7 @@ The toolbox has no service management (TOOLBOX_PORT_NOTES.md), so the tool owns 
 """
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import os
@@ -28,6 +29,11 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
+# What a localhost HTTP call to the service can fail with. OSError covers urllib.error.URLError and HTTPError
+# (both subclass it) plus ConnectionRefusedError and the socket timeout; http.client.HTTPException covers a
+# truncated or malformed status line; ValueError covers json.JSONDecodeError and a non-UTF-8 body.
+_HTTP_ERRORS = (OSError, http.client.HTTPException, ValueError)
+
 log = logging.getLogger("suitmk2.sidecar")
 URL = "http://127.0.0.1:7790"
 BACKENDS = ("auto", "ollama", "hf", "api", "none")   # "api" runs on the toolbox Python (anthropic SDK), like ollama
@@ -37,7 +43,17 @@ def health(timeout: float = 1.0) -> Optional[dict]:
     try:
         with urllib.request.urlopen(URL + "/health", timeout=timeout) as r:
             return json.loads(r.read())
-    except Exception:
+    except OSError as e:
+        # Nobody listening, or not listening YET: this is the normal answer during _ensure's launch poll, so it is
+        # debug rather than a warning. None here means "no service", which is exactly what the caller acts on.
+        log.debug("sidecar: no answer from %s/health (%s: %s)", URL, type(e).__name__, e)
+        return None
+    except (http.client.HTTPException, ValueError) as e:
+        # Something IS listening on 7790 and it answered with a body we cannot read. None makes that
+        # indistinguishable from a dead port, and _ensure() responds to a dead port by launching a SECOND
+        # service on it - so this one has to be loud.
+        log.warning("sidecar: %s/health answered but the reply is unreadable (%s: %s); treating the service as "
+                    "DOWN, which will launch another one on the same port", URL, type(e).__name__, e)
         return None
 
 
@@ -49,7 +65,11 @@ def reload(timeout: float = 120.0, backend: Optional[str] = None) -> Optional[di
         req = urllib.request.Request(URL + "/reload", data=data, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read())
-    except Exception:
+    except _HTTP_ERRORS as e:
+        # None is read by Sidecar.reload() as False and by _ensure() as "the reload did not happen", which is the
+        # right behaviour; without a line here a backend switch that never took effect looks like one that did.
+        log.warning("sidecar: POST %s/reload failed (%s: %s); the service keeps its current backend%s",
+                    URL, type(e).__name__, e, f" (wanted {backend})" if backend else "")
         return None
 
 
@@ -192,8 +212,13 @@ class Sidecar:
         if self.runtime is not None:
             try:
                 self.runtime.stop_if_ours()
-            except Exception:
-                pass
+            except (OSError, RuntimeError) as e:
+                # terminate()/kill()/wait() on an already-reaped or protected PID (OSError), or OllamaError, which
+                # subclasses RuntimeError. self.runtime is only ever set when WE started `ollama serve`, so a
+                # failure here leaves a hidden server process running after the tool closed. Say so: the next run
+                # will find the port taken and conclude someone else's Ollama owns it.
+                log.warning("sidecar: could not stop the `ollama serve` this sidecar started (%s: %s); it is still "
+                            "running", type(e).__name__, e)
             self.runtime = None
 
 

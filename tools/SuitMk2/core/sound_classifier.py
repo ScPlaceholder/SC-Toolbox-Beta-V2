@@ -35,6 +35,19 @@ from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger("suitmk2.sound")
+_WARNED: set = set()
+
+
+def _warn_once(key: str, msg: str, *args) -> None:
+    """Warn the FIRST time this failure is seen, then drop to debug.
+
+    CombatWatch calls into the answers below at ~20 Hz from the audio feed thread, so an unconditional warning on a
+    permanent fault is tens of thousands of identical lines - which trains the reader to filter this logger out, and
+    a filtered logger is a silent handler with extra steps.
+    """
+    first = key not in _WARNED
+    _WARNED.add(key)
+    (log.warning if first else log.debug)(msg, *args)
 
 ROOT = Path(__file__).resolve().parent.parent
 TAP_EXE = ROOT / "bin" / "sc_audio_tap.exe"
@@ -219,8 +232,12 @@ class SoundClassifier:
             if self._thread is not None:
                 self._thread.join(timeout=2.0)
             self.status = "stopped"
-        except Exception:
-            pass
+        except (RuntimeError, OSError) as e:
+            # RuntimeError: join() on a thread that was never started, or on the calling thread itself.
+            # The last statement is `self.status = "stopped"`, so any failure here leaves status showing
+            # "listening" for a classifier that is being torn down - the status line then reports healthy ears for
+            # a dead thread. _kill_tap logs its own failures now, so this covers the join and the Event.
+            log.warning("sound classifier stop failed (%s: %s); status stays %r", type(e).__name__, e, self.status)
 
     @property
     def running(self) -> bool:
@@ -239,8 +256,19 @@ class SoundClassifier:
             for sc in rows:
                 for g in GROUPS:
                     out[g] = max(out[g], sc.get(g, 0.0))
-        except Exception:
-            pass
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # ★★ THE HEADLINE ABSENCE-BECOMES-A-NUMBER IN THIS FILE. The fallback is a full set of 0.0 scores, and
+            # 0.0 across every group is EXACTLY what a silent room produces. is_combat() reads those zeros and says
+            # False, gunfire_confirm() passes that False to CombatWatch as a positive second opinion - "I am
+            # listening to the game and there is no gunfire" - while the real answer is that the history could not
+            # be read at all. A firefight would be reported as quiet, confidently, with nothing anywhere saying why.
+            # Worse than a clean zero: an exception partway through the loop returns a PARTIAL maximum, so some
+            # groups hold real values and the rest silently read 0.0.
+            # The exception set is the row shape (a malformed (t, scores) pair unpacking, a non-dict score row) plus
+            # the lock. Left returning zeros because CombatWatch's feed thread calls this at ~20 Hz and an escape
+            # would take the meter down - but it is no longer a silent zero.
+            _warn_once("recent", "sound: cannot read the score history (%s: %s); reporting all-zero scores, which "
+                                 "is indistinguishable from silence", type(e).__name__, e)
         return out
 
     def is_combat(self, scores: dict) -> bool:
@@ -253,7 +281,13 @@ class SoundClassifier:
             if not self.running:
                 return None
             return self.is_combat(self.recent(CONFIRM_WINDOW_S))
-        except Exception:
+        except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
+            # None is the honest direction here (CombatWatch already treats it as "no second opinion"), but it is
+            # also the answer for a classifier that is simply not running - so a broken confirm reads as a feature
+            # the pilot never turned on. recent() has its own guard and no longer raises, so what is left is the
+            # `running` property (attribute access + self.now()) and is_combat's dict arithmetic.
+            _warn_once("gunfire_confirm", "sound: gunfire_confirm failed (%s: %s); CombatWatch gets no second "
+                                          "opinion, same as if the ears were off", type(e).__name__, e)
             return None
 
     # -- the listening thread -----------------------------------------------------------------------------------
@@ -262,10 +296,22 @@ class SoundClassifier:
             return True
         try:
             import psutil
+        except ImportError as e:
+            # No psutil means the "missing StarCitizen.exe is re-checked every RETRY_S with psutil instead of
+            # spawning anything" discipline in this module's docstring does not happen: True here sends _run() on to
+            # spawn the tap every RETRY_S forever, whether or not the game is running. Conservative, and not free.
+            _warn_once("psutil", "sound: psutil is not available (%s); assuming %s is running, so the tap will be "
+                                 "spawned on every retry", e, self.target)
+            return True
+        try:
             want = self.target.lower()
             return any((p.info.get("name") or "").lower() == want for p in psutil.process_iter(["name"]))
-        except Exception:
-            return True                             # cannot tell: let the tap itself decide
+        except (psutil.Error, OSError, AttributeError, TypeError) as e:
+            # process_iter already absorbs a process vanishing mid-walk; what reaches here is an access denial or a
+            # WMI/permissions failure for the whole enumeration. True is deliberate ("let the tap itself decide") -
+            # the tap knows better than we do - so this one is genuinely low-harm and stays at debug.
+            log.debug("sound: cannot enumerate processes (%s: %s); letting the tap decide", type(e).__name__, e)
+            return True
 
     def _spawn_tap(self) -> Optional[subprocess.Popen]:
         args = [str(self.tap_exe)] + (["--pid", str(self.pid)] if self.pid is not None else ["--name", self.target])
@@ -284,8 +330,15 @@ class SoundClassifier:
             try:
                 p.kill()
                 p.wait(timeout=2)
-            except Exception:
-                pass
+            except subprocess.TimeoutExpired:
+                # The tap did not die within 2 s. self._proc is already None, so nothing will ever try again: a
+                # sc_audio_tap.exe is left running with a live per-process loopback capture on the game, and the
+                # next start() spawns a second one. That is the failure this must not hide.
+                log.warning("sound: sc_audio_tap.exe (pid %s) did not exit after kill(); it is still running and "
+                            "still capturing", getattr(p, "pid", "?"))
+            except OSError as e:
+                # Already reaped, or the OS refused the kill. Harmless in the first case, which is the common one.
+                log.debug("sound: could not kill the tap (%s: %s)", type(e).__name__, e)
 
     def _run(self) -> None:
         np = self._np
@@ -502,8 +555,13 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
+    except (AttributeError, ValueError, OSError) as e:
+        # AttributeError: stdout has been replaced by something without reconfigure (a pipe wrapper, a test capture).
+        # ValueError/OSError: the stream is already closed or detached.
+        # Reported on stderr, not through logging or print: stdout is the stream in question, and the consequence is
+        # that the selftest's own output will mangle any non-ASCII it prints - which looks like a test failure.
+        print(f"sound_classifier: could not set stdout to UTF-8 ({type(e).__name__}: {e}); non-ASCII output may be "
+              f"mangled", file=sys.stderr)
     if "--selftest" in sys.argv:
         sys.exit(_selftest(play="--no-play" not in sys.argv))
     print(__doc__)

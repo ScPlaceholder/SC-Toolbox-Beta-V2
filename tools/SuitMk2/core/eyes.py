@@ -30,6 +30,7 @@ import base64
 import ctypes
 import io
 import json
+import logging
 import os
 import threading
 import time
@@ -37,6 +38,22 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
+
+_LOG = logging.getLogger("suitmk2.eyes")
+_WARNED: set = set()
+
+
+def _warn_once(key: str, msg: str, *args) -> None:
+    """Warn the FIRST time this failure is seen, then drop to debug.
+
+    Everything in this module runs on a 2-10 s tick, so an unconditional warning on a permanent fault (no ctypes,
+    an unreadable scene memory) is thousands of identical lines. The first one carries all the information; the
+    repeats only teach the reader to filter the logger out, which is how a real fault goes quiet again.
+    """
+    first = key not in _WARNED
+    _WARNED.add(key)
+    (_LOG.warning if first else _LOG.debug)(msg, *args)
+
 
 SCENES = ("menu", "hangar", "on_foot", "cockpit", "quantum", "combat", "landing", "mining", "trading", "map",
           "dead", "other")   # "dead": death / incapacitated / respawn screen (CIG keeps cutting death lines from Game.log)
@@ -81,7 +98,21 @@ def foreground_process_name() -> Optional[str]:
             return os.path.basename(buf.value)
         finally:
             kernel32.CloseHandle(h)
-    except Exception:
+    except AttributeError as e:
+        # ctypes.windll does not exist off Windows. That is the documented "anything else -> None" case and the
+        # normal answer on a Linux/macOS host, so it stays quiet - but at debug, not nowhere.
+        _LOG.debug("eyes: no Windows foreground-window API (%s); never capturing", e)
+        return None
+    except (OSError, ValueError, ctypes.ArgumentError) as e:
+        # ★ ABSENCE BECOMES A VALUE. A WinError from any of these four calls returns None, and None is the caller's
+        # reading for "the game is not in front" - so a broken privacy gate makes the eyes BLIND FOR THE WHOLE
+        # SESSION and it looks exactly like a pilot who is alt-tabbed. No scene, no glance, no death detection, and
+        # eyes.state() reports a perfectly healthy "not looking". The fallback is the safe direction (it never
+        # captures the desktop), which is why this must be narrowed and logged rather than changed.
+        # ValueError and ctypes.ArgumentError are listed so that nothing ctypes can raise escapes a call site that
+        # previously caught everything: this runs on the tick thread and an escape would kill the eyes outright.
+        _warn_once("foreground", "eyes: cannot read the foreground window (%s: %s); treating it as 'not the game', "
+                                 "so the eyes will not look at all", type(e).__name__, e)
         return None
 
 
@@ -136,7 +167,17 @@ class SceneClassifier:
         for src in ([SEED] if path is not None and SEED.exists() else []) + ([path] if path and path.exists() else []):
             try:
                 data = json.loads(src.read_text(encoding="utf-8"))
-            except Exception:
+            except (OSError, ValueError) as e:
+                # OSError: the file vanished between exists() and read, or is locked. ValueError: truncated or
+                # non-UTF-8 JSON (UnicodeDecodeError and JSONDecodeError both subclass it).
+                # ★ ABSENCE BECOMES A VALUE, and this exact failure has already cost a day: an eyes_seed.json that
+                # does not parse leaves self.examples empty, predict() then returns (None, ...) for every frame,
+                # and the eyes classify ZERO scenes - reported as "unsure", which is also what a genuinely novel
+                # screen looks like. The comment above records the previous version of this bug being found by
+                # reasoning about a dry run rather than by any log line. Now the file says so itself.
+                _warn_once(f"scene_memory:{src}", "eyes: cannot read the scene memory %s (%s: %s); those examples "
+                                                  "are missing and scenes will read as 'unsure'",
+                           src, type(e).__name__, e)
                 continue
             for label, rows in data.items():
                 q = self.examples.setdefault(label, deque(maxlen=MAX_PER_LABEL))
@@ -589,11 +630,19 @@ class Eyes:
             finally:
                 self._burst_lock.release()
         except Exception as e:  # a confirm must never take combat_watch down with it
+            _LOG.warning("eyes: burst check failed (%s: %s); no visual opinion on weapons fire", type(e).__name__, e)
             try:
                 self.stats.burst_blind += 1
                 self.stats.errors.append(f"burst {type(e).__name__}: {e}"[:200])
-            except Exception:
-                pass
+            except (AttributeError, TypeError) as book:
+                # Only the BOOKKEEPING is guarded here, not the burst: self.stats is a dataclass, so the ways this
+                # can fail are a renamed/absent field or errors having been replaced by a non-list. An escape from
+                # inside an except block would defeat the outer guard entirely and take combat_watch down with it,
+                # which is what the comment above is protecting against - so it stays guarded, and narrowly.
+                # The real failure (e) is already logged on the line above, which is the point: the record of the
+                # burst failure no longer depends on the stats object being intact.
+                _LOG.warning("eyes: could not record the burst failure in stats (%s: %s)",
+                             type(book).__name__, book)
             return None
 
     def burst_confirm(self) -> Optional[bool]:
@@ -614,7 +663,16 @@ class Eyes:
                     self._burst_thread = threading.Thread(target=work, name="eyes-burst", daemon=True)
                     self._burst_thread.start()
             return None
-        except Exception:
+        except (RuntimeError, OSError) as e:
+            # RuntimeError: Thread.start() when the process is out of threads or already shutting down (and a
+            # re-entrant acquire of _confirm_lock, were the lock ever made non-reentrant). OSError: the OS refusing
+            # a new thread.
+            # ★ ABSENCE BECOMES A VALUE, and this is the worst-disguised one in the file: None is this method's
+            # NORMAL, most common return - "no answer yet, a burst is running". So a confirm that can never start a
+            # burst returns the same None forever and CombatWatch waits for a second opinion that will never come,
+            # with stats.bursts frozen at whatever it was. Called at ~20 Hz while in MAYBE, hence warn-once.
+            _warn_once("burst_confirm", "eyes: cannot start a burst check (%s: %s); CombatWatch will keep reading "
+                                        "'no answer yet' and never get one", type(e).__name__, e)
             return None
 
     def run(self, on_obs: Callable[[Observation], None] = lambda o: None) -> threading.Thread:

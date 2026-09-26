@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import logging
 import os
 import re
 import shutil
@@ -42,6 +43,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Callable, Iterator, Optional
+
+_LOG = logging.getLogger("suitmk2.provision")
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -110,6 +113,7 @@ class Provisioner:
         self.overall = 0.0
         self._w0, self._w1 = 0.0, 1.0          # current step's slice of the overall bar
         self.log: list = []
+        self._progress_broken = False          # a failing UI callback is reported once, not per NDJSON line
 
     # ---- plumbing ---------------------------------------------------------------------------------------------
     def _emit(self, stage: str, done: int, total: int, msg: str) -> None:
@@ -118,8 +122,18 @@ class Provisioner:
         if self._progress:
             try:
                 self._progress(stage, done, total, msg)
-            except Exception:
-                pass                       # a broken UI callback must not break provisioning
+            except Exception as e:
+                # LEFT BROAD DELIBERATELY. self._progress is caller-supplied UI code (a Qt slot touching widgets
+                # that may already be destroyed), so it can raise anything, and _emit is called from inside the
+                # streamed pull / hash / upload loops. An escape would abort a multi-gigabyte provisioning run
+                # because a PROGRESS BAR failed - and the run's own steps are idempotent, so the correct response
+                # to a broken bar is to keep going blind, not to stop.
+                # Reported once per Provisioner: this runs per NDJSON status line, thousands of times per pull.
+                if not self._progress_broken:
+                    self._progress_broken = True
+                    _LOG.warning("provision: the progress callback raised (%s: %s); provisioning continues but the "
+                                 "UI will not update again", type(e).__name__, e, exc_info=True)
+                    self.log.append(f"progress callback broken: {type(e).__name__}: {e}")
 
     def _slice(self, a: float, b: float) -> None:
         self._w0, self._w1 = a, b
@@ -392,6 +406,7 @@ class SetupJob:
         self.provisioner_kw = provisioner_kw or {}
         self.overall, self.message, self.stage = 0.0, "", ""
         self._split = 0.0
+        self._progress_broken = False          # see Provisioner._emit: reported once, not per NDJSON line
 
     def _cb(self, stage: str, done: int, total: int, msg: str) -> None:
         self.stage, self.message = stage, msg
@@ -401,8 +416,15 @@ class SetupJob:
         if self._progress:
             try:
                 self._progress(stage, done, total, msg)
-            except Exception:
-                pass
+            except Exception as e:
+                # LEFT BROAD for the same reason as Provisioner._emit above: this is the first-run Setup panel's
+                # own callback, arbitrary UI code, called per progress line during a runtime install and two model
+                # builds. An escape would abort the whole first-run setup because the bar failed to paint.
+                # self.stage / self.message / self.overall are already updated, so a UI that polls still recovers.
+                if not self._progress_broken:
+                    self._progress_broken = True
+                    _LOG.warning("setup job: the progress callback raised (%s: %s); setup continues but the UI will "
+                                 "not update again", type(e).__name__, e, exc_info=True)
 
     def run(self) -> dict:
         from ollama_manager import INSTALLED_NOT_RUNNING, NOT_INSTALLED, OllamaError

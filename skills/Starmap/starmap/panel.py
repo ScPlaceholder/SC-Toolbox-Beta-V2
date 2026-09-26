@@ -15,7 +15,10 @@ shows an inline message instead of dying.
 """
 from __future__ import annotations
 
+import logging
 from typing import Callable, Dict, List, Optional, Tuple
+
+log = logging.getLogger(__name__)
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -199,8 +202,14 @@ class StarmapPanel(QWidget):
         self._btn_game.toggled.connect(lambda _on: self._save_soon())
         try:
             self._btn_game.setChecked(bool(load_state().get("game_route")))
-        except Exception:
-            pass
+        except (AttributeError, TypeError, RuntimeError) as e:
+            # load_state() already absorbs a missing or unparseable file and returns {}, so what is left is a state
+            # file holding a JSON list instead of an object (AttributeError on .get) or a dead C++ object behind the
+            # button. The button then silently comes up UNCHECKED, which reads as "the pilot never enabled in-game
+            # plotting" - so voice routes stop being drawn inside Star Citizen and their saved preference is simply
+            # ignored, with the UI showing a perfectly ordinary off switch.
+            log.warning("Starmap: could not restore the In-Game route toggle (%s: %s); it defaults to off",
+                        type(e).__name__, e)
 
         self._btn_grocery = QPushButton("Grocery")
         self._btn_grocery.setCursor(Qt.PointingHandCursor)
@@ -601,15 +610,27 @@ class StarmapPanel(QWidget):
         """Kick off the (once) terminal->items index build. Safe to call often."""
         try:
             self._index_loader.start()
-        except Exception:
-            pass
+        except (RuntimeError, OSError, AttributeError) as e:
+            # start() only sets a flag and spawns a daemon thread, so the ways out are the OS refusing a new thread
+            # (RuntimeError / OSError) or the loader being absent. Nothing retries: _on_index_done never fires, the
+            # panel never says "items index empty" either, and every terminal shows no item prices for the rest of
+            # the session with no explanation anywhere.
+            log.warning("Starmap: the items index build did not start (%s: %s); no item prices this session",
+                        type(e).__name__, e, exc_info=True)
 
     def _on_index_done(self, index: dict, source: str) -> None:
         self._items_index = index or {}
         try:
             self._market.set_index(self._items_index)
-        except Exception:
-            pass
+        except (RuntimeError, AttributeError, TypeError, KeyError) as e:
+            # set_index refills three Qt widget models, so a deleted C++ object (RuntimeError) or an unexpected row
+            # shape is what reaches here.
+            # The consequence is a report that contradicts itself: this method carries on and calls voice_status
+            # with "items index ready (live): N items at M places" a few lines below, so the panel ANNOUNCES a
+            # loaded index while the Market view is still holding the old, empty one. A silent handler here does not
+            # just lose the failure, it produces a false success message.
+            log.warning("Starmap: the Market view rejected the new items index (%s: %s); it keeps the previous one "
+                        "even though the status line will say the index is ready", type(e).__name__, e, exc_info=True)
         names = self._terminal_names()
         for _lbl, w in self._nav:
             if hasattr(w, "_terminals"):
@@ -917,7 +938,18 @@ class StarmapPanel(QWidget):
         try:
             from shared.character_voice import line
             return line(key, **fields)
-        except Exception:
+        except ImportError as e:
+            # The documented case: "the plain wording if the shared module is unavailable". Expected when the skill
+            # runs outside the toolbox, so debug.
+            log.debug("Starmap: shared.character_voice unavailable (%s); using the plain wording for %r", e, key)
+            return default
+        except (KeyError, IndexError, ValueError, TypeError) as e:
+            # The module IS there and could not render the line: a key it has no entry for, or a template whose
+            # format fields do not match what this call site passes. The fallback is the plain English wording, which
+            # is a perfectly normal-sounding sentence - so the pilot's chosen character quietly stops being the voice
+            # of the star map and nothing at all indicates that a line is missing or a template is wrong.
+            log.warning("Starmap: character line %r failed to render (%s: %s); falling back to the plain wording",
+                        key, type(e).__name__, e)
             return default
 
     def speak(self, text: str) -> None:
@@ -925,8 +957,17 @@ class StarmapPanel(QWidget):
         if getattr(self, "_voice_replies", True) and getattr(self, "_mouth", None):
             try:
                 self._mouth.speak(text)
-            except Exception:
-                pass
+            except Exception as e:
+                # LEFT BROAD. self._mouth is the TTS mouth (a character voice behind an HTTP call or a local engine),
+                # so its failures range over OSError, HTTPException, RuntimeError and whatever the engine raises; and
+                # speak() is called from voice-command handlers that must return their text answer to the caller
+                # whether or not the audio comes out. An escape would turn "the confirmation did not play" into "the
+                # voice command failed", which is a worse and false report.
+                # The consequence of swallowing it is the reason this cannot stay silent: Voice Replies is ON, so the
+                # pilot is waiting to HEAR the confirmation, and every visible signal says it was spoken. A mouth
+                # that has died is indistinguishable from one the pilot switched off.
+                log.warning("Starmap: the voice reply did not play (%s: %s); Voice Replies is on but nothing was "
+                            "spoken", type(e).__name__, e, exc_info=True)
 
     def _set_voice_replies(self, on: bool) -> None:
         self._voice_replies = bool(on)
@@ -1046,16 +1087,24 @@ class StarmapPanel(QWidget):
 
     def shutdown(self) -> None:
         """Persist state and tear down bubbles / ears / watchers."""
+        # ALL THREE HANDLERS IN THIS METHOD ARE LEFT BROAD, for one reason that belongs to the method rather than to
+        # any of them: the LAST statement is self.save_state(). An exception escaping from the mouth, the ears or the
+        # IPC watcher skips it, and the pilot loses the home system, the panel toggles and the grocery list they just
+        # built - a data loss caused by a failure to shut down a background thread. All three subsystems are also
+        # optional and independently implemented (a TTS engine, a FastWhisper thread, a file watcher), so none of
+        # them has an exception set to narrow to. What was missing was any record that a thread outlived the panel.
         if getattr(self, "_mouth", None) is not None:
             try:
                 self._mouth.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Starmap shutdown: the voice mouth did not stop (%s: %s); its playback thread may "
+                            "outlive the panel", type(e).__name__, e, exc_info=True)
         if hasattr(self, "_ears"):
             try:
                 self._ears.shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Starmap shutdown: the voice ears did not shut down (%s: %s); the trigger listener and "
+                            "the audio stream may still be open", type(e).__name__, e, exc_info=True)
         if self._lore_bubble is not None:
             self._lore_bubble.close()
             self._lore_bubble = None
@@ -1068,8 +1117,9 @@ class StarmapPanel(QWidget):
         if self._ipc is not None:
             try:
                 self._ipc.stop()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Starmap shutdown: the IPC watcher did not stop (%s: %s); its poll thread may still be "
+                            "reading the command file", type(e).__name__, e, exc_info=True)
         self.save_state()
 
 
@@ -1112,8 +1162,14 @@ class StarmapPanel(QWidget):
         # Mirror on our own map when the destination matches a known place.
         try:
             self.goto(dest.title())
-        except Exception:
-            pass
+        except (RuntimeError, AttributeError, TypeError, KeyError, ValueError) as e:
+            # goto() switches the stacked view and may build a system/planet scene, so a dead C++ object
+            # (RuntimeError) or an unknown place name is what reaches here. It is deliberately non-fatal: the
+            # in-game plotting below is the actual job and must still run when our own map cannot follow along.
+            # But the very next line says "Navigate to <dest>" out loud and the method goes on to report success, so
+            # swallowing this means the panel announces a navigation whose map never moved.
+            log.warning("Starmap: could not mirror %r on the panel's own map (%s: %s); the spoken confirmation and "
+                        "the in-game plot go ahead anyway", dest, type(e).__name__, e, exc_info=True)
         self.speak(self._cline("navigate", "Navigate to %s" % dest, dest=dest))
         if getattr(self, "_btn_game", None) is not None and self._btn_game.isChecked():
             setter = self._setter()

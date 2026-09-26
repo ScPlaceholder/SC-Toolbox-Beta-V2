@@ -27,7 +27,9 @@ Selftest (fake realizer/eyes, real HTTP): ... companion_service.py --selftest
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
+import logging
 import sys
 import threading
 import time
@@ -41,6 +43,37 @@ sys.path.insert(0, str(HERE.parent))
 
 DEFAULT_PORT = 7790
 MAX_BODY = 64 * 1024
+
+# The skill-side clients below run inside WingmanAI's Python, where the only reporting channel is logging.
+_LOG = logging.getLogger("suitmk2.companion_client")
+
+# A localhost call to the sidecar: OSError covers urllib's URLError/HTTPError, ConnectionRefusedError and the socket
+# timeout; http.client.HTTPException covers a malformed status line; ValueError covers a body that is not JSON.
+# AttributeError/TypeError cover a well-formed JSON body of the wrong SHAPE (.get on a list, say).
+_HTTP_ERRORS = (OSError, http.client.HTTPException, ValueError, AttributeError, TypeError)
+
+
+def _client_failed(client: Any, what: str, exc: BaseException, consequence: str) -> None:
+    """Report a failed sidecar call ONCE per client object, then at debug.
+
+    Every one of these clients is polled on a loop (the ambient realizer per line, the eyes every 3 s), so a
+    warning per call would be thousands of identical lines for one dead service. The FIRST failure is the one that
+    carries information, and the consequence is spelled out because in every case the fallback value is also a
+    legitimate answer: None from the realizer means "nothing to say", {} from the eyes means "no scene facts", and
+    None from burst_confirm means "no answer yet". A dead sidecar is otherwise indistinguishable from a companion
+    that simply chose to be quiet - which is exactly the failure this whole cleanup is about.
+    """
+    first = not getattr(client, "_service_down", False)
+    client._service_down = True
+    (_LOG.warning if first else _LOG.debug)("companion sidecar: %s failed (%s: %s); %s",
+                                            what, type(exc).__name__, exc, consequence)
+
+
+def _client_ok(client: Any) -> None:
+    """Note a successful call, so the next failure warns again and a recovery is visible."""
+    if getattr(client, "_service_down", False):
+        client._service_down = False
+        _LOG.info("companion sidecar: answering again")
 
 
 class Service:
@@ -193,8 +226,12 @@ class RemoteRealizer:
             req = urllib.request.Request(self.url + "/realize", data=json.dumps(spec).encode("utf-8"),
                                          headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                return json.loads(r.read()).get("text")
-        except Exception:
+                text = json.loads(r.read()).get("text")
+            _client_ok(self)
+            return text
+        except _HTTP_ERRORS as e:
+            _client_failed(self, "POST /realize", e,
+                           "the companion stays silent - which is also what it does when it has nothing to say")
             return None
 
 
@@ -208,8 +245,15 @@ class RemoteEyes:
         import urllib.request
         try:
             with urllib.request.urlopen(self.url + "/eyes", timeout=self.timeout) as r:
-                return json.loads(r.read()) or {}
-        except Exception:
+                st = json.loads(r.read()) or {}
+            _client_ok(self)
+            return st
+        except _HTTP_ERRORS as e:
+            # NOT flagged by silent_except_check - `return {}` is a dict literal, not a constant, so the checker
+            # walks past it. Same hazard as every handler around it: {} is companion_core._eyes_loop's reading for
+            # "no scene", so a dead sidecar reads as a companion that can see and finds nothing worth noting, and
+            # the death-screen watcher (the one transition the game log no longer reports) never fires again.
+            _client_failed(self, "GET /eyes", e, "the eyes report no scene, which reads as an empty screen")
             return {}
 
     def burst_confirm(self) -> Optional[bool]:
@@ -218,8 +262,11 @@ class RemoteEyes:
         try:
             with urllib.request.urlopen(self.url + "/eyes/burst", timeout=self.timeout) as r:
                 v = (json.loads(r.read()) or {}).get("fire")
-                return None if v is None else bool(v)
-        except Exception:
+            _client_ok(self)
+            return None if v is None else bool(v)
+        except _HTTP_ERRORS as e:
+            _client_failed(self, "GET /eyes/burst", e,
+                           "no visual second opinion on weapons fire, which CombatWatch reads as 'not yet'")
             return None
 
     def look(self, reason: str = "curiosity", timeout: float = 90.0) -> Optional[str]:
@@ -229,8 +276,13 @@ class RemoteEyes:
         from urllib.parse import quote
         try:
             with urllib.request.urlopen(self.url + "/eyes/look?reason=" + quote(reason), timeout=timeout) as r:
-                return (json.loads(r.read()) or {}).get("notable") or None
-        except Exception:
+                notable = (json.loads(r.read()) or {}).get("notable") or None
+            _client_ok(self)
+            return notable
+        except _HTTP_ERRORS as e:
+            # A look is deliberate and rare (CURIOSITY_EVERY_S), so this one is worth a line every time it fails.
+            _client_failed(self, f"GET /eyes/look?reason={reason}", e,
+                           "the curiosity look produced nothing, which reads as 'nothing worth remarking on'")
             return None
 
     def stop(self) -> None:
@@ -247,7 +299,11 @@ def service_reload(url: str = f"http://127.0.0.1:{DEFAULT_PORT}", timeout: float
         req = urllib.request.Request(url.rstrip("/") + "/reload", data=data, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read())
-    except Exception:
+    except _HTTP_ERRORS as e:
+        # A reload is a click (the window's API toggle / "models installed, pick them up"). None is read as "it did
+        # not happen", and the one thing worse than a failed backend switch is one the pilot believes took effect.
+        _LOG.warning("companion sidecar: POST /reload failed (%s: %s); the service keeps its current backend%s",
+                     type(e).__name__, e, f" (wanted {backend})" if backend else "")
         return None
 
 
@@ -256,7 +312,16 @@ def service_health(url: str = f"http://127.0.0.1:{DEFAULT_PORT}", timeout: float
     try:
         with urllib.request.urlopen(url.rstrip("/") + "/health", timeout=timeout) as r:
             return json.loads(r.read())
-    except Exception:
+    except OSError as e:
+        # Nobody listening: the documented None, and the normal answer before the sidecar has started. Debug, or
+        # every poll of the status panel would produce a warning on a machine that has not set the companion up.
+        _LOG.debug("companion sidecar: no answer from %s/health (%s: %s)", url, type(e).__name__, e)
+        return None
+    except (http.client.HTTPException, ValueError) as e:
+        # Something IS on 7790 and its reply is unreadable. None means "down" to every caller, which is how a
+        # SECOND sidecar gets launched onto a port that is already taken.
+        _LOG.warning("companion sidecar: %s/health answered but the reply is unreadable (%s: %s); treating the "
+                     "service as down", url, type(e).__name__, e)
         return None
 
 

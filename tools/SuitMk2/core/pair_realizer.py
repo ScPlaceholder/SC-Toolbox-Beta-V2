@@ -32,7 +32,9 @@ Selftest (no model, no GPU, fake Ollama on port 0): python pair_realizer.py --se
 from __future__ import annotations
 
 import difflib
+import http.client
 import json
+import logging
 import re
 import sys
 import threading
@@ -48,6 +50,15 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 from grounding_validator import ground  # noqa: E402
+
+# Module logger for the module-level helpers. PairRealizer itself reports through the injected self._log callable
+# (the window's status line), which is the right channel for anything the pilot should see; these helpers run
+# before any PairRealizer exists, so they have nothing else.
+_LOG = logging.getLogger("suitmk2.realizer")
+
+# A localhost call to Ollama: OSError covers urllib's URLError/HTTPError, ConnectionRefusedError and the socket
+# timeout; http.client.HTTPException covers a malformed status line; ValueError covers a body that is not JSON.
+_HTTP_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 BASE = "Qwen/Qwen2.5-1.5B-Instruct"
 SPEAKERS = ("elah", "montaigne")
@@ -153,7 +164,20 @@ def ollama_models(url: str = OLLAMA_URL, timeout: float = 2.0) -> Optional[set]:
     try:
         with urllib.request.urlopen(url.rstrip("/") + "/api/tags", timeout=timeout) as r:
             return {m["name"].split(":")[0] for m in json.loads(r.read()).get("models", [])}
-    except Exception:
+    except OSError as e:
+        # Ollama is not running or not reachable. This is the documented None and the normal case on a PC that has
+        # never run setup, so it is debug; resolve_backend() turns it into 'hf' or 'none' and says so on the status
+        # line. Nothing is hidden by keeping it quiet here.
+        _LOG.debug("realizer: Ollama did not answer at %s (%s: %s)", url, type(e).__name__, e)
+        return None
+    except (http.client.HTTPException, ValueError, KeyError, TypeError, AttributeError) as e:
+        # Ollama DID answer and we could not read the model list: a malformed body, or /api/tags returning a shape
+        # without "name" strings (KeyError / TypeError / AttributeError from the comprehension). None then means
+        # "no models installed", so resolve_backend picks 'none' and THE COMPANION IS SILENT FOR THE WHOLE SESSION
+        # on a PC whose models are in fact present. Indistinguishable from a machine that never ran setup, and the
+        # pilot is only told "backend none". This must never be silent.
+        _LOG.warning("realizer: Ollama answered at %s but its model list is unreadable (%s: %s); treating it as NO "
+                     "models installed, which means no local backend and no speech", url, type(e).__name__, e)
         return None
 
 
@@ -226,8 +250,14 @@ class OllamaPairBackend:
         for model in sorted(self._used):
             try:
                 _post_json(self.url + "/api/generate", {"model": model, "keep_alive": 0}, 5.0)
-            except Exception:
-                pass            # Ollama down or model gone: nothing is held, nothing to return
+            except _HTTP_ERRORS as e:
+                # keep_alive 0 is what hands the VRAM back to the game; close() is called by _drop() precisely
+                # because headroom went TIGHT. If the release fails, Ollama keeps the model resident for its own
+                # 10m keep_alive and the pilot sees a stutter that the unload was supposed to prevent - while the
+                # status line has already said "VRAM returned to the game". Ollama being down is the harmless case
+                # (nothing is resident), which is why this is a warning and not an error.
+                _LOG.warning("realizer: could not release %s from Ollama (%s: %s); its VRAM stays held until "
+                             "Ollama's own keep_alive expires", model, type(e).__name__, e)
         self._used.clear()
 
 
@@ -336,7 +366,14 @@ def hf_importable() -> bool:
     import importlib.util
     try:
         return all(importlib.util.find_spec(m) is not None for m in ("torch", "transformers", "peft"))
-    except Exception:
+    except (ImportError, ValueError, AttributeError) as e:
+        # find_spec raises ModuleNotFoundError when a parent package is missing, ValueError when an already-imported
+        # module has __spec__ None, and AttributeError against a broken custom finder on sys.meta_path.
+        # False here is read by resolve_backend as "torch is not installed", so on a machine that HAS the torch env
+        # the answer becomes backend 'none' and the companion never speaks. Silence is a valid answer in this
+        # module, but only when it is the true one.
+        _LOG.warning("realizer: cannot probe for torch/transformers/peft (%s: %s); treating the hf backend as "
+                     "unavailable", type(e).__name__, e)
         return False
 
 
@@ -533,8 +570,13 @@ class PairRealizer:
         if self._cpu is not None:
             try:
                 self._cpu.close()
-            except Exception:
-                pass
+            except Exception as e:
+                # LEFT BROAD, matching the GPU sibling in _drop() eight lines up, which is already broad-and-logged.
+                # self._cpu is whatever cpu_backend_factory returned - a caller-injected object in tests and the
+                # Ollama CPU backend in production - so there is no known exception set to narrow to. The `finally`
+                # below drops the reference either way; what was missing was any trace that the CPU model was never
+                # told to release itself.
+                self._log(f"pair_realizer: CPU backend close failed ({type(e).__name__}: {e})")
             finally:
                 self._cpu = None
 

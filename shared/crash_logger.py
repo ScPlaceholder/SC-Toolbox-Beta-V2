@@ -50,8 +50,14 @@ class _FlushRotatingHandler(RotatingFileHandler):
         try:
             super().emit(record)
             self.flush()
-        except Exception:
-            pass  # never crash the process because of logging
+        except (OSError, ValueError):
+            # RotatingFileHandler.emit already routes its own failures to handleError, so what is left here is the
+            # extra flush(): OSError (disk full, the log directory gone, the rollover rename losing a race with an
+            # antivirus scanner) or ValueError ("I/O operation on closed file" during interpreter shutdown).
+            # handleError is logging's own visible-failure path - it writes to stderr and still cannot raise - so
+            # the process survives exactly as before, but a crash log that is silently not reaching disk now says
+            # so. A silent `pass` here is the worst possible place for one: this handler IS the crash record.
+            self.handleError(record)
 
 
 # ---------------------------------------------------------------------------
@@ -126,16 +132,29 @@ def init_crash_logging(skill_name: str) -> logging.Logger:
         for h in logging.getLogger().handlers:
             try:
                 h.flush()
-            except Exception:
-                pass
+            except (OSError, ValueError) as exc:
+                # The traceback we just logged may therefore NOT be on disk, and this is the one moment where
+                # that matters: the dialog below is about to tell the user "the details are in the log file".
+                # Reported straight to stderr rather than through logging, because logging is the suspect here
+                # (process_manager pipes our stderr to the per-skill .log, so it is still captured).
+                print(f"crash_logger: could not flush {type(h).__name__}: {type(exc).__name__}: {exc} - "
+                      f"the traceback above may not have reached {log_path}", file=sys.stderr, flush=True)
         # Best-effort: show crash dialog if Qt is still available
         try:
             from PySide6.QtWidgets import QApplication
             if QApplication.instance():
                 from shared.qt.crash_dialog import show_crash_dialog
                 show_crash_dialog(log_path, skill_name=skill_name, blocking=True)
+        except ImportError as exc:
+            log.debug("crash_logger: no crash dialog available (%s); the log file is the only report", exc)
         except Exception:
-            pass  # never let the crash dialog crash the crash handler
+            # LEFT BROAD DELIBERATELY. show_crash_dialog builds and runs a modal Qt dialog while the interpreter is
+            # already unwinding a fatal error, so it can raise almost anything (RuntimeError from an already-deleted
+            # C++ object, OSError reading the log back, a Qt abort). An escape from sys.excepthook is not a normal
+            # traceback: the interpreter falls back to its own handler, prints "Error in sys.excepthook" and
+            # DISCARDS the original exception - destroying the very crash report this function exists to preserve.
+            # So the guard stays; what changes is that its failure is now recorded instead of vanishing.
+            log.critical("crash_logger: the crash dialog itself failed", exc_info=True)
 
     sys.excepthook = _excepthook
 
