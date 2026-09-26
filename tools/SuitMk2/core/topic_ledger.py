@@ -34,7 +34,13 @@ def subject_key(spec: dict) -> str:
         s = str(v).strip()
         if not s or s.replace(",", "").replace(".", "", 1).lstrip("-").isdigit():
             continue
-        return f"{scenario}|{s.lower()}"
+        # Key on WHAT the claim is about (its predicate root: "jurisdiction.zone" -> "jurisdiction"), not on which
+        # channel produced the line. J, 2026-09-26: "still obsessed about the most recent event". The event said
+        # "event_jurisdiction_change|crusader industries" and the ambient said "jurisdiction|crusader industries",
+        # so one subject got two budgets, and banter a third: jurisdiction came up five times in eight minutes.
+        pred = str(c.get("predicate") or "")
+        root = pred.split(".", 1)[0] if "." in pred else ""
+        return f"{root or scenario}|{s.lower()}"
     return scenario
 
 
