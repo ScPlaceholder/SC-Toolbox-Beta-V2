@@ -21,6 +21,15 @@ from shared.app_bootstrap import bootstrap_skill  # noqa: E402
 bootstrap_skill(__file__)
 
 
+def _hotkey(settings_key: str, default: str, fallback: str) -> str:
+    """This tool's real hotkey for its title bar (follows a launcher rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label(settings_key, default)
+    except ImportError:
+        return fallback
+
+
 def main() -> None:
     from PySide6.QtCore import QThread
     from PySide6.QtWidgets import QApplication
@@ -41,7 +50,7 @@ def main() -> None:
     apply_theme(app)
 
     geometry = WindowGeometry(x=args["x"], y=args["y"], w=args["w"], h=args["h"], opacity=args["opacity"])
-    window = SuitWindow(geometry=geometry, hotkey_text="Ctrl+2", cmd_file=args.get("cmd_file"))
+    window = SuitWindow(geometry=geometry, hotkey_text=_hotkey("hotkey_suitmk2", "<ctrl>+2", "Ctrl+2"), cmd_file=args.get("cmd_file"))
 
     if not os.environ.get("SC_TOOLBOX_PRELOAD"):
         window.show()          # standalone / explicit launch: show the dashboard; preload: run hidden

@@ -77,6 +77,15 @@ log = logging.getLogger(__name__)
 _scan_pool = None
 
 
+def _hotkey(settings_key: str, default: str, fallback: str) -> str:
+    """This tool's real hotkey for its title bar (follows a launcher rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label(settings_key, default)
+    except ImportError:
+        return fallback
+
+
 def _get_scan_pool():
     """Return the module-level scan pool, creating it on first use.
 
@@ -607,7 +616,7 @@ class MiningSignalsApp(SCWindow):
             title="Mining Signals",
             icon_text="",
             accent_color=ACCENT,
-            hotkey_text="Ctrl+1",
+            hotkey_text=_hotkey("hotkey_mining_signals", "<ctrl>+1", "Ctrl+1"),
             extra_buttons=[("Tutorial", self._show_tutorial)],
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
@@ -809,7 +818,7 @@ class MiningSignalsApp(SCWindow):
         """)
         ocr_layout.addWidget(self._inline_result)
 
-        self._hotkey_hint = QLabel("Ctrl+1 to hide", self._ocr_row)
+        self._hotkey_hint = QLabel(_hotkey("hotkey_mining_signals", "<ctrl>+1", "Ctrl+1") + " to hide", self._ocr_row)
         self._hotkey_hint.setStyleSheet(f"""
             font-family: Consolas, monospace;
             font-size: 7pt; color: {P.fg_dim};

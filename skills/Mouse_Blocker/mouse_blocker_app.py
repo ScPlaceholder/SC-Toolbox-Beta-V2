@@ -41,6 +41,15 @@ from ui.app import BlockerWindow  # noqa: E402
 log = logging.getLogger(__name__)
 
 
+def _hotkey(settings_key: str, default: str, fallback: str) -> str:
+    """This tool's real hotkey for its title bar (follows a launcher rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label(settings_key, default)
+    except ImportError:
+        return fallback
+
+
 def main() -> None:
     init_crash_logging("mouse_blocker")
     # Mark this process as latency-sensitive *before* we allocate any Qt
@@ -56,7 +65,7 @@ def main() -> None:
     app.setApplicationName("SC Toolbox - Mouse Blocker")
     apply_theme(app)
 
-    window = BlockerWindow(opacity=args["opacity"], hotkey_text="Shift+0")
+    window = BlockerWindow(opacity=args["opacity"], hotkey_text=_hotkey("hotkey_mouse_blocker", "<shift>+0", "Shift+0"))
 
     if os.environ.get("SC_TOOLBOX_PRELOAD"):
         # Pre-warm path (launcher pre-spawn).  Off-screen show()+hide()

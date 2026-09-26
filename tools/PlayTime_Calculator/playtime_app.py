@@ -30,6 +30,15 @@ import logging  # noqa: E402
 log = logging.getLogger(__name__)
 
 
+def _hotkey(settings_key: str, default: str, fallback: str) -> str:
+    """This tool's real hotkey for its title bar (follows a launcher rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label(settings_key, default)
+    except ImportError:
+        return fallback
+
+
 def run_headless() -> int:
     """Scan + recompute + write the summary cache, no GUI.  Pure-Python engine."""
     from core import log_scanner, analytics, settings as st
@@ -75,7 +84,7 @@ def main() -> None:
         x=args["x"], y=args["y"], w=args["w"], h=args["h"], opacity=args["opacity"])
 
     window = PlayTimeWindow(
-        geometry=geometry, hotkey_text="Ctrl+4", cmd_file=args.get("cmd_file"))
+        geometry=geometry, hotkey_text=_hotkey("hotkey_playtime", "<ctrl>+4", "Ctrl+4"), cmd_file=args.get("cmd_file"))
     window.show()
 
     if args.get("cmd_file"):

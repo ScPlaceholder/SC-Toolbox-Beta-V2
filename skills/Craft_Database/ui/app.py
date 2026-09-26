@@ -31,6 +31,15 @@ from ui.detail_panel import BlueprintPopup
 log = logging.getLogger(__name__)
 
 
+def _hotkey(settings_key: str, default: str, fallback: str) -> str:
+    """This tool's real hotkey for its title bar (follows a launcher rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label(settings_key, default)
+    except ImportError:
+        return fallback
+
+
 class CraftDatabaseApp(SCWindow):
     """Main window for the Craft Database skill."""
 
@@ -77,7 +86,7 @@ class CraftDatabaseApp(SCWindow):
             title=TOOL_NAME.upper(),
             icon_text="\U0001f3ed",
             accent_color=TOOL_COLOR,
-            hotkey_text="Shift+7",
+            hotkey_text=_hotkey("hotkey_craft_db", "<shift>+7", "Shift+7"),
             extra_buttons=[("? Tutorial", self._show_tutorial)],
         )
         self._title_bar.close_clicked.connect(self.close)
