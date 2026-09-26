@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from shared.config_models import SkillConfig
 from shared.i18n import _ as _t
+from shared.qt import screen_fit
 from shared.qt.theme import P
 from shared.qt.animated_button import SCButton
 
@@ -241,7 +242,19 @@ class SettingsPopup(QWidget):
         self.setObjectName("settingsPopup")
         self.setWindowOpacity(opacity)
         self.setStyleSheet(f"QWidget#settingsPopup {{ background-color: {P.bg_header}; }}")
-        self.setFixedSize(560, 560)
+
+        # ── Size: the design size, shrunk to what this screen can actually show ──
+        # UI scale is applied with QT_SCALE_FACTOR, and both widget sizes and availableGeometry()
+        # are in device-independent pixels — so raising the scale does not grow this number, it
+        # shrinks the screen's.  At 2.5x a 1920x1080 monitor reports 768x432, and the unclamped
+        # 560x560 popup opened at y=-65: 65px above the top edge and 63px below the bottom one,
+        # taking the Apply button and the title bar (the drag handle and the [x]) with it, measured
+        # in shared/tests/test_settings_popup_fit.py.  The user then cannot reach the
+        # control that would undo the scale: the setting makes itself unreachable.  Both tab bodies
+        # are QScrollAreas, so a shorter popup scrolls rather than hiding rows.
+        self._avail = screen_fit.available_rect(parent_window.frameGeometry().center()
+                                                if parent_window is not None else None)
+        self.setFixedSize(*screen_fit.clamp_size(560, 560, self._avail))
 
         self._parent_window = parent_window
         self._skills = skills
@@ -292,6 +305,12 @@ class SettingsPopup(QWidget):
         size = pw.size()
         cx = pos.x() + (size.width() - self.width()) // 2
         cy = pos.y() + (size.height() - self.height()) // 2
+        # Centring on the launcher can push the popup past an edge on its own — the launcher may
+        # sit near one, or be bigger than the screen at a high UI scale.  Clamp after the size
+        # clamp above, never before: clamping the position of a window that does not fit only
+        # chooses which edge loses, which is how the SCWindow rescue (c9046c3) still ends up
+        # pinning an oversized window to the top-left with its bottom bar off-screen.
+        cx, cy = screen_fit.clamp_pos(cx, cy, self.width(), self.height(), self._avail)
         self.move(cx, cy)
 
     # ── Build UI ──────────────────────────────────────────────────────────
@@ -432,6 +451,9 @@ class SettingsPopup(QWidget):
         ))
         apply_btn.clicked.connect(self._on_apply_clicked)
         b_lay.addWidget(apply_btn)
+        # Kept on the instance so a test can assert where it landed: it is the only control that
+        # can undo a UI scale, so "is Apply on the screen" is the check that matters.
+        self._apply_btn = apply_btn
 
         main_lay.addWidget(bottom)
 
@@ -615,13 +637,31 @@ class SettingsPopup(QWidget):
         self._scale_combo.setFixedWidth(80)
         self._scale_combo.setFixedHeight(24)
         _scale_values = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
-        for val in _scale_values:
+        # Only offer scales this monitor can still display Settings at.  The clamp in __init__
+        # already guarantees Apply stays reachable, so this is not what rescues a stuck user — it
+        # stops the choice being offered at all on a screen where the popup would be squeezed below
+        # MIN_POPUP (380x420 device-independent px).  1080p tops out at 2x; 1440p and above keep
+        # the full list.  The scale in force and the smallest choice are always kept: a combo that
+        # hid the current value would misreport the state, and there must always be a way down.
+        _offer = screen_fit.usable_ui_scales(
+            _scale_values, self._avail, self._ui_scale,
+            keep=(self._ui_scale, min(_scale_values)),
+        )
+        for val in _offer:
             self._scale_combo.addItem(f"{val:.2g}x", val)
+        # The tip names the way out as well as the cap: closing this window with its [x] saves,
+        # exactly like Apply, so a scale is undoable even from a build where Apply is off-screen.
+        _tip = _t("Applies to every window. Closing Settings with [x] saves it too, like Apply.")
+        if len(_offer) < len(_scale_values):
+            _tip += "  " + _t("Larger scales are hidden: this screen cannot show Settings at them.")
+            _tip += f"  ({max(_offer):.2g}x max)"
+        self._scale_combo.setToolTip(_tip)
         idx = self._scale_combo.findData(self._ui_scale)
-        if idx >= 0:
-            self._scale_combo.setCurrentIndex(idx)
-        else:
-            self._scale_combo.setCurrentIndex(1)  # default 1.0x
+        if idx < 0:
+            # Fall back to 1x by VALUE, not by position: the list above can be shorter than the
+            # full eight on a small screen, and index 1 was only ever 1.0x by coincidence.
+            idx = self._scale_combo.findData(1.0)
+        self._scale_combo.setCurrentIndex(max(idx, 0))
         sc_lay.addWidget(self._scale_combo)
 
         c_lay.addWidget(scale_row)

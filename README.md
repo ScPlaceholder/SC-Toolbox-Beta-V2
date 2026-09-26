@@ -90,6 +90,18 @@ profile (4.x, checked against defaultProfile.xml); Alt+1 to Alt+4 are taken (tar
 consumables). If two tools end up on the same combo, the launcher keeps the first, leaves the
 other unbound and says so in its status line. Rebind any of them in Settings.
 
+### UI scale
+
+**Settings → Tools → UI Scale** enlarges every window for a high-DPI monitor; the toolbox restarts
+itself to apply it, because Qt reads the scale factor once at startup. The list only offers the
+scales your monitor can still show the Settings window at — a 1920x1080 panel stops at 2x, 1440p
+and above keep the full range up to 3x — and the Settings window itself is clamped to the screen,
+so its Apply button can never end up outside it.
+
+If a window ever does open partly off-screen, **closing Settings with its [x] saves the current
+values, exactly like Apply.** Only Cancel discards. So you can always drag the title bar into
+view, pick 1x, and close.
+
 ### SC_OCR — purpose-built for Star Citizen
 
 Mining Signals previously relied on stock Tesseract, which struggled with the SC HUD's sparse digits, anti-aliased glyphs, and varying background luminance. v2.2.6 introduces **SC_OCR**: a CNN-based reader trained on actual in-game captures. Highlights:
