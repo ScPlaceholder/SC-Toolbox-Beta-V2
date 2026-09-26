@@ -125,6 +125,11 @@ def _part_paths() -> dict[str, QPainterPath]:
 
 _PATHS = _part_paths()
 
+# Badge names say the SIDE outright: on a figure facing you, the arm on your
+# right is his left, and people read it the wrong way round (J, 2026-09-25).
+_BADGE = {"head": "HEAD", "torso": "TORSO", "right_arm": "R ARM", "left_arm": "L ARM",
+          "right_leg": "R LEG", "left_leg": "L LEG"}
+
 
 class BodyDiagram(QWidget):
     """X-ray Pico, each body part glowing by injury count.
@@ -159,7 +164,7 @@ class BodyDiagram(QWidget):
     # ── geometry ──
 
     def _figure_rect(self) -> QRectF:
-        pad_top, pad_bot = 22, 34
+        pad_top, pad_bot = 30, 34
         avail_h = max(1.0, self.height() - pad_top - pad_bot)
         scale = min(avail_h / _H, max(1.0, self.width() - 20) / _W)
         w, h = _W * scale, _H * scale
@@ -215,11 +220,15 @@ class BodyDiagram(QWidget):
         s = self._scale()
 
         # Side markers (front view: player's right is on the viewer's left).
+        p.setFont(QFont("Electrolize", 10, QFont.Bold))
+        p.setPen(QColor(P.fg_bright))
+        p.drawText(QRectF(8, 4, self.width() / 2, 20), Qt.AlignLeft | Qt.AlignVCenter,
+                   "\u25c0 YOUR RIGHT")
+        p.drawText(QRectF(self.width() / 2 - 8, 4, self.width() / 2, 20),
+                   Qt.AlignRight | Qt.AlignVCenter, "YOUR LEFT \u25b6")
         p.setFont(QFont("Consolas", 7, QFont.Bold))
         p.setPen(QColor(P.fg_dim))
-        p.drawText(QRectF(fr.left(), 2, 40, 16), Qt.AlignLeft | Qt.AlignVCenter, "R")
-        p.drawText(QRectF(fr.right() - 40, 2, 40, 16), Qt.AlignRight | Qt.AlignVCenter, "L")
-        p.drawText(QRectF(0, 2, self.width(), 16), Qt.AlignCenter, "FRONT VIEW")
+        p.drawText(QRectF(0, 4, self.width(), 20), Qt.AlignCenter, "FACING YOU")
 
         have_art = not self._pixmap.isNull()
         if have_art:
@@ -232,23 +241,32 @@ class BodyDiagram(QWidget):
             self._paint_parts(p, s, mx, bare=True)
             p.restore()
 
-        # Count badges: a dark pill per part so the number reads over the art.
+        # Badges: a dark pill per part, "L ARM 82", so the number reads over the
+        # art and the side is spelled out rather than inferred from the mirror.
         font = QFont("Electrolize", max(8, int(40 * s)), QFont.Bold)
-        p.setFont(font)
-        fm = QFontMetrics(font)
+        small = QFont("Electrolize", max(7, int(28 * s)), QFont.Bold)
+        fm, fs = QFontMetrics(font), QFontMetrics(small)
         for key, path in _PATHS.items():
             n = st.by_part.get(key, 0)
             c = self._to_widget(path.boundingRect().center())
-            text = f"{n:,}"
-            bw, bh = fm.horizontalAdvance(text) + 12, fm.height() + 2
+            name, count = _BADGE[key], f"{n:,}"
+            gap = 5
+            nw, cw = fs.horizontalAdvance(name), fm.horizontalAdvance(count)
+            bw, bh = nw + gap + cw + 14, fm.height() + 2
             pill = QRectF(c.x() - bw / 2, c.y() - bh / 2, bw, bh)
             bg = QColor(P.bg_deepest)
-            bg.setAlpha(210)
+            bg.setAlpha(215)
             p.setBrush(bg)
             p.setPen(QPen(QColor(GOLD if n else P.border_card), 1))
             p.drawRoundedRect(pill, bh / 2, bh / 2)
+            x = pill.left() + 7
+            p.setFont(small)
+            p.setPen(QColor(P.fg_dim if not n else GOLD))
+            p.drawText(QRectF(x, pill.top(), nw, bh), Qt.AlignLeft | Qt.AlignVCenter, name)
+            p.setFont(font)
             p.setPen(QColor(P.fg_bright if n else P.fg_dim))
-            p.drawText(pill, Qt.AlignCenter, text)
+            p.drawText(QRectF(x + nw + gap, pill.top(), cw, bh),
+                       Qt.AlignLeft | Qt.AlignVCenter, count)
 
         # Frequency legend.
         lg_w = min(160.0, self.width() - 40.0)
