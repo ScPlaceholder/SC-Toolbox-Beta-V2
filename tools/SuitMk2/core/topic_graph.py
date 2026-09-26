@@ -13,7 +13,7 @@ Shape
     data/topics_lore.json  places / factions / creatures, every fact carrying its source URL (curated, not generated)
     data/ships.json        the ship DB snapshot; a ship branch (root -> manufacturers -> ships) is BUILT from it,
                            plus Elah's own opinions (favourite makers, dream ship), which are hers, not facts.
-    data/ship_weapons.json Erkul's weapon stats (tools/build_ship_weapons.py); a "ship weapons" branch (root ->
+    data/ship_weapons.json weapon stats from scunpacked-data (tools/build_ship_weapons.py); a "ship weapons" branch (root ->
                            weapon makers -> weapons) is built from it, linked to ship makers that are the same company.
   EVENT mode: nodes anchored to where the pilot is are the entry; the walk goes outward along edges.
   RANDOM mode: when nothing anchors (or the local chart is talked out), a random root is walked the same way.
@@ -367,7 +367,7 @@ def _weapon_facts(m: str, r: dict, medians: Optional[dict] = None) -> list[dict]
 
 def weapon_branch(weapons: list[dict], ship_nodes: list[dict] = (), per_maker: int = 6,
                   makers: int = 10) -> list[dict]:
-    """data/ship_weapons.json (built by tools/build_ship_weapons.py: Erkul's catalog for the list and every number,
+    """data/ship_weapons.json (built by tools/build_ship_weapons.py: scunpacked-data for the list and every number,
     UEX for maker names) -> root 'ship weapons' -> weapon-maker nodes -> facts naming real weapons. Same rule as
     ship_branch: every name, size, kind and number is copied from a data row (the builder rounds once; the fact carries
     that exact value, which is what lets the grounding gate authorise it). Numbers are Montaigne's (status "weapon",
