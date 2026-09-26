@@ -76,6 +76,37 @@ class TestBuildSlots:
         assert slots == []
         assert bounds == (0, 0, 1, 1)
 
+    def test_size_tags_ignored_without_provenance(self):
+        # Old sc-cargo.space cache tags are unreliable (Vulture maxSize=1);
+        # ships without scunpacked provenance keep the unconstrained behavior.
+        ship = {
+            "groups": [{
+                "x": 0, "z": 0,
+                "grids": [{"x": 0, "z": 0, "width": 2, "height": 2, "length": 3,
+                           "maxSize": 1, "minSize": 1}],
+            }]
+        }
+        slots, _ = build_slots(ship)
+        assert slots[0]["maxSize"] is None
+        assert slots[0]["minSize"] is None
+
+    def test_size_tags_passed_for_scunpacked_provenance(self):
+        ship = {
+            "provenance": {"source": "scunpacked-data"},
+            "groups": [{
+                "x": 0, "z": 0,
+                "grids": [{"x": 0, "z": 0, "width": 2, "height": 2, "length": 3,
+                           "maxSize": 16, "minSize": 1}],
+            }]
+        }
+        slots, _ = build_slots(ship)
+        assert slots[0]["maxSize"] == 16
+        assert slots[0]["minSize"] == 1
+        # and the optimizer honors the passed maxSize
+        counts = greedy_optimize_3d(slots)
+        assert counts.get(24, 0) == 0
+        assert counts.get(32, 0) == 0
+
 
 class TestGreedyOptimize:
     def test_fills_with_largest(self):

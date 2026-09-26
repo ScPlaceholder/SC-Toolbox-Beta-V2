@@ -68,6 +68,7 @@ refinery_orders.json
 mining_loadout_config.json
 mining_signals_config.json
 battle_buddy_settings.json
+cargo_loader_config.json
 labeler_err.txt
 labeler.log
 

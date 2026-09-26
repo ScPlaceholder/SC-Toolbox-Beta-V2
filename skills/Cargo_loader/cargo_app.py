@@ -75,6 +75,27 @@ _DIR       = os.path.dirname(os.path.abspath(__file__))
 CACHE_FILE = os.path.join(_DIR, ".cargo_cache.json")
 CACHE_TTL  = CACHE_TTL_CARGO
 
+# Grid data source switch. "sc_cargo_space" (default) uses the live
+# sc-cargo.space scrape cached in .cargo_cache.json. "scunpacked" uses
+# datamine/cargo_grids_scunpacked.json, rebuilt from scunpacked-data by
+# datamine/refresh_grids.py (no network needed at load time). Flip with:
+#   {"grid_source": "scunpacked"}   in cargo_loader_config.json
+CONFIG_FILE      = os.path.join(_DIR, "cargo_loader_config.json")
+SCUNPACKED_FILE  = os.path.join(_DIR, "datamine", "cargo_grids_scunpacked.json")
+
+
+def load_loader_config() -> dict:
+    try:
+        with open(CONFIG_FILE, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def grid_source() -> str:
+    src = load_loader_config().get("grid_source", "sc_cargo_space")
+    return src if src in ("sc_cargo_space", "scunpacked") else "sc_cargo_space"
+
 HEADERS = SC_CARGO_HEADERS
 
 REFERENCE_LOADOUTS: dict[str, dict[int, int]] = load_reference_loadouts(_DIR)
@@ -253,13 +274,17 @@ class ShipDataLoader:
 
     def _run(self, callback) -> None:
         try:
-            cached = self._load_cache()
-            if cached:
-                self._index(cached)
+            scunpacked = self._load_scunpacked()
+            if scunpacked is not None:
+                self._index(scunpacked)
             else:
-                ships = self._fetch_and_parse()
-                self._save_cache(ships)
-                self._index(ships)
+                cached = self._load_cache()
+                if cached:
+                    self._index(cached)
+                else:
+                    ships = self._fetch_and_parse()
+                    self._save_cache(ships)
+                    self._index(ships)
         except (OSError, requests.RequestException, RuntimeError, ValueError, json.JSONDecodeError, KeyError, TypeError) as e:
             with self._lock:
                 self.error = str(e)
@@ -450,6 +475,23 @@ class ShipDataLoader:
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
             log.warning("Cache load failed: %s", exc)
         return None
+
+    def _load_scunpacked(self) -> list | None:
+        """Ships from datamine/cargo_grids_scunpacked.json when the
+        grid_source config setting is "scunpacked"; None otherwise."""
+        if grid_source() != "scunpacked":
+            return None
+        if not os.path.exists(SCUNPACKED_FILE):
+            raise RuntimeError(
+                "grid_source is 'scunpacked' but %s is missing. "
+                "Rebuild it with: python datamine/refresh_grids.py" % SCUNPACKED_FILE
+            )
+        with open(SCUNPACKED_FILE, encoding="utf-8") as f:
+            obj = json.load(f)
+        if not isinstance(obj, dict) or not isinstance(obj.get("ships"), list):
+            raise RuntimeError("%s is not a valid converted grid file" % SCUNPACKED_FILE)
+        log.info("Loaded %d ships from scunpacked grid file", len(obj["ships"]))
+        return obj["ships"]
 
     def _save_cache(self, ships: list) -> None:
         try:

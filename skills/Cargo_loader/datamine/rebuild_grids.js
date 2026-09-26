@@ -5,7 +5,7 @@
  * Source: github.com/StarCitizenWiki/scunpacked-data (ships.json, one game build).
  * Target: the loader .cargo_cache.json ship format:
  *   { manufacturer, name, capacity, groups: [{ x, z, grids: [{ x, y, z,
- *     width, height, length }] }], labels: [...] }
+ *     width, height, length, minSize?, maxSize? }] }], labels: [...] }
  *
  * The loader axes (width/height/length) do NOT necessarily equal the
  * files X/Y/Z. The axis mapping is derived, not hardcoded: `derive` scores
@@ -13,11 +13,20 @@
  * the evidence. `diff` produces the ship-by-ship review report. Nothing is
  * written into the loader live cache by this tool.
  *
+ * MinSize/MaxSize: scunpacked carries them per grid as metre extents
+ * ({X,Y,Z}); the loader format carries scalar container classes (1..32 SCU).
+ * Object forms are converted to cells with the SAME axis mapping as the grid
+ * dims and reduced to classes:
+ *   maxSize = largest class whose dims fit the extents in some rotation
+ *   minSize = smallest class whose dims reach the extents in some rotation
+ * Scalar forms (older fixtures, sc-cargo.space dumps) pass through unchanged.
+ *
  * Usage:
  *   node rebuild_grids.js inspect  <ships.json>
  *   node rebuild_grids.js derive   <ships.json> <cargo_cache.json>
  *   node rebuild_grids.js diff     <ships.json> <cargo_cache.json> [report.md]
  *   node rebuild_grids.js convert  <ships.json> <cargo_cache.json> [XYZmap] [out.json]
+ *   node rebuild_grids.js test
  *
  * XYZmap is the axis mapping as the loader axis order spelled in file axes,
  * e.g. "YZX" means width=Y, height=Z, length=X. Defaults to the winner of
@@ -37,6 +46,15 @@ const COMMIT = "e96132078ae6a1a5f62a183fb1523dc006dcfddb"; // scunpacked-data co
 const ATTRIBUTION =
   "Ship data: StarCitizenWiki/scunpacked-data. Star Citizen content (c) Cloud Imperium Games.";
 
+// Container classes, from container_schema.json (w,h,l in cells, long axis l).
+// Max stack height constraints mirror cargo_engine.placement.max_containers_in_slot.
+const CONTAINER_DIMS = {
+  1: [1, 1, 1], 2: [1, 1, 2], 4: [2, 1, 2], 8: [2, 2, 2],
+  16: [2, 2, 4], 24: [2, 2, 6], 32: [2, 2, 8],
+};
+const CONTAINER_MAX_STACK = { 2: 1, 4: 1 };
+const CONTAINER_CLASSES = Object.keys(CONTAINER_DIMS).map(Number).sort((a, b) => a - b);
+
 // field access (scunpacked uses PascalCase; accept lowercase too)
 function num(obj, ...keys) {
   for (const k of keys) {
@@ -48,6 +66,21 @@ function num(obj, ...keys) {
 }
 function pick(obj, ...keys) {
   for (const k of keys) if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+  return undefined;
+}
+
+// A MinSize/MaxSize field is either a scalar class (old fixtures, sc-cargo.space)
+// or a metre-extents object {X,Y,Z}. Returns {scalar:n} or {vec:{X,Y,Z}}.
+function sizeField(obj, ...keys) {
+  const v = pick(obj, ...keys);
+  if (v === undefined) return undefined;
+  if (typeof v === "number" && isFinite(v)) return { scalar: v };
+  if (typeof v === "string" && v !== "" && isFinite(Number(v))) return { scalar: Number(v) };
+  if (v && typeof v === "object") {
+    const X = num(v, "X", "x"), Y = num(v, "Y", "y"), Z = num(v, "Z", "z");
+    if (X !== undefined || Y !== undefined || Z !== undefined)
+      return { vec: { X: X || 0, Y: Y || 0, Z: Z || 0 } };
+  }
   return undefined;
 }
 
@@ -138,8 +171,8 @@ function scGrids(raw) {
     out.push({
       X, Y, Z, // metres
       scu: num(g, "SCU", "scu"),
-      minSize: num(g, "MinSize", "minSize"),
-      maxSize: num(g, "MaxSize", "maxSize"),
+      minSize: sizeField(g, "MinSize", "minSize"),
+      maxSize: sizeField(g, "MaxSize", "maxSize"),
       px: num(pos, "X", "x") || 0,
       py: num(pos, "Y", "y") || 0,
       pz: num(pos, "Z", "z") || 0,
@@ -286,6 +319,68 @@ function shapeMultiset(grids, map, cellsFn) {
   return keys.join("|");
 }
 
+// Rotation-tolerant variant: two grids are considered the same shape when
+// they are identical or one is the other with w and l swapped (height is
+// never swapped - a 2-high bay is not a 2-long bay). Canonical key per grid
+// is the lexicographically smaller of "wxhxl" / "lxhxw".
+function rotationMultiset(grids) {
+  return grids
+    .map((g) => {
+      const a = [g.w, g.h, g.l].join("x");
+      const b = [g.l, g.h, g.w].join("x");
+      return a < b ? a : b;
+    })
+    .sort()
+    .join("|");
+}
+
+// unique rotations of a container's dims, honoring its max stack height
+function rotationsOf(cls) {
+  const dims = CONTAINER_DIMS[cls];
+  const maxCh = CONTAINER_MAX_STACK[cls];
+  const seen = new Set();
+  const out = [];
+  for (const a of dims) for (const b of dims) for (const c of dims) {
+    const have = {};
+    for (const d of [a, b, c]) have[d] = (have[d] || 0) + 1;
+    const need = {};
+    for (const d of dims) need[d] = (need[d] || 0) + 1;
+    let same = true;
+    for (const d in need) if (need[d] !== have[d]) same = false;
+    if (!same) continue;
+    const key = [a, b, c].join(",");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (maxCh !== undefined && b > maxCh) continue; // height exceeds stack limit
+    out.push([a, b, c]);
+  }
+  return out;
+}
+
+// largest container class whose dims fit inside the MaxSize extents
+function maxSizeClass(field, map) {
+  if (field === undefined) return null;
+  if (field.scalar !== undefined) return field.scalar;
+  const ext = mappedTriple(field.vec, map).map((m) => toCells(m).cells);
+  for (let i = CONTAINER_CLASSES.length - 1; i >= 0; i--)
+    if (rotationsOf(CONTAINER_CLASSES[i]).some(([cw, ch, cl]) =>
+        cw <= ext[0] && ch <= ext[1] && cl <= ext[2])) return CONTAINER_CLASSES[i];
+  return null;
+}
+
+// smallest container class whose dims reach the MinSize extents in every axis
+// (under some rotation): a bay whose min extent is 2 cells rejects 1-SCU boxes.
+function minSizeClass(field, map) {
+  if (field === undefined) return null;
+  if (field.scalar !== undefined) return field.scalar;
+  const ext = mappedTriple(field.vec, map).map((m) => toCells(m).cells);
+  for (const cls of CONTAINER_CLASSES) {
+    if (rotationsOf(cls).some(([cw, ch, cl]) =>
+        cw >= ext[0] && ch >= ext[1] && cl >= ext[2])) return cls;
+  }
+  return CONTAINER_CLASSES[CONTAINER_CLASSES.length - 1];
+}
+
 // Score every permutation: how many ships present in both sources have an
 // identical grid-shape multiset under that mapping (secondary: SCU total).
 function derive(scShips, cacheShips) {
@@ -345,6 +440,7 @@ function diff(scShips, cacheShips, map) {
 
     const loaderGrids = cacheGrids(cs);
     const loaderShapes = shapeMultiset(loaderGrids, null, null);
+    const loaderRotShapes = rotationMultiset(loaderGrids);
     const loaderScu = cacheVolume(cs);
     const filesScu = sc.grids.reduce((a, g) => a + (g.scu ?? 0), 0);
 
@@ -354,7 +450,9 @@ function diff(scShips, cacheShips, map) {
       return {
         dims: cells.map((c) => c.cells),
         roundErrors: cells.map((c) => c.roundError),
-        scu: g.scu, minSize: g.minSize, maxSize: g.maxSize,
+        scu: g.scu,
+        minCls: minSizeClass(g.minSize, map),
+        maxCls: maxSizeClass(g.maxSize, map),
       };
     });
     for (const m of mapped)
@@ -364,23 +462,25 @@ function diff(scShips, cacheShips, map) {
             m.roundErrors.map((e) => e.toFixed(2)).join(",") + ")"
         );
 
-    const filesShapes = shapeMultiset(
-      mapped.map((m) => ({ w: m.dims[0], h: m.dims[1], l: m.dims[2] })),
-      null, null
-    );
+    const asShapes = mapped.map((m) => ({ w: m.dims[0], h: m.dims[1], l: m.dims[2] }));
+    const filesShapes = shapeMultiset(asShapes, null, null);
+    const filesRotShapes = rotationMultiset(asShapes);
 
-    let cls;
-    if (filesShapes === loaderShapes && filesScu === loaderScu) cls = "MATCH_ALL";
-    else if (filesScu === loaderScu) cls = "SCU_ONLY";
-    else cls = "DIFF";
+    let cls, shape;
+    if (filesShapes === loaderShapes && filesScu === loaderScu) { cls = "MATCH_ALL"; shape = "same"; }
+    else if (filesRotShapes === loaderRotShapes) { cls = "SCU_ONLY_ROT"; shape = "rotation"; }
+    else if (filesScu === loaderScu) { cls = "SCU_ONLY"; shape = "different"; }
+    else { cls = "DIFF"; shape = "different"; }
 
     report.both.push({
       name: cs.name,
       class: cls,
+      shape,
       loaderScu, filesScu,
       loaderGrids: loaderGrids.map((g) => [g.w, g.h, g.l].join("x")),
       filesGrids: mapped.map((m) => m.dims.join("x")),
-      maxSize: mapped.map((m) => (m.maxSize == null ? "null" : m.maxSize)),
+      minSize: mapped.map((m) => (m.minCls == null ? "null" : m.minCls)),
+      maxSize: mapped.map((m) => (m.maxCls == null ? "null" : m.maxCls)),
     });
   }
   for (const sc of scShips)
@@ -393,7 +493,7 @@ function diff(scShips, cacheShips, map) {
 }
 
 function reportMarkdown(report, deriveRows) {
-  const counts = { MATCH_ALL: 0, SCU_ONLY: 0, DIFF: 0 };
+  const counts = { MATCH_ALL: 0, SCU_ONLY_ROT: 0, SCU_ONLY: 0, DIFF: 0 };
   for (const b of report.both) counts[b.class]++;
   const L = [];
   L.push("# Cargo grid diff - scunpacked-data " + BUILD + " vs loader cache");
@@ -413,10 +513,14 @@ function reportMarkdown(report, deriveRows) {
   L.push("Chosen mapping: **width=" + report.map.w + ", height=" + report.map.h +
     ", length=" + report.map.l + "** (file axes).");
   L.push("");
+  L.push("Grid-shape equality for the SCU_ONLY split allows each grid's footprint to rotate");
+  L.push("(w and l swapped, height never swapped) and ignores grid order within the ship.");
+  L.push("");
   L.push("## Summary counts");
   L.push("");
   L.push("- MATCH_ALL (grid shapes + total SCU agree): **" + counts.MATCH_ALL + "**");
-  L.push("- SCU_ONLY (total SCU agrees, grid shapes differ): **" + counts.SCU_ONLY + "**");
+  L.push("- SCU_ONLY_ROT (total SCU agrees; shapes differ only by grid order/rotation): **" + counts.SCU_ONLY_ROT + "**");
+  L.push("- SCU_ONLY (total SCU agrees, real shape differences): **" + counts.SCU_ONLY + "**");
   L.push("- DIFF (SCU differs): **" + counts.DIFF + "**");
   L.push("- only in loader (sc-cargo.space): **" + report.onlyLoader.length + "**");
   L.push("- only in scunpacked: **" + report.onlyFiles.length + "**");
@@ -434,9 +538,18 @@ function reportMarkdown(report, deriveRows) {
       L.push("### " + b.name);
       L.push("- loader SCU " + b.loaderScu + " (" + b.loaderGrids.join(", ") + ")");
       L.push("- files  SCU " + b.filesScu + " (" + b.filesGrids.join(", ") + ")");
-      L.push("- files MaxSize per grid: " + b.maxSize.join(", "));
+      L.push("- files minSize per grid (class): " + b.minSize.join(", "));
+      L.push("- files maxSize per grid (class): " + b.maxSize.join(", "));
       L.push("");
     }
+  }
+  L.push("## SCU_ONLY_ROT (order/rotation only - not real differences)");
+  L.push("");
+  for (const b of report.both.filter((x) => x.class === "SCU_ONLY_ROT")) {
+    L.push("### " + b.name);
+    L.push("- loader SCU " + b.loaderScu + " (" + b.loaderGrids.join(", ") + ")");
+    L.push("- files  SCU " + b.filesScu + " (" + b.filesGrids.join(", ") + ")");
+    L.push("");
   }
   L.push("## Only in loader (not in scunpacked ships.json)");
   L.push("");
@@ -466,8 +579,10 @@ function convert(scShips, cacheShips, map) {
         width: t[0], height: t[1], length: t[2],
       };
       cursor += t[0] + 1; // 1-cell gap; positions are layout-only (packing is per-slot)
-      if (g.minSize !== undefined) out.minSize = g.minSize;
-      if (g.maxSize !== undefined) out.maxSize = g.maxSize;
+      const mn = minSizeClass(g.minSize, map);
+      const mx = maxSizeClass(g.maxSize, map);
+      if (mn !== null && mn !== undefined) out.minSize = mn;
+      if (mx !== null && mx !== undefined) out.maxSize = mx;
       return out;
     });
     const capacity = sc.grids.reduce((a, g) => a + (g.scu ?? 0), 0);
@@ -512,13 +627,81 @@ function inspect(file) {
   console.log("total entries:", entries.length);
 }
 
+// fixture test: `node rebuild_grids.js test`
+// Fails if a grid whose files entry carries MaxSize converts to a null/missing
+// maxSize (the original bug: num() on an object extent returned undefined).
+function test() {
+  const dir = path.join(__dirname, "fixtures");
+  const scShips = loadScunpacked(path.join(dir, "ships_fixture.json"));
+  const cache = loadCache(path.join(dir, "cache_fixture.json"));
+  const map = { w: "X", h: "Z", l: "Y" };
+  let failures = 0;
+  const check = (label, cond, detail) => {
+    if (cond) console.log("ok   " + label);
+    else { failures++; console.error("FAIL " + label + (detail ? " - " + detail : "")); }
+  };
+
+  // --- unit: extent -> class reduction ---
+  // Drake Caterpillar Nose-style extents: MaxSize {X:5, Y:5, Z:2.5} m.
+  // map w=X,h=Z,l=Y -> cells (4, 2, 4): class 16 (2x2x4) is the largest that fits.
+  const noseMax = maxSizeClass({ vec: { X: 5, Y: 5, Z: 2.5 } }, map);
+  check("MaxSize {5,5,2.5} m -> class 16", noseMax === 16, "got " + noseMax);
+  check("class 24 (2x2x6) does not fit 4x2x4",
+    !rotationsOf(24).some(([cw, ch, cl]) => cw <= 4 && ch <= 2 && cl <= 4));
+  const noseMin = minSizeClass({ vec: { X: 1.25, Y: 1.25, Z: 1.25 } }, map);
+  check("MinSize {1.25,1.25,1.25} m -> class 1", noseMin === 1, "got " + noseMin);
+  // scalar passthrough (old fixture/sc-cargo.space form)
+  check("scalar MaxSize 2 passes through",
+    maxSizeClass({ scalar: 2 }, map) === 2);
+  check("missing MaxSize -> null", maxSizeClass(undefined, map) === null);
+
+  // --- rotation multiset ---
+  check("rotationMultiset treats w<->l swap as equal",
+    rotationMultiset([{ w: 1, h: 1, l: 4 }]) === rotationMultiset([{ w: 4, h: 1, l: 1 }]));
+  check("rotationMultiset keeps height significant",
+    rotationMultiset([{ w: 1, h: 2, l: 3 }]) !== rotationMultiset([{ w: 1, h: 3, l: 2 }]));
+
+  // --- fixture convert: no null maxSize where the files carry one ---
+  const data = convert(scShips, cache, map);
+  const byName = new Map(scShips.map((s) => [s.name, s]));
+  let checked = 0;
+  const nulls = [];
+  for (const ship of data.ships) {
+    const scShip = byName.get(ship.name);
+    if (!scShip) continue; // carried-over loader ship
+    const grids = (ship.groups || []).flatMap((grp) => grp.grids || []);
+    for (let i = 0; i < grids.length; i++) {
+      if (scShip.grids[i] && scShip.grids[i].maxSize !== undefined) {
+        checked++;
+        if (grids[i].maxSize === undefined || grids[i].maxSize === null)
+          nulls.push(ship.name + " grid " + i + " (" +
+            [grids[i].width, grids[i].height, grids[i].length].join("x") + ")");
+      }
+    }
+  }
+  check("every files grid with MaxSize produced a maxSize class", nulls.length === 0,
+    nulls.join("; ") || (checked + " grids checked"));
+
+  // --- fixture diff runs with the new classification ---
+  const rep = diff(scShips, cache, map);
+  // 3 fixture cache ships; Caterpillar + Avenger Titan link to files ships,
+  // MOLE stays only-in-loader.
+  check("diff linked the expected fixture ships", rep.both.length === 2 &&
+    rep.onlyLoader.length === 1, "both=" + rep.both.length + " onlyLoader=" + rep.onlyLoader.length);
+
+  if (failures) { console.error(failures + " fixture test(s) FAILED"); process.exit(1); }
+  console.log("all fixture tests passed");
+}
+
 // main
 function main() {
   const [, , cmd, ...args] = process.argv;
   const die = (msg) => { console.error(msg); process.exit(2); };
   if (!cmd || cmd === "help" || cmd === "--help") return die(
-    "usage: rebuild_grids.js inspect|derive|diff|convert ... (see header comment)"
+    "usage: rebuild_grids.js inspect|derive|diff|convert|test ... (see header comment)"
   );
+
+  if (cmd === "test") return test();
 
   if (cmd === "inspect") {
     if (!args[0]) die("inspect needs <ships.json>");

@@ -87,6 +87,12 @@ def place_containers_3d(
 def build_slots(ship: dict) -> tuple[list[dict], tuple]:
     """Build slot list from ship group/grid data. Returns (slots, bounds)."""
     slots: list[dict] = []
+    # minSize/maxSize are honored only for scunpacked-derived ship data, where
+    # they were converted from the game files' per-grid MinSize/MaxSize extents
+    # (see datamine/rebuild_grids.js). The old sc-cargo.space cache carries
+    # unreliable tags (e.g. Vulture's 2x2x3 bay tagged maxSize=1) and keeps
+    # the historical unconstrained behavior.
+    honor_sizes = (ship.get("provenance") or {}).get("source") == "scunpacked-data"
     for group in ship.get("groups", []):
         gx = group.get("x", 0)
         gz = group.get("z", 0)
@@ -99,12 +105,8 @@ def build_slots(ship: dict) -> tuple[list[dict], tuple]:
             slots.append({
                 "x": x, "y0": 0, "z": z,
                 "w": w, "h": h, "l": l,
-                # maxSize/minSize from sc-cargo.space are unreliable
-                # (e.g. Vulture's 2×2×3 bay is incorrectly tagged maxSize=1).
-                # Physical dimensions are the only constraint; reference loadouts
-                # in reference_loadouts.json provide the correct per-ship optimums.
-                "maxSize": None,
-                "minSize": None,
+                "maxSize": grid.get("maxSize") if honor_sizes else None,
+                "minSize": grid.get("minSize") if honor_sizes else None,
                 "capacity": w * h * l,
             })
     if not slots:
