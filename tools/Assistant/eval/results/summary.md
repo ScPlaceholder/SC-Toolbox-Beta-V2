@@ -4,7 +4,7 @@ Real agent, router, prompts and provider; tools stubbed with canned results in t
 
 ## Held-out (written before the router existed, never tuned on)
 
-26 cases: 18 clear, 3 ambiguous, 3 no-tool, 2 action
+40 cases: 28 clear, 5 ambiguous, 5 no-tool, 2 action
 
 | set | mode | model | clear tool % | clear tool+args % | ambig asked % | no-tool restraint % | action ok % | invented fact % (cases) | invented number % | LLM phrase invented % (pre-guard) | LLM phrase dropped a number % (pre-guard) | LLM phrase spoken % | median s/question | p90 s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

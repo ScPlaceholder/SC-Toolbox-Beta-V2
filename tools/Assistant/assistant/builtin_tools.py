@@ -358,21 +358,55 @@ def _open_trade_hub(ctx: ToolContext) -> dict:
 @tool(
     name="launch_tool",
     description=(
-        "Open one of the toolbox's tool windows through the launcher: Trade "
-        "Hub, Item Finder, Mission DB, Craft Database, Mining Loadout, "
-        "Mining Signals, Cargo Loader, DPS Calculator, Battle Buddy, "
-        "PlayTime, Starmap, Mouse Blocker, SuitMk2. Only when the user asks "
-        "to open or show a tool."),
+        "Open one of the toolbox's tool windows: Trade Hub, Item Finder, "
+        "Mission DB, Craft Database, Mining Loadout, Mining Signals, Cargo "
+        "Loader, DPS Calculator, Battle Buddy, PlayTime, Starmap, Dev "
+        "History, Mouse Blocker, SuitMk2. Only when the user asks to open "
+        "or show a tool."),
     params={"name": {"type": "string", "description": "Tool name, e.g. Mining Signals"}},
     required=["name"],
     confirm=True,
     action="open {name}",
 )
 def _launch_tool(ctx: ToolContext, name: str) -> dict:
+    """Open a tool window.
+
+    Three paths, in order of preference:
+      1. already running -> IPC ``show`` (no second window, no cold start);
+      2. the launcher reads a command file -> ``launch_skill``, so the
+         launcher owns the process and its tile state stays right;
+      3. otherwise spawn it ourselves (ipc_bus.spawn_skill).
+
+    (3) is not a nicety: LAUNCH.bat and SC_Toolbox.vbs both start the
+    launcher without a command file, so (2) is unavailable in the normal
+    way people run the toolbox, and without (3) this tool can open nothing
+    at all. Its cost is that the launcher does not know about the window,
+    so a later hotkey press can open a second copy — said in the result so
+    the assistant can pass it on.
+    """
     skill = headless.resolve_skill(ctx.base_dir, name)
-    if not ipc_bus.launcher_cmd_file():
-        raise ToolError("the toolbox launcher is not listening for commands (it was "
-                        "started without WingmanAI), so I can't open tools from here")
-    if not ipc_bus.send_to_launcher({"type": "launch_skill", "skill_id": skill["id"]}):
-        raise ToolError(f"could not reach the launcher to open {skill['name']}")
-    return {"launched": skill["name"], "skill_id": skill["id"]}
+    sid, label = skill["id"], skill["name"]
+
+    if sid == "assistant":
+        # Path 3 below would start a SECOND assistant, which then competes
+        # for the microphone with this one. Nothing to open: it is me.
+        return {"launched": label, "skill_id": sid, "via": "already running",
+                "note": "that is me, already open"}
+
+    if ipc_bus.is_running(sid):
+        ipc_bus.send(sid, {"type": "show"})
+        return {"launched": label, "skill_id": sid, "via": "already running"}
+
+    if ipc_bus.launcher_cmd_file():
+        if not ipc_bus.send_to_launcher({"type": "launch_skill", "skill_id": sid}):
+            raise ToolError(f"could not reach the launcher to open {label}")
+        return {"launched": label, "skill_id": sid, "via": "launcher"}
+
+    if not ipc_bus.spawn_skill(ctx.base_dir, sid):
+        raise ToolError(f"could not start {label} — its entry script is missing "
+                        f"or would not launch")
+    if not ipc_bus.wait_ready(sid, timeout=20.0):
+        raise ToolError(f"{label} was started but did not come up in time")
+    return {"launched": label, "skill_id": sid, "via": "spawned directly",
+            "note": "the launcher was not listening for commands, so I started "
+                    "it myself; its launcher tile will not show it as running"}

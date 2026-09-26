@@ -63,7 +63,9 @@ Workers never write the tools' caches or settings, and run with
   join, mining-location dedupe, yes/no parsing
 * `assistant/headless.py`   - in-process helpers (ship SCU, popup shaping, tool names)
 * `assistant/ipc_bus.py`    - finds a skill's command file by a LIVE process that
-  holds it on its command line; talks to the launcher
+  holds it on its command line; talks to the launcher; and spawns any
+  discovered skill itself (`spawn_plan` / `spawn_skill` / `ensure_skill`)
+  with the launcher's own argv contract when the launcher reads no commands
 * `assistant/agent.py`      - conversation loop + yes/no confirmation gate
 * `assistant/voice.py`      - ears (mic + faster-whisper) + mouth (SAPI TTS), optional deps
 * `assistant/panel.py`      - the HUD window
@@ -89,7 +91,7 @@ Workers never write the tools' caches or settings, and run with
 | `playtime_summary()` | PlayTime | |
 | `show_route_popup(route, ship?, show_on_map?)` | Trade Hub window | yes |
 | `open_trade_hub()` | Trade Hub window | yes |
-| `launch_tool(name)` | launcher `launch_skill` | yes |
+| `launch_tool(name)` | launcher `launch_skill`, else a direct spawn | yes |
 
 Names are fuzzy-matched inside the tools ("quantanium" finds
 "Quantainium (Raw)", "helix 1" finds "Helix I Mining Laser"). A result
@@ -128,13 +130,23 @@ user-presentable failures.
 
 ## Known limitations
 
-* If the assistant spawns Trade Hub itself and the launcher later spawns
-  its own copy (hotkey), two Trade Hub windows can coexist until restart.
-  Harmless but worth knowing.
+* If the assistant spawns a tool itself and the launcher later spawns its
+  own copy (hotkey), two windows of that tool can coexist until restart:
+  the launcher has no way to be told about a process it did not start.
+  `launch_tool` prefers the launcher whenever one is listening, and says
+  in its result when it fell back to spawning.
 * Voice deps (`sounddevice faster-whisper numpy pynput`) are optional;
   without them the ears button reports what to `pip install`.
-* `launch_tool` needs the launcher to be reading a command file, which is
-  the case when WingmanAI starts it; a launcher started from LAUNCH.bat
-  reads none, and the tool says so.
+* `launch_tool` prefers the launcher's `launch_skill` IPC, but the launcher
+  only reads a command file when WingmanAI's `main.py` started it (it
+  appends one as argv[6]). **LAUNCH.bat passes the literal `nul` and
+  SC_Toolbox.vbs passes no args**, so in both of the ways a person starts
+  the toolbox by hand, `skill_launcher.py` takes its `cmd_file ==
+  os.devnull` branch and never starts the IPC reader. Until 2026-09-26
+  that made `launch_tool` fail for all fourteen tools, leaving Trade Hub
+  the only one the assistant could open (via `ensure_trade_hub`'s direct
+  spawn). `ipc_bus.spawn_skill` now covers the other thirteen. Giving the
+  launcher a real command file in LAUNCH.bat / the .vbs would restore the
+  better path and is a launcher-side change, not an assistant one.
 * Cargo layouts use Cargo Loader's own ship-grid cache as it is on disk;
   refreshing that cache is done by opening Cargo Loader.

@@ -197,6 +197,40 @@ def run_tools(reg, ctx) -> dict:
     except ToolError as exc:
         _say("FAIL", "launch_tool: resolve", str(exc))
 
+    # launch_tool can open EVERY discovered tool, not just Trade Hub.
+    # Checked as a spawn PLAN, so nothing goes on screen: the launcher's
+    # positional contract is <x> <y> <w> <h> [custom...] <opacity> <cmd_file>
+    # (shared/data_utils.parse_cli_args), and a plan that does not parse
+    # back to that shape would open a window in the wrong place or, for
+    # Trade Hub, drop its refresh/max_routes args.
+    from shared.data_utils import parse_cli_args
+    skills = headless.list_skills(ROOT)
+    bad, planned = [], 0
+    for s in skills:
+        if s["id"] == "assistant":
+            continue            # never spawned: it is this process
+        plan = ipc_bus.spawn_plan(ROOT, s["id"], cmd_file="CMD")
+        if not plan:
+            bad.append(f"{s['id']}: no spawn plan (script missing?)")
+            continue
+        planned += 1
+        parsed = parse_cli_args(plan["argv"][2:])
+        if parsed["cmd_file"] != "CMD":
+            bad.append(f"{s['id']}: cmd_file is not last ({parsed['cmd_file']!r})")
+        if parsed["extras"] != plan["custom_args"]:
+            bad.append(f"{s['id']}: custom args lost ({parsed['extras']} != {plan['custom_args']})")
+        if not (0.1 <= parsed["opacity"] <= 1.0):
+            bad.append(f"{s['id']}: opacity {parsed['opacity']} out of range")
+        if not os.path.isfile(plan["argv"][1]) or not os.path.isdir(plan["cwd"]):
+            bad.append(f"{s['id']}: script/cwd not on disk")
+    want = len(skills) - 1
+    _say("PASS" if not bad and planned == want else "FAIL",
+         f"launch_tool: a launcher-shaped spawn plan for {planned}/{want} tools "
+         "(nothing spawned)",
+         "\n".join(bad) if bad else
+         "argv round-trips through parse_cli_args; Trade Hub keeps its "
+         f"custom args {ipc_bus.spawn_plan(ROOT, 'trade', 'CMD')['custom_args']}")
+
     after = _snapshot(watched)
     changed = sorted(p for p in set(before) | set(after) if before.get(p) != after.get(p))
     if changed:

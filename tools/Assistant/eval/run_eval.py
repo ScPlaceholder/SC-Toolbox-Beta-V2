@@ -91,10 +91,32 @@ def _refuse(*_a, **_k):
     raise RealToolAttempt("eval: a real tool path was reached")
 
 
+# Every ipc_bus name that can reach a window or start a process. A PREFIX
+# list silently misses a new verb: "spawn_skill" was added to ipc_bus after
+# this fence was written and matched none of send/ensure/wait, so the eval
+# could have launched real tools. Hence the explicit roster plus the assert
+# below, which fails loudly when ipc_bus grows a verb nobody classified.
+_FENCED = ("send", "send_to_launcher", "ensure_skill", "ensure_trade_hub",
+           "spawn_skill", "wait_ready")
+# read-only inspection: safe to leave live
+_UNFENCED = ("find_cmd_file", "is_running", "launcher_cmd_file", "live_cmd_files",
+             "spawn_plan")
+
+
 def _install_fences() -> None:
     headless.call = _refuse
-    for name in dir(ipc_bus):
-        if name.startswith(("send", "ensure", "wait")) and callable(getattr(ipc_bus, name)):
+    unclassified = [n for n in dir(ipc_bus)
+                    if not n.startswith("_")
+                    and callable(getattr(ipc_bus, n))
+                    and getattr(getattr(ipc_bus, n), "__module__", "") == ipc_bus.__name__
+                    and n not in _FENCED and n not in _UNFENCED]
+    if unclassified:
+        raise RealToolAttempt(
+            "ipc_bus has functions this fence has never classified as safe or "
+            f"side-effecting: {unclassified}. Add them to _FENCED or _UNFENCED "
+            "in run_eval.py before running the eval.")
+    for name in _FENCED:
+        if callable(getattr(ipc_bus, name, None)):
             setattr(ipc_bus, name, _refuse)
 
 

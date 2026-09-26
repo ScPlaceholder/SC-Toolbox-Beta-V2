@@ -11,22 +11,34 @@ conversation without any launcher changes:
   * send(skill_id, cmd)     -- fire-and-forget IPC write.
   * send_to_launcher(cmd)   -- write to the launcher's own command file
     (``launch_skill`` etc.), when the launcher reads one.
-  * ensure_trade_hub()      -- spawn Trade Hub when it is not running,
-    using its documented argv layout, so display actions (pinned route
-    popups) always have a window to land in.
+  * ensure_skill(id)        -- show the skill if it is running, else spawn
+    it with the launcher's OWN argv contract and env, so the assistant can
+    open any discovered tool even when the launcher reads no commands.
+  * ensure_trade_hub()      -- ensure_skill("trade"), kept as a name.
 
 Commands are plain dicts; the receiving side is the skill's existing
 _dispatch. New command types must be handled there — the assistant
 ships with one: Trade Hub's ``route_detail`` (pinned popup + map).
+
+Why ensure_skill exists at all: ``launch_tool`` used to be a pure relay to
+the launcher, and the launcher only reads a command file when WingmanAI's
+main.py started it (it appends one as argv[6]). LAUNCH.bat passes the
+literal ``nul`` and SC_Toolbox.vbs passes no args, so in both of the ways
+a person actually starts the toolbox, skill_launcher.py takes the
+``cmd_file == os.devnull`` branch and never starts its IPC reader. That
+left the assistant able to open exactly ONE of its fourteen tools — Trade
+Hub, and only because the old ensure_trade_hub() spawned it directly with
+a hand-copied argv layout. ensure_skill() is that same trick derived from
+core.skill_registry instead of hardcoded, so it covers all fourteen.
 """
 from __future__ import annotations
 
 import glob
+import json
 import logging
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import time
 
@@ -109,7 +121,6 @@ def _scan_cim() -> dict:
         r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
                            capture_output=True, text=True, timeout=10,
                            startupinfo=_hidden_startupinfo())
-        import json
         rows = json.loads(r.stdout or "[]")
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         log.warning("ipc_bus: process scan failed: %s", exc)
@@ -224,46 +235,187 @@ def _hidden_startupinfo():
     return si
 
 
-def ensure_trade_hub(base_dir: str, show: bool = True) -> bool:
-    """Make sure Trade Hub is running; spawn it if needed.
+def _launcher_settings(base_dir: str) -> dict:
+    """The launcher's raw settings dict (language, ui_scale, geometry...)."""
+    path = os.path.join(base_dir, "skill_launcher_settings.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError) as exc:
+        log.debug("ipc_bus: no launcher settings (%s)", exc)
+        return {}
 
-    Uses Trade Hub's entry contract (trade_hub_app.py __main__):
-    ``<x> <y> <w> <h> <refresh> <max_routes> <opacity> <cmd_file>``.
-    Returns True when a live command file exists afterwards.
+
+def _spawn_env(base_dir: str) -> dict:
+    """The env skill_launcher.py registers for every skill it starts.
+
+    Mirrors skill_launcher.py's ``lang_env``: language, an optional Qt
+    scale factor, and exit-on-close when the launcher auto-hides. A skill
+    the assistant spawns must behave like one the launcher spawned.
     """
-    if is_running("trade"):
-        if show:
-            send("trade", {"type": "show"})
-        return True
+    cfg = _launcher_settings(base_dir)
+    env = dict(os.environ)
+    env["SC_TOOLBOX_LANG"] = str(cfg.get("language", "en"))
+    try:
+        scale = float(cfg.get("ui_scale", 1.0))
+    except (TypeError, ValueError):
+        scale = 1.0
+    if scale != 1.0:
+        env["QT_SCALE_FACTOR"] = str(scale)
+    else:
+        env.pop("QT_SCALE_FACTOR", None)   # launcher passes "" == unset
+    if cfg.get("hide_on_tool_active"):
+        env["SC_TOOLBOX_EXIT_ON_CLOSE"] = "1"
+    else:
+        env.pop("SC_TOOLBOX_EXIT_ON_CLOSE", None)
+    return env
 
-    script = os.path.join(base_dir, "skills", "Trade_Hub", "trade_hub_app.py")
-    if not os.path.isfile(script):
-        log.warning("ipc_bus: trade_hub_app.py not found at %s", script)
-        return False
 
+def _spawn_geometry(base_dir: str, skill_id: str, script: str) -> tuple:
+    """(x, y, w, h, opacity) the launcher would use for this skill.
+
+    Same precedence as skill_launcher.py: the launcher settings' per-skill
+    ``<id>_x`` block, overridden by the geometry the skill itself saved on
+    its last close (``logs/<script stem>_window.json``).
+    """
+    cfg = _launcher_settings(base_dir)
+    x = cfg.get(f"{skill_id}_x", 100)
+    y = cfg.get(f"{skill_id}_y", 100)
+    w = cfg.get(f"{skill_id}_w", 1300)
+    h = cfg.get(f"{skill_id}_h", 800)
+    opacity = cfg.get(f"{skill_id}_opacity", 0.95)
+
+    stem = os.path.splitext(os.path.basename(script))[0]
+    saved_path = os.path.join(base_dir, "logs", f"{stem}_window.json")
+    try:
+        with open(saved_path, encoding="utf-8") as f:
+            saved = json.load(f)
+        if isinstance(saved, dict):
+            x = saved.get("x", x)
+            y = saved.get("y", y)
+            w = saved.get("w", w)
+            h = saved.get("h", h)
+            opacity = saved.get("opacity", opacity)
+    except (OSError, ValueError):
+        pass
+
+    def _i(v, d):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return d
+
+    def _f(v, d):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return d
+
+    # Floor the opacity. The launcher does not (WindowGeometry keeps whatever
+    # was saved), but a saved 0.0 here means the assistant reports "opened"
+    # for a window nobody can see — the exact failure this module is fixing.
+    return (_i(x, 100), _i(y, 100), _i(w, 1300), _i(h, 800),
+            max(0.3, min(1.0, _f(opacity, 0.95))))
+
+
+def _skill_python() -> str:
+    """The interpreter the launcher runs skills with."""
+    from .worker_pool import find_toolbox_python
+    return find_toolbox_python()
+
+
+def spawn_plan(base_dir: str, skill_id: str, cmd_file: str = "<cmd_file>") -> dict | None:
+    """What spawn_skill() WOULD run, without running it.
+
+    Returns ``{"argv": [...], "cwd": ..., "script": ..., "cmd_file": ...}``
+    or None when the skill is not discoverable / has no script on disk.
+
+    This is the launcher's positional argv contract
+    (``<x> <y> <w> <h> [custom_args...] <opacity> <cmd_file>``, see
+    shared/data_utils.parse_cli_args) derived from core.skill_registry, so
+    the per-skill custom args (Trade Hub's refresh + max_routes) and the
+    saved window geometry are the ones the launcher itself would pass. It
+    is split out from spawn_skill so the selftest can check the shape for
+    every discovered skill without putting fourteen windows on screen.
+    """
+    try:
+        from core.skill_registry import (discover_skills, resolve_script_path,
+                                         resolve_skill_path)
+    except ImportError as exc:
+        log.warning("ipc_bus: skill registry unavailable: %s", exc)
+        return None
+    skill = next((s for s in discover_skills(base_dir) if s.id == skill_id), None)
+    if skill is None:
+        log.warning("ipc_bus: no discovered skill %r", skill_id)
+        return None
+    script = resolve_script_path(skill, base_dir)
+    folder = resolve_skill_path(skill, base_dir)
+    if not script or not folder:
+        log.warning("ipc_bus: %s has no entry script on disk", skill_id)
+        return None
+
+    x, y, w, h, opacity = _spawn_geometry(base_dir, skill_id, script)
+    argv = ([_skill_python(), script, str(x), str(y), str(w), str(h)]
+            + [str(a) for a in (skill.custom_args or [])]
+            + [str(opacity), cmd_file])
+    return {"argv": argv, "cwd": folder, "script": script, "cmd_file": cmd_file,
+            "custom_args": list(skill.custom_args or [])}
+
+
+def spawn_skill(base_dir: str, skill_id: str) -> bool:
+    """Start *skill_id* directly, the way the launcher would.
+
+    The command file goes on argv last, which is what makes find_cmd_file()
+    able to see the new process afterwards.
+    """
     seq = int(time.time()) % 100000
     cmd_file = os.path.join(
         tempfile.gettempdir(),
-        f"{_PREFIX}trade_{os.getpid()}_{seq}.jsonl")
-    open(cmd_file, "w").close()
+        f"{_PREFIX}{skill_id}_{os.getpid()}_{seq}.jsonl")
+    plan = spawn_plan(base_dir, skill_id, cmd_file)
+    if plan is None:
+        return False
+    try:
+        open(cmd_file, "w").close()
+    except OSError as exc:
+        log.warning("ipc_bus: cannot create %s: %s", cmd_file, exc)
+        return False
 
-    args = [sys.executable, script,
-            "80", "80", "1400", "900", "300", "500", "0.95",
-            cmd_file]
+    argv, folder = plan["argv"], plan["cwd"]
     try:
         subprocess.Popen(
-            args,
+            argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            cwd=os.path.dirname(script),
+            cwd=folder,
+            env=_spawn_env(base_dir),
             startupinfo=_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        log.warning("ipc_bus: failed to spawn Trade Hub: %s", exc)
+        log.warning("ipc_bus: failed to spawn %s: %s", skill_id, exc)
         return False
-    log.info("ipc_bus: spawned Trade Hub (cmd_file=%s)", cmd_file)
+    log.info("ipc_bus: spawned %s (cmd_file=%s)", skill_id, cmd_file)
     return True
+
+
+def ensure_skill(base_dir: str, skill_id: str, show: bool = True) -> bool:
+    """Make sure *skill_id* is running; spawn it if it is not.
+
+    True means "there is (or will shortly be) a process for it" — poll
+    wait_ready() when the caller needs to talk to it.
+    """
+    if is_running(skill_id):
+        if show:
+            send(skill_id, {"type": "show"})
+        return True
+    return spawn_skill(base_dir, skill_id)
+
+
+def ensure_trade_hub(base_dir: str, show: bool = True) -> bool:
+    """Make sure Trade Hub is running; spawn it if needed."""
+    return ensure_skill(base_dir, "trade", show=show)
 
 
 def wait_ready(skill_id: str, timeout: float = 12.0) -> bool:
