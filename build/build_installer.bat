@@ -1021,6 +1021,17 @@ if not exist "%LAUNCHER_EXE%" (
 copy /Y "%LAUNCHER_EXE%" "%STAGE%\SC_Toolbox.exe" >nul
 echo  [OK] Launcher staged.
 
+:: Last privacy gate, run AFTER everything is staged. The first sanitize pass (Step 7) runs
+:: before the Paddle sidecar and this launcher exist, so it could never see the launcher --
+:: the one file that carried the build username in every Velopack release up to 2.3.1.
+:: Idempotent: a clean tree only costs the re-read.
+echo  [*] Final privacy check over the complete staging tree...
+"%STAGE%\python\python.exe" "%BUILD%sanitize_staging.py" "%STAGE%" --user "%USERNAME%" --apply
+if !errorlevel! neq 0 (
+    echo  [!] Final privacy check FAILED - the username is still in staging. Not packaging.
+    goto :fail
+)
+
 :: ── Step 8b: Read version from pyproject.toml ──
 :: Single source of truth — no more drift between .iss MyAppVersion and
 :: pyproject.toml. We pipe the Python reader's output to a temp file

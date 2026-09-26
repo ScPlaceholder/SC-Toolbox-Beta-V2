@@ -192,9 +192,14 @@ def main():
             if not dry: open(fp, "wb").write(new)
             scrubbed += 1
 
-    # PASS 3: verify no token remains anywhere shippable under the project tree
+    # PASS 3: verify no token remains ANYWHERE in staging -- not just under Mining_Signals.
+    # Until 2026-09-26 this walked only the Mining_Signals tree (passes 1-2 still do), so the
+    # 2.4.0 test build shipped the name in three files it never looked at: the launcher exe (a
+    # PDB path the .NET compiler embeds; in EVERY Velopack release, 2.3.1 included), SuitMk2's
+    # Rust audio tap (cargo registry paths) and a Cargo Loader README. A full-staging scan found
+    # exactly those three, so this gate is quiet on a clean tree rather than an alarm to ignore.
     remaining = []
-    for root, dirs, files in os.walk(mining):
+    for root, dirs, files in os.walk(staging):
         if not dry and BACKUP_DIR_RE.search(os.path.basename(root)):
             continue
         for f in files:
@@ -216,7 +221,7 @@ def main():
         print(f"[APPLY] LEAKS REMAIN ({len(remaining)}):")
         for r in remaining[:40]: print("   ", r)
         sys.exit(2)
-    print(f"[APPLY] CLEAN — zero occurrences of '{tok}' under tools/Mining_Signals.")
+    print(f"[APPLY] CLEAN — zero occurrences of '{tok}' anywhere in staging.")
     sys.exit(0)
 
 if __name__ == "__main__":

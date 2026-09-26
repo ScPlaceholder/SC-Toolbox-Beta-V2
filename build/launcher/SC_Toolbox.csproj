@@ -16,6 +16,12 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <PublishReadyToRun>false</PublishReadyToRun>
 
+    <!-- No debug symbols: otherwise the compiler writes the PDB's full path (the build user's
+         home folder) into the exe's debug directory. Every release since the Velopack switch
+         shipped it; found 2026-09-26 as the only file in the 2.3.1 package with the username. -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+
     <!-- Branding -->
     <ApplicationIcon>..\..\assets\sc_toolbox.ico</ApplicationIcon>
     <Version>2.2.12</Version>

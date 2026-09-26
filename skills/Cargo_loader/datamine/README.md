@@ -63,7 +63,7 @@ cargo-grids-baseline).
    the live .cargo_cache.json by this tool.
 
 Note: node cannot resolve module paths under this tree (AppData symlink);
-run the tool from a copy outside the prjgn tree.
+run the tool from a copy outside your user profile folder.
 
 ## Loader-side notes (from cargo_app.py / cargo_engine)
 
