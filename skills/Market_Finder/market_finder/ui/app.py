@@ -75,6 +75,8 @@ class MarketFinderApp(SCWindow):
         self._bubble: SearchBubble | None = None
         self._detail_bubbles: list[ItemDetailBubble] = []
         self._grocery_bubble: GroceryListBubble | None = None
+        self._starmap_win = None
+        self._starmap_panel = None
         self._cmd_file = cmd_file
         self._settings_visible: bool = False
         self._opacity: float = opacity
@@ -99,6 +101,12 @@ class MarketFinderApp(SCWindow):
         if self._grocery_bubble is not None:
             self._grocery_bubble.close()
             self._grocery_bubble = None
+        if self._starmap_panel is not None:
+            self._starmap_panel.shutdown()
+            self._starmap_panel = None
+        if self._starmap_win is not None:
+            self._starmap_win.close()
+            self._starmap_win = None
         super().closeEvent(event)
 
     # -- UI construction -----------------------------------------------------
@@ -164,6 +172,16 @@ class MarketFinderApp(SCWindow):
             padding: 2px 8px;
         """)
         tutorial_btn.setCursor(Qt.PointingHandCursor)
+
+        starmap_btn = QLabel("✦ Star Map")
+        starmap_btn.setToolTip(_("Open the star map — click a location to see what items sell there"))
+        starmap_btn.setStyleSheet(f"""
+            font-family: Consolas; font-size: 8pt; font-weight: bold;
+            color: {P.tool_market}; background: transparent;
+            border: 1px solid {P.tool_market}; border-radius: 3px; padding: 2px 8px;
+        """)
+        starmap_btn.setCursor(Qt.PointingHandCursor)
+        starmap_btn.mousePressEvent = lambda _: self._toggle_starmap()
         tutorial_btn.mousePressEvent = lambda _: self._show_tutorial()
 
         # Insert before window controls (before the stretch)
@@ -174,6 +192,7 @@ class MarketFinderApp(SCWindow):
                 tb_layout.insertWidget(i + 2, gear_btn)
                 tb_layout.insertWidget(i + 3, grocery_btn)
                 tb_layout.insertWidget(i + 4, tutorial_btn)
+                tb_layout.insertWidget(i + 5, starmap_btn)
                 break
 
         layout.addWidget(title_bar)
@@ -343,7 +362,7 @@ class MarketFinderApp(SCWindow):
     def _toggle_grocery_list(self) -> None:
         """Open (or hide) the floating Grocery List bubble."""
         if self._grocery_bubble is None:
-            self._grocery_bubble = GroceryListBubble(self.data, parent=self)
+            self._grocery_bubble = GroceryListBubble(self.data, on_plot_route=self._plot_grocery_route, parent=self)
         bubble = self._grocery_bubble
         if bubble.isVisible():
             bubble.hide()
@@ -638,6 +657,79 @@ class MarketFinderApp(SCWindow):
         self._detail_bubbles.append(bubble)
 
     # -- IPC command protocol ------------------------------------------------
+
+    # -- star map ----------------------------------------------------------
+    def _toggle_starmap(self) -> None:
+        """Spawn (or focus/close) the floating Star Map window."""
+        if self._starmap_win is not None:
+            if self._starmap_win.isVisible():
+                if self._starmap_panel is not None:
+                    self._starmap_panel.shutdown()
+                self._starmap_win.close()
+                return
+            self._starmap_win.show()
+            self._starmap_win.raise_()
+            self._starmap_win.activateWindow()
+            return
+        self._open_starmap()
+
+    def _open_starmap(self) -> None:
+        """Create the Star Map window with a MarketMapPanel inside."""
+        if self._starmap_panel is not None:
+            return
+        from ..starmap.panel import MarketMapPanel
+
+        win = SCWindow(
+            title=_("Star Map"),
+            width=1040,
+            height=720,
+            min_w=560,
+            min_h=420,
+            opacity=self._opacity,
+        )
+        tb = SCTitleBar(
+            window=win,
+            title=_("STAR MAP"),
+            icon_text="✦",
+            accent_color=P.tool_market,
+            show_minimize=True,
+        )
+        tb.minimize_clicked.connect(win.showMinimized)
+        win.content_layout.addWidget(tb)
+        panel = MarketMapPanel(
+            self.data,
+            on_add_to_grocery=self._add_to_grocery_from_map,
+            parent=win,
+        )
+        win.content_layout.addWidget(panel, 1)
+        win.show()
+        panel.ensure_index()
+        self._starmap_win = win
+        self._starmap_panel = panel
+        tb.close_clicked.connect(lambda: (panel.shutdown(), win.close()))
+        win.destroyed.connect(self._on_starmap_closed)
+
+    def _on_starmap_closed(self, *_args) -> None:
+        self._starmap_win = None
+        self._starmap_panel = None
+
+    def _add_to_grocery_from_map(self, item: dict) -> None:
+        """Star Map item pop-out -> Grocery List."""
+        if self._grocery_bubble is None or not self._grocery_bubble.isVisible():
+            self._toggle_grocery_list()
+        if self._grocery_bubble is not None:
+            self._grocery_bubble.add_item(item)
+
+    def _plot_grocery_route(self, stops: list) -> None:
+        """Grocery List "Plot Optimal Route" -> draw it on the Star Map."""
+        if not stops:
+            return
+        self._open_starmap()
+        if self._starmap_win is not None:
+            self._starmap_win.show()
+            self._starmap_win.raise_()
+        if self._starmap_panel is not None:
+            self._starmap_panel.plot_shopping_route(stops)
 
     def _handle_command(self, cmd: dict) -> None:
         action = cmd.get("type", cmd.get("action", ""))

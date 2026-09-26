@@ -183,9 +183,9 @@ class DetailPanel(QWidget):
             ("H2 Fuel", self._fmt(vehicle.get("fuel_hydrogen"))),
             ("QT Fuel", self._fmt(vehicle.get("fuel_quantum"))),
             ("Mass", f"{self._fmt(vehicle.get('mass'))} kg"),
-            ("Length", f"{vehicle.get('length', '\u2014')} m"),
-            ("Width", f"{vehicle.get('width', '\u2014')} m"),
-            ("Height", f"{vehicle.get('height', '\u2014')} m"),
+            ("Length", "{} m".format(vehicle.get("length", "\u2014"))),
+            ("Width", "{} m".format(vehicle.get("width", "\u2014"))),
+            ("Height", "{} m".format(vehicle.get("height", "\u2014"))),
         ]
         for label, val in specs:
             if val and val != "\u2014" and val != "\u2014 kg" and val != "\u2014 m":

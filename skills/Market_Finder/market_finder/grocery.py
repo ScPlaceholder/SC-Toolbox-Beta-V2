@@ -42,7 +42,7 @@ def buy_locations(prices: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     The grocery list is a shopping list, so we surface buy prices —
     what the player pays at a terminal (``price_buy``).  Each returned
-    row is a small normalized dict: ``{"terminal", "location", "price"}``.
+    row is a small normalized dict: ``{"terminal", "terminal_id", "system", "location", "price"}``.
     Rows without a positive buy price are dropped.
     """
     rows: list[dict[str, Any]] = []
@@ -56,6 +56,8 @@ def buy_locations(prices: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         rows.append({
             "terminal": p.get("terminal_name") or "Unknown",
+            "terminal_id": p.get("id_terminal") or 0,
+            "system": p.get("star_system_name") or "",
             "location": format_location(p),
             "price": price,
         })

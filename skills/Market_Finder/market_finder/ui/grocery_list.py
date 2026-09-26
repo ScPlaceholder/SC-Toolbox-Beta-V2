@@ -50,6 +50,13 @@ class _CardSignal(QObject):
     error = Signal(str)
 
 
+class _RouteSignal(QObject):
+    """Delivers background UEX distance-fetch progress to the bubble."""
+    progress = Signal(int, int)   # fetched, total
+    done = Signal()
+
+
+
 # ---------------------------------------------------------------------------
 # Clickable row / toggle
 # ---------------------------------------------------------------------------
@@ -366,12 +373,13 @@ class _DragBar(QWidget):
 class GroceryListBubble(QWidget):
     """Floating, draggable shopping list that accepts dropped items."""
 
-    def __init__(self, data_service, parent: QWidget | None = None) -> None:
+    def __init__(self, data_service, on_plot_route: Callable | None = None, parent: QWidget | None = None) -> None:
         super().__init__(
             parent,
             Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint,
         )
         self._data = data_service
+        self._on_plot_route = on_plot_route
         self._cards: dict[object, GroceryItemCard] = {}
 
         self.setAcceptDrops(True)
@@ -406,6 +414,15 @@ class GroceryListBubble(QWidget):
             f"font-family: Consolas; font-size: 8pt; color: {P.fg_dim}; background: transparent;"
         )
         tb_lay.addWidget(self._count_lbl)
+
+        self._route_status = QLabel("")
+        self._route_status.setStyleSheet(
+            f"font-family: Consolas; font-size: 7pt; color: {P.accent}; background: transparent;"
+        )
+        self._route_status.setVisible(False)
+        tb_lay.addWidget(self._route_status)
+
+        self._route_busy = False
         tb_lay.addStretch(1)
 
         clear_btn = QLabel(_("Clear"))
@@ -419,6 +436,18 @@ class GroceryListBubble(QWidget):
         clear_btn.mousePressEvent = lambda _e: self.clear()
         tb_lay.addWidget(clear_btn)
 
+
+        plot_btn = QLabel(_("⤳ Plot Route"))
+        plot_btn.setToolTip(_("Plot the optimal shopping route for every item "
+                              "on this list on the Star Map (UEX distance telemetry)"))
+        plot_btn.setCursor(Qt.PointingHandCursor)
+        plot_btn.setStyleSheet(f"""
+            font-family: Consolas; font-size: 8pt; font-weight: bold;
+            color: {P.tool_market}; background: transparent;
+            border: 1px solid {P.tool_market}; border-radius: 3px; padding: 1px 8px;
+        """)
+        plot_btn.mousePressEvent = lambda _e: self._plot_route()
+        tb_lay.addWidget(plot_btn)
         close_btn = QLabel("✕")
         close_btn.setToolTip(_("Close (your list is kept)"))
         close_btn.setFixedSize(20, 20)
@@ -526,6 +555,106 @@ class GroceryListBubble(QWidget):
 
     def _update_count(self) -> None:
         self._count_lbl.setText(f"({len(self._cards)})")
+
+    # -- optimal route ---------------------------------------------------
+
+    def _set_route_status(self, text: "Optional[str]") -> None:
+        """Show/hide the small telemetry-fetch status in the title bar."""
+        self._route_status.setText(text or "")
+        self._route_status.setVisible(bool(text))
+
+    def _plot_route(self) -> None:
+        """Order the grocery stops by UEX distance telemetry and ask the
+        Star Map to draw the multi-stop shopping route.
+
+        Distances are cached on disk; any terminal pair not yet cached is
+        fetched from the UEX API in the background first, so the ordering
+        reflects real in-game travel distances instead of guesses.  While
+        the fetch runs, the title bar shows progress and further clicks
+        are ignored.
+        """
+        from itertools import permutations
+
+        from ..route_planner import (
+            collect_stops, missing_price_cards, order_stops, unique_terminals,
+        )
+        from ..starmap import distances as uex_dist
+
+        if self._route_busy:
+            return
+        cards = list(self._cards.values())
+        if not cards:
+            return
+        for card in missing_price_cards(cards):
+            card.flash()
+        stops = collect_stops(cards)
+        if not stops:
+            return
+
+        # The distance matrix only needs the unique shopping terminals.
+        terminal_ids = [tid for tid, _sys in unique_terminals(stops)]
+        pairs = {(a, b) for a, b in permutations(terminal_ids, 2)}
+
+        galaxy_ref: list = []
+
+        def _galaxy():
+            if not galaxy_ref:
+                from ..starmap.data import Galaxy
+                galaxy_ref.append(Galaxy.load())
+            return galaxy_ref[0]
+
+        def _sys_code(gal, sysname: str) -> str:
+            for s in gal.systems:
+                if s.name.lower() == sysname.lower() or s.code.lower() == sysname.lower():
+                    return s.code
+            return (sysname or "").upper()
+
+        def dist_fn(a: dict, b: dict):
+            d = uex_dist.get_distance(a.get("terminal_id") or 0,
+                                      b.get("terminal_id") or 0)
+            if d is not None:
+                return d
+            # Fallback: galaxy jump-graph distance between the two systems.
+            sa, sb = a.get("system") or "", b.get("system") or ""
+            if sa and sb:
+                try:
+                    gal = _galaxy()
+                    path = gal.shortest_path(_sys_code(gal, sa), _sys_code(gal, sb))
+                    if path:
+                        return gal.path_distance(path)
+                except Exception:
+                    pass
+            return None
+
+        def _finish() -> None:
+            self._route_busy = False
+            self._set_route_status(None)
+            ordered = order_stops(stops, dist_fn)
+            if self._on_plot_route is not None:
+                self._on_plot_route(ordered)
+
+        if not pairs:
+            _finish()
+            return
+
+        self._route_busy = True
+        self._set_route_status(_("Fetching UEX distance telemetry…"))
+
+        sig = _RouteSignal(self)
+        sig.progress.connect(
+            lambda done, total: self._set_route_status(
+                _("Fetching UEX distance telemetry… {done}/{total}").format(
+                    done=done, total=total)))
+        sig.done.connect(lambda: _finish())
+
+        def _work() -> None:
+            try:
+                uex_dist.fetch_missing(
+                    pairs, on_progress=lambda d, t: sig.progress.emit(d, t))
+            finally:
+                sig.done.emit()
+
+        threading.Thread(target=_work, daemon=True).start()
 
     # -- drag & drop -----------------------------------------------------
 
