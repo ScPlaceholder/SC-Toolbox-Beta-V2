@@ -75,6 +75,30 @@ def _parse_args() -> dict:
     }
 
 
+def _place_on_screen(win, has_saved_position: bool) -> None:
+    """First launch: centre on the primary screen, so the HUD is never lost on a
+    monitor smaller than the one the defaults assumed (y=880 is off a 768-high
+    screen).  Later launches keep the saved spot only while at least half the
+    bar sits on a connected monitor; an unplugged second screen or a lower
+    resolution snaps it back to the centre."""
+    from PySide6.QtGui import QGuiApplication
+
+    win.adjustSize()
+    rect = win.frameGeometry()
+    area = max(1, rect.width() * rect.height())
+    if has_saved_position:
+        for screen in QGuiApplication.screens():
+            seen = screen.availableGeometry().intersected(rect)
+            if seen.width() * seen.height() * 2 >= area:
+                return
+        logger.info("Saved HUD position %s is off every screen; centring", rect.topLeft())
+    primary = QGuiApplication.primaryScreen()
+    if primary is None:
+        return
+    g = primary.availableGeometry()
+    win.move(g.center().x() - rect.width() // 2, g.center().y() - rect.height() // 2)
+
+
 class BattleBuddyApp:
     def __init__(self, cfg: dict) -> None:
         self._cfg      = cfg
@@ -86,6 +110,7 @@ class BattleBuddyApp:
         orientation = saved.get("orientation", cfg["orientation"])
 
         # Restore saved window position and opacity (overrides launcher args)
+        has_saved_position = "window_x" in saved and "window_y" in saved
         x = int(saved.get("window_x", cfg["x"]))
         y = int(saved.get("window_y", cfg["y"]))
         opacity = float(saved.get("opacity", cfg["opacity"]))
@@ -109,6 +134,7 @@ class BattleBuddyApp:
             on_options  = self._show_options,
             on_tutorial = self._show_tutorial,
         )
+        _place_on_screen(self._hud, has_saved_position)
 
         self._log_path   = log_path
         self._orientation = orientation

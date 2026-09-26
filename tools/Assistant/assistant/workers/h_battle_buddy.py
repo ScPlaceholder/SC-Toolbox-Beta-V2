@@ -25,13 +25,27 @@ _CANDIDATES = (
 )
 
 
+_SETTINGS = (
+    os.path.join(os.path.expanduser("~"), ".sctoolbox", "battle_buddy", "settings.json"),
+    os.path.join(os.getcwd(), "battle_buddy_settings.json"),        # pre-2.4 location
+)
+
+
 def _log_path() -> str:
-    try:
-        with open(os.path.join(os.getcwd(), "battle_buddy_settings.json"), encoding="utf-8") as f:
-            p = (json.load(f) or {}).get("log_path") or ""
-        if p and os.path.isfile(p):
+    for settings in _SETTINGS:
+        try:
+            with open(settings, encoding="utf-8") as f:
+                p = (json.load(f) or {}).get("log_path") or ""
+            if p and os.path.isfile(p):
+                return p
+        except (OSError, ValueError):
+            continue
+    try:                                  # the launcher's shared install folder
+        from shared.sc_install import get_sc_root, newest_game_log
+        p = newest_game_log(get_sc_root())
+        if p:
             return p
-    except (OSError, ValueError):
+    except ImportError:
         pass
     for p in _CANDIDATES:
         if os.path.isfile(p):

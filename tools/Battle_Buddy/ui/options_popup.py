@@ -1,7 +1,7 @@
 """
 Options popup for Battle Buddy.
 Provides: log path text input, orientation toggle, auto-show toggle.
-Settings are saved to battle_buddy_settings.json next to hud_app.py.
+Settings are saved to ~/.sctoolbox/battle_buddy/settings.json.
 """
 from __future__ import annotations
 
@@ -25,7 +25,21 @@ from ui.theme import (
     HEADER_BG, FONT_TITLE, FONT_BODY,
 )
 
-_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "battle_buddy_settings.json")
+# Settings live OUTSIDE the install folder: a Velopack update replaces that
+# folder wholesale, which silently reset the log path and HUD position on every
+# update.  The old in-folder file is still read once, as a migration.
+_SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".sctoolbox", "battle_buddy", "settings.json")
+_LEGACY_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                                     "battle_buddy_settings.json")
+
+
+def _shared_game_log() -> str:
+    """Newest Game.log under the folder linked in the launcher's first-launch popup."""
+    try:
+        from shared.sc_install import get_sc_root, newest_game_log
+    except ImportError:            # launched without the toolbox root on sys.path
+        return ""
+    return newest_game_log(get_sc_root()) or ""
 
 
 def _auto_detect_game_log() -> str:
@@ -66,16 +80,27 @@ def load_settings() -> dict:
         "orientation":       "horizontal",
         "opacity":           0.92,
     }
-    try:
-        if os.path.exists(_SETTINGS_FILE):
-            with open(_SETTINGS_FILE, "r", encoding="utf-8") as fh:
-                saved = json.load(fh)
-            defaults.update(saved)
-    except (OSError, json.JSONDecodeError):
-        pass
+    migrated = False
+    for path in (_SETTINGS_FILE, _LEGACY_SETTINGS_FILE):
+        try:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as fh:
+                    defaults.update(json.load(fh))
+                migrated = path == _LEGACY_SETTINGS_FILE
+                break
+        except (OSError, json.JSONDecodeError):
+            continue
+    if migrated:
+        save_settings(defaults)
 
-    # If the configured log path doesn't exist, try to auto-detect
+    # If the configured log path doesn't exist, use the launcher's shared
+    # folder (not persisted, so a later change there still reaches us),
+    # then fall back to scanning drives.
     if not os.path.isfile(defaults["log_path"]):
+        shared = _shared_game_log()
+        if shared:
+            defaults["log_path"] = shared
+            return defaults
         detected = _auto_detect_game_log()
         if os.path.isfile(detected):
             defaults["log_path"] = detected
