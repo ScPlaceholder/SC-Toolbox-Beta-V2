@@ -146,6 +146,34 @@ def main():
                 pruned_ckpt += 1
                 ckpt_bytes += size
 
+    # PASS 1d (2026-09-26): prune superseded model files from ocr/models (~70 MB in 2.4.0).
+    # An EXPLICIT list, never "whatever looks unreferenced": a loader can build a name or glob a
+    # folder, so an absence of references is a weak claim. Each pattern below was checked against
+    # every .py in the tool: only the trainers that WRITE these files name them (train_crnn.py
+    # versioned copies, export_torch_to_onnx.py's model_cnn_original backup), no loader reads them,
+    # and the only directory globs (training_registry) scan capture folders, not models/.
+    # The quarantine hashes in the same folder ARE runtime (ocr/glyph_gate.py) and are not matched.
+    models_dir = os.path.join(mining, "ocr", "models")
+    superseded = [
+        re.compile(r"^_train_run.*\.out$"),                            # training stdout logs
+        re.compile(r"\.bak_predotfix_\d{8}_\d{6}$"),                  # pre-fix ONNX backups
+        re.compile(r"^model_cnn_original\.(json|onnx|onnx\.data)$"),   # export backup
+        re.compile(r"^model_crnn_(large_clean_val54|smalltext_val76)\.(json|onnx|onnx\.data)$"),
+        re.compile(r"^model_crnn_\d{8}_\d{6}_val\d+\.json$"),         # versioned metadata; .pt pruned in 1b
+    ]
+    pruned_models = models_bytes = 0
+    if os.path.isdir(models_dir):
+        for f in sorted(os.listdir(models_dir)):
+            fp = os.path.join(models_dir, f)
+            if os.path.isfile(fp) and any(rx.search(f) for rx in superseded):
+                size = os.path.getsize(fp)
+                print(f"{tag} prune model: {os.path.relpath(fp, staging)} ({size / 1e6:.1f} MB)")
+                if not dry:
+                    os.remove(fp)
+                pruned_models += 1
+                models_bytes += size
+    print(f"{tag} superseded models: {pruned_models} files, {models_bytes / 1e6:.1f} MB")
+
     # PASS 2: same-length token scrub across EVERY file under the project tree (no extension filter —
     # the leak also hides in .csv/.out training logs; same-length byte replace is safe for any file type).
     for root, dirs, files in os.walk(mining):
