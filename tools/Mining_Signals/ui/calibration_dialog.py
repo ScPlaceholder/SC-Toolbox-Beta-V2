@@ -48,6 +48,24 @@ from .theme import ACCENT
 
 log = logging.getLogger(__name__)
 
+# What a PySide6 widget/timer/signal call can actually raise. RuntimeError is
+# the important one: PySide6 raises "Internal C++ object already deleted" for
+# any call on a wrapper whose C++ side Qt has destroyed, which is the real
+# reason these calls were wrapped at all. AttributeError covers an attribute
+# that construction never got as far as creating; TypeError/ValueError cover
+# a bad argument or an out-of-range value. Anything outside this set is a
+# real defect and now propagates instead of vanishing.
+_QT_CALL_ERRORS = (RuntimeError, AttributeError, TypeError, ValueError)
+
+# Reading the OCR pipeline's shared debug_overlay state. The module may be
+# absent in a trimmed build (ImportError) or predate a key (AttributeError);
+# the dicts and tuples are written by the scan thread, so a missing key, a
+# short tuple, a None where a number belongs, or an unparseable value are
+# all reachable (KeyError, IndexError, TypeError, ValueError).
+_OVERLAY_READ_ERRORS = (
+    ImportError, AttributeError, KeyError, IndexError, TypeError, ValueError,
+)
+
 LOCK_GREEN = "#2a8"
 LOCK_GRAY = "#555"
 PANEL_BG = "#1d2530"
@@ -191,10 +209,12 @@ class _CropPreview(QLabel):
         if self._field == "needle":
             try:
                 pil = self._add_needle_zone_labels(pil)
-            except Exception:
-                # Defensive — overlay drawing must never break the
-                # preview itself.
-                pass
+            except (AttributeError, OSError, IndexError,
+                    TypeError, ValueError) as exc:
+                # Overlay drawing must never break the preview itself, so
+                # the un-annotated image is used -- but the draw failure is
+                # recorded rather than looking like "no needle zones".
+                log.debug("needle-zone label overlay failed: %r", exc)
         self._last_pil = pil
         self._render_cached()
 
@@ -334,8 +354,9 @@ class _CropPreview(QLabel):
         try:
             scaled = pil.resize((new_w, new_h), Image.NEAREST)
             self.setPixmap(QPixmap.fromImage(ImageQt(scaled.convert("RGB"))))
-        except Exception:
-            pass
+        except (OSError, MemoryError) + _QT_CALL_ERRORS as exc:
+            # Leaves the previous pixmap on screen, as before.
+            log.debug("preview pixmap render failed: %r", exc)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -449,8 +470,9 @@ class _CropPreview(QLabel):
         self._last_emit_ms = now_ms
         try:
             self.drag_delta.emit(self._field, inc_dx, inc_dy)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("drag_delta emit failed (field=%s): %r",
+                      self._field, exc)
         event.accept()
 
     def mouseReleaseEvent(self, event):
@@ -687,8 +709,9 @@ class _RowControl(QGroupBox):
             mods = QApplication.keyboardModifiers()
             if mods & Qt.ShiftModifier:
                 dx, dy, dw, dh = dx * 5, dy * 5, dw * 5, dh * 5
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            # Falls through to the un-multiplied step, as before.
+            log.debug("nudge shift-modifier probe failed: %r", exc)
         box = dict(self._latest_box)
         box["x"] = max(0, box["x"] + dx)
         box["y"] = max(0, box["y"] + dy)
@@ -874,8 +897,9 @@ class _RowControl(QGroupBox):
                     "  • The OCR pipeline crashed. Check "
                     "logs/mining_signals.log for ERROR entries.",
                 )
-            except Exception:
-                pass
+            except (ImportError, RuntimeError,
+                    AttributeError, TypeError) as exc:
+                log.warning("could not show 'cannot lock' dialog: %r", exc)
             return
         self._is_locked = True
         self._status.setText(
@@ -911,8 +935,8 @@ class _RowControl(QGroupBox):
                 if box:
                     box["_source"] = "placeholder_fallback"
                     return box
-            except Exception:
-                pass
+            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                log.debug("needle placeholder box unavailable: %r", exc)
         # ``signature`` lives outside the HUD debug_overlay; consult
         # the signal API's own last-crop telemetry first.
         if self._field == "signature":
@@ -923,8 +947,9 @@ class _RowControl(QGroupBox):
                     box = dict(_sig_box)
                     box["_source"] = "sc_ocr.api.get_last_signal_crop_box"
                     return box
-            except Exception:
-                pass
+            except (ImportError, AttributeError,
+                    TypeError, ValueError) as exc:
+                log.debug("signal crop box unavailable from api: %r", exc)
         # Source 1: in-memory debug_overlay state
         try:
             from ocr.sc_ocr import debug_overlay
@@ -948,8 +973,11 @@ class _RowControl(QGroupBox):
                 }
                 box["_source"] = "debug_overlay.label_rows"
                 return box
-        except Exception:
-            pass
+        except _OVERLAY_READ_ERRORS as exc:
+            log.debug(
+                "box recovery from debug_overlay failed (field=%s): %r",
+                self._field, exc,
+            )
         # Source 2: derive from saved crop file size + last-known
         # state. We don't have its absolute coordinates so fall back
         # to a region-relative estimate.
@@ -967,8 +995,13 @@ class _RowControl(QGroupBox):
                 box = {"x": 200, "y": 100, "w": int(w), "h": int(h)}
                 box["_source"] = "fallback_from_crop_file"
                 return box
-        except Exception:
-            pass
+        except (ImportError, OSError, TypeError, ValueError) as exc:
+            # PIL raises UnidentifiedImageError (an OSError) on a
+            # half-written debug crop, which is the common case here.
+            log.debug(
+                "box recovery from crop file failed (field=%s): %r",
+                self._field, exc,
+            )
         return None
 
     def _apply_lock_style(self, locked: bool) -> None:
@@ -977,8 +1010,9 @@ class _RowControl(QGroupBox):
         # mouse-drag in the preview matches that contract.
         try:
             self._preview.set_drag_disabled(bool(locked))
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("set_drag_disabled failed (field=%s): %r",
+                      self._field, exc)
         if locked:
             self._lock_btn.setText("🔓 Unlock")
             self._lock_btn.setStyleSheet(
@@ -1274,8 +1308,23 @@ class CalibrationDialog(QDialog):
             try:
                 if self._scan_callback is not None:
                     self._scan_callback(self._region)
-            except Exception:
-                pass
+            # DELIBERATELY BROAD (see the noqa on the except below):
+            # _scan_callback is injected by the caller and
+            # runs the WHOLE OCR pipeline (screen capture, onnxruntime,
+            # Tesseract subprocesses, PIL). Its raise set is not knowable
+            # from here, and this is the synchronous last-resort fallback
+            # after the bootstrap thread already failed to spawn: if this
+            # raises, the calibration dialog must still open. Kept broad,
+            # but no longer silent -- a bootstrap scan that never happens
+            # otherwise looks exactly like a HUD with nothing on it.
+            # Bound as `exc2`, NOT `exc`: Python deletes the handler's name
+            # on exit, so reusing `exc` here would unbind the enclosing
+            # handler's own exception variable.
+            except Exception as exc2:  # noqa: BLE001 - see comment above
+                log.warning(
+                    "calibration: synchronous bootstrap scan failed: %r",
+                    exc2,
+                )
 
     # ──────────────────────────────────────────
     # Calibrate tab
@@ -1906,10 +1955,18 @@ so you can switch between setups without losing your work.</p>
                     ):
                         import time as _t
                         self._last_user_input_ts = _t.time()
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except _QT_CALL_ERRORS as exc:
+                    log.debug("user-input timestamp update failed: %r", exc)
+        # DELIBERATELY BROAD (see the noqa on the except below):
+        # this is an event filter installed on the
+        # QApplication, so it is re-entered from C++ for EVERY event of
+        # EVERY widget in the toolbox process. An exception that escapes
+        # here unwinds into the Qt event loop, where PySide6's unhandled
+        # -exception path can abort the process -- a crash of the whole
+        # toolbox caused by a diagnostic timestamp. Kept broad for that
+        # reason, and now logged so the rate is observable.
+        except Exception as exc:  # noqa: BLE001 - see comment above
+            log.debug("calibration dialog eventFilter failed: %r", exc)
         return False
 
     def _live_refresh_tick(self) -> None:
@@ -1958,8 +2015,10 @@ so you can switch between setups without losing your work.</p>
         try:
             if self._tabs.currentIndex() != 0:
                 return
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            # Cannot tell which tab is up -- fall through and refresh,
+            # which is the pre-existing behaviour.
+            log.debug("live-refresh tab gate failed: %r", exc)
 
         import time as _time
         _now = _time.time()
@@ -1969,8 +2028,8 @@ so you can switch between setups without losing your work.</p>
         try:
             if (_now - self._last_user_input_ts) < (INPUT_PAUSE_MS / 1000.0):
                 return
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as exc:
+            log.debug("live-refresh input-pause gate failed: %r", exc)
 
         # Re-entrancy guard: drop this tick if the previous worker is
         # still running. The QTimer fires every LIVE_REFRESH_MS (1.5 s)
@@ -2070,8 +2129,12 @@ so you can switch between setups without losing your work.</p>
                             from ocr import onnx_hud_reader as _ohr
                             try:
                                 _ohr._set_current_region(region_snap)
-                            except Exception:
-                                pass
+                            except (AttributeError, KeyError,
+                                    TypeError, ValueError) as exc:
+                                log.debug(
+                                    "live_refresh worker: region handoff "
+                                    "failed: %r", exc,
+                                )
                             hud_label_rows_w = (
                                 _ohr._find_label_rows(hud_pil_w) or {}
                             )
@@ -2104,8 +2167,11 @@ so you can switch between setups without losing your work.</p>
                 # spawn a fresh worker.
                 try:
                     self._live_refresh_in_flight = False
-                except Exception:
-                    pass
+                except (AttributeError, RuntimeError) as exc:
+                    log.debug(
+                        "live_refresh worker: in-flight clear failed: %r",
+                        exc,
+                    )
 
         try:
             _threading.Thread(
@@ -2137,7 +2203,11 @@ so you can switch between setups without losing your work.</p>
         try:
             if not self.isVisible():
                 return
-        except Exception:
+        except (RuntimeError, AttributeError) as exc:
+            # A closing dialog's C++ side may already be gone; dropping
+            # the payload is the correct and pre-existing behaviour.
+            log.debug("live-refresh result dropped, visibility "
+                      "unknown: %r", exc)
             return
 
         import time as _time
@@ -2280,7 +2350,9 @@ so you can switch between setups without losing your work.</p>
             if x2 <= x or y2 <= y:
                 return None
             return img.crop((x, y, x2, y2))
-        except Exception:
+        except (AttributeError, KeyError, OSError,
+                TypeError, ValueError) as exc:
+            log.debug("crop failed for box=%r: %r", box, exc)
             return None
 
     # ──────────────────────────────────────────
@@ -2296,8 +2368,8 @@ so you can switch between setups without losing your work.</p>
         """
         try:
             self._live_signaler.crop_ready.emit(field, pil)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("crop_ready emit failed (field=%s): %r", field, exc)
 
     def _on_live_crop(self, field: str, pil) -> None:
         """UI-thread slot for crops broadcast from the OCR pipeline.
@@ -2366,7 +2438,9 @@ so you can switch between setups without losing your work.</p>
             if y2 <= y1 or x2 <= x1:
                 return None
             return img.crop((x1, y1, x2, y2))
-        except Exception:
+        except _OVERLAY_READ_ERRORS + (OSError,) as exc:
+            log.debug("row crop from panel failed (field=%s): %r",
+                      field, exc)
             return None
 
     def _read_live_box(self, field: str) -> Optional[dict]:
@@ -2406,7 +2480,8 @@ so you can switch between setups without losing your work.</p>
                 "w": 200,  # rough estimate
                 "h": int(row["y2"] - row["y1"]),
             }
-        except Exception:
+        except _OVERLAY_READ_ERRORS as exc:
+            log.debug("live box read failed (field=%s): %r", field, exc)
             return None
 
     # ──────────────────────────────────────────
@@ -2537,8 +2612,8 @@ so you can switch between setups without losing your work.</p>
             img = debug_overlay._state.get("image")
             if img is not None:
                 image_size = img.size
-        except Exception:
-            pass
+        except _OVERLAY_READ_ERRORS as exc:
+            log.debug("panel image size unavailable on row lock: %r", exc)
 
         calibration.save_row(
             target_region, field, box,
@@ -3029,8 +3104,8 @@ so you can switch between setups without losing your work.</p>
             txt = f"Column x: +{v} px (right shift)"
         try:
             self._col_status.setText(txt)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("column status label update failed: %r", exc)
 
     def _on_col_offset_changed(self, value: int) -> None:
         """Spin box value changed → persist + update label.
@@ -3049,8 +3124,10 @@ so you can switch between setups without losing your work.</p>
                 self._status_bar.showMessage(
                     f"⚠ Could not save column offset: {exc}", 4000,
                 )
-            except Exception:
-                pass
+            except _QT_CALL_ERRORS as exc2:
+                # The save failure itself is already logged by the caller;
+                # this only reports that the user never saw the toast.
+                log.debug("column-offset toast not shown: %r", exc2)
         self._refresh_col_status()
 
     def _on_col_nudge(self, direction: int) -> None:
@@ -3064,8 +3141,8 @@ so you can switch between setups without losing your work.</p>
             mods = QApplication.keyboardModifiers()
             if mods & Qt.ShiftModifier:
                 step = 5
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("column-nudge shift-modifier probe failed: %r", exc)
         try:
             self._col_spin.setValue(int(self._col_spin.value()) + direction * step)
         except Exception as exc:
@@ -3081,13 +3158,13 @@ so you can switch between setups without losing your work.</p>
         try:
             self._col_spin.blockSignals(True)
             self._col_spin.setValue(self._safe_get_col_offset())
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("column spin reload failed: %r", exc)
         finally:
             try:
                 self._col_spin.blockSignals(False)
-            except Exception:
-                pass
+            except _QT_CALL_ERRORS as exc:
+                log.debug("column spin unblock failed: %r", exc)
         self._refresh_col_status()
 
     # ──────────────────────────────────────────
@@ -3112,20 +3189,20 @@ so you can switch between setups without losing your work.</p>
                 self.setWindowTitle(f"[OVERRIDE ACTIVE] {base}")
             else:
                 self.setWindowTitle(base)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("override window-title update failed: %r", exc)
         # Small inline label next to the EMERGENCY button.
         try:
             if active:
                 self._override_status_lbl.setText("● Manual override ACTIVE")
             else:
                 self._override_status_lbl.setText("")
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("override status label update failed: %r", exc)
         try:
             self._disable_override_btn.setVisible(active)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("override button visibility update failed: %r", exc)
 
     def _on_open_emergency_override(self) -> None:
         """Open the Manual Override dialog modally."""
@@ -3231,8 +3308,8 @@ so you can switch between setups without losing your work.</p>
             try:
                 if not self._live_refresh_timer.isActive():
                     self._live_refresh_timer.start(LIVE_REFRESH_MS)
-            except Exception:
-                pass
+            except _QT_CALL_ERRORS as exc:
+                log.debug("live-refresh timer start failed: %r", exc)
             self._status_bar.showMessage("Live polling resumed", 2000)
         else:
             if self._timer.isActive():
@@ -3240,8 +3317,8 @@ so you can switch between setups without losing your work.</p>
             try:
                 if self._live_refresh_timer.isActive():
                     self._live_refresh_timer.stop()
-            except Exception:
-                pass
+            except _QT_CALL_ERRORS as exc:
+                log.debug("live-refresh timer stop failed: %r", exc)
             self._status_bar.showMessage(
                 "Live polling paused (not on Calibrate tab)", 0,
             )
@@ -3260,8 +3337,8 @@ so you can switch between setups without losing your work.</p>
         """Pause heavy timers during window drag; resume shortly after."""
         try:
             super().moveEvent(event)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("moveEvent super() failed: %r", exc)
         try:
             # Lazily create the resume-debounce timer.
             if not hasattr(self, "_resume_after_move_timer"):
@@ -3278,8 +3355,8 @@ so you can switch between setups without losing your work.</p>
             # Debounce: each move resets the resume timer to fire
             # 250 ms after the LAST move event.
             self._resume_after_move_timer.start(250)
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("moveEvent timer pause failed: %r", exc)
 
     def _resume_timers_after_move(self) -> None:
         """Restart the timers paused during window drag."""
@@ -3295,18 +3372,23 @@ so you can switch between setups without losing your work.</p>
                 if tab_idx == 0:
                     self._live_refresh_timer.start(LIVE_REFRESH_MS)
                 self._was_live_refresh_active = False
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("timer resume after move failed: %r", exc)
 
     def closeEvent(self, event):
+        # Each teardown step is independently guarded so one failure cannot
+        # skip the rest. Narrowed to _QT_CALL_ERRORS: every body below is a
+        # no-arg method call or an attribute set on a Qt wrapper, so a
+        # deleted C++ object (RuntimeError) or a never-created attribute
+        # (AttributeError) is the whole reachable set.
         try:
             self._timer.stop()
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("closeEvent: poll timer stop failed: %r", exc)
         try:
             self._live_refresh_timer.stop()
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("closeEvent: live-refresh timer stop failed: %r", exc)
         # Defensively clear the live-refresh in-flight flag. The worker
         # thread itself is fire-and-forget (daemon); if it's still
         # running it'll finish, attempt to emit the queued signal, and
@@ -3314,13 +3396,13 @@ so you can switch between setups without losing your work.</p>
         # ``isVisible()`` returns False on a closing dialog.
         try:
             self._live_refresh_in_flight = False
-        except Exception:
-            pass
+        except (AttributeError, RuntimeError) as exc:
+            log.debug("closeEvent: in-flight clear failed: %r", exc)
         try:
             if hasattr(self, "_resume_after_move_timer"):
                 self._resume_after_move_timer.stop()
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            log.debug("closeEvent: resume timer stop failed: %r", exc)
         # Uninstall the global event filter we attached in __init__ —
         # leaving it on QApplication after the dialog is gone causes
         # event dispatch into a half-dead Python object (Qt has a C++
@@ -3331,15 +3413,20 @@ so you can switch between setups without losing your work.</p>
                 if _app is not None:
                     _app.removeEventFilter(self)
                 self._installed_app_filter = False
-        except Exception:
-            pass
+        except _QT_CALL_ERRORS as exc:
+            # Worth WARNING: a filter left installed on QApplication keeps
+            # dispatching events into a half-dead Python object, which is
+            # the crash this teardown exists to prevent.
+            log.warning(
+                "closeEvent: app event filter NOT uninstalled: %r", exc,
+            )
         # Stop any in-flight voice playback so audio doesn't keep
         # narrating after the dialog is gone.
         try:
             if getattr(self, "_voice_player", None) is not None:
                 self._voice_player.stop()
-        except Exception:
-            pass
+        except (AttributeError, RuntimeError, OSError) as exc:
+            log.debug("closeEvent: voice playback stop failed: %r", exc)
         # Unregister the live-broadcast listener so the dialog can be
         # garbage-collected and reopened cleanly without leaking a
         # reference to the old instance.

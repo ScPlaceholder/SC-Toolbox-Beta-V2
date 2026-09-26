@@ -32,7 +32,11 @@ from __future__ import annotations
 try:  # pragma: no cover - defensive, never fatal
     import platform as _platform_nowmi
     _platform_nowmi._wmi = None
-except Exception:
+# Silent BY DESIGN: this runs above `import logging` / `log = ...`, so there
+# is no logger yet. Narrowed to the only two reachable classes -- `platform`
+# missing (ImportError) or a Python build without the `_wmi` attribute
+# (AttributeError). Any other class propagates at import time, loudly.
+except (ImportError, AttributeError):
     pass
 
 import logging
@@ -49,6 +53,29 @@ from PIL import Image
 from . import capture, fallback, preprocess, validate
 
 log = logging.getLogger(__name__)
+
+# What the numpy/PIL image maths in this module can actually raise: a wrong
+# dtype or a None where an array is expected (TypeError), an empty array, a
+# bad shape or an unparseable threshold (ValueError, which also covers
+# numpy's AxisError and PIL's UnidentifiedImageError is an OSError),
+# indexing past the end of a short axis (IndexError), a degenerate
+# all-one-value strip (ZeroDivisionError, FloatingPointError), and an
+# oversized allocation (MemoryError). Anything outside this set -- an
+# onnxruntime fault, a cv2.error, an import failure -- is a real defect and
+# propagates rather than being silently read as "the HUD said nothing".
+_ARRAY_ERRORS = (
+    TypeError, ValueError, IndexError, ZeroDivisionError,
+    FloatingPointError, MemoryError, AttributeError,
+)
+
+# PIL draw/save paths: a missing font file or an unwritable dump dir raise
+# OSError; a bad colour tuple or coordinate raises TypeError/ValueError.
+_IMAGE_IO_ERRORS = (OSError, TypeError, ValueError, AttributeError)
+
+# Tesseract subprocess calls. pytesseract.TesseractError subclasses
+# RuntimeError (also the timeout path) and TesseractNotFoundError subclasses
+# OSError; PIL's temp write raises OSError; a bad config raises ValueError.
+_TESSERACT_ERRORS = (OSError, RuntimeError, ValueError, ImportError)
 
 # Pre-compiled regex patterns (module scope)
 _RE_NUMERIC_TOKEN = re.compile(r"\d[\d.,]*%?")
@@ -1169,8 +1196,8 @@ def _annotate_frozen_snapshot(
         # FROZEN watermark — top-right, red, hard to miss.
         try:
             draw.text((max(0, W - 80), 4), "FROZEN", fill=(255, 80, 80))
-        except Exception:
-            pass
+        except _IMAGE_IO_ERRORS as exc:
+            log.debug("frozen-snapshot watermark draw failed: %r", exc)
 
         # Per-field row band rectangles + OCR value labels.
         if label_rows:
@@ -1193,8 +1220,11 @@ def _annotate_frozen_snapshot(
                         outline=(0, 200, 200),
                         width=2,
                     )
-                except Exception:
-                    pass
+                except _IMAGE_IO_ERRORS as exc:
+                    log.debug(
+                        "frozen-snapshot row rect draw failed "
+                        "(field=%s): %r", _field, exc,
+                    )
                 # OCR'd value label right of the label column.
                 _v = raw_values.get(_field)
                 _text = (
@@ -1206,8 +1236,11 @@ def _annotate_frozen_snapshot(
                         (int(_label_right) + 4, _y1 + 2),
                         _text, fill=(0, 255, 255),
                     )
-                except Exception:
-                    pass
+                except _IMAGE_IO_ERRORS as exc:
+                    log.debug(
+                        "frozen-snapshot value label draw failed "
+                        "(field=%s): %r", _field, exc,
+                    )
     except Exception as exc:
         log.debug("annotate_frozen_snapshot: draw failed: %s", exc)
         # Fall back to the unannotated image — better than nothing.
@@ -2087,7 +2120,8 @@ def _adaptive_binarize_multi(
         # Pad with reflect to keep edges sane.
         try:
             padded = np.pad(g32, ((r, r), (r, r)), mode="reflect")
-        except Exception:
+        except _ARRAY_ERRORS as exc:
+            log.debug("box-local-mean pad failed (r=%s): %r", r, exc)
             return None
         # Integral image so each window-mean is O(1) per pixel.
         integral = padded.cumsum(axis=0).cumsum(axis=1)
@@ -2120,8 +2154,11 @@ def _adaptive_binarize_multi(
             "otsu_global",
             ((canon_gray > thr).astype(np.uint8)) * 255,
         ))
-    except Exception:
-        pass
+    except _ARRAY_ERRORS as exc:
+        # One missing recipe narrows the binarization sweep; the caller
+        # still tries the rest, but the loss is logged so a systematically
+        # broken recipe does not read as "OCR just could not see it".
+        log.debug("binarize recipe otsu_global failed: %r", exc)
 
     # Recipes 2-4: percentile thresholds. Bright text on dark BG
     # means the ink pixels live in the top end of the histogram.
@@ -2132,7 +2169,8 @@ def _adaptive_binarize_multi(
                 f"percentile_{int(pct)}",
                 ((canon_gray > thr).astype(np.uint8)) * 255,
             ))
-        except Exception:
+        except _ARRAY_ERRORS as exc:
+            log.debug("binarize recipe percentile_%s failed: %r", pct, exc)
             continue
 
     # Recipes 5-6: sliding-window adaptive at two window sizes. C=10
@@ -2146,15 +2184,16 @@ def _adaptive_binarize_multi(
                 continue
             mask = (g32 > (mean + 10.0)).astype(np.uint8) * 255
             recipes.append((f"adaptive_w{win}", mask))
-        except Exception:
+        except _ARRAY_ERRORS as exc:
+            log.debug("binarize recipe adaptive_w%s failed: %r", win, exc)
             continue
 
     # Recipe 7: legacy adaptive (baseline). Always last so it loses
     # on exact ties to a simpler recipe.
     try:
         recipes.append(("legacy", _adaptive_binarize(canon_gray)))
-    except Exception:
-        pass
+    except _ARRAY_ERRORS as exc:
+        log.debug("binarize recipe legacy failed: %r", exc)
 
     if not recipes:
         # Every recipe failed — should never happen since at least
@@ -2952,7 +2991,13 @@ def _build_signature_blacklist_templates() -> list[np.ndarray]:
             src = np.asarray(
                 _PILImg.open(src_path).convert("L"), dtype=np.uint8,
             )
-        except Exception:
+        except (OSError, TypeError, ValueError) as exc:
+            # PIL raises UnidentifiedImageError (an OSError) on a corrupt
+            # or truncated template. Skip that one file, say which.
+            log.warning(
+                "signature blacklist template unreadable, skipped: %s (%r)",
+                src_path, exc,
+            )
             continue
         if src.size == 0 or src.shape[0] < 4 or src.shape[1] < 4:
             continue
@@ -6029,8 +6074,11 @@ def _classify_crops_signal_rgb(
         v2_path = model_path.with_name("model_signal_rgb_cnn_v2.onnx")
         if v2_path.is_file():
             model_path = v2_path
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError) as exc:
+        # Probe only; on failure the v1 model path is kept, which is the
+        # previous behaviour. Logged because silently reading v1 while the
+        # user believes v2 is loaded is exactly a "model regression".
+        log.warning("signal RGB v2 model probe failed, using v1: %r", exc)
     if not model_path.is_file():
         return []
 
@@ -6940,15 +6988,17 @@ def _filter_event_log(line: str) -> None:
                     _keep = _f.readlines()[-2000:]
                 with open(_FILTER_EVENT_LOG, "w", encoding="utf-8") as _f:
                     _f.writelines(_keep)
-        except Exception:
-            pass
+        except (OSError, ValueError) as exc:
+            # Rotation is best-effort; the append below still works on an
+            # oversized file. Reported to the real logger, not to itself.
+            log.debug("filter-event-log rotation failed: %r", exc)
         with open(_FILTER_EVENT_LOG, "a", encoding="utf-8") as _f:
             _f.write(
                 _t.strftime("%H:%M:%S") + f".{int(_t.time()*1000)%1000:03d} "
                 + line + "\n"
             )
-    except Exception:
-        pass
+    except (OSError, TypeError, ValueError) as exc:
+        log.debug("filter-event-log write failed: %r", exc)
 
 
 def _filter_drops_begin(field: str) -> None:
@@ -6959,8 +7009,8 @@ def _filter_drops_begin(field: str) -> None:
         from . import debug_overlay as _dbg_fd
         if _dbg_fd.diagnostics_active():
             _clear_viewer_entry(field, "dropped")
-    except Exception:
-        pass
+    except (ImportError, AttributeError, KeyError, TypeError) as exc:
+        log.debug("filter-drops accumulator reset failed: %r", exc)
 
 
 def _record_filter_drops(field: str, filter_name: str, items) -> None:
@@ -7047,7 +7097,9 @@ def _dump_glyphs(
                         _Image.fromarray(arr, mode="RGB").save(fpath)
                     else:
                         _Image.fromarray(arr, mode="L").save(fpath)
-                except Exception:
+                except (OSError, TypeError, ValueError,
+                        AttributeError, IndexError) as exc:
+                    log.debug("glyph dump save failed (%s): %r", fpath, exc)
                     continue
                 entry = {
                     "idx": i,
@@ -7209,8 +7261,12 @@ def _filter_runtime_junk_boxes(crops, boxes, field: str = ""):
                         if _gate_fn(_a.astype(np.uint8), near=True):
                             _drops.append((_i, "veto", tuple(_bx)))
                             continue
-                except Exception:
-                    pass
+                except _ARRAY_ERRORS as exc:
+                    # Gate could not judge this box -- fall through and KEEP
+                    # it (the pre-existing behaviour: a failed veto is not a
+                    # veto). Logged so a broken gate is not read as "nothing
+                    # was junk".
+                    log.debug("junk-box veto gate failed (i=%s): %r", _i, exc)
             _keep.append(_i)
         if not _drops:
             return crops, boxes
@@ -7786,7 +7842,10 @@ def _classify_hud_value_via_crnn_rgb_raw(
         return None
     try:
         rgb = np.asarray(value_crop.convert("RGB"), dtype=np.uint8)
-    except Exception:
+    except (OSError, AttributeError, TypeError, ValueError, MemoryError) as exc:
+        # Returning None here means "no read" to the caller, which is
+        # indistinguishable from a blank HUD -- so say why.
+        log.warning("RGB CRNN: value crop could not be converted: %r", exc)
         return None
     if rgb.size == 0 or rgb.shape[0] < 4 or rgb.shape[1] < 8:
         return None
@@ -8113,7 +8172,11 @@ def _hud_beam_rerank_plausible(
             from . import priors as _priors_rk
             ok, _ = _priors_rk.is_plausible(field, v, {})
             return bool(ok)
-        except Exception:
+        except (ImportError, AttributeError, KeyError,
+                TypeError, ValueError) as exc:
+            # "Not plausible" and "could not ask" both demote the
+            # candidate; only the second is a defect, so it is logged.
+            log.debug("priors plausibility probe failed: %r", exc)
             return False
 
     # Fast path: top is plausible already → no rerank needed.
@@ -8244,8 +8307,13 @@ def _lexicon_rerank_candidates(
         try:
             if _hud_lex.is_known(field, v):
                 in_lex_candidates.append(cand)
-        except Exception:
-            # Lexicon query failed for some reason — treat as miss.
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            # Lexicon query failed — treat this candidate as a miss, but
+            # record it: a broken lexicon silently demotes every reading.
+            log.debug(
+                "lexicon query failed (field=%s value=%r): %r",
+                field, v, exc,
+            )
             continue
     info["n_in_lexicon"] = len(in_lex_candidates)
 
@@ -12120,8 +12188,12 @@ def _ocr_value_crop_impl(value_crop: Image.Image, field: str = "") -> tuple[str,
                         )
                         _clear_viewer_entry(field, "crnn")
                         _clear_viewer_entry(field, "tesseract")
-                    except Exception:
-                        pass
+                    except (AttributeError, KeyError, OSError,
+                            TypeError, ValueError) as exc:
+                        log.debug(
+                            "winner voter dump failed (field=%s): %r",
+                            field, exc,
+                        )
                     return _txt_pri, _confs_pri
         except Exception as _exc:
             log.debug("sc_ocr: primary ONNX path failed: %s", _exc)
@@ -12163,8 +12235,8 @@ def _ocr_value_crop_impl(value_crop: Image.Image, field: str = "") -> tuple[str,
         # live viewer doesn't show a phantom voter.
         try:
             _clear_viewer_entry(field, "tesseract")
-        except Exception:
-            pass
+        except (AttributeError, KeyError, TypeError) as exc:
+            log.debug("viewer entry clear failed (tesseract): %r", exc)
 
     # Non-digit field: keep the original CRNN-first flow (letter text
     # can't be voted against the digit-only eng_sc model anyway).
@@ -14253,8 +14325,11 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                         _DG.fromarray(_mont, "RGB").resize(
                             (_mont.shape[1] * 5, 28 * 5), _DG.NEAREST,
                         ).save(os.environ["SC_DUMP_GLYPHS"])
-                    except Exception:
-                        pass
+                    except (KeyError, OSError, ImportError, IndexError,
+                            TypeError, ValueError, AttributeError) as exc:
+                        # KeyError is reachable: SC_DUMP_GLYPHS is read
+                        # from the environment without a default.
+                        log.debug("RGB glyph montage dump failed: %r", exc)
                 if _hud_rgb_crops:
                     _hud_rgb_results = _classify_crops_signal_rgb(_hud_rgb_crops)
                     if _hud_rgb_results:
@@ -14448,8 +14523,9 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                 val, source_label, get_last_signal_crop_box(),
                 _LAST_SIGNAL_COMMA_X[0] if _LAST_SIGNAL_COMMA_X else None,
             )
-        except Exception:
-            pass
+        except (ImportError, AttributeError, OSError,
+                IndexError, TypeError, ValueError) as exc:
+            log.debug("signal_record.write failed: %r", exc)
         return _STABLE_SIGNAL
 
     # ── (0-CRNN) RGB CRNN WHOLE-STRIP gate ──
@@ -15261,7 +15337,12 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                                     _arr, mode="L",
                                 ).save(_tmp, format="PNG")
                                 os.replace(_tmp, _fpath)
-                            except Exception:
+                            except (OSError, TypeError, ValueError,
+                                    AttributeError) as exc:
+                                log.debug(
+                                    "inline glyph crop save failed "
+                                    "(%s): %r", _fpath, exc,
+                                )
                                 continue
                             _per_digit_meta.append({
                                 "char": _ch,
@@ -15360,7 +15441,10 @@ def _signal_recognize_pil(img, region: Optional[dict] = None) -> Optional[int]:
                 boxes = _xlg._tesseract_char_boxes(
                     img_v, whitelist="0123456789.", psm=psm,
                 )
-            except Exception:
+            except _TESSERACT_ERRORS as exc:
+                log.debug(
+                    "signal char-box OCR failed (psm=%s): %r", psm, exc,
+                )
                 continue
             if not boxes:
                 continue
@@ -16127,7 +16211,10 @@ def _match_paren_pair(
                     _ss, int(round((_xs + _tws) * _fx)),
                 )
         return None
-    except Exception:
+    except _ARRAY_ERRORS as exc:
+        # No paren pair found is a legitimate answer (None); a paren pair
+        # we FAILED to look for is not, so the second case is logged.
+        log.debug("paren-pair NCC match failed: %r", exc)
         return None
 
 
@@ -16243,8 +16330,8 @@ def _refine_mineral_band_above_mass(
                         _runs[-1][0], _runs[-1][1],
                     )
                 )
-            except Exception:
-                pass
+            except (OSError, IndexError, TypeError, ValueError) as exc:
+                log.debug("PAREN-ANCHOR diagnostic line failed: %r", exc)
         if _pick is not None:
             _ry1, _ry2 = _pick[0], _pick[1]
             _ylim = _h
@@ -16342,8 +16429,10 @@ def _ocr_mineral_name(
                 _cneww = min(crop.width, int(_cink[-1]) + _cmargin)
                 if 20 <= _cneww < crop.width:
                     crop = crop.crop((0, 0, _cneww, crop.height))
-    except Exception:
-        pass
+    except _ARRAY_ERRORS as exc:
+        # Tightening is an optimisation; on failure the untightened crop
+        # is OCR'd, which is the previous behaviour.
+        log.debug("mineral-name crop tighten skipped: %r", exc)
 
     # ── Preprocessing helpers ──
     rgb = np.array(crop.convert("RGB"), dtype=np.uint8)
@@ -16691,8 +16780,8 @@ def scan_hud_onnx(
         try:
             from . import panel_solve as _psolve_hb
             _psolve_hb.note_live_frame()
-        except Exception:
-            pass
+        except (ImportError, AttributeError) as exc:
+            log.debug("panel_solve live-frame heartbeat failed: %r", exc)
     # ── Profile-aware dispatch (scaffolding) ──
     # Load the profile that scopes this scan (mining HUD = digit-only,
     # uses model_cnn.onnx). Subsequent steps will route classification
@@ -16784,8 +16873,8 @@ def scan_hud_onnx(
             img.save(os.path.join(
                 os.path.dirname(_GLYPH_DUMP_DIR), "debug_clean_region.png"
             ))
-    except Exception:
-        pass
+    except (ImportError, AttributeError, OSError, TypeError, ValueError) as exc:
+        log.debug("debug_clean_region dump failed: %r", exc)
     if _dbg is not None:
         _dbg.set_image(img)
         # Write IMMEDIATELY so the viewer reflects the latest capture
@@ -17460,7 +17549,10 @@ def scan_hud_onnx(
                 for _name, _bw, _cfg in _variants:
                     try:
                         _t = _pt.image_to_string(Image.fromarray(_bw), config=_cfg)
-                    except Exception:
+                    except _TESSERACT_ERRORS as exc:
+                        log.debug(
+                            "whole-strip OCR failed (cfg=%r): %r", _cfg, exc,
+                        )
                         continue
                     _d = priors.detect_difficulty(_t)
                     if _d:
@@ -18480,8 +18572,9 @@ def scan_hud_onnx(
             try:
                 if _frozen.is_frozen:
                     _frozen.clear()
-            except Exception:
-                pass
+            except (AttributeError, OSError, RuntimeError,
+                    TypeError, ValueError) as exc:
+                log.debug("SC_HUD_NO_FREEZE clear failed: %r", exc)
             return result
         _rk_frozen = _region_key(region)
         _title_seen_this_scan = bool(
@@ -18805,8 +18898,8 @@ def _classify_hud_value_via_crnn_rgb(
     try:
         if out and out[0]:
             _HUD_RGB_SEEN.append(str(out[0]))
-    except Exception:
-        pass
+    except (AttributeError, IndexError, TypeError) as exc:
+        log.debug("HUD RGB seen-ring append failed: %r", exc)
     return out
 
 

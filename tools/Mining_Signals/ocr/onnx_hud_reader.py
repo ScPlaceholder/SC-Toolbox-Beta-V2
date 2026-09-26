@@ -28,6 +28,24 @@ from .screen_reader import _check_tesseract
 
 log = logging.getLogger(__name__)
 
+# What the best-effort debug-overlay telemetry pushes below can actually
+# raise. The overlay module may be absent in a trimmed build (ImportError)
+# or an older build may lack a setter (AttributeError); the row dicts and
+# tuples are built upstream, so a missing key, a short tuple, a None where
+# a number is expected, or an unparseable value are all reachable
+# (KeyError, IndexError, TypeError, ValueError). Anything OUTSIDE this set
+# is a real defect and is deliberately allowed to propagate rather than be
+# swallowed into a blank overlay.
+_OVERLAY_PUSH_ERRORS = (
+    ImportError, AttributeError, KeyError, IndexError, TypeError, ValueError,
+)
+
+# Tesseract subprocess calls. pytesseract.TesseractError subclasses
+# RuntimeError (also raised on the timeout path) and TesseractNotFoundError
+# subclasses OSError; PIL's temp-file write raises OSError; a bad config
+# string raises ValueError; the lazy `import pytesseract` raises ImportError.
+_TESSERACT_ERRORS = (OSError, RuntimeError, ValueError, ImportError)
+
 _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 _MODEL_PATH = os.path.join(_MODULE_DIR, "models", "model_cnn.onnx")
 _META_PATH = os.path.join(_MODULE_DIR, "models", "model_cnn.json")
@@ -1152,7 +1170,11 @@ def _find_scan_results_anchor(img: Image.Image) -> Optional[dict]:
                 output_type=pytesseract.Output.DICT,
                 timeout=_TESS_ANCHOR_TIMEOUT_S,
             )
-        except Exception:
+        except _TESSERACT_ERRORS as exc:
+            # Per-recipe: one bad binarization must not abort the anchor
+            # search, but the failure is logged so a dead Tesseract does
+            # not read as "no anchor found".
+            log.debug("anchor OCR recipe failed: %r", exc)
             continue
         n = len(data.get("text", []))
         # Collect all "SCAN" and "RESULTS" hits with their bboxes
@@ -1826,8 +1848,8 @@ def _find_label_rows_by_hud_grid(
             source="hud_grid",
             title_box=_get_cached_title_box(),
         )
-    except Exception:
-        pass
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (hud_grid): %r", exc)
 
     return result
 
@@ -2212,8 +2234,8 @@ def _find_label_rows_by_position(
             source="by_position",
             title_box=_get_cached_title_box(),
         )
-    except Exception:
-        pass
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (by_position): %r", exc)
     return result
 
 
@@ -2397,7 +2419,10 @@ def _repair_label_match_xs(
                     "in the value column; ink label span %d..%d)",
                     fld, x, int(start), int(start), int(end),
                 )
-        except Exception:
+        except (ImportError, AttributeError, KeyError,
+                IndexError, TypeError, ValueError) as exc:
+            # Per-field: a malformed match dict skips that field only.
+            log.debug("label-x repair skipped field=%s: %r", fld, exc)
             continue
     return out
 
@@ -2760,8 +2785,8 @@ def _find_label_rows_by_ncc(
             source="ncc_label_match",
             title_box=_get_cached_title_box(),
         )
-    except Exception:
-        pass
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (ncc_label_match): %r", exc)
 
     return result
 
@@ -2827,8 +2852,8 @@ def _emit_anchor_only_overlay() -> None:
             source="anchor_only",
             title_box=_box,
         )
-    except Exception:
-        pass
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (anchor_only): %r", exc)
 
 
 def _emit_label_rows_overlay(result: Optional[dict]) -> None:
@@ -2871,11 +2896,15 @@ def _emit_label_rows_overlay(result: Optional[dict]) -> None:
                 "_emit_label_rows_overlay: pushing fields=%s",
                 sorted(rows.keys()),
             )
-        except Exception:
+        # Silent BY DESIGN and narrow: this guards the log call itself
+        # (a closed/rotating file handler raises OSError, a bad format
+        # arg TypeError/ValueError), so reporting the failure would mean
+        # calling the thing that just failed. Any other class propagates.
+        except (OSError, ValueError, TypeError):
             pass
         _dbg.set_label_rows(rows)
-    except Exception:
-        pass
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (label_rows): %r", exc)
 
 
 # Rate-limit calibration-state logging so we don't spam the log on every
@@ -3117,8 +3146,9 @@ def _pose_health(state: str, rows: dict) -> None:
                 len(rows) if rows else 0,
             )
         )
-    except Exception:
-        pass
+    except (ImportError, AttributeError, OSError,
+            TypeError, ValueError, IndexError) as exc:
+        log.debug("POSE filter-event-log write failed: %r", exc)
 
 
 def _find_label_rows_impl(img: Image.Image) -> dict[str, tuple[int, int, int]]:
@@ -3133,8 +3163,8 @@ def _find_label_rows_impl(img: Image.Image) -> dict[str, tuple[int, int, int]]:
     try:
         from .sc_ocr import frame_context as _fc0
         _fc0.reset()
-    except Exception:
-        pass
+    except (ImportError, AttributeError) as exc:
+        log.debug("frame_context.reset unavailable: %r", exc)
     return _find_label_rows_impl_body(img)
 
 
@@ -3333,8 +3363,10 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                     source="anchor_only",
                     title_box=_get_cached_title_box(),
                 )
-            except Exception:
-                pass
+            except _OVERLAY_PUSH_ERRORS as exc:
+                log.debug(
+                    "debug-overlay push failed (pre_anchor): %r", exc,
+                )
 
             # ── EARLY-DIRECT row finder ──
             # Run label_match against a "below the title" crop. If it
@@ -3694,8 +3726,12 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                     _set_cached_title_box(
                                         _psolve.title_box(_panel_pose)
                                     )
-                                except Exception:
-                                    pass
+                                except (AttributeError, KeyError, IndexError,
+                                        TypeError, ValueError) as exc:
+                                    log.debug(
+                                        "title-box cache from pose "
+                                        "failed: %r", exc,
+                                    )
                                 # Spine overlay: feed the ONE solved pose
                                 # + each part's own detection so the
                                 # reviewer can SEE the body held together
@@ -3741,8 +3777,11 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                         _panel_pose.get("rejected"),
                                         _panel_pose.get("stab"),
                                     )
-                                except Exception:
-                                    pass
+                                except _OVERLAY_PUSH_ERRORS as exc:
+                                    log.debug(
+                                        "debug-overlay push failed "
+                                        "(panel_pose spine): %r", exc,
+                                    )
                             # ── Value-column X (label_right) ──
                             # Every field's value crop starts at this
                             # X. Derive it from where the VALUE INK
@@ -4037,8 +4076,15 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                                     _rb_ov[0], _rb_ov[1],
                                     _mineral_band[2],
                                 )
-                        except Exception:
-                            pass
+                        except (ImportError, AttributeError, KeyError,
+                                IndexError, TypeError, ValueError) as exc:
+                            # Refine is cosmetic (draws the band actually
+                            # read); on failure the generous search strip
+                            # is drawn instead, which is the old value.
+                            log.debug(
+                                "mineral-band refine for overlay "
+                                "failed: %r", exc,
+                            )
                         _dbg_early.set_panel_finder(
                             top_y=_title_y_int,
                             mineral_y_top=_mineral_band[0] or None,
@@ -4053,8 +4099,11 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                             source="early_direct_label_match",
                             title_box=_get_cached_title_box(),
                         )
-                    except Exception:
-                        pass
+                    except _OVERLAY_PUSH_ERRORS as exc:
+                        log.debug(
+                            "debug-overlay push failed "
+                            "(early_direct_label_match): %r", exc,
+                        )
                     _emit_label_rows_overlay(_early_direct_result)
                     return _early_direct_result
             except Exception as _cal_pre_exc:  # pragma: no cover
@@ -4098,8 +4147,11 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                             source="manual_override",
                             title_box=_get_cached_title_box(),
                         )
-                except Exception:
-                    pass
+                except _OVERLAY_PUSH_ERRORS as exc:
+                    log.debug(
+                        "debug-overlay push failed (manual_override): %r",
+                        exc,
+                    )
                 return manual_rows
         except Exception as _mo_exc:
             log.debug("manual override lookup failed: %s", _mo_exc)
@@ -4123,8 +4175,9 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
             # rate-limiter guards against per-scan log spam.
             try:
                 _log_calibration_state(_region, cal_result)
-            except Exception:
-                pass
+            except (ImportError, AttributeError, OSError,
+                    TypeError, ValueError) as exc:
+                log.debug("calibration-state log failed: %r", exc)
             log.debug(
                 "_find_label_rows: ZEROTH completed in %.0fms (result=%s)",
                 (time.monotonic() - _t_zeroth) * 1000.0,
@@ -4149,8 +4202,10 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                         source="calibration",
                         title_box=_get_cached_title_box(),
                     )
-                except Exception:
-                    pass
+                except _OVERLAY_PUSH_ERRORS as exc:
+                    log.debug(
+                        "debug-overlay push failed (calibration): %r", exc,
+                    )
                 log.debug(
                     "label_rows from calibration: %s",
                     {k: v for k, v in cal_result.items()},
@@ -4434,8 +4489,11 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                         source="scan_results_anchor",
                         title_box=_get_cached_title_box(),
                     )
-                except Exception:
-                    pass
+                except _OVERLAY_PUSH_ERRORS as exc:
+                    log.debug(
+                        "debug-overlay push failed "
+                        "(scan_results_anchor): %r", exc,
+                    )
                 log.info(
                     "_find_label_rows: PRIMARY returning result "
                     "(title @ x=%d y=%d w=%d h=%d, total elapsed=%.0fms)",
@@ -4660,7 +4718,8 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
                 output_type=pytesseract.Output.DICT,
                 timeout=_TESS_LABEL_TIMEOUT_S,
             )
-        except Exception:
+        except _TESSERACT_ERRORS as exc:
+            log.debug("label OCR recipe failed: %r", exc)
             continue
         n = len(data.get("text", []))
         for i in range(n):
@@ -5002,7 +5061,8 @@ def _legacy_read_field(crop: "Image.Image", field: str) -> Optional[float]:
             txt = _sr._try_ocr(
                 v, "--psm 7 -c tessedit_char_whitelist=0123456789.%"
             )
-        except Exception:
+        except _TESSERACT_ERRORS as exc:
+            log.debug("legacy field OCR variant failed: %r", exc)
             continue
         val = validator(txt)
         if val is not None:
@@ -5019,8 +5079,12 @@ def _legacy_read_field(crop: "Image.Image", field: str) -> Optional[float]:
                 val = validator(txt)
                 if val is not None:
                     cands.append(val)
-    except Exception:
-        pass
+    # A swallowed read here is indistinguishable from "the HUD said
+    # nothing", so it is logged at WARNING: the caller falls back to the
+    # other candidates, but a dead Paddle daemon must be visible.
+    except (ImportError, AttributeError, OSError, RuntimeError,
+            TypeError, ValueError) as exc:
+        log.warning("paddle fallback read failed: %r", exc)
 
     if not cands:
         return None
@@ -5142,8 +5206,9 @@ def scan_hud_onnx(region: dict) -> dict[str, Optional[float]]:
         try:
             from .sc_ocr import scan_record as _srec
             _srec.write(sc_result if isinstance(sc_result, dict) else {}, elapsed)
-        except Exception:
-            pass
+        except (ImportError, AttributeError, OSError,
+                TypeError, ValueError) as exc:
+            log.debug("scan_record.write failed: %r", exc)
         return sc_result
     except Exception as exc:
         # Include the full traceback so we can locate the actual line
