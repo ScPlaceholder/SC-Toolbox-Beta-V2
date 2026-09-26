@@ -14,6 +14,7 @@ from shared.qt.theme import P
 from shared.qt.search_bar import SCSearchBar
 from ui.components.virtual_grid import VirtualScrollGrid, FabCard
 from ui.components.breadcrumb import BreadcrumbBar
+from data.models import text_field
 from services.inventory import blueprint_key
 from services import sc_log_scanner
 
@@ -417,9 +418,9 @@ class OwnedBlueprintsPage(QWidget):
         bp = item
         TYPE_COLORS = {"weapons": P.orange, "armour": P.accent, "ammo": P.yellow}
         name = self._data.get_blueprint_product_name(bp)
-        bp_type = bp.get("type", "?")
-        bp_sub = bp.get("subtype", "").replace("_", " ").title()
-        tiers = bp.get("tiers", [])
+        bp_type = text_field(bp, "type", "?")
+        bp_sub = text_field(bp, "subtype").replace("_", " ").title()
+        tiers = bp.get("tiers") or []
         type_color = TYPE_COLORS.get(bp_type, P.fg)
         type_fg = "white" if bp_type != "ammo" else P.bg_primary
 

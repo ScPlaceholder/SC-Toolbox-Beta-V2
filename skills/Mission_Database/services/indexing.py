@@ -10,6 +10,64 @@ from collections import defaultdict
 from config import HIDDEN_LOCATIONS
 
 
+def index_completion_tags(contracts: list) -> dict:
+    """``{completion tag GUID: [contracts that grant it]}`` (issue #22a).
+
+    A contract's ``prerequisites.completedContractTags`` names the missions it
+    follows by GUID only, which is why the Requirements tab printed a raw
+    ``4b034350-9ef2-43f8-806c-2d5656fc1206`` where a mission name belongs.  The
+    other half of the join was already in the shipped cache and used nowhere:
+    ``completionTags`` on a contract lists the tags it GRANTS on completion.
+    Measured on 4.10.1: 362 contracts grant 120 distinct tags, and 76 of the 80
+    distinct required tags (plus all 37 excluded ones) resolve to a name.
+    """
+    index: dict = defaultdict(list)
+    for c in contracts or []:
+        if not isinstance(c, dict):
+            continue
+        for entry in (c.get("completionTags") or []):
+            tag = entry.get("tag") if isinstance(entry, dict) else entry
+            if tag:
+                index[tag].append(c)
+    return dict(index)
+
+
+def index_reward_pool_blueprints(blueprint_pools: dict) -> dict:
+    """Which blueprints any mission reward pool can hand out (issue #21).
+
+    Every entry in ``blueprintPools[*].blueprints`` names the same blueprint
+    three ways -- ``blueprintRecord`` (the datamine record UUID, which is the
+    ``guid`` on a crafting blueprint), ``entityClass`` (its
+    ``productEntityClass``) and ``name``.  All three are indexed so the join
+    survives one of them going missing upstream; measured on 4.10.1 they agree:
+    154 pools name 732 of the 1,607 blueprints by any of the three keys.
+
+    ⚠ An EMPTY result means "mission data is not loaded", NOT "nothing is
+    obtainable" -- the Fabricator's crafting data and the mission cache load
+    independently.  Callers must treat empty as UNKNOWN; see
+    ``MissionDataManager.is_blueprint_obtainable``.
+    """
+    guids: set[str] = set()
+    entity_classes: set[str] = set()
+    names: set[str] = set()
+    for pool in (blueprint_pools or {}).values():
+        if not isinstance(pool, dict):
+            continue
+        for entry in (pool.get("blueprints") or []):
+            if not isinstance(entry, dict):
+                continue
+            rec = entry.get("blueprintRecord")
+            if rec:
+                guids.add(rec)
+            ec = entry.get("entityClass")
+            if ec:
+                entity_classes.add(ec)
+            nm = entry.get("name")
+            if nm:
+                names.add(nm)
+    return {"guids": guids, "entity_classes": entity_classes, "names": names}
+
+
 def index_contracts(data: dict) -> dict:
     """Index all mission data for fast filtering.
 
@@ -22,9 +80,10 @@ def index_contracts(data: dict) -> dict:
     -------
     dict with keys:
         contracts, legacy_contracts, factions, location_pools, ship_pools,
-        blueprint_pools, scopes, availability_pools, faction_rewards_pools,
-        partial_reward_pools, faction_by_guid, all_categories, all_systems,
-        all_mission_types, all_faction_names, min_reward, max_reward.
+        blueprint_pools, reward_pool_blueprints, completion_tag_contracts,
+        scopes, availability_pools, faction_rewards_pools, partial_reward_pools,
+        faction_by_guid, all_categories, all_systems, all_mission_types,
+        all_faction_names, min_reward, max_reward.
     """
     contracts = data.get("contracts", [])
     if isinstance(contracts, dict):
@@ -86,6 +145,8 @@ def index_contracts(data: dict) -> dict:
         "location_pools": location_pools,
         "ship_pools": ship_pools,
         "blueprint_pools": blueprint_pools,
+        "reward_pool_blueprints": index_reward_pool_blueprints(blueprint_pools),
+        "completion_tag_contracts": index_completion_tags(all_contracts),
         "scopes": scopes,
         "availability_pools": availability_pools,
         "faction_rewards_pools": faction_rewards_pools,

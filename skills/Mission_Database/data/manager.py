@@ -7,6 +7,7 @@ from typing import Optional
 
 from config import MINING_GROUP_TYPES, HIDDEN_LOCATIONS, VERSION_RECHECK_INTERVAL
 from data import api, cache
+from data.models import contract_availability, text_field
 from services.indexing import (
     index_contracts,
     index_mining,
@@ -14,6 +15,9 @@ from services.indexing import (
 )
 
 log = logging.getLogger(__name__)
+
+_EMPTY_REWARD_POOL_INDEX: dict = {"guids": frozenset(), "entity_classes": frozenset(),
+                                  "names": frozenset()}
 
 
 def format_as_of(ts: float) -> str:
@@ -43,6 +47,11 @@ class MissionDataManager:
         self.blueprint_pools: dict = {}
         self.scopes: dict = {}
         self.availability_pools: list = []
+        # Which blueprints a mission reward pool can hand out (issue #21).
+        # Empty == mission data not loaded == obtainability UNKNOWN.
+        self.reward_pool_blueprints: dict = dict(_EMPTY_REWARD_POOL_INDEX)
+        # {completion tag GUID: [contracts granting it]} for issue #22a's join.
+        self.completion_tag_contracts: dict = {}
         self.faction_rewards_pools: list = []
         self.resource_pools: dict = {}
         self.partial_reward_pools: list = []
@@ -586,6 +595,10 @@ class MissionDataManager:
             self.location_pools = indexed["location_pools"]
             self.ship_pools = indexed["ship_pools"]
             self.blueprint_pools = indexed["blueprint_pools"]
+            self.reward_pool_blueprints = indexed.get(
+                "reward_pool_blueprints", _EMPTY_REWARD_POOL_INDEX)
+            self.completion_tag_contracts = indexed.get(
+                "completion_tag_contracts", {})
             self.scopes = indexed["scopes"]
             self.availability_pools = indexed["availability_pools"]
             self.faction_rewards_pools = indexed["faction_rewards_pools"]
@@ -623,22 +636,133 @@ class MissionDataManager:
         return self.location_pools.get(guid, {})
 
     def get_availability(self, idx) -> dict:
+        """Raw availability POOL by index.
+
+        ⚠ On 4.10.1 ``availabilityPools`` is ``[{}]``, so this returns an empty
+        dict for every contract.  It is kept for callers that genuinely want the
+        pool; anything asking "is this mission once-only / what is its cooldown"
+        wants :meth:`get_contract_availability` instead (issue #22b).
+        """
         try:
             return self.availability_pools[idx]
-        except (IndexError, TypeError):
+        except (IndexError, KeyError, TypeError):
             return {}
+
+    def get_contract_availability(self, contract: dict) -> dict:
+        """Availability facts for a contract, record-first (issue #22b)."""
+        return contract_availability(contract, self.availability_pools)
+
+    def get_contracts_granting_tag(self, tag: str) -> list:
+        """Contracts whose completion grants ``tag`` (issue #22a)."""
+        if not tag:
+            return []
+        return self.completion_tag_contracts.get(tag, [])
+
+    def contract_display_title(self, contract: dict) -> str:
+        """Human title for a contract, falling back to its debug name.
+
+        scmdb.net leaves untranslated titles as a raw localisation key starting
+        with ``@``; every caller that shows a title already has to do this, so
+        do it once here.
+        """
+        title = text_field(contract, "title")
+        if not title or title.startswith("@"):
+            return text_field(contract, "debugName", title or "?")
+        return title
+
+    def describe_completion_tag(self, tag: str) -> str:
+        """``tag`` as mission name(s), or the raw GUID when nothing resolves.
+
+        Returning the GUID on a miss is deliberate: 4 of 80 required tags on
+        4.10.1 are granted by no contract in the cache, and a blank line would
+        hide the prerequisite entirely.  A GUID at least says "there is one".
+        """
+        names = []
+        for c in self.get_contracts_granting_tag(tag):
+            name = self.contract_display_title(c)
+            if name and name not in names:
+                names.append(name)
+        if not names:
+            return tag
+        if len(names) <= 3:
+            return ", ".join(names)
+        return f"{', '.join(names[:3])} +{len(names) - 3} more"
 
     def get_blueprint_product(self, bp: dict) -> Optional[dict]:
         """Get the crafting_items entry for a blueprint's product."""
-        ec = bp.get("productEntityClass", "")
+        ec = text_field(bp, "productEntityClass")
         return self.crafting_items_map.get(ec)
 
     def get_blueprint_product_name(self, bp: dict) -> str:
-        """Get display name for a blueprint product."""
+        """Get display name for a blueprint product.
+
+        ALWAYS returns a str.  Each source is skipped when it is missing OR
+        present-and-null, because callers in the search path do ``.lower()``
+        on the result (see :func:`text_field`).
+        """
         prod = self.get_blueprint_product(bp)
-        if prod:
-            return prod.get("name", bp.get("productName", bp.get("tag", "?")))
-        return bp.get("productName", bp.get("tag", "?"))
+        return (
+            text_field(prod, "name")
+            or text_field(bp, "productName")
+            or text_field(bp, "tag")
+            or "?"
+        )
+
+    def blueprint_obtainability_known(self) -> bool:
+        """True once the mission reward pools needed to judge #21 are loaded.
+
+        The Fabricator's crafting data and the mission cache load on separate
+        threads, so the Fabricator can be fully populated while the pools are
+        still empty.  Answering "unobtainable" then would hide all 1,607 rows.
+        """
+        with self._lock:
+            return bool(self.reward_pool_blueprints.get("guids")
+                        or self.reward_pool_blueprints.get("entity_classes")
+                        or self.reward_pool_blueprints.get("names"))
+
+    def is_blueprint_obtainable(self, bp: dict) -> Optional[bool]:
+        """Can a player actually get this blueprint?  (issue #21)
+
+        ``True``  -- at least one mission reward pool hands it out.
+        ``False`` -- no reward pool does; on 4.10.1 that is 875 of 1,607
+                     blueprints, which is why the Fabricator looked like a list
+                     of recipes nobody can use.
+        ``None``  -- NOT KNOWN YET, because the mission data is not loaded.
+                     Never treat None as False; filters must pass it through.
+
+        Matched on ``guid`` -> ``blueprintRecord`` first (a UUID, exact), then
+        ``productEntityClass`` and finally the display name, because a name
+        collision is possible where a UUID is not.
+
+        ⚠ LIMIT, stated rather than papered over: scmdb.net's crafting payload
+        carries no "known by default" flag, so the 8 blueprints the datamine
+        marks ``Availability.Default`` read False here.  The sibling Craft
+        Database, which reads the datamine directly, uses ``default or
+        bool(pools)`` and counts those 8 as obtainable -- hence 867 there
+        against 875 here.  Do not hardcode the 8; they change per patch.
+        """
+        if not self.blueprint_obtainability_known():
+            return None
+        with self._lock:
+            idx = self.reward_pool_blueprints
+            guids = idx.get("guids") or frozenset()
+            ecs = idx.get("entity_classes") or frozenset()
+            names = idx.get("names") or frozenset()
+        guid = text_field(bp, "guid")
+        if guid and guid in guids:
+            return True
+        ec = text_field(bp, "productEntityClass")
+        if ec and ec in ecs:
+            return True
+        return self.get_blueprint_product_name(bp) in names
+
+    def get_blueprint_subtype(self, bp: dict) -> str:
+        """Blueprint subtype as a str ('' when missing or null)."""
+        return text_field(bp, "subtype")
+
+    def get_blueprint_type(self, bp: dict) -> str:
+        """Blueprint type as a str ('' when missing or null)."""
+        return text_field(bp, "type")
 
     def get_location_resources(self, loc_name: str) -> list:
         """Get deduplicated resources for a location, sorted by max_pct desc."""

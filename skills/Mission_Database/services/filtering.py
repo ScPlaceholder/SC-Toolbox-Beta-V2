@@ -8,7 +8,13 @@ from __future__ import annotations
 import re
 from typing import Callable
 
-from data.models import FabFilterState, FilterState, ResourceFilterState
+from data.models import (
+    FabFilterState,
+    FilterState,
+    ResourceFilterState,
+    contract_availability,
+    text_field,
+)
 
 
 # ── Pseudo-category detection (matches scmdb.net JS logic) ───────────────────
@@ -185,12 +191,10 @@ def filter_contracts(
         if sharing == "solo" and c.get("canBeShared"):
             continue
 
-        # Availability
+        # Availability — record-first, because availabilityPools is [{}] and
+        # the pool read made "unique" match nothing at all (issue #22b).
         if availability:
-            try:
-                avail = availability_pools[c.get("availabilityIndex")]
-            except (IndexError, TypeError):
-                avail = {}
+            avail = contract_availability(c, availability_pools)
             if availability == "unique" and not avail.get("onceOnly"):
                 continue
             if availability == "repeatable" and avail.get("onceOnly"):
@@ -224,6 +228,7 @@ def filter_blueprints(
     filters: FabFilterState,
     get_product_fn: Callable[[dict], dict | None],
     get_product_name_fn: Callable[[dict], str],
+    is_obtainable_fn: Callable[[dict], bool | None] | None = None,
 ) -> list:
     """Filter crafting blueprints.
 
@@ -237,6 +242,12 @@ def filter_blueprints(
         ``(bp) -> product_dict | None`` — resolves a blueprint to its product.
     get_product_name_fn : callable
         ``(bp) -> str`` — returns the display name for a blueprint's product.
+    is_obtainable_fn : callable, optional
+        ``(bp) -> True | False | None`` — whether a mission reward pool hands
+        this blueprint out (issue #21).  ``None`` means NOT KNOWN YET, and a
+        ``None`` verdict is KEPT: the alternative is hiding every row while the
+        mission cache is still loading.  Omit the callable entirely and
+        ``obtainable_only`` is a no-op, so no existing caller changes meaning.
     """
     results = []
 
@@ -247,9 +258,15 @@ def filter_blueprints(
     active_armor_slot = filters.armor_slots
     active_mfr = filters.manufacturers
     active_material = filters.materials
+    obtainable_only = bool(filters.obtainable_only) and is_obtainable_fn is not None
 
     for bp in blueprints:
         prod = get_product_fn(bp)
+
+        # Obtainable filter (issue #21) — `is False`, never `not ...`, so an
+        # UNKNOWN (None) verdict is shown rather than silently hidden.
+        if obtainable_only and is_obtainable_fn(bp) is False:
+            continue
 
         # Search
         if search:
@@ -259,11 +276,11 @@ def filter_blueprints(
                 continue
 
         # Type filter
-        if active_types and bp.get("type", "") not in active_types:
+        if active_types and text_field(bp, "type") not in active_types:
             continue
 
         # Subtype filter
-        if active_subtypes and bp.get("subtype", "") not in active_subtypes:
+        if active_subtypes and text_field(bp, "subtype") not in active_subtypes:
             continue
 
         # Armor class filter (Light/Medium/Heavy from item attachSubType)

@@ -29,7 +29,9 @@ def blueprint_key(bp: dict) -> str:
     pec = bp.get("productEntityClass") or ""
     if tag and pec:
         return f"{tag}|{pec}"
-    return tag or pec or bp.get("productName", "")
+    # ``or ""`` not ``.get(..., "")``: productName is PRESENT but null on 5
+    # of 1,607 4.10.1 blueprints, and a None key poisons the inventory dict.
+    return tag or pec or (bp.get("productName") or "")
 
 
 def _parent_path(folder_path: str) -> str:

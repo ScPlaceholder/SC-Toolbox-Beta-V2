@@ -237,6 +237,42 @@ class MissionDetailModal(ModalBase):
         lay.addStretch(1)
         return scroll
 
+    def _chain_tags(self, lay, tags, color):
+        """Render chain tags as MISSION NAMES, not raw GUIDs (issue #22a).
+
+        ``prerequisites.completedContractTags`` names the prior missions by
+        GUID; the contracts that GRANT those GUIDs carry them in
+        ``completionTags``, which was in the shipped cache and read by nothing.
+        76 of 80 required tags on 4.10.1 resolve; an unresolved one keeps its
+        GUID and is marked, because dropping it would hide the prerequisite.
+        """
+        for tag in tags:
+            if not isinstance(tag, str):
+                continue
+            name = self._data.describe_completion_tag(tag)
+            resolved = name != tag
+            text = f" {name} " if resolved else f" {tag}  (no mission in cache grants this) "
+            lbl = QLabel(text)
+            lbl.setWordWrap(True)
+            lbl.setToolTip(tag)
+            fg = color if resolved else P.fg_dim
+            lbl.setStyleSheet(
+                f"background-color: #1a2538; color: {fg}; font-family: Consolas;"
+                f" font-size: 9pt; padding: 2px 4px;")
+            lay.addWidget(lbl)
+
+    def _standing_label(self, standing) -> str:
+        """'Jr. Contractor (800 rep)' from a min/maxStanding record."""
+        if not isinstance(standing, dict):
+            return ""
+        name = standing.get("name") or ""
+        if name.startswith("@"):
+            name = name.rsplit("_", 1)[-1]
+        rep = standing.get("minReputation")
+        if name and isinstance(rep, (int, float)) and rep:
+            return f"{name} ({int(rep):,} rep)"
+        return name or ""
+
     def _build_requirements(self) -> QScrollArea:
         scroll, lay = self._make_scroll_page()
         c = self._contract
@@ -245,13 +281,14 @@ class MissionDetailModal(ModalBase):
         ct = prereqs.get("completedContractTags")
         if ct and isinstance(ct, dict):
             self._section(lay, "MISSION CHAIN", P.fg)
-            req_tags = ct.get("tags", [])
+            req_tags = ct.get("tags") or []
+            excl_tags = ct.get("excludedTags") or []
             if req_tags:
                 self._info(lay, "REQUIRES COMPLETION OF:")
-                for tag in req_tags:
-                    lbl = QLabel(f" {tag} ")
-                    lbl.setStyleSheet(f"background-color: #1a2538; color: {P.accent}; font-family: Consolas; font-size: 9pt; padding: 2px 4px;")
-                    lay.addWidget(lbl)
+                self._chain_tags(lay, req_tags, P.accent)
+            if excl_tags:
+                self._info(lay, "BLOCKED BY COMPLETION OF:")
+                self._chain_tags(lay, excl_tags, P.red)
 
         intros = c.get("linkedIntros")
         if intros and isinstance(intros, list):
@@ -266,7 +303,11 @@ class MissionDetailModal(ModalBase):
 
         self._sep(lay)
 
-        avail = self._data.get_availability(c.get("availabilityIndex"))
+        # Issue #22b: these four used to come from the availability POOL, and
+        # scmdb.net ships availabilityPools as [{}], so all four read "No" on
+        # every one of 1,533 contracts.  The facts are on the contract record
+        # and disagreed in 897 of 6,132 cells.
+        avail = self._data.get_contract_availability(c)
         flags = [
             ("SHAREABLE", c.get("canBeShared", False)),
             ("ILLEGAL", c.get("illegal", False)),
@@ -296,10 +337,44 @@ class MissionDetailModal(ModalBase):
             grid.addWidget(cell, row, col)
         lay.addWidget(grid_w)
 
-        cd = avail.get("personalCooldownTime", 0)
-        if cd:
+        # Issue #22c: REQUIRED STANDING was never rendered at all, though 1,310
+        # of 1,533 contracts carry a minStanding record.
+        min_standing = self._standing_label(c.get("minStanding"))
+        max_standing = self._standing_label(c.get("maxStanding"))
+        if min_standing or max_standing:
+            self._sep(lay)
+            self._section(lay, "REQUIRED STANDING")
+            if min_standing:
+                self._info(lay, f"  Minimum: {min_standing}", P.green)
+            if max_standing:
+                # Above this rank the contract stops being offered.
+                self._info(lay, f"  Offered up to: {max_standing}", P.fg_dim)
+
+        # Issue #22c: COOLDOWN was never rendered either, because it read the
+        # empty availability pool.  1,452 contracts carry a nonzero
+        # personalCooldownTime.
+        #
+        # ⚠ hasPersonalCooldown and personalCooldownTime DISAGREE, in both
+        # directions: 530 contracts set both, 922 carry a time with the flag
+        # off, and 12 set the flag with a zero time.  Neither field is derived
+        # from the other, so show what each one says instead of picking one and
+        # presenting it as "the cooldown".
+        cd = avail.get("personalCooldownTime") or 0
+        abandoned_cd = avail.get("abandonedCooldownTime") or 0
+        has_cd = bool(avail.get("hasPersonalCooldown"))
+        if cd or abandoned_cd or has_cd:
+            self._sep(lay)
             self._section(lay, "COOLDOWN")
-            self._info(lay, fmt_time(cd))
+            if cd:
+                note = "" if has_cd else "   (personal cooldown flag is off)"
+                self._info(lay, f"  Personal: {fmt_time(cd)}{note}",
+                           P.fg if has_cd else P.fg_dim)
+            elif has_cd:
+                self._info(lay, "  Personal: flagged, but no duration in the data",
+                           P.fg_dim)
+            if abandoned_cd:
+                self._info(lay, f"  After abandoning: {fmt_time(abandoned_cd)}",
+                           P.fg_dim)
 
         lay.addStretch(1)
         return scroll

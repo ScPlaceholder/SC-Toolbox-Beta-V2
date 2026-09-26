@@ -1,12 +1,75 @@
 """Data models and type aliases."""
 from dataclasses import dataclass, field
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 # Type aliases for documentation — contracts/blueprints stay as dicts from JSON
 Contract = dict
 Blueprint = dict
 Location = dict
 Faction = dict
+
+
+def text_field(d: Optional[dict], key: str, default: str = "") -> str:
+    """Read ``key`` from ``d`` as a string, treating JSON ``null`` as absent.
+
+    ``dict.get(key, default)`` only supplies the default when the key is
+    MISSING.  scmdb.net ships keys that are PRESENT with a null value -- on
+    4.10.1 that is 5 blueprints with ``productName: null``, 4 crafting items
+    with ``name: null``, 15 blueprints with ``subtype: null`` and
+    ``manufacturer: null``, and 4 with ``type: null`` -- so ``.get`` handed
+    ``None`` on to callers that immediately did ``.lower()``, ``.replace()``
+    or ``.title()``.  That was issue #24: typing one character into the
+    Fabricator search raised ``AttributeError: 'NoneType' object has no
+    attribute 'lower'`` on the first null-named blueprint (index 1026).
+
+    Use this for any upstream text field about to be treated as a str.
+    """
+    if not d:
+        return default
+    value = d.get(key)
+    if value is None:
+        return default
+    return value if isinstance(value, str) else str(value)
+
+
+_AVAILABILITY_FIELDS = (
+    "onceOnly",
+    "canReacceptAfterAbandoning",
+    "canReacceptAfterFailing",
+    "availableInPrison",
+    "hasPersonalCooldown",
+    "personalCooldownTime",
+    "abandonedCooldownTime",
+)
+
+
+def contract_availability(contract: Optional[dict],
+                          availability_pools=None) -> dict:
+    """Availability facts for one contract, read from the CONTRACT (issue #22).
+
+    ``availabilityPools`` on scmdb.net 4.10.1 is the single-element list
+    ``[{}]``, so ``availability_pools[contract["availabilityIndex"]]`` returns
+    an empty dict for every one of the 1,533 contracts.  Four boolean flags in
+    the Requirements tab were therefore hardcoded "No", and the COOLDOWN
+    section never rendered -- while the same facts sat on the contract record
+    itself and disagreed in 897 of 6,132 flag cells.
+
+    The record wins where it carries the field; the pool is merged underneath
+    it so this keeps working if scmdb.net ever populates the pools again.
+    """
+    merged: dict = {}
+    if availability_pools is not None and contract is not None:
+        try:
+            pool = availability_pools[contract.get("availabilityIndex")]
+        except (IndexError, KeyError, TypeError):
+            pool = None
+        if isinstance(pool, dict):
+            merged.update(pool)
+    if contract:
+        for key in _AVAILABILITY_FIELDS:
+            if contract.get(key) is not None:
+                merged[key] = contract[key]
+    return merged
 
 
 @dataclass
@@ -36,6 +99,11 @@ class FabFilterState:
     armor_slots: Set[str] = field(default_factory=set)
     manufacturers: Set[str] = field(default_factory=set)
     materials: Set[str] = field(default_factory=set)
+    # Issue #21: show only blueprints a mission reward pool hands out.
+    # Defaults to False so the dataclass keeps its old behaviour for every
+    # existing caller and test; the Fabricator UI ships it CHECKED, matching
+    # the sibling Craft Database's "Obtainable" checkbox.
+    obtainable_only: bool = False
 
 
 @dataclass

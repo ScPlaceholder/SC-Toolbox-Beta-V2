@@ -10,7 +10,7 @@ import math
 from collections import Counter
 from typing import Optional
 
-from data.models import RankPathResult, TierStep
+from data.models import RankPathResult, TierStep, contract_availability
 
 
 def clean_rank_name(name: str) -> str:
@@ -160,16 +160,11 @@ def compute_rank_path(
             if rep <= 0:
                 continue
 
-            # Determine if one-time
-            is_once = False
-            ai = c.get("availabilityIndex")
-            if ai is not None:
-                try:
-                    avail = availability_pools[ai]
-                    if isinstance(avail, dict):
-                        is_once = avail.get("onceOnly", False)
-                except (IndexError, TypeError):
-                    pass
+            # Determine if one-time.  Record-first: availabilityPools is [{}]
+            # upstream, so the pool read made every once-only mission look
+            # repeatable and inflated the plan (issue #22b).
+            is_once = bool(contract_availability(c, availability_pools)
+                           .get("onceOnly", False))
 
             if is_once:
                 one_times.append((c, rep))

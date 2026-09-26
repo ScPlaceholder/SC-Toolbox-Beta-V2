@@ -10,13 +10,24 @@ sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath
 import shared.path_setup  # noqa: E402  # centralised path config
 shared.path_setup.ensure_path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Stub config before importing cache
+# Stub config before importing cache.
+#
+# This stub stays in sys.modules for the REST of the pytest session, so it has
+# to carry every name the real ``config`` exposes.  A partial stub does not
+# break this file -- it breaks whatever test file is collected LATER and
+# imports a module that reads a name the stub omits (``data.manager`` wants
+# VERSION_RECHECK_INTERVAL; ``data.api`` wants SCMDB_BASE/API_HEADERS;
+# ``ui.theme`` wants TAG_COLORS).  Keep this list in step with config.py.
 import types
 config_mod = types.ModuleType("config")
 config_mod.CACHE_TTL = 3600
 config_mod.CACHE_VERSION = 1
 config_mod.HIDDEN_LOCATIONS = frozenset()
 config_mod.MINING_GROUP_TYPES = {}
+config_mod.VERSION_RECHECK_INTERVAL = 5 * 60
+config_mod.SCMDB_BASE = "https://scmdb.invalid"
+config_mod.API_HEADERS = {}
+config_mod.TAG_COLORS = {}
 sys.modules["config"] = config_mod
 
 from data.cache import load_cache, save_cache, version_cache_path

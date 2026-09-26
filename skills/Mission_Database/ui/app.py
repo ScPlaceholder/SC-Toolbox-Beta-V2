@@ -315,6 +315,12 @@ class MissionDBApp(SCWindow):
         # old version's blueprints must not stay on screen.
         if self._crafting_wanted():
             self._ensure_crafting()
+            # The mission reward pools that decide obtainability (issue #21)
+            # only exist now.  If the crafting data was already on screen,
+            # _ensure_crafting returns without reloading, so re-filter here or
+            # the Obtainable box stays greyed out for the rest of the session.
+            if self._fabricator is not None and self._data.is_crafting_loaded():
+                self._fabricator.on_filter_change()
 
         self._schedule_auto_refresh()
 

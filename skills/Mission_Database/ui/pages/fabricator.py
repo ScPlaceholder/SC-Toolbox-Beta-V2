@@ -4,12 +4,13 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton,
-    QScrollArea, QSlider, QSpinBox,
+    QCheckBox, QScrollArea, QSlider, QSpinBox,
 )
 
 from shared.qt.theme import P
 from shared.qt.fuzzy_multi_check import SCFuzzyMultiCheck
 from shared.qt.search_bar import SCSearchBar
+from data.models import text_field
 from ui.components.virtual_grid import VirtualScrollGrid, FabCard
 
 
@@ -76,6 +77,19 @@ class FabricatorPage(QWidget):
         clear_btn.clicked.connect(self.clear_filters)
         hl.addWidget(clear_btn)
         sb_lay.addWidget(hdr)
+
+        # Obtainable (issue #21) — ported from the sibling Craft Database's
+        # ui/filter_panel.py, same label, same tooltip wording, ON by default.
+        # 875 of 1,607 4.10.1 blueprints are handed out by no mission reward
+        # pool, so an unfiltered Fabricator is mostly recipes nobody can get.
+        self._obtainable_cb = QCheckBox("Obtainable")
+        self._obtainable_cb.setChecked(True)
+        self._obtainable_cb.setStyleSheet(
+            f"QCheckBox {{ color: {P.fg}; background: transparent; "
+            f"font-family: Consolas; font-size: 8pt; padding: 2px 8px 4px 8px; }}")
+        self._obtainable_cb.toggled.connect(lambda _: self.on_filter_change())
+        sb_lay.addWidget(self._obtainable_cb)
+        self._sync_obtainable_enabled()
 
         # Search
         section("SEARCH")
@@ -240,10 +254,31 @@ class FabricatorPage(QWidget):
 
     # ── Filter logic ──
 
+    def _sync_obtainable_enabled(self):
+        """Grey the Obtainable box out while the verdict is UNKNOWN (#21).
+
+        Obtainability comes from the MISSION reward pools, which load on their
+        own thread.  Leaving the box live and checked before they arrive would
+        hide every blueprint and look like the data failed to load.
+        """
+        known = self._data.blueprint_obtainability_known()
+        self._obtainable_cb.setEnabled(known)
+        if known:
+            self._obtainable_cb.setToolTip(
+                "Only blueprints a player can get: handed out by at least one "
+                "mission reward pool.\nUncheck to see every recipe in the game "
+                "files.")
+        else:
+            self._obtainable_cb.setToolTip(
+                "Waiting for mission data — until the reward pools load, there "
+                "is nothing to judge obtainability against, so every blueprint "
+                "is shown.")
+
     def on_filter_change(self):
         if not self._data.crafting_loaded:
             return
 
+        self._sync_obtainable_enabled()
         search = (self._search.text() or "").lower()
         active_types = {t for t, btn in self._type_btns.items() if btn.isChecked()}
         active_ac = {k for k, btn in self._ac_btns.items() if btn.isChecked()}
@@ -251,10 +286,16 @@ class FabricatorPage(QWidget):
         active_armor_slot = set(self._armor_slot_multi.get_selected())
         active_mfr = set(self._mfr_multi.get_selected())
         active_material = set(self._material_multi.get_selected())
+        obtainable_only = (self._obtainable_cb.isChecked()
+                           and self._obtainable_cb.isEnabled())
 
         results = []
         for bp in self._data.crafting_blueprints:
             prod = self._data.get_blueprint_product(bp)
+
+            # Issue #21 — `is False`, not `not ...`: an UNKNOWN verdict is kept.
+            if obtainable_only and self._data.is_blueprint_obtainable(bp) is False:
+                continue
 
             if search:
                 name = self._data.get_blueprint_product_name(bp).lower()
@@ -262,10 +303,10 @@ class FabricatorPage(QWidget):
                 if search not in name and search not in tag:
                     continue
 
-            if active_types and bp.get("type", "") not in active_types:
+            if active_types and text_field(bp, "type") not in active_types:
                 continue
 
-            if active_subtypes and bp.get("subtype", "") not in active_subtypes:
+            if active_subtypes and text_field(bp, "subtype") not in active_subtypes:
                 continue
 
             if active_ac and prod:
@@ -347,6 +388,10 @@ class FabricatorPage(QWidget):
         self._subtype_multi.set_selected([])
         self._mfr_multi.set_selected([])
         self._material_multi.set_selected([])
+        # Back to the DEFAULT, which is checked — matching Craft Database's
+        # reset. "Clear" restores the default view, it does not unhide the
+        # 875 unobtainable rows.
+        self._obtainable_cb.setChecked(True)
         self.on_filter_change()
 
     # ── Card fill + click ──
@@ -355,9 +400,9 @@ class FabricatorPage(QWidget):
         TYPE_COLORS = {"weapons": P.orange, "armour": P.accent, "ammo": P.yellow}
 
         name = self._data.get_blueprint_product_name(bp)
-        bp_type = bp.get("type", "?")
-        bp_sub = bp.get("subtype", "").replace("_", " ").title()
-        tiers = bp.get("tiers", [])
+        bp_type = text_field(bp, "type", "?")
+        bp_sub = text_field(bp, "subtype").replace("_", " ").title()
+        tiers = bp.get("tiers") or []
         type_color = TYPE_COLORS.get(bp_type, P.fg)
         type_fg = "white" if bp_type != "ammo" else P.bg_primary
 

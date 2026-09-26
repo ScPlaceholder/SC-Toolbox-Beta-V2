@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from shared.qt.theme import P
 from ui.modals.base import ModalBase
+from data.models import text_field
 from services.inventory import blueprint_key
 
 
@@ -199,9 +200,9 @@ class BlueprintDetailModal(ModalBase):
         bp = self._bp
         name = self._data.get_blueprint_product_name(bp)
         product = self._data.get_blueprint_product(bp)
-        bp_type = bp.get("type", "?")
-        bp_sub = bp.get("subtype", "").replace("_", " ").title()
-        tiers = bp.get("tiers", [])
+        bp_type = text_field(bp, "type", "?")
+        bp_sub = text_field(bp, "subtype").replace("_", " ").title()
+        tiers = bp.get("tiers") or []
         dismantle = self._data.crafting_dismantle
 
         TYPE_COLORS = {"weapons": P.orange, "armour": P.accent, "ammo": P.yellow}
@@ -298,7 +299,7 @@ class BlueprintDetailModal(ModalBase):
         tag_l.addStretch(1)
         lay.addWidget(tag_w)
 
-        tag = bp.get("tag", "")
+        tag = text_field(bp, "tag")
         if tag:
             _lbl(tag, P.fg_disabled, "7pt")
 
@@ -306,8 +307,8 @@ class BlueprintDetailModal(ModalBase):
         if product:
             _sep()
             _lbl("PRODUCT STATS", P.fg_dim, "10pt", True)
-            mfr = product.get("manufacturer", "")
-            mfr_code = product.get("manufacturerCode", "")
+            mfr = text_field(product, "manufacturer")
+            mfr_code = text_field(product, "manufacturerCode")
             if mfr:
                 mfr_display = f"{mfr_code} \u2014 {mfr}" if mfr_code else mfr
                 _lbl(f"  Manufacturer: {mfr_display}", P.fg, "9pt")
