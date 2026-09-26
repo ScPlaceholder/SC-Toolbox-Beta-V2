@@ -315,7 +315,7 @@ def test_placed_crates_number_1_to_n_and_stay_stable(win):
     assert _group(win, c)._label_item.toPlainText() == "3"
     assert _tabs(win) == ["Hold", "Crate 1 (4 SCU)", "Crate 2 (1 SCU)", "Crate 3 (1/8 SCU)"]
     assert win._view_tabs.tabBar().isVisible()
-    assert "Crates: 3" in win._items_summary_lbl.text()
+    assert "Crates: 3" in win._items_summary_lbl.toolTip()
     # remove crate 2: crate 3 keeps its number, its tab and its label
     win._crate_btns[C4].click()                         # stop placing (toggle off)
     win._set_place_item(None)

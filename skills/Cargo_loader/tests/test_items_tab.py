@@ -237,7 +237,7 @@ def test_pod_places_at_2x2x2_and_counts_stay(win):
     _click(win, p)
     assert win._renderer._items == [(2, 0, 3, 2, 2, 2, POD)]
     assert win._renderer._last_boxes == [] and _counts(win) == {}
-    assert win._items_summary_lbl.text() == "Items: 1"
+    assert win._items_summary_lbl.toolTip() == "Items: 1"
     g = _group(win, (2, 0, 3, 2, 2, 2, POD))
     assert g.item_pen is not None and not g.warnings
     # right-click removes it, Ctrl+Z brings it back
@@ -274,7 +274,7 @@ def test_overlapping_item_still_places_amber(win):
     assert g.warnings == [W_OVERLAP]
     assert g.item_pen.color().name() == "#ffb000"
     assert "overlaps another box" in win._status_lbl.text()
-    assert "flagged" in win._items_summary_lbl.text()
+    assert "flagged" in win._items_summary_lbl.toolTip()
     assert _counts(win) == {8: 1}                       # the container is untouched
 
 
@@ -376,7 +376,7 @@ def test_items_do_not_touch_counts_or_optimize(win):
     assert all(not isinstance(b[6], str) for b in win._renderer._last_boxes)
     placed = sum(b[6] for b in win._renderer._last_boxes)
     assert sum(s * n for s, n in _counts(win).items()) == placed
-    assert win._items_summary_lbl.text().startswith("Items: 1")
+    assert win._items_summary_lbl.toolTip().startswith("Items: 1")
 
 
 def test_brush_paints_an_item(win):

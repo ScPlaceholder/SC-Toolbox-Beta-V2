@@ -25,7 +25,7 @@ import time
 import requests
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QPoint, QPointF, QUrl
-from PySide6.QtGui import (QColor, QCursor, QPainter, QPainterPath, QPixmap, QPolygonF, QFont,
+from PySide6.QtGui import (QColor, QCursor, QFontMetrics, QPainter, QPainterPath, QPixmap, QPolygonF, QFont,
                            QPen, QBrush, QKeySequence, QShortcut, QDesktopServices)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -1277,9 +1277,21 @@ class CargoRenderer:
                      sum(ty) / 4 - t.boundingRect().height() / 2)
             group.set_label(t)
         elif top_w >= 14:
-            text = d.get("label") or key[:6]
-            fs = max(6, min(int(top_w / max(len(text), 1) * 1.1), 10))
+            # A longer short name, fitted to the lid: the largest font from 10
+            # down to 6 pt that fits, and only then a visible "..." cut. The old
+            # hard 7-character cut gave "Colossu" and "Cryo-St" (J, 2026-09-26).
+            from cargo_engine.item_catalog import abbrev as _abbrev
+            full = _abbrev(d.get("name") or "", n=18) if d.get("name") else ""
+            text = full or d.get("label") or key[:6]
+            room = top_w * 0.6          # the lid is a diamond: narrower than its span where the text sits
+            fs = 10
+            while fs > 6 and QFontMetrics(QFont("Consolas", fs, QFont.Bold)).horizontalAdvance(text) > room:
+                fs -= 1
+            fm = QFontMetrics(QFont("Consolas", fs, QFont.Bold))
+            if fm.horizontalAdvance(text) > room:
+                text = fm.elidedText(text, Qt.ElideRight, int(room))
             t = self._scene.addText(text, QFont("Consolas", fs, QFont.Bold))
+            t.setToolTip(d.get("name") or text)
             t.setDefaultTextColor(QColor(ITEM_WARN if warnings else "#ffffff"))
             t.setPos(sum(tx) / 4 - t.boundingRect().width() / 2,
                      sum(ty) / 4 - t.boundingRect().height() / 2)
@@ -2948,12 +2960,17 @@ class CargoApp(SCWindow):
         crates = sum(1 for b in self._renderer._items if crate_no(b[6]) is not None)
         n = len(self._renderer._items) - crates
         flagged = sum(1 for b in self._renderer._items if self._renderer._item_flags.get(b))
-        text = _("Items: {n}").format(n=n)
+        # Compact so it fits the fixed-width panel (it read "2 flagge"); full wording in the tooltip.
+        text = _("Items {n}").format(n=n)
+        full = _("Items: {n}").format(n=n)
         if crates:
-            text += "  ·  " + _("Crates: {k}").format(k=crates)
+            text += " · " + _("Crates {k}").format(k=crates)
+            full += "  ·  " + _("Crates: {k}").format(k=crates)
         if flagged:
-            text += "  ⚠ " + _("{k} flagged").format(k=flagged)
+            text += " · ⚠ {k}".format(k=flagged)
+            full += "  ·  " + _("{k} flagged").format(k=flagged)
         self._items_summary_lbl.setText(text)
+        self._items_summary_lbl.setToolTip(full)
         self._items_summary_lbl.setStyleSheet(
             f"color: {ITEM_WARN if flagged else FG_DIM}; font-family: Consolas; "
             f"font-size: 8pt; background: transparent;")
