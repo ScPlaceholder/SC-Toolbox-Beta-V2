@@ -59,6 +59,27 @@ def iso_project(wx: float, wy: float, wz: float,
     return int(sx), int(sy)
 
 
+def iso_unproject(sx: float, sy: float, wy: float,
+                  cell: float, ox: float, oy: float,
+                  rotation: int = 0,
+                  total_gw: float = 0.0, total_gl: float = 0.0) -> tuple[float, float]:
+    """Inverse of iso_project on the horizontal plane at height *wy*.
+
+    Screen (sx, sy) -> continuous world (wx, wz). Used by drag-and-drop to
+    turn the mouse position into a floor position.
+    """
+    a = (sx - ox) / cell                       # rx - rz
+    b = (sy - oy + wy * cell) / (cell * 0.5)   # rx + rz
+    rx, rz = (a + b) / 2.0, (b - a) / 2.0
+    if rotation == 1:
+        return total_gw - rz, rx
+    if rotation == 2:
+        return total_gw - rx, total_gl - rz
+    if rotation == 3:
+        return rz, total_gl - rx
+    return rx, rz
+
+
 def _effective_dims(gw: float, gl: float, rotation: int) -> tuple[float, float]:
     """Return (effective_gw, effective_gl) after rotation.
 

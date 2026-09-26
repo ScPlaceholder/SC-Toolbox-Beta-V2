@@ -25,7 +25,8 @@ import time
 import requests
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot, QPoint, QPointF
-from PySide6.QtGui import QColor, QCursor, QPainter, QPixmap, QPolygonF, QFont, QPen, QBrush
+from PySide6.QtGui import (QColor, QCursor, QPainter, QPixmap, QPolygonF, QFont, QPen, QBrush,
+                           QKeySequence, QShortcut)
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QSizePolicy, QSpinBox, QTabWidget,
@@ -58,8 +59,9 @@ from cargo_engine.packing import place_containers_3d, build_slots
 from cargo_engine.optimizer import greedy_optimize_3d, assign_slots_from_counts
 from cargo_engine.rendering import (
     iso_project, auto_fit_cell, center_origin, compute_scene_extents,
-    topological_sort_boxes, shade, label_color,
+    topological_sort_boxes, shade, label_color, iso_unproject,
 )
+from cargo_engine.manual_place import PlacementContext, rotate_yaw, move_box
 from cargo_engine.validation import validate_layout
 
 from cargo_common import (
@@ -515,6 +517,11 @@ class _BrushView(QGraphicsView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._brush_cursor = None
+        # Drag-and-drop hooks (set by CargoApp). Each returns True if it
+        # consumed the event because a box drag is in progress.
+        self.drag_key_handler = None
+        self.drag_right_click_handler = None
+        self.setFocusPolicy(Qt.StrongFocus)
 
     def set_brush_cursor(self, cursor) -> None:
         self._brush_cursor = cursor
@@ -530,12 +537,22 @@ class _BrushView(QGraphicsView):
             self.viewport().setCursor(self._brush_cursor)
 
     def mousePressEvent(self, event):
+        if (event.button() == Qt.RightButton and self.drag_right_click_handler
+                and self.drag_right_click_handler()):
+            event.accept()
+            return
         super().mousePressEvent(event)
         self._restore()
 
     def mouseReleaseEvent(self, event):
         super().mouseReleaseEvent(event)
         self._restore()
+
+    def keyPressEvent(self, event):
+        if self.drag_key_handler and self.drag_key_handler(event):
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
@@ -560,6 +577,7 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         self._face_items: list[QGraphicsPolygonItem] = []
         self._label_item: QGraphicsTextItem | None = None
         self._click_callback = None
+        self._drag_owner = None   # object with box_press/box_move/box_release
         self.setAcceptedMouseButtons(Qt.LeftButton)
 
     def set_click_callback(self, cb) -> None:
@@ -596,11 +614,36 @@ class _CargoBoxGroup(QGraphicsItemGroup):
         path.addRect(self.childrenBoundingRect())
         return path
 
+    def set_drag_owner(self, owner) -> None:
+        self._drag_owner = owner
+
     def mousePressEvent(self, event) -> None:
-        if self._click_callback:
+        # Accept the press so this item grabs the mouse (move/release follow).
+        # The click action now fires on RELEASE, and only if the mouse did not
+        # travel far enough to become a drag.
+        if self._drag_owner is not None:
+            self._drag_owner.box_press(self, event.scenePos(), event.screenPos())
+            event.accept()
+        elif self._click_callback:
             self._click_callback(self)
         else:
             super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._drag_owner is not None:
+            self._drag_owner.box_move(self, event.scenePos(), event.screenPos())
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._drag_owner is not None:
+            was_drag = self._drag_owner.box_release(self, event.scenePos())
+            if not was_drag and self._click_callback:
+                self._click_callback(self)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
 
 
 # ── Isometric Renderer (QGraphicsScene) ──────────────────────────────────────
@@ -624,9 +667,18 @@ class CargoRenderer:
         # Key = (wx, wy, wz, size) position tuple — stable across re-renders
         self._assignments: dict[tuple, str] = {}
         self._box_click_callback = None
+        self._drag_owner = None
         # Grid dimensions (unrotated) stored after last render
         self._last_gw = 0.0
         self._last_gl = 0.0
+        # Drag-and-drop support: projection of the last render, the boxes it
+        # drew (world coords), and an optional hand-arranged box list that
+        # replaces the auto-packer's output until the counts change.
+        self._proj: tuple | None = None          # (cell, ox, oy, rotation, gw, gl)
+        self._pt = None
+        self._last_boxes: list[tuple] = []
+        self._manual_boxes: list[tuple] | None = None
+        self._ghost = None
 
     def set_rotation(self, rotation: int) -> None:
         self._rotation = rotation % 4
@@ -640,6 +692,48 @@ class CargoRenderer:
     def set_box_click_callback(self, cb) -> None:
         self._box_click_callback = cb
 
+    def set_drag_owner(self, owner) -> None:
+        self._drag_owner = owner
+
+    def unproject(self, scene_x: float, scene_y: float, wy: float = 0.0):
+        """Scene point -> continuous world (x, z) on the plane at height wy."""
+        if not self._proj:
+            return None
+        cell, ox, oy, rotation, gw, gl = self._proj
+        return iso_unproject(scene_x, scene_y, wy, cell, ox, oy,
+                             rotation=rotation, total_gw=gw, total_gl=gl)
+
+    def show_ghost(self, wx, wy, wz, dw, dh, dl, valid: bool) -> None:
+        """Draw (or move) the translucent landing preview. Green = valid."""
+        self.clear_ghost()
+        if self._pt is None:
+            return
+        fill = QColor("#4caf50" if valid else "#f44336")
+        fill.setAlpha(120)
+        edge = QColor("#b9f6ca" if valid else "#ffcdd2")
+        grp = QGraphicsItemGroup()
+        # footprint on the floor it lands on, then the three visible faces
+        for pts in ([self._pt(wx, wy, wz), self._pt(wx + dw, wy, wz),
+                     self._pt(wx + dw, wy, wz + dl), self._pt(wx, wy, wz + dl)],
+                    *self._face_points(wx, wy, wz, dw, dh, dl, self._pt)):
+            item = QGraphicsPolygonItem(QPolygonF([QPointF(x, y) for x, y in pts]))
+            item.setBrush(QBrush(fill))
+            item.setPen(QPen(edge, 2))
+            grp.addToGroup(item)
+        grp.setZValue(10_000)
+        grp.setAcceptedMouseButtons(Qt.NoButton)
+        grp.ghost_valid = valid
+        self._scene.addItem(grp)
+        self._ghost = grp
+
+    def clear_ghost(self) -> None:
+        if self._ghost is not None:
+            try:
+                self._scene.removeItem(self._ghost)
+            except RuntimeError:
+                pass
+            self._ghost = None
+
     def schedule_render(self, render_fn) -> None:
         self._pending_render_fn = render_fn
         self._render_timer.start()
@@ -651,7 +745,11 @@ class CargoRenderer:
     def render(self, slots, bounds, slot_assignment, has_layout, current_ship,
                grid_info_callback, view_width=800, view_height=600) -> None:
         self._scene.clear()
+        self._ghost = None
         self._box_groups = []
+        self._last_boxes = []
+        self._proj = None
+        self._pt = None
 
         if not current_ship or not slots:
             t = self._scene.addText(
@@ -681,13 +779,20 @@ class CargoRenderer:
             return iso_project(wx, wy, wz, cell, ox, oy,
                                rotation=rotation, total_gw=gw, total_gl=gl)
 
+        self._proj = (cell, ox, oy, rotation, gw, gl)
+        self._pt = pt
+
         # Draw ground footprints
         self._draw_ground(slots, bounds, has_layout, current_ship, pt, cell, gw, gl)
 
-        # Collect 3D box placements
-        all_boxes = self._collect_boxes(slots, bounds, slot_assignment, has_layout)
+        # Collect 3D box placements (a hand-arranged list wins over the packer)
+        if self._manual_boxes is not None:
+            all_boxes = list(self._manual_boxes)
+        else:
+            all_boxes = self._collect_boxes(slots, bounds, slot_assignment, has_layout)
         all_boxes = topological_sort_boxes(all_boxes, rotation=rotation,
                                            total_gw=gw, total_gl=gl)
+        self._last_boxes = [tuple(b) for b in all_boxes]
 
         # Draw each box with 3 faces
         for idx, (wx, wy, wz, dw, dh, dl, size) in enumerate(all_boxes):
@@ -805,7 +910,40 @@ class CargoRenderer:
         group = _CargoBoxGroup(box_index, (wx, wy, wz, dw, dh, dl, size))
         group.commodity = commodity
         group.set_click_callback(self._on_box_clicked)
+        if self._drag_owner is not None:
+            group.set_drag_owner(self._drag_owner)
 
+        pts_wallB, pts_wallA, pts_t = self._face_points(wx, wy, wz, dw, dh, dl, pt)
+        rotation = self._rotation
+
+        # Draw order: wallB (darker), wallA (lighter), top (brightest)
+        for pts, color in ((pts_wallB, c_wallB), (pts_wallA, c_wallA), (pts_t, c_top)):
+            item = self._make_polygon_item(pts, color, edge)
+            group.add_face(item)
+
+        # Size label — only on default rotation (labels look messy on rotated faces)
+        if rotation == 0:
+            face_px_h = abs(pts_wallB[2][1] - pts_wallB[0][1])
+            face_px_w = abs(pts_wallB[1][0] - pts_wallB[0][0])
+            if face_px_h >= 14 and face_px_w >= 10:
+                cx = sum(p[0] for p in pts_wallB) / 4
+                cy = sum(p[1] for p in pts_wallB) / 4
+                fs = max(6, min(int(face_px_h * 0.38), int(face_px_w * 0.28), 14))
+                lbl_text = str(size)
+                if commodity and face_px_w >= 30:
+                    short = commodity[:4] if len(commodity) > 4 else commodity
+                    lbl_text = short
+                t = self._scene.addText(lbl_text, QFont("Consolas", fs, QFont.Bold))
+                t.setDefaultTextColor(QColor(label_color(c_wallB)))
+                t.setPos(cx - t.boundingRect().width() / 2,
+                         cy - t.boundingRect().height() / 2)
+                group.set_label(t)
+
+        self._scene.addItem(group)
+        self._box_groups.append(group)
+
+    def _face_points(self, wx, wy, wz, dw, dh, dl, pt):
+        """Screen polygons (wallB, wallA, top) for a box at the current camera."""
         rotation = self._rotation
 
         # Top face (always visible regardless of rotation)
@@ -846,34 +984,7 @@ class CargoRenderer:
              pt(wx+dw, wy+dh, wz+dl), pt(wx+dw, wy+dh, wz)],
         ]
 
-        pts_wallA = wall_a_faces[rotation]
-        pts_wallB = wall_b_faces[rotation]
-
-        # Draw order: wallB (darker), wallA (lighter), top (brightest)
-        for pts, color in ((pts_wallB, c_wallB), (pts_wallA, c_wallA), (pts_t, c_top)):
-            item = self._make_polygon_item(pts, color, edge)
-            group.add_face(item)
-
-        # Size label — only on default rotation (labels look messy on rotated faces)
-        if rotation == 0:
-            face_px_h = abs(pts_wallB[2][1] - pts_wallB[0][1])
-            face_px_w = abs(pts_wallB[1][0] - pts_wallB[0][0])
-            if face_px_h >= 14 and face_px_w >= 10:
-                cx = sum(p[0] for p in pts_wallB) / 4
-                cy = sum(p[1] for p in pts_wallB) / 4
-                fs = max(6, min(int(face_px_h * 0.38), int(face_px_w * 0.28), 14))
-                lbl_text = str(size)
-                if commodity and face_px_w >= 30:
-                    short = commodity[:4] if len(commodity) > 4 else commodity
-                    lbl_text = short
-                t = self._scene.addText(lbl_text, QFont("Consolas", fs, QFont.Bold))
-                t.setDefaultTextColor(QColor(label_color(c_wallB)))
-                t.setPos(cx - t.boundingRect().width() / 2,
-                         cy - t.boundingRect().height() / 2)
-                group.set_label(t)
-
-        self._scene.addItem(group)
-        self._box_groups.append(group)
+        return wall_b_faces[rotation], wall_a_faces[rotation], pts_t
 
     def _on_box_clicked(self, group: _CargoBoxGroup) -> None:
         if self._box_click_callback:
@@ -1132,7 +1243,14 @@ onto your Star Citizen ship before you undock.</p>
 <b style="color:#c8d4e8">Isometric View</b>
 <ul>
   <li><b>Scroll wheel</b> — zoom in/out.</li>
-  <li><b>Click &amp; drag</b> — pan the view.</li>
+  <li><b>Click &amp; drag</b> empty space — pan the view.</li>
+  <li><b>Drag a box</b> to move it. It snaps to the 1-SCU grid, to
+      neighbouring boxes and walls, and only lands inside a cargo grid:
+      a <b style="color:#4caf50">green</b> ghost means it can go there,
+      <b style="color:#f44336">red</b> means it can't (it returns home).
+      <b>R</b> or <b>right-click</b> rotates it while dragging,
+      <b>Esc</b> cancels, <b>Ctrl+Z</b> undoes a move. Changing a
+      container count re-packs automatically.</li>
   <li><b>◁ ▷ buttons</b> (toolbar) — rotate the camera 90° to see all sides.</li>
   <li>Container colours match the size legend at the bottom of the view.</li>
   <li>When a commodity brush is active, <b>click any box</b> to paint it.</li>
@@ -1355,6 +1473,10 @@ class CargoApp(SCWindow):
         # Planning mode state
         self._selected_commodity: str | None = None
         self._commodity_visibility: dict[str, bool] = {}
+
+        # Drag-and-drop state
+        self._drag: dict | None = None
+        self._move_undo: list[tuple] = []   # (manual_boxes_before, assignments_before)
 
         self._build_ui()
         self.restore_geometry_from_args(x, y, w, h, opacity)
@@ -1601,6 +1723,11 @@ class CargoApp(SCWindow):
 
         self._renderer = CargoRenderer(self._scene)
         self._renderer.set_box_click_callback(self._on_box_clicked)
+        self._renderer.set_drag_owner(self)
+        self._view.drag_key_handler = self._drag_key
+        self._view.drag_right_click_handler = self._drag_right_click
+        self._undo_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self)
+        self._undo_shortcut.activated.connect(self._undo_move)
 
     def _build_assignments_overlay(self) -> QWidget:
         """Build the assignments summary overlay pinned to the top-left of the iso view."""
@@ -2004,6 +2131,7 @@ class CargoApp(SCWindow):
             self._has_layout = False
 
         self._slot_assignment = []
+        self._drop_manual_layout()
         # Clear planning mode assignments and brush for new ship
         self._renderer._assignments.clear()
         self._commodity_visibility.clear()
@@ -2172,6 +2300,225 @@ class CargoApp(SCWindow):
 
         self._update_assignment_summary()
         self._apply_visibility_filter()
+
+    # ── Drag-and-drop box placement ──────────────────────────────────────────
+    #
+    # Left-drag a placed box to move it. A ghost shows where it will land
+    # (green = legal, red = not). R or right-click rotates it 90 deg while
+    # dragging; Esc cancels; an illegal drop puts it back. Ctrl+Z undoes a
+    # move. The rules live in cargo_engine.manual_place (UI-free, tested).
+
+    def _grids_world(self) -> list[dict]:
+        """Cargo grids in the renderer's world coords (origin = bounds min)."""
+        x_min, z_min = self._bounds[0], self._bounds[1]
+        out = []
+        for s in self._slots:
+            g = dict(s)
+            g["x"] = s["x"] - x_min
+            g["z"] = s["z"] - z_min
+            if self._has_layout:
+                # Hand-made layouts: slots are placement volumes; their size
+                # tags just echo the box drawn there, so they are not limits.
+                g["maxSize"] = g["minSize"] = None
+            out.append(g)
+        return out
+
+    def box_press(self, group, scene_pos, screen_pos) -> None:
+        self._drag_cancelled = False
+        self._drag = {"group": group, "press_scene": QPointF(scene_pos),
+                      "press_screen": QPointF(screen_pos), "active": False}
+
+    def box_move(self, group, scene_pos, screen_pos) -> None:
+        d = self._drag
+        if not d or d["group"] is not group:
+            return
+        if not d["active"]:
+            delta = QPointF(screen_pos) - d["press_screen"]
+            if delta.manhattanLength() < QApplication.startDragDistance():
+                return
+            if not self._drag_start(d):
+                self._drag = None
+                return
+        d["last_scene"] = QPointF(scene_pos)
+        self._drag_update()
+
+    def box_release(self, group, scene_pos) -> bool:
+        """Finish a drag. Returns True if this press was a drag (not a click)."""
+        d = self._drag
+        if d is None:
+            # A drag that Esc already cancelled must not turn into a click.
+            cancelled = getattr(self, "_drag_cancelled", False)
+            self._drag_cancelled = False
+            return cancelled
+        self._drag = None
+        if not d["active"]:
+            return False
+        d["last_scene"] = QPointF(scene_pos)
+        self._drag_finish(d)
+        return True
+
+    def _drag_start(self, d: dict) -> bool:
+        group = d["group"]
+        box = tuple(group.box_data)
+        boxes = list(self._renderer._last_boxes)
+        try:
+            index = boxes.index(box)
+        except ValueError:
+            return False
+        others = boxes[:index] + boxes[index + 1:]
+        x, y, z, w, h, l, size = box
+        d.update({
+            "active": True, "index": index, "boxes": boxes, "orig": box,
+            "dims": (w, h, l), "size": size,
+            "centre0": (x + w / 2.0, z + l / 2.0),
+            "press_world": self._renderer.unproject(d["press_scene"].x(),
+                                                    d["press_scene"].y(), y),
+            "plane_y": y,
+            "ctx": PlacementContext(self._grids_world(), others,
+                                    union=self._has_layout),
+            "result": None,
+        })
+        group.setOpacity(0.3)
+        self._view.setFocus(Qt.MouseFocusReason)
+        return True
+
+    def _drag_update(self) -> None:
+        d = self._drag
+        if not d or not d.get("active"):
+            return
+        sp = d.get("last_scene", d["press_scene"])
+        cur = self._renderer.unproject(sp.x(), sp.y(), d["plane_y"])
+        if cur is None or d["press_world"] is None:
+            return
+        cx = d["centre0"][0] + cur[0] - d["press_world"][0]
+        cz = d["centre0"][1] + cur[1] - d["press_world"][1]
+        w, h, l = d["dims"]
+        pos, valid, reason = d["ctx"].snap((w, h, l, d["size"]),
+                                           (cx - w / 2.0, cz - l / 2.0))
+        d["result"] = (pos, valid, reason)
+        self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid)
+        self._status_lbl.setText(
+            (_("Drop here") if valid else _("Can't drop: ") + _(reason))
+            + "  \u00b7  R / right-click rotate  \u00b7  Esc cancel")
+
+    def _drag_rotate(self) -> None:
+        d = self._drag
+        d["dims"] = rotate_yaw(d["dims"])
+        self._drag_update()
+
+    def _drag_cancel(self) -> None:
+        d = self._drag
+        self._drag = None
+        self._drag_cancelled = True
+        self._renderer.clear_ghost()
+        try:
+            d["group"].setOpacity(1.0)
+            d["group"].ungrabMouse()
+        except RuntimeError:
+            pass
+        self._apply_visibility_filter()
+        self._status_lbl.setText(_("Move cancelled"))
+
+    def _drag_key(self, event) -> bool:
+        if not self._drag or not self._drag.get("active"):
+            return False
+        if event.key() == Qt.Key_Escape:
+            self._drag_cancel()
+            return True
+        if event.key() == Qt.Key_R and not event.modifiers() & (
+                Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier):
+            self._drag_rotate()
+            return True
+        return False
+
+    def _drag_right_click(self) -> bool:
+        if not self._drag or not self._drag.get("active"):
+            return False
+        self._drag_rotate()
+        return True
+
+    def _drag_finish(self, d: dict) -> None:
+        self._drag_update_from(d)
+        self._renderer.clear_ghost()
+        pos, valid, reason = d.get("result") or (None, False, "no target")
+        orig = d["orig"]
+        new_box = (pos[0], pos[1], pos[2], *d["dims"], d["size"]) if pos else orig
+        if not valid or new_box == orig:
+            d["group"].setOpacity(1.0)
+            self._apply_visibility_filter()
+            if not valid:
+                self._status_lbl.setText(_("Move cancelled: ") + _(reason))
+            return
+        # Deferred: the redraw deletes the box item whose release handler is
+        # still on the stack.
+        boxes, index, dims = d["boxes"], d["index"], d["dims"]
+        QTimer.singleShot(0, lambda: self._apply_move(boxes, index, pos, dims))
+
+    def _drag_update_from(self, d: dict) -> None:
+        """Re-evaluate the drop at the release point (the last move may lag)."""
+        self._drag, saved = d, self._drag
+        try:
+            self._drag_update()
+        finally:
+            self._drag = saved
+
+    def _apply_move(self, boxes, index, pos, dims) -> None:
+        """Commit a legal move: undo entry, commodity follows the box, redraw."""
+        old = boxes[index]
+        self._move_undo.append((
+            None if self._renderer._manual_boxes is None else list(self._renderer._manual_boxes),
+            dict(self._renderer._assignments),
+        ))
+        new_boxes = move_box(boxes, index, pos, dims)
+        old_key = (old[0], old[1], old[2], old[6])
+        new_key = (pos[0], pos[1], pos[2], old[6])
+        commodity = self._renderer._assignments.pop(old_key, None)
+        if commodity:
+            self._renderer._assignments[new_key] = commodity
+        self._renderer._manual_boxes = new_boxes
+        self._render_grid()
+        self._update_assignment_summary()
+        self._status_lbl.setText(
+            _("Moved {n} SCU box  \u00b7  Ctrl+Z to undo").format(n=old[6]))
+
+    def _undo_move(self) -> None:
+        if self._drag and self._drag.get("active"):
+            return
+        if not self._move_undo:
+            return
+        manual, assignments = self._move_undo.pop()
+        self._renderer._manual_boxes = manual
+        self._renderer._assignments.clear()
+        self._renderer._assignments.update(assignments)
+        self._render_grid()
+        self._update_assignment_summary()
+        self._status_lbl.setText(_("Move undone"))
+
+    def _drop_manual_layout(self) -> None:
+        if self._drag:
+            self._renderer.clear_ghost()
+            self._drag = None
+        self._renderer._manual_boxes = None
+        self._move_undo.clear()
+
+    @staticmethod
+    def _boxes_from_payload(raw) -> list[tuple] | None:
+        """Parse a saved plan's "boxes" list; None if absent or malformed."""
+        if not isinstance(raw, list) or not raw:
+            return None
+        out = []
+        try:
+            for b in raw:
+                size = int(b["scu"])
+                x, y, z = (int(v) for v in b["pos"])
+                w, h, l = (int(v) for v in b["dims"])
+                if size not in CONTAINER_DIMS or \
+                        sorted((w, h, l)) != sorted(CONTAINER_DIMS[size]):
+                    return None
+                out.append((x, y, z, w, h, l, size))
+        except (KeyError, TypeError, ValueError):
+            return None
+        return out
 
     def _update_assignment_summary(self) -> None:
         """Update the assignment summary label in the planning panel."""
@@ -2343,9 +2690,13 @@ class CargoApp(SCWindow):
             n = self._get_count(size)
             self._cont_labels[size].setText(f"= {n * size:>5,}")
 
-        # Update counts dict
+        # Update counts dict (a changed count invalidates a hand arrangement)
+        new_counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
+        if new_counts != self._counts and self._renderer._manual_boxes is not None:
+            self._drop_manual_layout()
+            self._status_lbl.setText(_("Container counts changed \u2014 manual arrangement reset"))
         for s in CONTAINER_SIZES:
-            self._counts[s] = self._get_count(s)
+            self._counts[s] = new_counts[s]
 
         self._update_assignment()
         self._render_grid()
@@ -2407,6 +2758,16 @@ class CargoApp(SCWindow):
         path = files[0] if files else ""
         if not path:
             return
+        payload = self._loadout_payload()
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2, ensure_ascii=False)
+            self._status_lbl.setText(_("Saved: ") + os.path.basename(path))
+        except OSError as exc:
+            self._status_lbl.setText(f"Save error: {exc}")
+
+    def _loadout_payload(self) -> dict:
+        """The cargo plan dict that _save_loadout writes (no file I/O)."""
         counts = {str(s): self._get_count(s) for s in CONTAINER_SIZES}
         assignments = [
             {"pos": list(k), "commodity": v}
@@ -2419,12 +2780,13 @@ class CargoApp(SCWindow):
             "counts": counts,
             "assignments": assignments,
         }
-        try:
-            with open(path, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, indent=2, ensure_ascii=False)
-            self._status_lbl.setText(_("Saved: ") + os.path.basename(path))
-        except OSError as exc:
-            self._status_lbl.setText(f"Save error: {exc}")
+        if self._renderer._manual_boxes is not None:
+            # Hand-arranged positions (drag-and-drop). Older builds ignore it.
+            payload["boxes"] = [
+                {"scu": b[6], "pos": [b[0], b[1], b[2]], "dims": [b[3], b[4], b[5]]}
+                for b in self._renderer._manual_boxes
+            ]
+        return payload
 
     def _load_loadout(self) -> None:
         os.makedirs(self._LOADOUT_DIR, exist_ok=True)
@@ -2481,6 +2843,11 @@ class CargoApp(SCWindow):
             self._spinboxes[s].blockSignals(True)
             self._spinboxes[s].setValue(n)
             self._spinboxes[s].blockSignals(False)
+        # Restore a hand arrangement, if the plan carries one that matches
+        boxes = self._boxes_from_payload(payload.get("boxes"))
+        if boxes is not None:
+            self._counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
+            self._renderer._manual_boxes = boxes
         self._update_fill()
         self._update_assignment_summary()
 
@@ -2490,6 +2857,7 @@ class CargoApp(SCWindow):
         ship_name = self._current_ship.get("name", "")
         ref = _find_reference_loadout(ship_name)
         result = ref if ref is not None else greedy_optimize_3d(self._slots)
+        self._drop_manual_layout()
         for s in CONTAINER_SIZES:
             self._spinboxes[s].blockSignals(True)
             self._spinboxes[s].setValue(0)
@@ -2502,6 +2870,7 @@ class CargoApp(SCWindow):
         self._update_fill()
 
     def _reset_containers(self) -> None:
+        self._drop_manual_layout()
         for s in CONTAINER_SIZES:
             self._spinboxes[s].blockSignals(True)
             self._spinboxes[s].setValue(0)
@@ -2521,6 +2890,7 @@ class CargoApp(SCWindow):
         self._update_fill()
 
     def _clear_containers(self) -> None:
+        self._drop_manual_layout()
         for s in CONTAINER_SIZES:
             self._spinboxes[s].blockSignals(True)
             self._spinboxes[s].setValue(0)
