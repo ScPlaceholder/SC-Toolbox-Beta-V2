@@ -294,16 +294,24 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
 
 :: tools/ — copy each tool, then prune non-runtime files
 echo  [*] Staging tools...
+:: Per tool, the staged copy is pruned of:
+::   Remove cache, log, and dev files
+::   Remove debug screenshots from scanner output
+::   Remove tesseract installer if accidentally staged
+::   Per-user dev/runtime artifacts that contain absolute paths
+::   (Claude Code session config, labeler error log, training metadata
+::   JSON sidecar of the OCR model). The .onnx model itself is binary
+::   weights only — safe to ship.
+:: (These notes live OUTSIDE the block: '::' inside a ( ) block is parsed as a label
+::  and printed 'The system cannot find the drive specified.' in the 2.4.0 build log.)
 for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2) do (
     if exist "%ROOT%\tools\%%T" (
         xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
-        :: Remove cache, log, and dev files
         del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
         del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
         del /q "%STAGE%\tools\%%T\requirements.txt" 2>nul
         del /q "%STAGE%\tools\%%T\nul.lock" 2>nul
-        :: Remove debug screenshots from scanner output
         del /q "%STAGE%\tools\%%T\debug_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\_debug_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\_*.png" 2>nul
@@ -311,12 +319,7 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2) do (
         del /q "%STAGE%\tools\%%T\_test_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\refinery_ocr_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\refinery_ocr_debug.txt" 2>nul
-        :: Remove tesseract installer if accidentally staged
         del /q "%STAGE%\tools\%%T\tesseract\tesseract-setup.exe" 2>nul
-        :: Per-user dev/runtime artifacts that contain absolute paths
-        :: (Claude Code session config, labeler error log, training metadata
-        :: JSON sidecar of the OCR model). The .onnx model itself is binary
-        :: weights only — safe to ship.
         if exist "%STAGE%\tools\%%T\.claude" rmdir /s /q "%STAGE%\tools\%%T\.claude"
         del /q "%STAGE%\tools\%%T\labeler_err.txt" 2>nul
         del /q "%STAGE%\tools\%%T\labeler.log" 2>nul
