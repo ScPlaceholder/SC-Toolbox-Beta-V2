@@ -78,6 +78,16 @@ LOOT_FILES = ("fps-items.json", "items.json")
 CRAFT_FILES = ("blueprints.json",)
 PINNED_SHA256 = {
     "blueprints.json": "1166b9b77382e6866c7a3f42be971204ca242ca5e2fa136073ba6e212e788cf3",
+    # ★ ADDED 2026-09-26. The DPS pair had its hashes RECORDED in meta.json and never
+    #   CHECKED against anything — recording a hash proves only that we hashed what we
+    #   downloaded, which a corrupted or substituted file satisfies just as well. These
+    #   two ARE the shipping dataset (56 MB of the 60), so they were the least pinned and
+    #   the most load-bearing files in the tree.
+    #   Both computed from the pinned build on disk and cross-checked against meta.json's
+    #   recorded values; blueprints.json was recomputed the same way as a CONTROL and
+    #   reproduced the pin above exactly, which is what licensed trusting the method.
+    "ships.json": "c71a772f5d9909b32f2eb47758982b92ef4557b5476b868f42fa31fb3b803fd4",
+    "ship-items.json": "a5e1ab01cced503d8ee994124c82f59ed5df6cf125127adfb701c3e3ffa74fb8",
 }
 INDEX_FILE = "guns_index.json"
 ADAPTER_VERSION = 7          # 7: Slayer fire interval + per-shot-overheat sustain; 6: camera-turret ports; 5: pellets, spread, range
@@ -173,6 +183,22 @@ def fetch_raw(build: str = BUILD, commit: str = COMMIT, timeout: float = 120.0,
     dest: a directory to use instead of the cache (tests, verification).
     expect_sha256: {file: sha256}; a file (new or already on disk) whose hash
     differs is deleted and ScunpackedError is raised. Default: no check.
+
+    ⚠ CALLERS MUST PASS THE PINS. Only the Craft Database did, which is why the DPS pair
+      went unverified for its whole life — ships.json and ship-items.json, 56 MB of the
+      60 MB we ship, had their hashes dutifully recorded in meta.json and compared to
+      nothing. The DPS ``download()`` now passes them too.
+    ⛔ AND ``None`` MUST KEEP MEANING "NO CHECK". I briefly made None default to
+      PINNED_SHA256 on the reasoning that an opt-in check is one callers forget. That
+      reasoning is fine and the change was still wrong: the pins are keyed by FILENAME,
+      not by build, and ``DatamineSource.download`` passes None deliberately to mean
+      "this is a synthetic build, do not compare its blueprints.json to the real pin".
+      Making None strict therefore broke a caller that was already correct, and
+      ``test_download_checks_pinned_sha256`` caught it immediately.
+    ★ The lesson is about the SHAPE of the fix, not the hash: a shared default carries
+      meaning that existing callers have already built on, so tightening it edits their
+      behaviour from underneath. Tighten at the call site, where the intent is local.
+
     Each file asked for gets its size and sha256 recorded in meta.json.
     """
     d = dest or cache_dir(build)

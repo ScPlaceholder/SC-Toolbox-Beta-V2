@@ -141,7 +141,19 @@ def download(build: str, commit: str) -> str:
     disk; writes meta.json (build, commit, sha256s). Returns the dir name.
     Network + disk only, no JSON parsing, so it is safe on a worker thread."""
     dirname = _dir_name(build, commit)
-    meta = S.fetch_raw(build=dirname, commit=commit)      # the adapter's own fetcher
+    # ★ 2026-09-26: PASS THE PINS. This call omitted expect_sha256, so ships.json and
+    #   ship-items.json — the 56 MB that IS the shipping dataset — had their hashes
+    #   recorded in meta.json and checked against nothing. Recording a hash proves only
+    #   that we hashed whatever arrived, which a corrupted or substituted file satisfies
+    #   just as well.
+    # ⚠ Pinned ONLY for the real pinned build, mirroring DatamineSource.download: the pin
+    #   table is keyed by FILENAME, so passing it for some other build would compare a
+    #   different build's ships.json against 4.10.1's hash and refuse it. That is exactly
+    #   the mistake that broke the Craft Database test when I tried to make the check the
+    #   shared default instead of a call-site decision.
+    pinned = S.PINNED_SHA256 if (build == S.BUILD and commit == S.COMMIT) else None
+    meta = S.fetch_raw(build=dirname, commit=commit,      # the adapter's own fetcher
+                       expect_sha256=pinned)
     if meta.get("build") != build:                        # it records the dir name
         meta["build"] = build
         meta["dir"] = dirname
@@ -152,7 +164,27 @@ def download(build: str, commit: str) -> str:
 
 def ensure_data(allow_fetch: bool = True) -> dict:
     """Make sure one build is on disk and active. Order: the active build; else
-    the adapter's pinned build if it is cached; else the latest from GitHub."""
+    the adapter's pinned build, cached or fetched.
+
+    ⛔ THIS USED TO FALL THROUGH TO ``latest_build()`` — THE NEWEST LIVE COMMIT ON
+      GITHUB — WHENEVER NOTHING WAS CACHED, and that made a fresh install
+      non-reproducible. Found 2026-09-26 while auditing what the DPS calculator
+      actually reads. The machine that has been running a while keeps the pinned
+      build forever and never notices; a brand-new install silently comes up on a
+      DIFFERENT dataset, so two people comparing numbers can both be running
+      "the tool" and disagree, with nothing on screen to say why.
+    ★ The bug was invisible to the developer BY CONSTRUCTION: the broken branch is
+      the only one a populated cache never takes.
+    ⇒ First-run now fetches the PINNED (build, commit), the same one
+      ``shared.scunpacked`` hashes and the same one every other skill reads. If
+      that commit cannot be fetched we RAISE rather than substituting whatever is
+      newest: silently shipping different data is the failure this fix exists to
+      prevent, and an error the user can read is strictly better than a number
+      they cannot check.
+    ⚠ Upgrading is unaffected and stays deliberate — ``check_update`` plus
+      ``activate`` (the Refresh the window offers) is how a newer build is adopted,
+      and that path is untouched.
+    """
     a = active()
     if a:
         return a
@@ -163,9 +195,14 @@ def ensure_data(allow_fetch: bool = True) -> dict:
         return active()
     if not allow_fetch:
         raise ProviderError("scunpacked-data is not cached yet")
-    build, commit = latest_build()
-    dirname = download(build, commit)
-    _set_active(build, commit, dirname)
+    try:
+        dirname = download(S.BUILD, S.COMMIT)
+    except Exception as exc:
+        raise ProviderError(
+            "could not fetch the pinned scunpacked-data build %s (%s). Refusing to "
+            "fall back to the newest commit: that would put this install on a "
+            "different dataset than every other one, silently." % (S.BUILD, exc))
+    _set_active(S.BUILD, S.COMMIT, dirname)
     return active()
 
 
