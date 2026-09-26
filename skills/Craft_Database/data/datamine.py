@@ -25,11 +25,23 @@ Raw record (one per blueprint, all ``Kind == "creation"``, one tier each)::
                     AtMaxQuality}, ValueRangeType, ValueSegments[]?}
     Dismantle      {TimeSeconds, Efficiency, Returns[]}
 
-Not in the datamine (sc-craft.tools had them): which missions drop a
-blueprint, with contractor, location and drop chance. The datamine only
-names the reward pool (``BP_REWARDS_NyxFoxwellEasy``); those are shown as
-the blueprint's sources. Categories are derived from the output item's
-type (the datamine's own category is an unnamed UUID).
+Not in ``blueprints.json``: which missions drop a blueprint, with contractor,
+location and drop chance. It only names the reward pool
+(``BP_REWARDS_NyxFoxwellEasy``), and those are shown as the blueprint's
+``sources``.
+
+★ RECOVERED 2026-09-26 — see ``mission_drops``. The pools are keyed by the same
+UUIDs the Mission Database's scmdb cache uses, so the missions ARE reachable:
+``blueprintPools[].blueprints[].blueprintRecord`` is this file's record ``UUID``
+(687 of 687 exact), and ``contracts[].blueprintRewards[].blueprintPool`` gets
+from a pool to the contract, its faction and its locations. ``build_index``
+fills ``missions`` from that join and records the drop data's own game version
+under ``dropData``, because it is NOT the same build as the blueprints.
+⚠ Coverage is partial, 666 of ~1,590, since 38 of the 154 pools have no scmdb
+entry. An empty ``missions`` means NO DATA, never "does not drop".
+
+Categories are derived from the output item's type (the datamine's own category
+is an unnamed UUID).
 """
 from __future__ import annotations
 
@@ -40,6 +52,8 @@ import re
 from typing import Optional
 
 from shared import scunpacked
+
+from . import mission_drops
 
 log = logging.getLogger(__name__)
 
@@ -205,8 +219,15 @@ def _slots(group: dict, choose: str = "") -> list:
              "options": opts, "quality_effects": effects}]
 
 
-def normalize(raw: dict, idx: int = 0, version: str = "") -> Optional[dict]:
-    """One raw blueprints.json record -> the dict Blueprint.from_dict reads."""
+def normalize(raw: dict, idx: int = 0, version: str = "",
+              drops: "mission_drops.MissionDrops | None" = None) -> Optional[dict]:
+    """One raw blueprints.json record -> the dict Blueprint.from_dict reads.
+
+    ``drops`` is optional and defaults to None so existing callers and tests are unchanged.
+    When present it fills ``missions`` by joining this record's UUID against the Mission
+    Database cache — see ``mission_drops``. An empty ``missions`` means NO DATA, not "does
+    not drop"; ``sources`` (the reward pool labels) is still filled either way.
+    """
     key = raw.get("Key") or ""
     if not key:
         return None
@@ -237,16 +258,23 @@ def normalize(raw: dict, idx: int = 0, version: str = "") -> Optional[dict]:
         "dismantle_efficiency": _num(dis.get("Efficiency")),
         "version": version,
         "ingredients": ingredients,
-        "missions": [],
+        "missions": (drops.for_blueprint(raw.get("UUID"), out.get("UUID"))
+                     if drops is not None else []),
     }
 
 
 def build_index(raw_list: list, build: str = scunpacked.BUILD,
-                commit: str = scunpacked.COMMIT, sha256: str = "") -> dict:
+                commit: str = scunpacked.COMMIT, sha256: str = "",
+                drops_dir: Optional[str] = None) -> dict:
     version = version_string(build)
+    # The mission drop join, loaded once for the whole index. None when the Mission Database
+    # cache is absent or holds no reward pools, in which case every blueprint keeps an empty
+    # missions list and the UI shows drops as unknown. Never fatal: this index must build on
+    # a machine that has the blueprints but not the mission cache.
+    drops = mission_drops.load(drops_dir)
     bps = []
     for i, r in enumerate(raw_list or []):
-        n = normalize(r, i, version) if isinstance(r, dict) else None
+        n = normalize(r, i, version, drops) if isinstance(r, dict) else None
         if n:
             bps.append(n)
     bps.sort(key=lambda b: b["name"].lower())
@@ -254,8 +282,21 @@ def build_index(raw_list: list, build: str = scunpacked.BUILD,
         b["id"] = i
     resources = sorted({o["name"] for b in bps for s in b["ingredients"] for o in s["options"]})
     categories = sorted({b["category"] for b in bps})
+    # Drop-data provenance travels WITH the index. The blueprints are `build`, the drop list is
+    # a different game version, and a UI that shows the missions without saying which version
+    # they came from implies they are current. withDrops is the honest coverage number: every
+    # other blueprint's empty missions list means unknown, not "does not drop".
+    with_drops = sum(1 for b in bps if b["missions"])
+    drop_stats = {
+        "source": "mission_database_scmdb" if drops else None,
+        "sourceVersion": drops.source_version if drops else None,
+        "withDrops": with_drops,
+        "withoutDrops": len(bps) - with_drops,
+        "poolsLinked": drops.linked_pool_count if drops else 0,
+    }
     return {"index_version": INDEX_VERSION, "build": build, "commit": commit,
             "source": scunpacked.REPO, "sha256": sha256,
+            "dropData": drop_stats,
             "stats": {"totalBlueprints": len(bps), "uniqueIngredients": len(resources),
                       "version": version},
             "hints": {"category": categories,
