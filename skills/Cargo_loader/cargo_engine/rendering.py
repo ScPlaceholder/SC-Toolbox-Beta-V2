@@ -152,9 +152,17 @@ def topological_sort_boxes(
 
     Each box is a tuple: (wx, wy, wz, dw, dh, dl, size)
 
-    Uses topological sort with occlusion detection:
-    A is behind B if A is entirely to the left, entirely behind,
-    or entirely below B AND they overlap in the other two axes.
+    Uses topological sort with occlusion detection. Only pairs whose iso
+    outlines actually overlap on screen are ordered (exact test on the three
+    hexagon axes x-z, x-y, z-y). For such a pair, A is behind B if a plane
+    separates them with A on the far side: A.x1 <= B.x0, A.z1 <= B.z0 or
+    A.y1 <= B.y0 (the camera looks from +X, +Z, above).
+
+    The old rule also demanded overlap in the other two axes, so diagonal
+    neighbours (behind on both x and z) got no constraint at all and were
+    painted in list order: J, 2026-09-26, "some of the visual stacking is
+    wrong". Pairs that genuinely intersect (items may overlap by design) and
+    any cycle fall back to depth order (centre x + y + z), not list order.
 
     When rotation != 0, the world coordinates are rotated before
     computing the behind-relationship so that the painter's algorithm
@@ -186,24 +194,25 @@ def topological_sort_boxes(
     in_deg = [0] * n
     adj: list[list[int]] = [[] for _ in range(n)]
 
+    def _hex(bd):
+        # Screen outline of the box on the three hexagon axes (exact separating-axis test).
+        x0, y0, z0, x1, y1, z1 = bd
+        return ((x0 - z1, x1 - z0), (x0 - y1, x1 - y0), (z0 - y1, z1 - y0))
+
+    hexes = [_hex(bd) for bd in bounds]
+
     for i in range(n):
         ax0, ay0, az0, ax1, ay1, az1 = bounds[i]
         for j in range(i + 1, n):
+            if not all(_range_overlap(p0, p1, q0, q1)
+                       for (p0, p1), (q0, q1) in zip(hexes[i], hexes[j])):
+                continue                     # outlines don't overlap: order is irrelevant
             bx0, by0, bz0, bx1, by1, bz1 = bounds[j]
 
             # A behind B (A drawn first)?
-            a_before_b = (
-                (ax1 <= bx0 and _range_overlap(az0, az1, bz0, bz1) and _range_overlap(ay0, ay1, by0, by1)) or
-                (az1 <= bz0 and _range_overlap(ax0, ax1, bx0, bx1) and _range_overlap(ay0, ay1, by0, by1)) or
-                (ay1 <= by0 and _range_overlap(ax0, ax1, bx0, bx1) and _range_overlap(az0, az1, bz0, bz1))
-            )
-
+            a_before_b = ax1 <= bx0 or az1 <= bz0 or ay1 <= by0
             # B behind A (B drawn first)?
-            b_before_a = (
-                (bx1 <= ax0 and _range_overlap(bz0, bz1, az0, az1) and _range_overlap(by0, by1, ay0, ay1)) or
-                (bz1 <= az0 and _range_overlap(bx0, bx1, ax0, ax1) and _range_overlap(by0, by1, ay0, ay1)) or
-                (by1 <= ay0 and _range_overlap(bx0, bx1, ax0, ax1) and _range_overlap(bz0, bz1, az0, az1))
-            )
+            b_before_a = bx1 <= ax0 or bz1 <= az0 or by1 <= ay0
 
             if a_before_b and not b_before_a:
                 adj[i].append(j)
@@ -212,28 +221,29 @@ def topological_sort_boxes(
                 adj[j].append(i)
                 in_deg[i] += 1
 
-    # Kahn's algorithm
-    from collections import deque
-    queue = deque()
-    for i in range(n):
-        if in_deg[i] == 0:
-            queue.append(i)
+    # Kahn's algorithm; among ready boxes the farthest (smallest centre depth)
+    # goes first, so unconstrained pairs - intersecting items - still look right.
+    import heapq
 
-    result = []
-    while queue:
-        u = queue.popleft()
+    def depth(i):
+        x0, y0, z0, x1, y1, z1 = bounds[i]
+        return (x0 + x1 + y0 + y1 + z0 + z1) / 2.0
+
+    heap = [(depth(i), i) for i in range(n) if in_deg[i] == 0]
+    heapq.heapify(heap)
+    result, done = [], [False] * n
+    while heap:
+        _, u = heapq.heappop(heap)
         result.append(boxes[u])
+        done[u] = True
         for v in adj[u]:
             in_deg[v] -= 1
             if in_deg[v] == 0:
-                queue.append(v)
+                heapq.heappush(heap, (depth(v), v))
 
-    # Cycle fallback: append any boxes not yet in result
+    # Cycle fallback: the rest by depth, not list order
     if len(result) < n:
-        in_result = set(id(b) for b in result)
-        for b in boxes:
-            if id(b) not in in_result:
-                result.append(b)
+        result.extend(boxes[i] for i in sorted((i for i in range(n) if not done[i]), key=depth))
 
     return result
 
