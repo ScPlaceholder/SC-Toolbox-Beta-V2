@@ -169,8 +169,67 @@ def _api_key(path=SECRETS):
     return m.group(1).strip().strip('"' + "'")
 
 
-def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300):
-    """Generate ONE image. This bills. Raises on anything that is not a written PNG."""
+REFERENCE_DIR = os.path.join(HERE, "assets", "reference")
+
+#: Reference images, in the order the prompt preamble names them. The FIRST is always the
+#: canonical Pico — style, proportion, scale. The SECOND, when present, is the manufacturer
+#: design sheet for the garment being made.
+#: ⚠ ORDER IS LOAD-BEARING: role_preamble() writes "Image 1 is..." / "Image 2 is..." to match
+#:   this list. Reorder the list without reordering the preamble and every generation is told to
+#:   take its silhouette from the wrong sheet — which would look like a style failure, not a
+#:   wiring one, and I would go re-prompting instead of re-reading.
+REFERENCES = [
+    ("pico", "pico_style_sheet_2026-09-27.jpg"),
+    ("manufacturer", "pico_asset_sprite_sheet.png"),      # NOT YET SUPPLIED — J is sending it
+]
+
+
+def available_references():
+    """-> [(role, path)] for references that actually exist on disk, in declared order.
+
+    ⚠ Returns only what is PRESENT. A missing reference is not an error here — the pipeline is
+      designed to run with one, or with none — but the caller must build its preamble from THIS
+      list rather than from REFERENCES, or the prompt will describe an Image 2 that was never
+      attached. That mismatch is silent: the model simply invents what it was told exists.
+    """
+    out = []
+    for role, name in REFERENCES:
+        p = os.path.join(REFERENCE_DIR, name)
+        if os.path.exists(p):
+            out.append((role, p))
+    return out
+
+
+ROLE_TEXT = {
+    "pico": ("is the canonical PICO character reference. Use it ONLY to match the established "
+             "rendering style, proportions, materials, lighting, edge treatment and scale. "
+             "Do NOT copy any part of the character itself into the output."),
+    "manufacturer": ("is the manufacturer design reference. Use it ONLY as the design reference "
+                     "for the requested garment — its construction, colourway and weathering. "
+                     "Do NOT cut the garment out of it; draw a new clean asset."),
+}
+
+
+def role_preamble(refs):
+    """The 'Image N is...' block, generated FROM the references actually attached."""
+    if not refs:
+        return ""
+    lines = []
+    for i, (role, _path) in enumerate(refs, start=1):
+        lines.append("Image %d %s" % (i, ROLE_TEXT[role]))
+    return "\n".join(lines) + "\n\n"
+
+
+def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300, refs=None, dry_run=False):
+    """Generate ONE image. This bills unless dry_run. Raises on anything that is not a written PNG.
+
+    ★ WITH REFERENCES IT USES THE EDIT ENDPOINT, NOT GENERATE. The designer's advice, 2026-09-27:
+      "feed the master Pico/reference artwork into the image request so the generations aren't
+      trying to rediscover our style from prose each time", assigning each input a role. image_gen
+      declares --image with action="append", so several references go in one call.
+    ⚠ input-fidelity high is set for the same reason: a reference passed at low fidelity is a mood
+      board, not a spec.
+    """
     import subprocess
     import tempfile
 
@@ -182,13 +241,14 @@ def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300):
     fd, pf = tempfile.mkstemp(suffix=".txt", text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(prompt)
+            fh.write(role_preamble(refs) + prompt)
         # ⚠ 'generate' IS A SUBCOMMAND AND OMITTING IT COST NOTHING ONLY BECAUSE I DRY-RAN FIRST.
         #   image_gen.py's top-level parser takes {generate, generate-batch, edit}; every --flag I
         #   read out of its add_argument calls belongs to the SUBPARSER. Without the verb it exits
         #   'invalid choice: gpt-image-1.5' — so the wiring looked right and would have failed on
         #   the first paid call. Reading argparse lines does not tell you which parser owns them.
-        cmd = [sys.executable, IMAGEGEN, "generate",
+        verb = "edit" if refs else "generate"
+        cmd = [sys.executable, IMAGEGEN, verb,
                "--model", model,
                "--prompt-file", pf,
                "--background", "transparent",
@@ -196,6 +256,12 @@ def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300):
                "--size", "1024x1024",
                "--no-augment",          # the manifest prompt is already fully specified
                "--out", dest]
+        for _role, _path in (refs or []):
+            cmd += ["--image", _path]
+        if refs:
+            cmd += ["--input-fidelity", "high"]
+        if dry_run:
+            cmd += ["--dry-run"]
         r = subprocess.run(cmd, env=env, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout)
     finally:
@@ -204,6 +270,11 @@ def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300):
         except OSError:
             pass
 
+    if dry_run:
+        # a dry run writes nothing; the point is that the INVOCATION is accepted
+        if r.returncode != 0:
+            raise RuntimeError("dry-run rejected: %s" % ((r.stderr or r.stdout or "").strip()[-300:]))
+        return r.stdout
     if r.returncode != 0 or not os.path.exists(dest):
         # ⚠ Surface the tool's OWN words. A generic "generation failed" would hide quota, moderation
         #   and model-availability errors, which are three different decisions for a human.
