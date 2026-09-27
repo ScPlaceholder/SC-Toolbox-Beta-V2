@@ -78,9 +78,18 @@ ALL_SKINS = ["BASE", "DRAKE", "AEGIS", "ORIGIN", "ANVIL", "MISC", "CRUSADER", "R
 #   drawing the whole character instead of the one part. asset_validate.py's coverage rule catches
 #   it after the fact; these try to stop it happening. Kept identical across every part prompt so a
 #   reject can never be blamed on an inconsistent negative.
+# ⛔ THE TEXT NEGATIVE AND THE REMOVED "stencilled lettering" BOTH DATE FROM THE FIRST REAL IMAGE,
+#   2026-09-27, AND I CAUSED THE DEFECT I THEN HAD TO FIX. The DRAKE flavour asked for "stencilled
+#   lettering". The generator duly produced lettering and spelled it "DRRKE" and "WERPLANSTARY".
+#   Image models cannot spell and I had invited them to try.
+# ★ asset_validate CANNOT SEE THIS. Alpha 255 spread, coverage 21.6% inside the headwear band, zero
+#   edge bleed — it PASSED. A structurally perfect asset with gibberish stamped across it, and no
+#   mechanical check in this pipeline will ever catch that. It is exactly why the plan was one image
+#   before twenty-six.
 NEGATIVES = ("No penguin. No head. No face. No body. No mannequin. No figure wearing it. "
              "Nothing but the single item, floating, centred, on a fully transparent background. "
-             "No drop shadow. No ground plane. No background gradient of any kind.")
+             "No drop shadow. No ground plane. No background gradient of any kind. "
+             "NO TEXT, no letters, no words, no logos, no writing of any kind anywhere.")
 
 STYLE = ("Flat vector game art, clean bold outlines, saturated but slightly desaturated sci-fi "
          "palette, readable at small size, consistent lighting from upper left.")
@@ -88,8 +97,8 @@ STYLE = ("Flat vector game art, clean bold outlines, saturated but slightly desa
 MFR_FLAVOUR = {
     "BASE":     "",
     "DRAKE":    "Drake Interplanetary: scrappy, industrial, worn edges, exposed fasteners, "
-                "orange and gunmetal, stencilled lettering, nothing precious.",
-    "AEGIS":    "Aegis Dynamics: military, hard angles, matte olive and steel, stencil markings.",
+                "orange and gunmetal, nothing precious.",
+    "AEGIS":    "Aegis Dynamics: military, hard angles, matte olive and steel, painted hazard chevrons.",
     "ORIGIN":   "Origin Jumpworks: luxury, white and gold, seamless panels, polished.",
     "ANVIL":    "Anvil Aerospace: utilitarian military, olive drab, rivets, patch pockets.",
     "MISC":     "MISC: Xi'an-influenced curves, teal and bone, smooth organic shells.",
