@@ -1,0 +1,41 @@
+{
+  "name": "blink",
+  "duration": 0.18,
+  "loop": false,
+  "channel": "FACE",
+  "_note": "PLACEHOLDER, and the reason matters. layer_manifest.json lists blink under `expressions` alongside happy/X_X/heart, i.e. J treats it as an ARTWORK SWAP in the eye slots, not a bone clip. The .anim format also has only UNIFORM scale, so this shrinks the eye in both axes instead of squashing it. Kept so the six-clip gate can run end to end; replace with an expression swap or add sx/sy to the format. Reported as a contract gap.",
+  "tracks": {
+    "eye_L": [
+      {
+        "t": 0.0,
+        "scale": 1.0,
+        "ease": "in"
+      },
+      {
+        "t": 0.09,
+        "scale": 0.15,
+        "ease": "out"
+      },
+      {
+        "t": 0.18,
+        "scale": 1.0
+      }
+    ],
+    "eye_R": [
+      {
+        "t": 0.0,
+        "scale": 1.0,
+        "ease": "in"
+      },
+      {
+        "t": 0.09,
+        "scale": 0.15,
+        "ease": "out"
+      },
+      {
+        "t": 0.18,
+        "scale": 1.0
+      }
+    ]
+  }
+}

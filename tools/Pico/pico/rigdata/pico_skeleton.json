@@ -1,0 +1,324 @@
+{
+  "name": "Pico_Master",
+  "version": 1,
+  "canvas": {
+    "width": 2048,
+    "height": 2048,
+    "origin": "top-left"
+  },
+  "coordinate_note": "Reference coordinates for initial rig construction. Snap pivots to final PNG geometry without renaming bones.",
+  "bones": [
+    {
+      "name": "root",
+      "parent": null,
+      "x": 1024,
+      "y": 1650,
+      "rotation": 0
+    },
+    {
+      "name": "body",
+      "parent": "root",
+      "x": 1024,
+      "y": 1210,
+      "rotation": 0
+    },
+    {
+      "name": "spine_lower",
+      "parent": "body",
+      "x": 1024,
+      "y": 1320,
+      "rotation": 0
+    },
+    {
+      "name": "spine_upper",
+      "parent": "spine_lower",
+      "x": 1024,
+      "y": 1050,
+      "rotation": 0
+    },
+    {
+      "name": "neck",
+      "parent": "spine_upper",
+      "x": 1024,
+      "y": 850,
+      "rotation": 0
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "x": 1024,
+      "y": 600,
+      "rotation": 0
+    },
+    {
+      "name": "visor",
+      "parent": "head",
+      "x": 1024,
+      "y": 610,
+      "rotation": 0
+    },
+    {
+      "name": "beak",
+      "parent": "head",
+      "x": 1024,
+      "y": 755,
+      "rotation": 0
+    },
+    {
+      "name": "eye_L",
+      "parent": "head",
+      "x": 900,
+      "y": 610,
+      "rotation": 0
+    },
+    {
+      "name": "eye_R",
+      "parent": "head",
+      "x": 1148,
+      "y": 610,
+      "rotation": 0
+    },
+    {
+      "name": "hat_anchor",
+      "parent": "head",
+      "x": 1024,
+      "y": 330,
+      "rotation": 0
+    },
+    {
+      "name": "shoulder_L",
+      "parent": "spine_upper",
+      "x": 790,
+      "y": 940,
+      "rotation": 0
+    },
+    {
+      "name": "flipper_L",
+      "parent": "shoulder_L",
+      "x": 650,
+      "y": 1110,
+      "rotation": 12
+    },
+    {
+      "name": "hand_L",
+      "parent": "flipper_L",
+      "x": 590,
+      "y": 1280,
+      "rotation": 0
+    },
+    {
+      "name": "shoulder_R",
+      "parent": "spine_upper",
+      "x": 1258,
+      "y": 940,
+      "rotation": 0
+    },
+    {
+      "name": "flipper_R",
+      "parent": "shoulder_R",
+      "x": 1398,
+      "y": 1110,
+      "rotation": -12
+    },
+    {
+      "name": "hand_R",
+      "parent": "flipper_R",
+      "x": 1458,
+      "y": 1280,
+      "rotation": 0
+    },
+    {
+      "name": "hip_L",
+      "parent": "body",
+      "x": 900,
+      "y": 1450,
+      "rotation": 0
+    },
+    {
+      "name": "foot_L",
+      "parent": "hip_L",
+      "x": 850,
+      "y": 1640,
+      "rotation": 0
+    },
+    {
+      "name": "hip_R",
+      "parent": "body",
+      "x": 1148,
+      "y": 1450,
+      "rotation": 0
+    },
+    {
+      "name": "foot_R",
+      "parent": "hip_R",
+      "x": 1198,
+      "y": 1640,
+      "rotation": 0
+    },
+    {
+      "name": "prop_anchor",
+      "parent": "body",
+      "x": 1500,
+      "y": 1150,
+      "rotation": 0
+    },
+    {
+      "name": "back_anchor",
+      "parent": "spine_upper",
+      "x": 1024,
+      "y": 980,
+      "rotation": 0
+    }
+  ],
+  "slots": [
+    {
+      "name": "shadow",
+      "bone": "root",
+      "z": 0
+    },
+    {
+      "name": "body_back",
+      "bone": "body",
+      "z": 10
+    },
+    {
+      "name": "backpack",
+      "bone": "back_anchor",
+      "z": 15
+    },
+    {
+      "name": "leg_L",
+      "bone": "hip_L",
+      "z": 20
+    },
+    {
+      "name": "leg_R",
+      "bone": "hip_R",
+      "z": 21
+    },
+    {
+      "name": "foot_L",
+      "bone": "foot_L",
+      "z": 30
+    },
+    {
+      "name": "foot_R",
+      "bone": "foot_R",
+      "z": 31
+    },
+    {
+      "name": "belly",
+      "bone": "body",
+      "z": 40
+    },
+    {
+      "name": "shirt_or_hoodie",
+      "bone": "body",
+      "z": 45
+    },
+    {
+      "name": "jacket_back",
+      "bone": "body",
+      "z": 46
+    },
+    {
+      "name": "head_base",
+      "bone": "head",
+      "z": 50
+    },
+    {
+      "name": "eye_L",
+      "bone": "eye_L",
+      "z": 55
+    },
+    {
+      "name": "eye_R",
+      "bone": "eye_R",
+      "z": 56
+    },
+    {
+      "name": "visor",
+      "bone": "visor",
+      "z": 60
+    },
+    {
+      "name": "beak",
+      "bone": "beak",
+      "z": 65
+    },
+    {
+      "name": "flipper_L",
+      "bone": "flipper_L",
+      "z": 70
+    },
+    {
+      "name": "flipper_R",
+      "bone": "flipper_R",
+      "z": 71
+    },
+    {
+      "name": "sleeve_L",
+      "bone": "flipper_L",
+      "z": 72
+    },
+    {
+      "name": "sleeve_R",
+      "bone": "flipper_R",
+      "z": 73
+    },
+    {
+      "name": "jacket_front",
+      "bone": "body",
+      "z": 80
+    },
+    {
+      "name": "belt_gear",
+      "bone": "body",
+      "z": 81
+    },
+    {
+      "name": "headwear",
+      "bone": "hat_anchor",
+      "z": 90
+    },
+    {
+      "name": "prop_L",
+      "bone": "hand_L",
+      "z": 100
+    },
+    {
+      "name": "prop_R",
+      "bone": "hand_R",
+      "z": 101
+    },
+    {
+      "name": "prop_world",
+      "bone": "prop_anchor",
+      "z": 102
+    },
+    {
+      "name": "fx_front",
+      "bone": "root",
+      "z": 200
+    }
+  ],
+  "constraints": {
+    "head_rotation_deg": [
+      -18,
+      18
+    ],
+    "body_rotation_deg": [
+      -12,
+      12
+    ],
+    "flipper_rotation_deg": [
+      -55,
+      70
+    ],
+    "foot_rotation_deg": [
+      -18,
+      18
+    ],
+    "dashboard_boundary": "Character and FX must remain clipped to host viewport."
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "name": "idle_breathe",
+  "duration": 2.4,
+  "loop": true,
+  "channel": "BASE",
+  "_note": "THE DISCRIMINATING FIXTURE. Deliberately boring. The flippers must stay DOWN for every frame; a transform-space or rotation-order bug produces a splayed penguin that still reads as 'some animation'. Validate the rig on this, never on dance. Sign convention: +rot is CLOCKWISE ON SCREEN, because the canvas origin is top-left and +y points DOWN.",
+  "_why_no_head_track": "head and neck belong to the HEAD channel, so a BASE clip may not key them. The head still rises with the breath because it is parented through spine_upper.",
+  "tracks": {
+    "body": [
+      {
+        "t": 0.0,
+        "y": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "y": -6,
+        "ease": "inout"
+      },
+      {
+        "t": 2.4,
+        "y": 0
+      }
+    ],
+    "spine_upper": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": 1.5,
+        "ease": "inout"
+      },
+      {
+        "t": 2.4,
+        "rot": 0
+      }
+    ],
+    "flipper_L": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": 2,
+        "ease": "inout"
+      },
+      {
+        "t": 2.4,
+        "rot": 0
+      }
+    ],
+    "flipper_R": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": -2,
+        "ease": "inout"
+      },
+      {
+        "t": 2.4,
+        "rot": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "wave",
+  "duration": 1.2,
+  "loop": true,
+  "channel": "BASE",
+  "_note": "flipper_R reaches a LOCAL TOTAL of -45 deg (rest -12 plus -33), inside the asymmetric limit [-55, +70] and deliberately NOT touching it, so the gate runs clamp-free. The asymmetry is tested separately in tests/test_gate.py. Sign convention: +rot is CLOCKWISE ON SCREEN, because the canvas origin is top-left and +y points DOWN.",
+  "tracks": {
+    "flipper_R": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "out"
+      },
+      {
+        "t": 0.3,
+        "rot": -33,
+        "ease": "inout"
+      },
+      {
+        "t": 0.6,
+        "rot": -20,
+        "ease": "inout"
+      },
+      {
+        "t": 0.9,
+        "rot": -33,
+        "ease": "in"
+      },
+      {
+        "t": 1.2,
+        "rot": 0
+      }
+    ],
+    "hand_R": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.3,
+        "rot": -8
+      },
+      {
+        "t": 0.6,
+        "rot": 6
+      },
+      {
+        "t": 0.9,
+        "rot": -8
+      },
+      {
+        "t": 1.2,
+        "rot": 0
+      }
+    ],
+    "spine_upper": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 0.6,
+        "rot": -2,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": 0
+      }
+    ]
+  }
+}

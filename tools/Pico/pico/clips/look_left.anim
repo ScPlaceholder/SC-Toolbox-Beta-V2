@@ -1,0 +1,31 @@
+{
+  "name": "look_left",
+  "duration": 0.5,
+  "loop": false,
+  "channel": "HEAD",
+  "_note": "Held, not looping: the last key is the destination. Sign convention: +rot is CLOCKWISE ON SCREEN, because the canvas origin is top-left and +y points DOWN.",
+  "tracks": {
+    "neck": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "out"
+      },
+      {
+        "t": 0.5,
+        "rot": -6
+      }
+    ],
+    "head": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "out"
+      },
+      {
+        "t": 0.5,
+        "rot": -10
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "what": "Byte copy of J's stable naming contract. HIS FILE IS THE AUTHORITY.",
+  "source": "C:\\Users\\prjgn\\Downloads\\pico_master_rig_pack_v1\\pico_master_rig_pack_v1\\rig\\pico_skeleton.json",
+  "source_pack": "pico_master_rig_pack_v1",
+  "sha256": "608523d878535a99caa88e73ec8f8762cd648a18b7f28cdb9c9ccfe25130f168",
+  "copied": "2026-09-27",
+  "why_a_copy": "The tool must run without the Downloads pack on disk. A copy is a fork waiting to drift, so rig.verify_skeleton_provenance() re-hashes both and returns CANNOT-TELL, never PASS, when the upstream pack is unreachable.",
+  "do_not": "Edit this copy. Re-copy from source and update this sha256."
+}

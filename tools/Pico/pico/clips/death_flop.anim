@@ -1,0 +1,104 @@
+{
+  "name": "death_flop",
+  "duration": 1.4,
+  "loop": false,
+  "channel": "BASE",
+  "_note": "Ends held at the pose of the last key. body rot ends at exactly +12, the stated body limit, so it sits ON the bound without clamping - inclusive bounds are the tested behaviour. Every other bone stays inside its limit. Keeping the fallen penguin inside the host viewport is the RENDERER's job (constraints.dashboard_boundary); this layer does not clip to a viewport it cannot see. Sign convention: +rot is CLOCKWISE ON SCREEN, because the canvas origin is top-left and +y points DOWN.",
+  "tracks": {
+    "body": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "y": 0,
+        "ease": "in"
+      },
+      {
+        "t": 0.5,
+        "rot": 4,
+        "y": 40,
+        "ease": "in"
+      },
+      {
+        "t": 1.4,
+        "rot": 12,
+        "y": 210
+      }
+    ],
+    "spine_upper": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "in"
+      },
+      {
+        "t": 0.5,
+        "rot": -6,
+        "ease": "out"
+      },
+      {
+        "t": 1.4,
+        "rot": -11
+      }
+    ],
+    "flipper_L": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "out"
+      },
+      {
+        "t": 0.5,
+        "rot": 20,
+        "ease": "out"
+      },
+      {
+        "t": 1.4,
+        "rot": 45
+      }
+    ],
+    "flipper_R": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "out"
+      },
+      {
+        "t": 0.5,
+        "rot": -15,
+        "ease": "out"
+      },
+      {
+        "t": 1.4,
+        "rot": -30
+      }
+    ],
+    "foot_L": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "rot": 10
+      },
+      {
+        "t": 1.4,
+        "rot": 17
+      }
+    ],
+    "foot_R": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.5,
+        "rot": -10
+      },
+      {
+        "t": 1.4,
+        "rot": -17
+      }
+    ]
+  }
+}

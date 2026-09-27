@@ -1,0 +1,206 @@
+{
+  "name": "dance",
+  "duration": 1.6,
+  "loop": true,
+  "channel": "BASE",
+  "_note": "The rig pack's gate calls this 'dance'; PICO_CONTRACT.md section 4 calls it 'idle_dance'. Named for the pack, which outranks the contract. Expressive on purpose and therefore USELESS as a rig validator - it hides everything idle_breathe exposes. Sign convention: +rot is CLOCKWISE ON SCREEN, because the canvas origin is top-left and +y points DOWN.",
+  "tracks": {
+    "body": [
+      {
+        "t": 0.0,
+        "y": 0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 0.4,
+        "y": -14,
+        "rot": 6,
+        "ease": "inout"
+      },
+      {
+        "t": 0.8,
+        "y": 0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "y": -14,
+        "rot": -6,
+        "ease": "inout"
+      },
+      {
+        "t": 1.6,
+        "y": 0,
+        "rot": 0
+      }
+    ],
+    "spine_upper": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 0.4,
+        "rot": -4,
+        "ease": "inout"
+      },
+      {
+        "t": 0.8,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": 4,
+        "ease": "inout"
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "flipper_L": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 0.4,
+        "rot": -20,
+        "ease": "inout"
+      },
+      {
+        "t": 0.8,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": 25,
+        "ease": "inout"
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "flipper_R": [
+      {
+        "t": 0.0,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 0.4,
+        "rot": 20,
+        "ease": "inout"
+      },
+      {
+        "t": 0.8,
+        "rot": 0,
+        "ease": "inout"
+      },
+      {
+        "t": 1.2,
+        "rot": -25,
+        "ease": "inout"
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "foot_L": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.4,
+        "rot": 8
+      },
+      {
+        "t": 0.8,
+        "rot": 0
+      },
+      {
+        "t": 1.2,
+        "rot": -8
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "foot_R": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.4,
+        "rot": -8
+      },
+      {
+        "t": 0.8,
+        "rot": 0
+      },
+      {
+        "t": 1.2,
+        "rot": 8
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "hip_L": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.4,
+        "rot": -5
+      },
+      {
+        "t": 0.8,
+        "rot": 0
+      },
+      {
+        "t": 1.2,
+        "rot": 5
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ],
+    "hip_R": [
+      {
+        "t": 0.0,
+        "rot": 0
+      },
+      {
+        "t": 0.4,
+        "rot": -5
+      },
+      {
+        "t": 0.8,
+        "rot": 0
+      },
+      {
+        "t": 1.2,
+        "rot": 5
+      },
+      {
+        "t": 1.6,
+        "rot": 0
+      }
+    ]
+  }
+}
