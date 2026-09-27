@@ -80,6 +80,7 @@ class EarsController(QObject):
         self._model = None
         self._lock = threading.Lock()
         self._np = None
+        self._pulse = None          # shared.voice_pulse.CapturePulse while the mic is open
 
         self._tick = QTimer(self)
         self._tick.setInterval(100)
@@ -137,11 +138,23 @@ class EarsController(QObject):
         if self._monitor is None:
             self._monitor = HotkeyMonitor(self)
             self._monitor.triggered.connect(self._on_trigger)
-        self._armed = True
         ok = self._monitor.start(self._binding)
+        if not ok:
+            # ⛔ 2026-09-26: this used to emit "ears armed (...)" and `return ok`, so the
+            # status line — and the log line fed from it — said ARMED whatever start()
+            # returned. logs/assistant.crash.log holds "ears status: ears armed (z, hold to
+            # talk)" for a session in which no key edge was ever seen, and that sentence was
+            # worth nothing: it was printed without consulting the result. The claim now
+            # follows the evidence, and self._armed is only set when the trigger is watched.
+            self._armed = False
+            self.statusChanged.emit(
+                "mic key %s could not be watched - see logs/assistant.crash.log"
+                % self._binding.describe())
+            return False
+        self._armed = True
         self.statusChanged.emit("ears armed (%s, %s)" % (
             self._binding.describe(), "hold to talk" if self._mode == "push" else "toggle"))
-        return ok
+        return True
 
     def disarm(self) -> None:
         was_armed = self._armed
@@ -149,7 +162,7 @@ class EarsController(QObject):
         if self._monitor is not None:
             self._monitor.stop()
         if self._recording:
-            self._abort_recording()
+            self._abort_recording("disarmed")
         if was_armed:                            # keep a failed arm()'s reason on screen
             self.statusChanged.emit("ears off")
 
@@ -200,6 +213,17 @@ class EarsController(QObject):
                 _log.warning("ears: could not resolve the chosen microphone (%s); "
                              "opening the Windows default instead", exc)
                 _dev = None
+            # Armed BEFORE the stream exists, so the very first block has somewhere to be
+            # counted. Its own import is guarded: a missing shared/ must cost diagnostics,
+            # never the microphone.
+            try:
+                from shared.voice_pulse import CapturePulse
+                self._pulse = CapturePulse(threshold=_VOICE_RMS)
+            except Exception as exc:
+                self._pulse = None
+                _log.warning("ears: capture pulse unavailable (%s: %s); the mic still "
+                             "opens, but a session that hears nothing will leave no "
+                             "evidence of why", type(exc).__name__, exc)
             self._stream = sd.InputStream(
                 samplerate=_SAMPLE_RATE, channels=1, dtype="float32",
                 blocksize=1600, callback=self._audio_cb, device=_dev)
@@ -226,8 +250,9 @@ class EarsController(QObject):
     def _audio_cb(self, indata, frames, time_info, status) -> None:
         with self._lock:
             self._frames.append(indata.copy())
+            rms = None
             try:
-                self._last_rms = float(self._np.sqrt(self._np.mean(indata ** 2)))
+                self._last_rms = rms = float(self._np.sqrt(self._np.mean(indata ** 2)))
             except Exception as exc:
                 # Broad on purpose: this runs on the PortAudio callback thread, where a raised exception aborts
                 # the stream outright. But it is NOT silent any more, and that matters more here than anywhere
@@ -240,11 +265,20 @@ class EarsController(QObject):
                     self._rms_fail_logged = True
                     _log.warning("ears: cannot measure input loudness (%s); every block now reads as "
                                  "silence, so the ears will report hearing nothing", exc)
+            if self._pulse is not None:
+                # rms stays None when the measurement above failed, so the pulse can
+                # report UNMEASURED rather than fold a failure in as a 0.0 that is
+                # indistinguishable from a silent room.
+                self._pulse.note(rms, status)
 
     def _watch_silence(self) -> None:
         if not self._recording:
             self._tick.stop()
             return
+        if self._pulse is not None:
+            line = self._pulse.tick(voice_ms=self._voice_ms)
+            if line:
+                _log.info("%s", line)
         if self._last_rms >= _VOICE_RMS:
             self._voice_ms += 100
             self._quiet_ms = 0
@@ -272,14 +306,25 @@ class EarsController(QObject):
         if self._armed and self._mode == "always" and not self._recording:
             self._begin()
 
-    def _abort_recording(self) -> None:
+    def _abort_recording(self, reason: str = "closed") -> None:
         self._tick.stop()
+        if self._pulse is not None:
+            # Unconditional, and this is the line the owner's 2026-09-26 session needed:
+            # the mic was held open 16.4 s and closed without the gate ever firing, so
+            # every existing log line was skipped and the session produced nothing at all
+            # between "listening..." and "ears off". A close is the last moment anything
+            # can be said, so something is always said.
+            _log.info("%s", self._pulse.closing(reason, voice_ms=self._voice_ms))
+            self._pulse = None
         try:
             if self._stream is not None:
                 self._stream.stop()
                 self._stream.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            # Teardown of a stream that is being dropped either way — but a close that
+            # throws can leak the device and make the NEXT arm fail, so it gets a line.
+            _log.warning("ears: could not close the input stream cleanly: %s: %s",
+                         type(exc).__name__, exc)
         self._stream = None
         self._recording = False
         self.listeningChanged.emit(False)
@@ -301,7 +346,7 @@ class EarsController(QObject):
             # TypeError; the handler covers the rest too, but it reports instead of swallowing.
             _log.warning("ears: could not measure the captured audio (%s); "
                          "loudness unknown for this attempt", exc)
-        self._abort_recording()
+        self._abort_recording("attempt ended")
         if self._mode == "always" and self._armed:
             # keep the mic open; a disarm before the shot fires wins
             QTimer.singleShot(0, self._restart_if_armed)
