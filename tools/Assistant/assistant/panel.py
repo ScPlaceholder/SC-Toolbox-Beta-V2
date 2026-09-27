@@ -293,7 +293,16 @@ class AssistantWindow(SCWindow):
     # ── voice plumbing ───────────────────────────────────────────────────
     def _speak(self, text: str) -> None:
         if self._btn_replies.isChecked() and Mouth.available():
-            self._mouth.speak(text)
+            # Warn the ears BEFORE the line is queued: with the mic always open they
+            # hear the speakers, and on 2026-09-27 "Say yes or no" came back as the
+            # user's own next utterance, mistranscribed to "or not" — so the yes/no
+            # parse read a refusal and refused what had just been approved twice.
+            self._ears.note_speaking(text)
+            try:
+                self._mouth.speak(text)
+            except Exception:
+                self._ears.cancel_speaking()   # never spoken: do not sit there deaf
+                raise
         self._lbl_reply.setText("AI: " + text)
         self._lbl_reply.setToolTip(text)
 

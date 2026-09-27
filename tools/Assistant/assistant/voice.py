@@ -8,14 +8,16 @@ is optional; without them the panel degrades to a disabled ears button.
 """
 from __future__ import annotations
 
+import difflib
 import os
+import re
 import subprocess
 import sys
 import logging
 import threading
 import time
 from queue import Queue
-from typing import Optional
+from typing import Callable, List, Optional, Tuple
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
@@ -70,6 +72,210 @@ _TTS_RATE = 2               # SAPI rate -10..10
 _TTS_VOLUME = 90
 _TTS_TIMEOUT = 30
 
+# ── the assistant hearing itself ─────────────────────────────────────────────
+# Owner's screenshot, 2026-09-27, "Always on" + "Voice Replies":
+#
+#     You: Want me to open Starmouth? Say yes or not. Yes. Yes.
+#     AI:  Okay, I won't open Starmap.
+#
+# The first eight words of that "You:" line are the assistant's OWN prompt, spoken
+# through the speakers and picked back up by the open mic, with the user's real
+# "Yes. Yes." appended to the same utterance. logic.classify_confirmation lets any
+# negative marker win, so the mistranscribed "no" -> "not" read as a refusal and the
+# assistant refused an action the user had just approved twice.
+#
+# Two defences below, and the second is not decoration. See SpeechGate's docstring
+# for why the first one cannot be trusted on its own.
+_SPEAK_LEAD_MS = 400        # queue put -> first sample: synthesis, buffering, PortAudio
+_SPEAK_TAIL_MS = 800        # the speakers are still sounding after the last sample
+_SPEAK_MIN_MS = 800         # even "Done." must not reopen the mic instantly
+_SPEAK_MAX_MS = 30000       # one line can never deafen the ears longer than the TTS timeout
+_TTS_WORDS_PER_S = 2.4      # ~145 wpm; deliberately SLOW, so the estimate over-covers
+
+_ECHO_TTL_S = 30.0          # after this, a spoken line no longer explains an utterance
+_ECHO_REMEMBER = 4          # how many recent lines to hold
+_ECHO_MIN_TOKENS = 4        # a shorter "match" than this is coincidence, not an echo
+_ECHO_FUZZ = 0.6            # difflib ratio at which a misheard word counts as the same word
+
+_WORD_RE = re.compile(r"[^\w']+")
+
+
+def _norm_token(raw: str) -> str:
+    return _WORD_RE.sub("", raw).lower()
+
+
+def _words(text: str) -> Tuple[List[str], List[str]]:
+    """(raw words, normalised tokens) in step, so a remainder can be rebuilt with
+    its original casing and punctuation intact."""
+    raw, toks = [], []
+    for w in (text or "").split():
+        t = _norm_token(w)
+        if t:
+            raw.append(w)
+            toks.append(t)
+    return raw, toks
+
+
+def _close(a: str, b: str) -> bool:
+    """Whisper mishears the words it is hearing through speakers: "Starmap" came
+    back "Starmouth" and "no" came back "not" in the same sentence. Exact token
+    equality would have matched neither, and the "not" is what inverted the answer."""
+    if a == b:
+        return True
+    if len(a) < 2 or len(b) < 2:
+        return False
+    return difflib.SequenceMatcher(None, a, b).ratio() >= _ECHO_FUZZ
+
+
+class SpeechGate:
+    """The mouth is talking, so the ears must not listen.
+
+    Time-based, and that compromise is worth naming rather than hiding: NEITHER mouth
+    in this toolbox can be asked when it stopped. `Mouth.speak()` and
+    `shared.character_voice.CharacterMouth.speak()` are both a `Queue.put` that returns
+    in microseconds -- before a single sample has played -- and neither exposes a
+    "finished" signal or a busy flag. So there is nothing at the call site to time
+    from, and this gate estimates instead: a lead-in, the line's length from its word
+    count, and a tail for the speakers still sounding after the last sample.
+
+    All three numbers can be wrong. A cold Piper model load delays the first sample by
+    seconds; a list of ship names reads slower than 2.4 words a second. That is exactly
+    why EchoFilter exists and is not optional -- this gate is the cheap defence that
+    catches the common case, and the filter catches what leaks past it.
+
+    Lines ADD instead of replacing: the mouth's queue plays them one after another, so
+    two replies in a row are two windows end to end.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._until = 0.0
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def estimate_ms(text: str) -> int:
+        words = len((text or "").split())
+        ms = _SPEAK_LEAD_MS + _SPEAK_TAIL_MS + (words / _TTS_WORDS_PER_S) * 1000.0
+        return int(max(_SPEAK_MIN_MS, min(_SPEAK_MAX_MS, ms)))
+
+    def note_speaking(self, text: str) -> int:
+        """Shut the gate for this line. Returns the whole remaining window in ms."""
+        ms = self.estimate_ms(text)
+        with self._lock:
+            base = max(self._clock(), self._until)
+            self._until = base + ms / 1000.0
+            return int((self._until - self._clock()) * 1000)
+
+    def cancel(self) -> None:
+        """Reopen now -- for a line that will never be spoken (speak() threw) or a
+        mouth that was stopped. Never let a failure leave the ears deaf."""
+        with self._lock:
+            self._until = 0.0
+
+    def active(self) -> bool:
+        with self._lock:
+            return self._clock() < self._until
+
+    def remaining_ms(self) -> int:
+        with self._lock:
+            return max(0, int((self._until - self._clock()) * 1000))
+
+
+class EchoFilter:
+    """Second line of defence: an utterance that repeats what was just spoken.
+
+    Independent of the gate on purpose. The gate depends on timing and timing is the
+    unreliable part; this looks only at CONTENT, so it still catches an echo that
+    arrived after the window closed.
+
+    It STRIPS rather than discards wherever it can, because the screenshot's utterance
+    was both things at once -- the assistant's question AND the user's answer in one
+    string. Discarding the lot would lose the "Yes. Yes." and leave the user asked a
+    question that never got an answer; matching the whole string would not have fired
+    at all. So the echo is peeled off the front and the remainder goes on to the parser.
+
+    Deliberately conservative. Eating a genuine "yes" would invert the decision in the
+    other direction, which is the same bug wearing a hat -- so a match shorter than
+    _ECHO_MIN_TOKENS words is treated as coincidence and nothing is stripped.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._spoken: List[Tuple[float, List[str]]] = []
+        self._lock = threading.Lock()
+
+    def note_spoken(self, text: str) -> None:
+        _raw, toks = _words(text)
+        if not toks:
+            return
+        with self._lock:
+            self._spoken.append((self._clock(), toks))
+            del self._spoken[:-_ECHO_REMEMBER]
+
+    def clean(self, heard: str) -> Tuple[str, str]:
+        """(what should reach the parser, why it was changed).
+
+        The reason is "" when the utterance was left alone, so a caller can tell
+        "nothing to do" from "I dropped your words" and say so."""
+        raw, toks = _words(heard)
+        if not toks:
+            return heard, ""
+        now = self._clock()
+        with self._lock:
+            recent = [t for (ts, t) in self._spoken if now - ts <= _ECHO_TTL_S]
+        for spoken in reversed(recent):
+            n = _echo_prefix_len(toks, spoken)
+            if n < _ECHO_MIN_TOKENS:
+                continue
+            kept = " ".join(raw[n:]).strip()
+            why = ("all %d word(s) were my own voice" % n if not kept
+                   else "dropped %d word(s) of my own voice" % n)
+            return kept, why
+        return heard, ""
+
+
+def _echo_prefix_len(heard: List[str], spoken: List[str]) -> int:
+    """How many words at the START of *heard* the spoken line accounts for.
+
+    difflib rather than a hand-rolled walk, because whisper both SUBSTITUTES
+    ("Starmap" -> "Starmouth", "no" -> "not") and DROPS words when it is listening to
+    a speaker, and a substitution in the middle must not end the match -- in the
+    screenshot the very last echoed word was a substitution, and stopping there would
+    have left "not" in front of the user's "Yes. Yes." and inverted the answer anyway.
+
+    The opcodes are read with heard as `a` and spoken as `b`, so:
+
+      equal    -> accounted for.
+      insert   -> spoken words the mic never got; they consume no heard word.
+      replace  -> walked word by word, absorbing only the ones that are the same word
+                  misheard, then stopping. NOT all-or-nothing: in the screenshot the
+                  final chunk was ["not", "yes", "yes"] against ["no"] -- my last
+                  echoed word and the user's whole answer in ONE opcode. Refusing the
+                  chunk left "not" in front of "Yes. Yes." and the answer still
+                  inverted; taking the chunk would have eaten the answer.
+      delete   -> heard words the line does not contain. THIS IS THE USER. Stop.
+    """
+    if not heard or not spoken:
+        return 0
+    sm = difflib.SequenceMatcher(None, heard, spoken, autojunk=False)
+    n = 0
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal":
+            n = i2
+        elif tag == "insert":
+            continue                      # spoken words missing from the transcript
+        elif tag == "replace":
+            h, s = heard[i1:i2], spoken[j1:j2]
+            k = 0
+            while k < len(h) and k < len(s) and _close(h[k], s[k]):
+                k += 1
+            n = i1 + k
+            if k < len(h):
+                break                     # the rest of this chunk is not mine
+        else:                             # delete: the user's own words
+            break
+    return n
+
 
 class EarsController(QObject):
     """Mic + FastWhisper behind a trigger binding.
@@ -118,6 +324,12 @@ class EarsController(QObject):
         self._lock = threading.Lock()
         self._np = None
         self._pulse = None          # shared.voice_pulse.CapturePulse while the mic is open
+        # Self-hearing (2026-09-27). The gate closes the always-open mic while the
+        # mouth talks; the filter catches an echo that leaked past it. Both are armed
+        # by note_speaking(), which the panel calls before it queues a line.
+        self._gate = SpeechGate()
+        self._echo = EchoFilter()
+        self._deaf_blocks = 0
 
         self._tick = QTimer(self)
         self._tick.setInterval(100)
@@ -151,6 +363,37 @@ class EarsController(QObject):
         # ahead of time. Clearing _model alone would silently disable the preload
         # for the rest of the session the first time the player switches models.
         self._preload = None
+
+    # ── the mouth ────────────────────────────────────────────────────────
+    def note_speaking(self, text: str) -> None:
+        """"I am about to say this." Call it BEFORE handing the line to the mouth.
+
+        Arms both defences: the capture gate (always-on mic only) and the echo filter
+        (every mode). Costs nothing but two timestamps, so it is safe to call even when
+        Voice Replies is off -- though the panel does not, since nothing is spoken then.
+        """
+        if not (text or "").strip():
+            return
+        self._echo.note_spoken(text)
+        ms = self._gate.note_speaking(text)
+        if self._mode == "always":
+            _log.info("ears: deaf for ~%d ms while I speak %d word(s)", ms, len(text.split()))
+
+    def cancel_speaking(self) -> None:
+        """The line will not be spoken after all (speak() threw, the mouth was
+        stopped). Reopen the ears at once rather than serving out an estimate for
+        audio that never played. The gate would also expire on its own -- it is a
+        deadline, not a held lock, so nothing here can wedge the ears shut."""
+        self._gate.cancel()
+
+    def deaf(self) -> bool:
+        """True while the always-open mic is being held shut for the mouth.
+
+        Push-to-talk is deliberately NOT gated: holding the key is an explicit
+        intent to be heard, and going deaf mid-hold would make hold-to-talk
+        mysteriously dead whenever the assistant was mid-sentence. The echo filter
+        still runs in push mode, so the content defence covers it either way."""
+        return self._mode == "always" and self._gate.active()
 
     def armed(self) -> bool:
         return self._armed
@@ -294,6 +537,17 @@ class EarsController(QObject):
 
     def _audio_cb(self, indata, frames, time_info, status) -> None:
         with self._lock:
+            if self.deaf():
+                # My own voice, arriving through the speakers. Dropped here rather
+                # than filtered later so it can never be concatenated onto the
+                # front of the user's next sentence -- which is exactly what the
+                # 2026-09-27 screenshot was: one utterance, my question and their
+                # answer, and the parser saw a single string.
+                # _last_rms is zeroed so the silence watcher cannot keep counting
+                # speech from the last block it did see.
+                self._deaf_blocks += 1
+                self._last_rms = 0.0
+                return
             self._frames.append(indata.copy())
             rms = None
             try:
@@ -320,6 +574,21 @@ class EarsController(QObject):
         if not self._recording:
             self._tick.stop()
             return
+        if self.deaf():
+            # Hold the utterance at zero for as long as the mouth is talking, so the
+            # silence gap cannot fire on a half-buffer and the mic resumes clean. The
+            # stream stays open and the timer keeps running: the ears resume on the
+            # tick after the gate expires, with nothing carried over.
+            with self._lock:
+                self._frames = []
+            self._voice_ms = 0
+            self._quiet_ms = 0
+            self._last_rms = 0.0
+            return
+        if self._deaf_blocks:
+            _log.info("ears: listening again (dropped %d block(s) of my own voice)",
+                      self._deaf_blocks)
+            self._deaf_blocks = 0
         if self._pulse is not None:
             line = self._pulse.tick(voice_ms=self._voice_ms)
             if line:
@@ -447,7 +716,16 @@ class EarsController(QObject):
                                               without_timestamps=True)
             text = " ".join(s.text for s in segments).strip()
             if text:
-                self.transcript.emit(text)
+                # Second defence, and independent of the gate's timing: whatever the
+                # mic caught, do not hand the parser words I just said. Runs in every
+                # mode, because a leak is a leak.
+                kept, why = self._echo.clean(text)
+                if why:
+                    _log.info("ears: %s -- heard %r, passing on %r", why, text, kept)
+                if not kept:
+                    self.statusChanged.emit("that was me — ignored")
+                    return
+                self.transcript.emit(kept)
             else:
                 self.statusChanged.emit("heard nothing")
         except Exception as exc:
