@@ -264,6 +264,21 @@ class PlayTimeWindow(SCWindow):
         self._granularity = "month"
 
         self._sessions: list[Session] = []
+        #: The AFK-capped view of `_sessions`, and THE ONLY LIST ANY DISPLAY PATH MAY READ.
+        #:
+        #: ⛔ 2026-09-26: `_recompute` built this as a LOCAL called `used`, fed it to
+        #:   `build_analytics` and to the calendar's day grouping, and then five display paths
+        #:   went back to the raw `_sessions` behind its back — the Sessions table and all four
+        #:   trend drill-downs. Turn the cap on and the headline said one thing while the table
+        #:   under it and every bar you clicked said another, with no indication which was which.
+        #: ⚠ It currently changes nothing on this machine, because `session_cap_hours` is 0 and
+        #:   the two lists are then the same object. That is exactly why it was safe to sit there:
+        #:   the defect is INVISIBLE until someone turns the cap on, and the moment they do, the
+        #:   numbers disagree everywhere at once. Fixed before enabling the cap, not after.
+        #: ⚠ Kept as a separate attribute rather than capping `_sessions` in place, because the
+        #:   uncapped list is the honest record of what was scanned and the cap is a DISPLAY
+        #:   policy. Overwriting the source would make the raw figure unrecoverable.
+        self._used: list[Session] = []
         self._analytics = Analytics()
         self._worker: Optional[ScanWorker] = None
         # Fun Stats + Career + Injuries share one heavy full-content scan, owned here.
@@ -759,6 +774,7 @@ class PlayTimeWindow(SCWindow):
     def _recompute(self) -> None:
         used = log_scanner.apply_cap(self._sessions, self._cap_hours) \
             if self._cap_hours > 0 else self._sessions
+        self._used = used
         self._analytics = analytics.build_analytics(used)
         # Group sessions by their local start date for the calendar day detail.
         sessions_by_day: dict = {}
@@ -770,7 +786,8 @@ class PlayTimeWindow(SCWindow):
         self._render_overview()
         self._render_trends()
         self._render_sessions()
-        self._calendar_tab.set_data(self._analytics.by_day, sessions_by_day)
+        self._calendar_tab.set_data(self._analytics.by_day, sessions_by_day,
+                                    analytics.channel_seconds_by_day(used))
         self._injuries_tab.set_sessions(used)
         self._persist_summary()
 
@@ -896,7 +913,7 @@ class PlayTimeWindow(SCWindow):
 
     def _render_sessions(self) -> None:
         self._table.setSortingEnabled(False)
-        rows = self._sessions
+        rows = self._used          # capped — see `_used`. NOT `_sessions`.
         self._table.setRowCount(len(rows))
         for r, s in enumerate(rows):
             ls = s.start_local
@@ -1000,7 +1017,7 @@ class PlayTimeWindow(SCWindow):
                 d = date.fromisoformat(key)
             except ValueError:
                 return
-            match = [s for s in self._sessions if s.start_local.date() == d]
+            match = [s for s in self._used if s.start_local.date() == d]
             title = f"{d:%A %d %b %Y}"
         elif g == "week":
             try:
@@ -1008,16 +1025,16 @@ class PlayTimeWindow(SCWindow):
             except ValueError:
                 return
             sunday = monday + timedelta(days=6)
-            match = [s for s in self._sessions if monday <= s.start_local.date() <= sunday]
+            match = [s for s in self._used if monday <= s.start_local.date() <= sunday]
             title = f"Week of {monday:%d %b} – {sunday:%d %b %Y}"
         elif g == "month":
             yr, mo = int(key[:4]), int(key[5:7])
-            match = [s for s in self._sessions
+            match = [s for s in self._used
                      if s.start_local.year == yr and s.start_local.month == mo]
             title = f"{MONTH_NAMES[mo]} {yr}"
         else:
             yr = int(key)
-            match = [s for s in self._sessions if s.start_local.year == yr]
+            match = [s for s in self._used if s.start_local.year == yr]
             title = str(yr)
 
         total = sum(s.duration_seconds for s in match)

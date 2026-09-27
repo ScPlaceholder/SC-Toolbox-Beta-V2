@@ -416,9 +416,14 @@ class CalendarTab(QWidget):
                     f"QPushButton:hover {{ color: {P.fg_bright}; border-color: {ACCENT}; }}")
 
     # ── data entry ──
-    def set_data(self, by_day: dict[date, float], sessions_by_day: dict[date, list[Session]]) -> None:
+    def set_data(self, by_day: dict[date, float], sessions_by_day: dict[date, list[Session]],
+                 chans_by_day: dict | None = None) -> None:
         self._by_day = by_day
         self._sessions_by_day = sessions_by_day
+        #: {date: {channel: seconds}}, split at midnight the same way `by_day` is. Optional so an
+        #: older caller still works — but see `_show_day`: when it is absent the channel figures
+        #: fall back to whole-session sums, which is the very mismatch this was added to remove.
+        self._chans_by_day = chans_by_day or {}
         vmax = max(by_day.values(), default=1.0)
         self._grid.set_data(by_day, vmax)
         if by_day:
@@ -541,9 +546,18 @@ class CalendarTab(QWidget):
             self._d_chart.clear()
             return
         longest = max((s.duration_seconds for s in sessions), default=0)
-        chans = {}
-        for s in sessions:
-            chans[s.channel] = chans.get(s.channel, 0.0) + s.duration_seconds
+        # ⛔ Day-local seconds per channel, so this line AGREES with the Total above it. Summing
+        #   whole `s.duration_seconds` here grouped sessions by START date and credited the whole
+        #   of an overnight session to the day it began — a ~4h total printed beside a ~48h
+        #   channel line, which is the most double-count-LOOKING thing in this app and is not a
+        #   double count at all. See analytics.channel_seconds_by_day.
+        chans = dict(self._chans_by_day.get(d, {}))
+        if not chans:
+            # No split map supplied. Say so with whole-session sums rather than showing nothing —
+            # but this is the old, disagreeing figure, and it is only reachable from a caller that
+            # has not been updated.
+            for s in sessions:
+                chans[s.channel] = chans.get(s.channel, 0.0) + s.duration_seconds
         lines = [
             self._stat("Total", fmt.fmt_short(secs)),
             self._stat("Sessions", str(len(sessions))),
@@ -551,7 +565,11 @@ class CalendarTab(QWidget):
             self._stat("Channels", ", ".join(f"{k} {fmt.fmt_short(v)}" for k, v in
                                               sorted(chans.items(), key=lambda kv: -kv[1])) or "—"),
         ]
-        lines.append("<br><b style='color:%s'>Sessions</b>" % P.fg_dim)
+        # ⚠ "Started today", not "ran today". A session that began yesterday and crossed midnight
+        #   contributes to Total and Channels above and is deliberately NOT listed here — it is not
+        #   this day's session. Saying which is meant is the difference between a caveat and a
+        #   discrepancy the reader has to explain to themselves.
+        lines.append("<br><b style='color:%s'>Sessions started today</b>" % P.fg_dim)
         for s in sorted(sessions, key=lambda x: x.start_local):
             lines.append(f"&nbsp;{s.start_local:%H:%M}–{s.end_local:%H:%M} · "
                          f"{fmt.fmt_short(s.duration_seconds)} · {s.channel}")

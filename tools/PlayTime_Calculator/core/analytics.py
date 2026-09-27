@@ -28,6 +28,33 @@ def iter_hour_segments(start: datetime, end: datetime):
         cur = seg_end
 
 
+def channel_seconds_by_day(sessions) -> dict:
+    """-> {local date: {channel: seconds}}, split at midnight exactly as `by_day` is.
+
+    ⛔ 2026-09-26. The calendar's day panel showed `by_day[d]` as the day TOTAL — correctly
+      split at hour boundaries — beside a per-channel line summed from whole
+      `s.duration_seconds` for every session whose START date was `d`. Those are different
+      questions, and on a long overnight session they disagree enormously: a day total of
+      about 4 h could sit next to a channel line reading about 48 h, because a session that
+      began at 22:00 and ran 47 h contributed two hours to the total and all forty-seven to
+      the channel row. 98 of 1113 sessions in the reference data cross local midnight.
+    ★ IT IS BUILT ON `iter_hour_segments`, THE SAME SPLITTER `build_analytics` USES, and that
+      is the point rather than a convenience: a second implementation of "which day does this
+      time belong to" would be free to drift from the total it is printed next to, and the
+      only symptom would be two plausible numbers that no longer add up. Sharing the splitter
+      makes agreement structural instead of tested.
+    ⚠ WHAT IT IS NOT: a session count. A session spanning midnight appears under BOTH dates
+      here, with its seconds divided between them. Summing the lengths of these lists would
+      double-count it, which is exactly the error this function exists to undo.
+    """
+    out: dict = {}
+    for s in sessions:
+        for seg_start, secs in iter_hour_segments(s.start_local, s.end_local):
+            day = out.setdefault(seg_start.date(), {})
+            day[s.channel] = day.get(s.channel, 0.0) + secs
+    return out
+
+
 @dataclass
 class Highlights:
     longest_session: Optional[Session] = None
