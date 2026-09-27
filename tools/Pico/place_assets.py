@@ -40,7 +40,17 @@ DST = os.path.join(HERE, "out_placed")
 #   BOTTOM_CENTER — the art's bottom edge sits on the pivot (things that REST on something)
 #   TOP_CENTER    — the art's top edge sits on the pivot (things that HANG from something)
 ANCHOR = {
-    "headwear": "BOTTOM_CENTER",   # a cap's brim meets the head; the crown goes up
+    # ⛔ THIS WAS BOTTOM_CENTER AND THE REASONING WAS RIGHT ABOUT HATS AND WRONG ABOUT THIS RIG.
+    #   I wrote "a cap's brim meets the head; the crown goes up" — true of a hat sitting on a head,
+    #   and it assumes hat_anchor is the BRIM line. Measured from the skeleton: hat_anchor y=330 is
+    #   270 px ABOVE head centre (y=600), i.e. it is the CROWN. Anchoring the helmet's BASE there
+    #   floated it entirely above the skull and 115 px off the canvas.
+    #   TOP_CENTER puts the crown of the art on the crown of the head: the real helmet then covers
+    #   y=330..775, so the eyes (y=610) sit under it and it stops 75 px short of the neck (y=850).
+    # ★ The SIZE was never the problem. 637x445 is 0.86x the implied head height (crown 330 to neck
+    #   850 = 520 px) and 1.36x the shoulder span — plausible for a bulky helmet. I was about to ask
+    #   J to rule on scale; his own rig already answered it, and the defect was my anchor.
+    "headwear": "TOP_CENTER",
     "visor":    "CENTER",
     "backpack": "CENTER",
     "jacket_front": "CENTER",
