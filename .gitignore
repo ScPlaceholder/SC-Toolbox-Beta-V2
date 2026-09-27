@@ -118,3 +118,5 @@ tools/SuitMk2/**/*.bak*
 # Pico generated assets. Stub runs produce 26 placeholder PNGs and real runs produce paid art;
 # neither belongs in the repo. The MANIFEST is tracked (it is source), the output is not.
 tools/Pico/out/
+
+tools/Pico/out_placed/
