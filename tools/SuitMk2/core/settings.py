@@ -36,6 +36,19 @@ DEFAULTS = {
     "sound_classifier": True,         # game ears: tap ONLY StarCitizen.exe's audio + YAMNet on CPU, the strongest
                                       # combat confirm (sound_classifier.py). Off/missing -> eyes, then meter only
     "backend": "auto",                # auto | ollama | hf | api | none (auto = Ollama suitmk2-* or realizer-* if installed)
+    # VRAM residency of the two speaker models (J 2026-09-26). The local backend holds ONE Ollama model per SPEAKER,
+    # measured at 1.83 GB of VRAM each (~2.7 GB of commit per llama-server), so keeping both warm costs 3.7 GB before
+    # Star Citizen has asked for anything.
+    #   "evict" - only the speaker being asked stays resident; asking the OTHER one releases the idle one first
+    #             (keep_alive 0). The companion's floor is ONE model.
+    #   "both"  - both stay warm. Faster when the speakers alternate, and only sane with the VRAM to spare.
+    # Default "evict" on J's own argument: "it would be better to unload Elah because not everyone will have a card
+    # that's beefy enough to do both" - this ships to 6 GB cards, not just to a 4070. The price is a cold load
+    # whenever the speaker changes: measured 2.19s wall (ollama load_duration 2.14s) against 0.05s warm, and J:
+    # "2 seconds is not a painful response time to wait for a response when talking to an ai".
+    # ⚠ 2.19s was measured on an IDLE card. With the game resident it will be worse and nobody has that number yet,
+    #   so do not quote 2.19s as the cost under load; it is a floor.
+    "speaker_residency": "evict",     # evict | both
     # API option (J 2026-09-24): backend "api" words each line with Claude instead of the local model; the local
     # models stay as the fallback. The key is the pilot's own; empty = use ANTHROPIC_API_KEY from the environment.
     "anthropic_api_key": "",

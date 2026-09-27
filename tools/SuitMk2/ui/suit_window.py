@@ -84,6 +84,7 @@ class SuitWindow(SCWindow):
                          opacity=geometry.opacity, accent=ACCENT)
         self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
         self._standalone = not cmd_file or cmd_file == os.devnull
+        self._quitting = False       # see _quit: three wirings onto one method, and it must run once
         self.s = st.load()
         self.core: Optional[CompanionCore] = None
         self.sidecar: Optional[Sidecar] = None
@@ -276,6 +277,29 @@ class SuitWindow(SCWindow):
         mem.addWidget(shots)
         mem.addStretch(1)
         lay.addLayout(mem)
+
+        # Speaker models in VRAM (J 2026-09-26). One local model per speaker, 1.83 GB of video memory each.
+        # Default: only the speaker being asked stays loaded, so the companion's floor is one model, not two -
+        # "not everyone will have a card that's beefy enough to do both". The price is a cold load when the speaker
+        # changes (measured 2.19s on an idle card; worse with the game holding it, and that number is not measured).
+        res = QHBoxLayout()
+        rl = QLabel("Speaker models in VRAM")
+        rl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        res.addWidget(rl)
+        self._residency = QComboBox()
+        self._residency.addItem("One at a time (frees ~1.8 GB)", "evict")
+        self._residency.addItem("Keep both warm (needs ~3.7 GB)", "both")
+        cur = str(self.s.get("speaker_residency", "evict")).strip().lower()
+        self._residency.setCurrentIndex(1 if cur == "both" else 0)
+        self._residency.setToolTip("Elah and Montaigne have one local model each, about 1.8 GB of video memory per "
+                                   "speaker.\nOne at a time: the idle one is unloaded, so the game keeps that "
+                                   "memory. The first line from the other speaker then takes about two seconds "
+                                   "longer.\nKeep both warm: no wait when they swap, and about 3.7 GB stays in use. "
+                                   "Pick this only if your card has the room.")
+        self._residency.currentIndexChanged.connect(self._set_residency)
+        res.addWidget(self._residency)
+        res.addStretch(1)
+        lay.addLayout(res)
 
         # Smarter lines (J 2026-09-24): the pilot's own Claude API key words each line; the local models stay the
         # fallback, and grounding still checks every fact either way. Test uses models.retrieve: it costs nothing.
@@ -615,6 +639,23 @@ class SuitWindow(SCWindow):
         else:
             self._persist_dev_facts(bool(on))
 
+    def _set_residency(self, _idx: int = 0) -> None:
+        """Save it, then ask the running line service to re-resolve so it takes effect with no restart.
+
+        The service is a SEPARATE process reading the same settings.json, so the order matters: save first, then
+        /reload. plan_for() reads speaker_residency once per resolve, never per line."""
+        val = self._residency.currentData() or "evict"
+        self.s["speaker_residency"] = val
+        st.save(self.s)
+        self.core and self.core._note("speaker models: " + ("one at a time - the idle speaker's VRAM goes back to "
+                                                            "the game" if val == "evict" else "both kept warm"))
+
+        def work():
+            sc = getattr(self, "sidecar", None)              # set in _boot; the combo can be touched before that
+            if sc is not None and not sc.reload():
+                log.warning("residency saved but the line service did not answer; it will use this on next start")
+        threading.Thread(target=work, name="suitmk2_residency", daemon=True).start()
+
     def _set_keep_shots(self, on: bool) -> None:
         self.s["keep_training_shots"] = bool(on)
         st.save(self.s)                     # the service re-reads it on every shot: takes effect with no restart
@@ -762,6 +803,23 @@ class SuitWindow(SCWindow):
             self.hide()               # the companion keeps running; the window is only a dashboard
 
     def _quit(self) -> None:
+        # ONCE, AND THE GUARD HAS TO COVER THE QApplication.quit() IN THE finally TOO.
+        # This method is wired from three places - handle_ipc_command("quit"), _on_close when standalone, and
+        # suitmk2_companion_app.py:63 `app.aboutToQuit.connect(window._quit)` - and it ENDS by calling
+        # QApplication.quit(). Measured on Qt 6.11: quit() re-emits aboutToQuit even when it is called from inside
+        # that very emission, so those two lines were an unbounded loop: _quit -> quit() -> aboutToQuit -> _quit.
+        # It ran 485 times per shutdown and died of `RecursionError: Stack overflow (used 2912 kB)`
+        # (logs/suitmk2.crash.log, PIDs 36136 and 188024; and 485 `session_end` lines in that session's dream file).
+        # Guarding only the teardown would leave the loop spinning on the finally, so the whole method is once-only.
+        # That is safe because every path here is a quit INTENT: by the time a second call arrives, the first one has
+        # already asked Qt to exit, so re-asking is redundant by construction.
+        # ⚠ NOT fixed by removing the teardown warnings. The logging was never the cycle - a control with no logging
+        # at all still re-entered 485 times - and stop()'s own comment says why those warnings must stay.
+        if getattr(self, "_quitting", False):
+            log.debug("suit window: _quit called again (aboutToQuit, IPC quit or the close button); "
+                      "the teardown already ran, so this call does nothing")
+            return
+        self._quitting = True
         try:
             try:
                 self.ears.shutdown()

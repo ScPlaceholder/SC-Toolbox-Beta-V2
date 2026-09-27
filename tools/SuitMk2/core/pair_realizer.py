@@ -22,6 +22,12 @@ What it adds over the bare hook:
                 (checked with find_spec, nothing is imported), else none.
   3. HEADROOM GATING. A sampler thread feeds hw_monitor.HeadroomController (imported lazily). TIGHT unloads the
      GPU model so the game gets its VRAM back; the CPU path speaks instead if one exists.
+  3b. SPEAKER RESIDENCY (settings "speaker_residency", default "evict"). One Ollama model per SPEAKER, 1.83 GB of
+     VRAM each. "evict" releases the idle speaker before the other one loads, so only ONE is ever resident
+     (measured: peak 1.70 GB across a speaker change, vs 3.40 GB with "both"); the price is a cold load on every
+     speaker change, ~2.2s on an idle card against 0.05s warm. "both" is the older behaviour, for a card with the
+     room. Default evict because the tool ships to 6 GB cards, and because latency is explicitly not the axis
+     being optimised. Independent of headroom gating, which is about the GAME wanting the card back.
   4. NEAR-REPEAT AVOIDANCE: a candidate whose opening words or overall shape match a recent line from the same
      speaker is resampled, up to MAX_TRIES.
   5. Candidates are grounded HERE too, so a failed line costs a resample instead of silence.
@@ -72,6 +78,12 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 # same rule to decide "already set up" (suit_window passes MODEL_PREFIXES to SetupPanel).
 MODEL_PREFIXES = ("suitmk2-", "realizer-")
 BACKENDS =("auto", "ollama", "hf", "api", "none")
+# Speaker residency (settings key "speaker_residency", J 2026-09-26). One Ollama model per speaker, 1.83 GB of VRAM
+# each. "evict" keeps ONE resident: asking for a speaker releases the other one first. "both" is the older behaviour.
+# Default evict because this ships to 6 GB cards ("not everyone will have a card that's beefy enough to do both"),
+# and because latency is explicitly NOT the axis being optimised ("2 seconds is not a painful response time").
+RESIDENCY = ("evict", "both")
+RESIDENCY_DEFAULT = "evict"
 CPU_THREADS = 2
 MAX_TRIES = 4
 RECENT_PER_SPEAKER = 8
@@ -217,13 +229,20 @@ class OllamaPairBackend:
 
     device="gpu": num_gpu omitted (Ollama offloads what fits).   device="cpu": num_gpu 0, `threads` threads, so
     the game keeps the GPU. close() asks Ollama to evict the models THIS backend used (keep_alive 0), which is
-    what actually returns the VRAM/RAM - dropping the Python object alone frees nothing in Ollama."""
+    what actually returns the VRAM/RAM - dropping the Python object alone frees nothing in Ollama.
+
+    residency="evict" (the default, and what ships): before generating for a speaker, the OTHER speaker's model -
+    if THIS backend warmed it - is released the same way, so only one of the two 1.83 GB models is ever resident.
+    residency="both" keeps both warm, which is the older behaviour and needs the VRAM for it."""
 
     def __init__(self, url: str = OLLAMA_URL, device: str = "cpu", threads: int = CPU_THREADS,
-                 timeout: float = 60.0, prefix: Optional[str] = None):
+                 timeout: float = 60.0, prefix: Optional[str] = None, residency: str = RESIDENCY_DEFAULT):
         if device not in ("gpu", "cpu"):
             raise ValueError(f"device must be gpu or cpu, not {device!r}")
+        if residency not in RESIDENCY:
+            raise ValueError(f"residency must be one of {RESIDENCY}, not {residency!r}")
         self.url, self.device, self.threads, self.timeout = url.rstrip("/"), device, threads, timeout
+        self.residency = residency
         # ⛔ NO `or MODEL_PREFIXES[0]` HERE. An unresolved prefix stays None and is resolved late —
         #   see `_resolved_prefix`. 2026-09-26: this line used to end in that fallback and it cost
         #   the owner an entire evening of a companion that heard him and said nothing.
@@ -288,17 +307,15 @@ class OllamaPairBackend:
             opts["num_thread"] = self.threads
         return opts
 
-    def generate(self, speaker: str, prompt: str, temperature: float) -> str:
-        text = (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n"
-                "<|im_start|>assistant\n")
-        model = f"{self._resolved_prefix()}{speaker}"
-        body = {"model": model, "raw": True, "stream": False, "prompt": text, "keep_alive": "10m",
-                "options": self.options(temperature)}
-        self._used.add(model)
-        return _post_json(self.url + "/api/generate", body, self.timeout)["response"].strip().strip('"')
+    def _release(self, models, why: str) -> list:
+        """POST keep_alive 0 for each named model: the ONE eviction path, shared by close() and _evict_idle().
 
-    def close(self) -> None:
-        for model in sorted(self._used):
+        Only names THIS backend actually generated with are ever passed in (self._used), so nothing here can ask
+        Ollama to unload a model whose name was guessed - see _resolved_prefix.
+        A model that failed to release STAYS in self._used, so the next close() tries it again. Returns the names
+        actually released."""
+        released = []
+        for model in sorted(models):
             try:
                 _post_json(self.url + "/api/generate", {"model": model, "keep_alive": 0}, 5.0)
             except _HTTP_ERRORS as e:
@@ -307,8 +324,48 @@ class OllamaPairBackend:
                 # 10m keep_alive and the pilot sees a stutter that the unload was supposed to prevent - while the
                 # status line has already said "VRAM returned to the game". Ollama being down is the harmless case
                 # (nothing is resident), which is why this is a warning and not an error.
-                _LOG.warning("realizer: could not release %s from Ollama (%s: %s); its VRAM stays held until "
-                             "Ollama's own keep_alive expires", model, type(e).__name__, e)
+                _LOG.warning("realizer: could not release %s from Ollama (%s: %s) on %s; its VRAM stays held until "
+                             "Ollama's own keep_alive expires", model, type(e).__name__, e, why)
+                continue
+            self._used.discard(model)
+            released.append(model)
+        return released
+
+    def _evict_idle(self, keep: str) -> list:
+        """EVICT residency: release every model this backend warmed EXCEPT `keep` (the one about to speak).
+
+        Called from generate() AFTER the prefix has really resolved and BEFORE the request goes out, which is the
+        only ordering that satisfies all three rules at once:
+          * nothing is evicted off a GUESSED name - _resolved_prefix() has already raised if it cannot tell;
+          * the idle model's VRAM is handed back BEFORE the new one loads, so a 6 GB card never has to hold two
+            1.83 GB models at the same instant. Evicting afterwards would defeat the whole setting;
+          * only models in self._used are touched. An empty set means "this backend has warmed nothing", which is
+            knowledge, not a guess - we never probe /api/ps to decide, and we never evict a model we cannot see.
+            AN ABSENCE IS NOT A VALUE: if Ollama's state is unknown to us, we leave it alone rather than issuing
+            unloads on speculation, which is how every line goes cold.
+        Eviction is an optimisation and the line is the product: a failed release costs VRAM, never a silence."""
+        if self.residency != "evict":
+            return []
+        return self._release([m for m in self._used if m != keep], "speaker change")
+
+    def generate(self, speaker: str, prompt: str, temperature: float) -> str:
+        text = (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n"
+                "<|im_start|>assistant\n")
+        model = f"{self._resolved_prefix()}{speaker}"
+        try:
+            self._evict_idle(model)
+        except Exception as e:
+            # _release() already swallows the HTTP failures; this is the belt for anything else (a broken URL, a
+            # shape surprise). An eviction that cannot run must cost VRAM and nothing else - never this line.
+            _LOG.warning("realizer: idle-speaker eviction failed (%s: %s); both models may stay resident",
+                         type(e).__name__, e)
+        body = {"model": model, "raw": True, "stream": False, "prompt": text, "keep_alive": "10m",
+                "options": self.options(temperature)}
+        self._used.add(model)
+        return _post_json(self.url + "/api/generate", body, self.timeout)["response"].strip().strip('"')
+
+    def close(self) -> None:
+        self._release(set(self._used), "close")
         self._used.clear()
 
 
@@ -453,23 +510,43 @@ class BackendPlan:
     meta: dict = field(default_factory=dict)
 
 
-def plan_for(name: str, adapter_dir: Path, url: str = OLLAMA_URL, threads: int = CPU_THREADS) -> BackendPlan:
+def residency_from_settings() -> str:
+    """"evict" | "both" from the SuitMk2 settings, sanitised. Anything unreadable or unrecognised is the shipped
+    default: a hand-edited settings.json must not be able to turn this into a crash or a silent third behaviour."""
+    try:
+        import settings as _settings
+        v = str(_settings.load().get("speaker_residency", RESIDENCY_DEFAULT)).strip().lower()
+    except Exception:
+        return RESIDENCY_DEFAULT
+    if v not in RESIDENCY:
+        _LOG.warning("realizer: speaker_residency %r is not one of %s; using %r", v, RESIDENCY, RESIDENCY_DEFAULT)
+        return RESIDENCY_DEFAULT
+    return v
+
+
+def plan_for(name: str, adapter_dir: Path, url: str = OLLAMA_URL, threads: int = CPU_THREADS,
+             residency: Optional[str] = None) -> BackendPlan:
+    # None = read the pilot's setting (once per resolve, i.e. at construction and on /reload, never per line).
+    res = residency if residency in RESIDENCY else residency_from_settings()
     if name == "ollama":
         names = ollama_models(url)                 # ONE /api/tags read decides both the note and the prefix
         missing, prefix = _missing(names), complete_prefix(names)
         note = ("ollama unreachable" if missing is None else f"missing {', '.join(missing)}" if missing else "")
-        return BackendPlan("ollama", lambda: OllamaPairBackend(url, device="gpu", prefix=prefix),
-                           lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix), note,
-                           {"prefix": prefix})
+        return BackendPlan("ollama", lambda: OllamaPairBackend(url, device="gpu", prefix=prefix, residency=res),
+                           lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix,
+                                                     residency=res), note,
+                           {"prefix": prefix, "residency": res})
     if name == "hf":
         prefix = realizer_prefix(url)
-        cpu = (lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix)) if prefix else None
+        cpu = (lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix,
+                                         residency=res)) if prefix else None
         return BackendPlan("hf", lambda: HfPairBackend(adapter_dir), cpu,
-                           "" if cpu else "no Ollama CPU models: TIGHT is silence")
+                           "" if cpu else "no Ollama CPU models: TIGHT is silence", {"residency": res})
     if name == "api":
         # One API backend serves both headroom states (it holds no VRAM); local Ollama is its per-call fallback.
         prefix = realizer_prefix(url)
-        local = (lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix)) if prefix else None
+        local = (lambda: OllamaPairBackend(url, device="cpu", threads=threads, prefix=prefix,
+                                           residency=res)) if prefix else None
         try:
             import settings as _settings
             model = (_settings.load().get("api_model") or API_MODEL_DEFAULT).strip()
@@ -482,7 +559,7 @@ def plan_for(name: str, adapter_dir: Path, url: str = OLLAMA_URL, threads: int =
                 box["b"] = ApiPairBackend(model=model, fallback=local)
             return box["b"]
         return BackendPlan("api", api, api, "" if local else "no local fallback: an API failure is silence",
-                           {"model": model})
+                           {"model": model, "residency": res})
     return BackendPlan("none", None, None, "no realizer backend available: silence")
 
 
@@ -522,9 +599,13 @@ class PairRealizer:
                  first_temperature: Optional[float] = None,
                  backend: Optional[str] = None,
                  ollama_url: str = OLLAMA_URL,
-                 resolver: Optional[Callable[[], BackendPlan]] = None):
+                 resolver: Optional[Callable[[], BackendPlan]] = None,
+                 residency: Optional[str] = None):
         self.adapter_dir = Path(adapter_dir) if adapter_dir else HERE.parent
         self.ollama_url = ollama_url
+        # None = read the pilot's setting at resolve time. Tests pass it explicitly, because a test that reads the
+        # settings file on this machine would pass here and behave differently on someone else's PC.
+        self.residency = residency
         self._log = log
         if first_temperature is None:
             self.first_temperature = first_temperature_from_settings()
@@ -533,7 +614,8 @@ class PairRealizer:
         if resolver is not None:
             self._resolver = resolver
         elif backend is not None:
-            self._resolver = lambda: plan_for(resolve_backend(backend, ollama_url), self.adapter_dir, ollama_url)
+            self._resolver = lambda: plan_for(resolve_backend(backend, ollama_url), self.adapter_dir, ollama_url,
+                                              residency=self.residency)
         else:
             # Legacy explicit factories (tests, older hosts). "auto" CPU = Ollama CPU models if installed,
             # re-checked on every reload.
@@ -652,14 +734,18 @@ class PairRealizer:
         if name not in BACKENDS:
             raise ValueError(f"unknown backend {name!r}")
         self.backend_name = name
-        self._resolver = lambda: plan_for(resolve_backend(name, self.ollama_url), self.adapter_dir, self.ollama_url)
+        self._resolver = lambda: plan_for(resolve_backend(name, self.ollama_url), self.adapter_dir, self.ollama_url,
+                                          residency=self.residency)
         return self.reload()
 
     def backend_info(self) -> dict:
         p = self._plan
         return {"backend": p.name, "device": self.last_device, "note": p.note,
                 "loaded": {"gpu": self._backend is not None, "cpu": self._cpu is not None},
-                "can": {"gpu": p.gpu is not None, "cpu": p.cpu is not None}}
+                "can": {"gpu": p.gpu is not None, "cpu": p.cpu is not None},
+                # "evict" (one speaker model resident) | "both" | None for a plan that holds no local model.
+                # On /health so a VRAM question can be answered from the service instead of from a guess.
+                "residency": p.meta.get("residency")}
 
     # -- the hook ------------------------------------------------------------------------------------------
     def __call__(self, spec: dict) -> Optional[str]:
@@ -768,12 +854,19 @@ class _FakeBackend:
 
 
 class FakeOllama:
-    """A stdlib http.server standing in for Ollama on port 0. Records every /api/generate body."""
+    """A stdlib http.server standing in for Ollama on port 0. Records every /api/generate body.
 
-    def __init__(self, models=(), line: Optional[Callable[[], str]] = None):
+    `events` is the INTERLEAVED log - ("load", model) / ("unload", model) in arrival order - because "the idle model
+    was released" and "it was released BEFORE the new one loaded" are different claims, and two separate lists
+    (requests / unloads) cannot tell them apart. On a 6 GB card only the second claim is worth anything.
+    `fail_unload=True` answers every keep_alive-0 with HTTP 500, which is how the "a failed release must still leave
+    the speaker available" rule gets tested rather than asserted."""
+
+    def __init__(self, models=(), line: Optional[Callable[[], str]] = None, fail_unload: bool = False):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import random
-        self.models, self.requests, self.unloads = set(models), [], []
+        self.models, self.requests, self.unloads, self.events = set(models), [], [], []
+        self.fail_unload = fail_unload
         rng, lock = random.Random(7), threading.Lock()
         self.line = line or (lambda: varied_line(rng))
         fake = self
@@ -799,11 +892,15 @@ class FakeOllama:
                 if body.get("model", "").split(":")[0] not in fake.models:
                     return self._send(404, {"error": f"model '{body.get('model')}' not found"})
                 if "prompt" not in body and body.get("keep_alive") == 0:
+                    if fake.fail_unload:
+                        return self._send(500, {"error": "unload refused by the fake"})
                     with lock:
                         fake.unloads.append(body["model"])
+                        fake.events.append(("unload", body["model"]))
                     return self._send(200, {"done": True, "done_reason": "unload"})
                 with lock:
                     fake.requests.append(body)
+                    fake.events.append(("load", body["model"]))
                     text = fake.line()
                 self._send(200, {"response": text, "done": True})
 
@@ -935,7 +1032,9 @@ def _selftest() -> int:
 
     # 12. GPU vs CPU options switch with headroom (real OllamaPairBackend -> fake server).
     head = {"v": "OK"}
-    ro = PairRealizer(backend="ollama", ollama_url=fo.url, headroom=lambda: head["v"])
+    # residency PINNED: every unload asserted below comes from the headroom path (close()), not from the speaker
+    # eviction, and leaving it to settings.json would make this case behave differently on another PC.
+    ro = PairRealizer(backend="ollama", ollama_url=fo.url, headroom=lambda: head["v"], residency="both")
     case("ollama realizer speaks on OK", ro(_spec()) is not None and ro.backend_info()["device"] == "gpu")
     opts = fo.requests[-1]["options"]
     case("OK: num_gpu omitted (Ollama offloads)", "num_gpu" not in opts and "num_thread" not in opts)
@@ -954,7 +1053,7 @@ def _selftest() -> int:
 
     # 13. Explicit ollama with the models missing: silence and a note, not an exception.
     fo2 = FakeOllama(models=set())
-    rm = PairRealizer(backend="ollama", ollama_url=fo2.url, headroom=lambda: "OK")
+    rm = PairRealizer(backend="ollama", ollama_url=fo2.url, headroom=lambda: "OK", residency="evict")
     case("ollama w/o models: silence, note names the PREFERRED set",
          rm(_spec()) is None and "missing suitmk2-elah" in rm.backend_info()["note"])
     # 13b. Provisioned names (model_provision.py) are accepted and PREFERRED over the dev realizer-* set.
@@ -966,7 +1065,7 @@ def _selftest() -> int:
     fs.stop()
     fb3 = FakeOllama(models={"suitmk2-elah", "suitmk2-montaigne", "realizer-elah", "realizer-montaigne"})
     case("both sets: suitmk2-* preferred", realizer_prefix(fb3.url) == "suitmk2-"
-         and plan_for("ollama", HERE, fb3.url).meta.get("prefix") == "suitmk2-")
+         and plan_for("ollama", HERE, fb3.url, residency="both").meta.get("prefix") == "suitmk2-")
     fb3.stop()
     fh = FakeOllama(models={"suitmk2-elah", "realizer-montaigne"})
     case("no COMPLETE set (one of each) -> not ollama", resolve_backend("auto", fh.url, hf_ok=False) == "none"
@@ -994,7 +1093,7 @@ def _selftest() -> int:
     def resolver():
         if phase["v"] == "A":
             return BackendPlan("custom", lambda: slow_a, None)
-        return plan_for("ollama", HERE, fo.url)
+        return plan_for("ollama", HERE, fo.url, residency="both")
     rs = PairRealizer(resolver=resolver, headroom=lambda: "OK")
     outs, errs = [], []
 
@@ -1081,6 +1180,120 @@ def _selftest() -> int:
          _init_assign is not None and "MODEL_PREFIXES" not in _init_assign)
     case("generate() asks for the RESOLVED prefix, not the raw attribute",
          "self._resolved_prefix()}{speaker}" in _src)
+
+    # ── 2026-09-26: SPEAKER RESIDENCY (settings "speaker_residency", default evict) ──────────────
+    # One Ollama model per speaker, 1.83 GB of VRAM each. J overruled keeping Elah permanently warm:
+    # "it would be better to unload Elah because not everyone will have a card that's beefy enough
+    # to do both", and "2 seconds is not a painful response time" - so the default optimises for a
+    # 6 GB card, not for latency. Residency is PINNED in every case below: reading the settings file
+    # would make these tests agree with this PC and nothing else.
+    fe = FakeOllama(models=BOTH)
+    rv = PairRealizer(backend="ollama", ollama_url=fe.url, headroom=lambda: "OK", residency="evict")
+    case("evict: the plan says so, where /health can see it", rv.backend_info()["residency"] == "evict")
+    case("evict: nothing is evicted before a speaker has been warmed",
+         rv(_spec(speaker="elah")) is not None and fe.events == [("load", "realizer-elah")])
+    out_m = rv(_spec(speaker="montaigne"))
+    # ORDER IS THE POINT, not the mere presence of an unload: released AFTER the idle model was really
+    # warmed and BEFORE the new one loads, so a 6 GB card never holds 2 x 1.83 GB at the same instant.
+    # A two-list check (requests / unloads) cannot see this, which is why FakeOllama keeps `events`.
+    case("evict: the idle speaker is released BEFORE the new one loads",
+         out_m is not None and fe.events == [("load", "realizer-elah"), ("unload", "realizer-elah"),
+                                             ("load", "realizer-montaigne")])
+    n_un = len(fe.unloads)
+    case("evict: the speaker being asked is never the one evicted",
+         rv(_spec(speaker="montaigne")) is not None and len(fe.unloads) == n_un
+         and fe.events[-1] == ("load", "realizer-montaigne"))
+    case("evict: a speaker stays AVAILABLE, only cold", rv(_spec(speaker="elah")) is not None
+         and fe.requests[-1]["model"] == "realizer-elah")
+    fresh = OllamaPairBackend(fe.url, device="gpu", residency="evict")
+    before_un = list(fe.unloads)
+    fresh.generate("elah", "x", 0.0)
+    case("evict: a backend that warmed nothing issues no unloads (absence is not a value)",
+         fe.unloads == before_un)
+    try:
+        OllamaPairBackend(fe.url, residency="warm")
+        case("an unknown residency is refused, not silently treated as one of the two", False)
+    except ValueError:
+        case("an unknown residency is refused, not silently treated as one of the two", True)
+    fe.stop()
+
+    # BOTH: today's behaviour, and it must NOT quietly behave like the default.
+    fk = FakeOllama(models=BOTH)
+    rk = PairRealizer(backend="ollama", ollama_url=fk.url, headroom=lambda: "OK", residency="both")
+    for spk in ("elah", "montaigne", "elah", "montaigne"):
+        rk(_spec(speaker=spk))
+    case("both: two speaker changes, ZERO evictions", fk.unloads == [])
+    case("both: and both models really were exercised (the test could have failed)",
+         {r["model"] for r in fk.requests} == {"realizer-elah", "realizer-montaigne"})
+    case("both: says so where /health can see it", rk.backend_info()["residency"] == "both")
+    case("both: close() still returns the VRAM (the headroom path is untouched)",
+         rk.close() is None and sorted(fk.unloads) == ["realizer-elah", "realizer-montaigne"])
+    fk.stop()
+
+    # A REFUSED release must cost VRAM and nothing else: never a silence, never a lost speaker.
+    ff = FakeOllama(models=BOTH, fail_unload=True)
+    rf = PairRealizer(backend="ollama", ollama_url=ff.url, headroom=lambda: "OK", residency="evict")
+    rf(_spec(speaker="elah"))
+    spoke = rf(_spec(speaker="montaigne"))
+    case("a REFUSED release still speaks the line", spoke is not None
+         and ff.requests[-1]["model"] == "realizer-montaigne")
+    case("a refused release leaves the model on the retry list",
+         "realizer-elah" in getattr(rf._backend, "_used", set()))
+    ff.fail_unload = False
+    rf.close()
+    case("and close() retries what the eviction could not release", "realizer-elah" in ff.unloads)
+    ff.stop()
+
+    # Eviction must never fire off a GUESSED model name: _resolved_prefix() raises first (be47aee).
+    db = OllamaPairBackend(url=dead, device="cpu", residency="evict")
+    db._used.add("realizer-elah")                 # warmed earlier, then Ollama went away
+    # ⚠ ANY exception but the refusal counts as the bug, and it is caught rather than allowed to escape: with the
+    #   be47aee guard removed by hand, _resolved_prefix() invents "suitmk2-" and the POST dies with a URLError -
+    #   which, uncaught, killed this whole suite before it printed a single PASS/FAIL line. A regression that
+    #   silences the report is worse than one that fails a named case, so the classification happens here.
+    try:
+        db.generate("montaigne", "x", 0.0)
+        guessed = "a line was generated off a name nobody verified"
+    except RuntimeError:
+        guessed = ""                              # the documented refusal: correct
+    except Exception as e:
+        guessed = f"a request went out on a guessed prefix ({type(e).__name__})"
+    case("evict never issues an unload off an unresolved prefix" + (f" [{guessed}]" if guessed else ""),
+         not guessed and db._used == {"realizer-elah"})
+
+    # The setting reader: sanitised, never a crash, never a third behaviour.
+    import types as _types
+    _saved_settings = sys.modules.get("settings")
+    try:
+        _stub = _types.ModuleType("settings")
+        sys.modules["settings"] = _stub
+        _stub.load = lambda: {"speaker_residency": "both"}
+        case("settings 'both' is honoured", residency_from_settings() == "both")
+        _stub.load = lambda: {"speaker_residency": "  EVICT "}
+        case("settings value is case/space tolerant", residency_from_settings() == "evict")
+        _stub.load = lambda: {"speaker_residency": "warm"}
+        case("a nonsense setting falls back to the default, not a third behaviour",
+             residency_from_settings() == RESIDENCY_DEFAULT)
+        _stub.load = lambda: {}
+        case("no key at all -> the shipped default", residency_from_settings() == RESIDENCY_DEFAULT)
+
+        def _boom():
+            raise OSError("settings.json unreadable")
+        _stub.load = _boom
+        case("an unreadable settings file -> default, not an exception",
+             residency_from_settings() == RESIDENCY_DEFAULT)
+    finally:
+        if _saved_settings is None:
+            sys.modules.pop("settings", None)
+        else:
+            sys.modules["settings"] = _saved_settings
+    case("the DEFAULT that ships is evict (J's call, for a 6 GB card)", RESIDENCY_DEFAULT == "evict")
+    try:
+        import settings as _st
+        case("settings.DEFAULTS carries the same default as the code",
+             _st.DEFAULTS.get("speaker_residency") == RESIDENCY_DEFAULT)
+    except Exception as e:      # shipped/run without core/settings.py importable: say so, do not claim a pass
+        print(f"  SKIP settings.DEFAULTS parity: settings not importable here ({type(e).__name__})")
 
     for name, ok in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
