@@ -13,8 +13,12 @@ Ore Pod's CargoGrid is 2.5 m a side and its Volume is exactly 8 SCU (2x2x2).
 
   1. CargoGrid, when it is a real box: not the junk 0.75 m cube some items
      carry (Argo/MOLE and Enhanced ore pods, the GEO pod), and big enough to
-     hold the item's own Dimensions (any axis order, 2 cm slack). A grid that
-     cannot contain the item is an inventory-UI box, not a physical one.
+     hold the item's OWN size -- stdItem's top-level Width/Height/Length (any
+     axis order, 2 cm slack). A grid that cannot contain the item is an
+     inventory-UI box, not a physical one.
+     ⚠ The reference is the item's own size, NOT ``InventoryOccupancy
+       .Dimensions``, which agrees with it for only 3 of 480 entries and is not
+       a description of the item. See footprint() for the measurement.
   2. else Dimensions.
   3. else a CargoGrid that is not junk.
   4. else Volume (SCU): the most compact box of at least that many cells,
@@ -135,16 +139,46 @@ def volume_box(scu: float) -> tuple[int, int, int]:
     return best[1]
 
 
-def footprint(io: dict) -> tuple[tuple[int, int, int], str] | None:
+def footprint(io: dict, own: tuple[float, float, float] | None = None,
+              ) -> tuple[tuple[int, int, int], str] | None:
     """((w, h, l) in cells, source) for an InventoryOccupancy dict, or None.
 
     source is "grid", "dims" or "volume" (the last is an approximation).
+
+    *own* is the item's own size in metres, off stdItem's top-level
+    Width/Height/Length. It is the reference the CargoGrid is checked against.
+
+    ⛔ 2026-09-27. That check used to compare the grid to ``Dimensions``, on the
+      reasoning that a grid too small to hold the item is an inventory-UI box
+      rather than a physical one. The reasoning is right and the field was
+      wrong. Measured over all 486 catalogue entries of
+      4.10.1-LIVE.12660092:
+
+          CargoGrid  agrees with the item's own Width/Height/Length : 477 / 477
+          Dimensions agrees with it                                :   3 / 480
+
+      ``Dimensions`` does not describe the item, so the containment test was
+      comparing the grid to an unrelated box and threw it away 350 times. 316
+      of 486 items were sized off a field that contradicts their own
+      dimensions, and five landed past every bay in the game: the size-4 Serac
+      cooler came out 15x6x12 cells -- 18 m of an 0.89 m part -- and three
+      size-10 weapons 31x12x86, longer than the Idris that mounts them. Their
+      own boxes and their CargoGrids agree to 2 cm.
+
+      Only the reference moved. A junk 0.75^3 grid still loses to Dimensions
+      (the Argo and Enhanced ore pods and the GEO pod carry 0.75^3 in BOTH the
+      grid and their own size, and J verified the pod is 8 SCU = 2x2x2), and
+      with no own box there is nothing to check against, so Dimensions stands
+      in as it did before -- which is why the older fixtures still read the
+      same. This restores J's stated rule, "CargoGrid, else Dimensions": the
+      containment test was never part of it.
     """
     if not isinstance(io, dict):
         return None
     grid, dims = _box(io.get("CargoGrid")), _box(io.get("Dimensions"))
+    ref = own if own is not None else dims
     junk = _is_junk(grid)
-    if grid is not None and not junk and (dims is None or _contains(grid, dims)):
+    if grid is not None and not junk and (ref is None or _contains(grid, ref)):
         m, src = grid, "grid"
     elif dims is not None:
         m, src = dims, "dims"
@@ -235,7 +269,8 @@ def build_catalog(entries: list) -> list[dict]:
                                          (std.get("Manufacturer") or {}).get("Code"))):
             continue
         io = std.get("InventoryOccupancy") or {}
-        fp = footprint(io)
+        # stdItem's own top-level Width/Height/Length is the item's real size.
+        fp = footprint(io, _box(std))
         if fp is None:
             continue
         dims, src = fp

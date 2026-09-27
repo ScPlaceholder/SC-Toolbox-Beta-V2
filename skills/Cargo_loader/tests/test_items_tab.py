@@ -47,7 +47,15 @@ def _m(w, h, l):
     return {"Width": w, "Height": h, "Length": l}
 
 
-def _raw(cls, name, typ, size=1, grid=None, dims=None, scu=None, mfr="TEST"):
+def _raw(cls, name, typ, size=1, grid=None, dims=None, scu=None, mfr="TEST",
+         own=None):
+    """One ship-items.json entry.
+
+    *own* is stdItem's own top-level Width/Height/Length — the item's real size,
+    which every entry in the live file carries and which is the reference the
+    CargoGrid is checked against. Left out, there is no reference and the older
+    Dimensions cross-check stands in; see test_cargo_grid_is_checked_against...
+    """
     io = {}
     if grid:
         io["CargoGrid"] = _m(*grid)
@@ -55,10 +63,13 @@ def _raw(cls, name, typ, size=1, grid=None, dims=None, scu=None, mfr="TEST"):
         io["Dimensions"] = _m(*dims)
     if scu is not None:
         io["Volume"] = {"SCU": scu}
-    return {"className": cls, "stdItem": {
+    std = {
         "ClassName": cls, "Name": name, "Type": typ, "Size": size,
         "Manufacturer": {"Code": mfr, "Name": mfr.title()},
-        "InventoryOccupancy": io}}
+        "InventoryOccupancy": io}
+    if own:
+        std.update(_m(*own))
+    return {"className": cls, "stdItem": std}
 
 
 # Shapes copied from ship-items.json 4.10.1-LIVE.12660092 (metres).
@@ -80,10 +91,12 @@ RAW = [
     _raw("MRCK_S02_TEST", "Test Rack", "MissileLauncher.MissileRack"),          # skipped
     _raw("MISL_PH", "<= PLACEHOLDER =>", "Missile.Missile", dims=(1, 1, 1)),    # skipped
     _raw("BOMB_S10_FSKI_Colossus", "Colossus Bomb", "Bomb.Utility", size=10,
+         own=(1, 1, 10),                                                     # 1x1x8
          grid=(1, 1, 10), dims=(2.3, 2.3, 6.75), scu=10, mfr="FSKI"),
     _raw("KLWE_LaserRepeater_S4", "Long Gun", "WeaponGun.Gun", size=4,
          dims=(0.5, 0.5, 5.0), mfr="KLWE"),                                      # 1x1x4
     _raw("COOL_AEGS_S01_Glacier_SCItem", "Glacier", "Cooler.UNDEFINED",
+         own=(0.2233005, 0.801895, 2.211008),                                # 1x1x2
          grid=(0.22, 0.8, 2.21), dims=(0.751, 0.241, 0.513), mfr="AEGS"),
     _raw("POWR_JUST_S01_Fortitude_SCItem", "Fortitude", "PowerPlant.Power",
          dims=(0.741, 0.458, 0.502), mfr="JUST"),
@@ -107,14 +120,139 @@ def test_catalogue_sizes_from_fixture():
     assert cat["Cargo_ShipMining_Pod_Golem"]["dims"] == (2, 2, 4)
     roc = cat["Cargo_GroundVehicleMining_Pod_ROC"]
     assert roc["approx"] and roc["dims"] == (2, 1, 2)
-    # a grid that cannot hold the item is not a physical box
-    assert cat["BOMB_S10_FSKI_Colossus"]["dims"] == (2, 2, 6)
+    # A grid that cannot hold the item is not a physical box -- and the item is
+    # its own stdItem Width/Height/Length, not InventoryOccupancy.Dimensions.
+    # Both of these carry a Dimensions box that disagrees with their real size,
+    # so both used to be measured by it: the bomb read (2, 2, 6) off 2.3x2.3x6.75
+    # and the Glacier (1, 1, 1) off 0.751x0.241x0.513. Their own boxes match
+    # their CargoGrids to 2 cm and that is what they are sized by now.
+    assert cat["BOMB_S10_FSKI_Colossus"]["dims"] == (1, 1, 8)
     assert cat[LONG]["dims"] == (1, 1, 4)
-    assert cat["COOL_AEGS_S01_Glacier_SCItem"]["dims"] == (1, 1, 1)
+    assert cat["COOL_AEGS_S01_Glacier_SCItem"]["dims"] == (1, 1, 2)
     for gone in ("Cargo_ShipMining_Pod_Mole_Collapsed", "Cargo_ShipMining_Pod_Template",
                  "MRCK_S02_TEST", "MISL_PH"):
         assert gone not in cat
     assert {d["category"] for d in cat.values()} == {k for k, _ in item_catalog.CATEGORIES}
+
+
+# ── the CargoGrid is measured against the item's OWN size, not Dimensions ────
+#
+# Characterised 2026-09-27, from "ship items are not working correctly with the
+# grid". footprint() preferred the CargoGrid only when it CONTAINED
+# InventoryOccupancy.Dimensions, on the reasoning that a grid too small to hold
+# the item is an inventory-UI box. The reference was the wrong field. Measured
+# over the whole live file (486 catalogue entries):
+#
+#     CargoGrid  agrees with stdItem's own Width/Height/Length : 477 of 477
+#     Dimensions agrees with it                                :   3 of 480
+#
+# So Dimensions does not describe the item at all, and comparing the grid to it
+# rejected the correct box 350 times: 316 of 486 items were sized off a field
+# that contradicts the item's own dimensions. Five were sized past every bay in
+# the game -- a size-4 Serac cooler came out 15x6x12 cells (18 m), and three
+# size-10 weapons 31x12x86, longer than the Idris that mounts them.
+#
+# stdItem carries the item's real size as top-level Width/Height/Length, and
+# every entry in the live file has it, so it is the reference the grid is
+# checked against now. J's stated rule is "CargoGrid, else Dimensions" with the
+# junk 0.75^3 grids falling back -- which is what this restores; the Dimensions
+# containment test was never part of it.
+
+BESPOKE = [
+    # Shapes copied verbatim from ship-items.json 4.10.1-LIVE.12660092. In both,
+    # the CargoGrid IS the item's own box to 2 cm and Dimensions is unrelated.
+    _raw("COOL_RSI_S04_Polaris_SCItem", "Serac", "Cooler.UNDEFINED", size=4,
+         own=(0.8932018, 1.60379, 6.633023),
+         grid=(0.89, 1.6, 6.63), dims=(18.065, 7.381, 14.592), scu=2.1, mfr="RSI"),
+    _raw("HRST_LaserBeam_Bespoke", "Exodus-10 Laser Beam", "WeaponGun.Gun", size=10,
+         own=(3.796108, 4.81137, 30.95411),
+         grid=(3.8, 4.81, 30.95), dims=(37.558, 14.875, 106.871), scu=120, mfr="HRST"),
+]
+
+
+def test_the_bespoke_fixture_can_tell_the_two_rules_apart():
+    """Guard on the fixture, not on the code.
+
+    These two entries prove nothing unless the old reference and the new one
+    actually disagree about them: the Dimensions box must NOT fit inside the
+    CargoGrid (so the old rule threw the grid away) while the item's own box
+    must (so the new rule keeps it). Without this, both tests below could pass
+    on a fixture where the rules never diverge."""
+    for e in BESPOKE:
+        io = e["stdItem"]["InventoryOccupancy"]
+        grid = item_catalog._box(io["CargoGrid"])
+        assert not item_catalog._contains(grid, item_catalog._box(io["Dimensions"]))
+        assert item_catalog._contains(grid, item_catalog._box(e["stdItem"]))
+
+
+def test_a_junk_dimensions_box_does_not_beat_the_cargo_grid():
+    cat = {d["key"]: d for d in item_catalog.build_catalog(BESPOKE)}
+    serac = cat["COOL_RSI_S04_Polaris_SCItem"]
+    assert serac["dims"] == (1, 2, 6) and serac["source"] == "grid"
+    beam = cat["HRST_LaserBeam_Bespoke"]
+    assert beam["dims"] == (4, 4, 25) and beam["source"] == "grid"
+
+
+def test_a_junk_cargo_grid_still_loses_to_dimensions():
+    """The Argo and Enhanced ore pods and the GEO pod carry 0.75^3 in the
+    CargoGrid AND in their own stdItem size, and J verified the pod is 8 SCU =
+    2x2x2. So the own-box reference must not rescue a junk grid: when both are
+    junk the answer is still Dimensions."""
+    raw = [_raw("Cargo_ShipMining_Pod_Mole", "Argo Ore Pod", "Container.Cargo",
+                own=(0.75, 0.75, 0.75), grid=(0.75, 0.75, 0.75),
+                dims=(2.5, 2.5, 2.5), scu=8, mfr="ARGO")]
+    (d,) = item_catalog.build_catalog(raw)
+    assert d["dims"] == (2, 2, 2) and d["source"] == "dims"
+
+
+def test_without_an_own_box_dimensions_is_still_the_reference():
+    """Coverage for the branch the two fixtures above used to be the only users
+    of. With no stdItem Width/Height/Length there is nothing better to check the
+    CargoGrid against, so Dimensions stands in and a grid too small to hold it
+    still loses -- the pre-2026-09-27 behaviour, kept for a record shaped that
+    way. Every entry in the live file carries an own box, so this is the
+    fallback, not the path."""
+    raw = [_raw("NO_OWN_BOX", "Stub Bomb", "Bomb.Utility", size=10,
+                grid=(1, 1, 10), dims=(2.3, 2.3, 6.75), scu=10, mfr="FSKI")]
+    (d,) = item_catalog.build_catalog(raw)
+    assert d["dims"] == (2, 2, 6) and d["source"] == "dims"
+
+
+def test_real_datamine_sizes_every_item_by_its_real_cargo_grid():
+    """The property, over the live file rather than a fixture: whenever an item
+    has a CargoGrid that is not the junk 0.75^3 cube, that grid is what the
+    item is measured by."""
+    path = item_catalog.default_path()
+    if not path or not os.path.isfile(path):
+        pytest.skip("ship-items.json not downloaded on this machine")
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    by_key = {}
+    for e in raw:
+        if isinstance(e, dict) and e.get("className"):
+            by_key.setdefault(e["className"], e)
+    cat = item_catalog.load_catalog(path)
+    off = []
+    for d in cat:
+        io = ((by_key.get(d["key"]) or {}).get("stdItem") or {}).get("InventoryOccupancy") or {}
+        grid = item_catalog._box(io.get("CargoGrid"))
+        if grid is None or item_catalog._is_junk(grid):
+            continue
+        want = tuple(item_catalog.cells(v) for v in grid)
+        if d["dims"] != want or d["source"] != "grid":
+            off.append((d["name"], d["dims"], want, d["source"]))
+    assert not off, f"{len(off)} item(s) not sized by their real CargoGrid: {off[:6]}"
+
+    # The five that the Dimensions reference inflated past every bay in the game.
+    got = {d["key"]: d["dims"] for d in cat}
+    assert got["COOL_RSI_S04_Polaris_SCItem"] == (1, 2, 6)    # was (15, 6, 12)
+    assert got["SHLD_RSI_S04_Polaris_SCItem"] == (1, 2, 6)    # was (5, 7, 12)
+    assert got["HRST_LaserBeam_Bespoke"] == (4, 4, 25)        # was (31, 12, 86)
+    assert got["KLWE_MassDriver_S10"] == (4, 4, 25)           # was (31, 12, 80)
+    assert got["BEHR_LaserCannon_S9"] == (4, 4, 25)           # was (5, 5, 25)
+    # 25 cells is the longest bay in the corpus (Idris-P). Nothing may exceed it
+    # on any axis: an item that fits no grid anywhere cannot be placed at all.
+    assert max(max(d["dims"]) for d in cat) <= 25
 
 
 def test_real_datamine_if_present():
