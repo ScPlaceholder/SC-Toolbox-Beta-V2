@@ -104,6 +104,15 @@
     },
     {
       "skin": "BASE",
+      "slot": "visor",
+      "bone": "visor",
+      "z": 60,
+      "kind": "expression",
+      "path": "skins/BASE/visor.png",
+      "prompt": "a single visor for a cartoon penguin character. Soft-shaded stylised 3D render, glossy toy-like surfaces, rounded forms, gentle specular highlights, clean studio lighting from upper left, saturated sci-fi palette, readable at small size. Matches a collectible-figure look, NOT flat vector and NOT cel-shaded. No penguin. No head. No skull. No face. No eyes. No beak. No visor. No hair. No neck. No body. No other clothing. No mannequin. No figure wearing it. Nothing but the single item, floating, centred, on a fully transparent background. No drop shadow extending outside the object. No ground plane. No backdrop. No background gradient of any kind. No border. NO CHECKERBOARD PATTERN — a drawn checkerboard is not transparency. NO TEXT, no letters, no words, no logos, no writing of any kind anywhere; branding is composited separately from official logos. The inside or opening of the garment must be genuinely empty and transparent where the character's head or body would eventually go."
+    },
+    {
+      "skin": "BASE",
       "slot": "beak",
       "bone": "beak",
       "z": 65,
@@ -164,15 +173,6 @@
       "kind": "jacket",
       "path": "skins/DRAKE/jacket_back.png",
       "prompt": "a Drake jacket piece (jacket back) sized to fit a small round penguin torso. Drake Interplanetary: scrappy, industrial, worn edges, exposed fasteners, orange and gunmetal, nothing precious. Soft-shaded stylised 3D render, glossy toy-like surfaces, rounded forms, gentle specular highlights, clean studio lighting from upper left, saturated sci-fi palette, readable at small size. Matches a collectible-figure look, NOT flat vector and NOT cel-shaded. No penguin. No head. No skull. No face. No eyes. No beak. No visor. No hair. No neck. No body. No other clothing. No mannequin. No figure wearing it. Nothing but the single item, floating, centred, on a fully transparent background. No drop shadow extending outside the object. No ground plane. No backdrop. No background gradient of any kind. No border. NO CHECKERBOARD PATTERN — a drawn checkerboard is not transparency. NO TEXT, no letters, no words, no logos, no writing of any kind anywhere; branding is composited separately from official logos. The inside or opening of the garment must be genuinely empty and transparent where the character's head or body would eventually go."
-    },
-    {
-      "skin": "DRAKE",
-      "slot": "visor",
-      "bone": "visor",
-      "z": 60,
-      "kind": "headwear",
-      "path": "skins/DRAKE/visor.png",
-      "prompt": "a soft peaked Drake cap sized to sit on a small penguin head. Drake Interplanetary: scrappy, industrial, worn edges, exposed fasteners, orange and gunmetal, nothing precious. Soft-shaded stylised 3D render, glossy toy-like surfaces, rounded forms, gentle specular highlights, clean studio lighting from upper left, saturated sci-fi palette, readable at small size. Matches a collectible-figure look, NOT flat vector and NOT cel-shaded. No penguin. No head. No skull. No face. No eyes. No beak. No visor. No hair. No neck. No body. No other clothing. No mannequin. No figure wearing it. Nothing but the single item, floating, centred, on a fully transparent background. No drop shadow extending outside the object. No ground plane. No backdrop. No background gradient of any kind. No border. NO CHECKERBOARD PATTERN — a drawn checkerboard is not transparency. NO TEXT, no letters, no words, no logos, no writing of any kind anywhere; branding is composited separately from official logos. The inside or opening of the garment must be genuinely empty and transparent where the character's head or body would eventually go."
     },
     {
       "skin": "DRAKE",

@@ -54,7 +54,19 @@ SLOT_KIND = {
     "head_base":       ("base", "head"),
     "eye_L":           ("base", "expression"),
     "eye_R":           ("base", "expression"),
-    "visor":           ("wardrobe", "headwear"),
+    # ⛔ THIS WAS ("wardrobe", "headwear") AND IT WOULD HAVE LEFT PICO FACELESS.
+    #   J's own rig/layer_manifest.json — which I did not have until he sent the master pack —
+    #   lists "visor" under BASE, beside body, belly, head, beak and flippers. The style sheet
+    #   says the same thing in pictures: the visor IS his face, sixteen expressions, always
+    #   present. Classified as wardrobe, BASE would never have generated one and every single
+    #   manufacturer skin would have generated its own.
+    # ★★ AND MY "INDEPENDENT ORACLE" COULD NOT HAVE CAUGHT IT. The selftest's ANATOMY set is
+    #   written out by hand precisely so a mutation to SLOT_KIND cannot fool it — and I wrote
+    #   that set from the same wrong belief, so it omitted the visor too. Both sides agreed and
+    #   both were wrong. The oracle was independent of the CODE and not independent of ME.
+    #   A test whose expectation I author cannot find an error in my UNDERSTANDING; only an
+    #   artefact from someone else can. That is the sharpest version of today's lesson.
+    "visor":           ("base", "expression"),
     "beak":            ("base", "head"),
     "flipper_L":       ("base", "body"),
     "flipper_R":       ("base", "body"),
@@ -236,7 +248,8 @@ def _selftest():
     #   code it is testing cannot fail. [[a-differential-test-with-a-broken-control-scores-perfect]]
     ANATOMY = {
         "shadow", "body_back", "leg_L", "leg_R", "foot_L", "foot_R", "belly",
-        "head_base", "eye_L", "eye_R", "beak", "flipper_L", "flipper_R", "fx_front",
+        "head_base", "eye_L", "eye_R", "beak", "visor", "flipper_L", "flipper_R",
+        "fx_front",
     }
     intruders = sorted({a["slot"] for a in drake} & ANATOMY)
     if intruders:
