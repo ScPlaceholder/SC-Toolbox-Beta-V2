@@ -141,11 +141,24 @@ DEFAULT_SHEET = str(_ASSETS / "listener_penguin_sheet.png")
 DEFAULT_COLS = 6
 DEFAULT_ROWS = 2
 
-#: 12 frames at 12 fps is a 1.000 s dance cycle - fast enough to read as
-#: dancing, slow enough that twelve poses do not blur into a flicker, and the
-#: traditional rate for hand-posed character loops. Cheap, too: 12 repaints a
-#: second once the fade has settled, against 30 for the still's continuous bob.
-DEFAULT_FPS = 12.0
+#: 12 frames at 6 fps is a 2.000 s dance cycle.
+#:
+#: ⛔ WAS 12.0, AND THE REASONING WAS SOUND AND STILL WRONG. The original note read:
+#: "fast enough to read as dancing, slow enough that twelve poses do not blur into
+#: a flicker, and the traditional rate for hand-posed character loops." Every clause
+#: of that is true. J watched it and said: *"Can we slow the animation down by like
+#: half so it looks like he's dancing not spazzing"* (2026-09-27).
+#:
+#: ★ The argument was about LEGIBILITY — can you resolve twelve distinct poses — and
+#:   he was judging CHARACTER. A penguin can be perfectly legible and still look
+#:   frantic. Those are different questions, and the rate that answers one does not
+#:   answer the other. No amount of reasoning from first principles was going to
+#:   produce "6", because the input is a human watching it.
+#: ⚠ So this constant is TASTE, and it is HIS taste. Do not re-derive it from cycle
+#:   length, repaint cost or animation convention and quietly put it back to 12 —
+#:   all three arguments are still available and all three are still beside the point.
+#: Cheap either way: 6 repaints a second once the fade has settled.
+DEFAULT_FPS = 6.0
 
 #: Mean alpha (0-255) above which a row/column counts as holding ink. Low,
 #: because soft glow tails off gradually; the detected bands move <= 3 px
