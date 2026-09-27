@@ -31,6 +31,7 @@ Selftest (no model, no GPU, fake Ollama on port 0): python pair_realizer.py --se
 """
 from __future__ import annotations
 
+import ast
 import difflib
 import http.client
 import json
@@ -223,8 +224,58 @@ class OllamaPairBackend:
         if device not in ("gpu", "cpu"):
             raise ValueError(f"device must be gpu or cpu, not {device!r}")
         self.url, self.device, self.threads, self.timeout = url.rstrip("/"), device, threads, timeout
-        self.prefix = prefix or realizer_prefix(self.url) or MODEL_PREFIXES[0]
+        # ⛔ NO `or MODEL_PREFIXES[0]` HERE. An unresolved prefix stays None and is resolved late —
+        #   see `_resolved_prefix`. 2026-09-26: this line used to end in that fallback and it cost
+        #   the owner an entire evening of a companion that heard him and said nothing.
+        self.prefix = prefix or realizer_prefix(self.url)
         self._used: set = set()
+
+    def _resolved_prefix(self) -> str:
+        """The installed model-name prefix, resolved as late as necessary. Raises if there is none.
+
+        ⛔ 2026-09-26 — THE BUG THIS EXISTS TO KILL, because it is not obvious from the outside.
+          `__init__` used to read:
+
+              self.prefix = prefix or realizer_prefix(self.url) or MODEL_PREFIXES[0]
+
+          `realizer_prefix()` returns None for TWO different situations and the caller cannot tell
+          them apart: *Ollama answered and has no complete set*, and *Ollama did not answer at all*
+          — the latter after a 2.0s probe that a GPU busy with Star Citizen can easily lose. The
+          trailing `or` collapsed both into a GUESS: `"suitmk2-"`, the first entry of a preference
+          tuple. On a machine whose models are named `realizer-*`, every single generate then
+          POSTed a model that does not exist and got HTTP 404.
+        ⛔⛔ AND IT WAS CACHED FOR THE OBJECT'S LIFE. One unlucky two-second probe at construction
+          time poisoned every later call: 28 asks, 22 errors, 22 identical 404s, no retry and no
+          re-resolve. It recovered only when headroom went ROOMY and a FRESH backend happened to be
+          built — which makes it look like a ghost rather than a bug.
+        ★ AN ABSENCE IS NOT A VALUE. "The probe could not answer" is not "the models are called
+          suitmk2-". Guessing a name here has exactly one possible outcome — 404 forever, reported
+          to the pilot as silence — while refusing says so in one line of the log. The two failures
+          cost wildly different amounts to diagnose, and only one of them is honest.
+        ⇒ So: resolve late, keep the answer once it is real, and RAISE a named error rather than
+          invent a model. The caller (`PairRealizer.__call__`) already catches, counts and logs,
+          so this turns a silent 404 loop into a log line that names the cause.
+        ⚠ The late resolve is the half that actually restores speech: by the time a second line is
+          asked for, Ollama has usually woken up, and the object is no longer stuck with the answer
+          it got during the worst two seconds of the session.
+        """
+        if self.prefix:
+            return self.prefix
+        found = realizer_prefix(self.url)
+        if found:
+            self.prefix = found
+            _LOG.info("realizer: model prefix resolved late to %r (it was unresolvable when this "
+                      "backend was built - Ollama was unreachable or had no complete set then)", found)
+            return found
+        installed = ollama_models(self.url)
+        raise RuntimeError(
+            "no realizer model set is installed at %s: %s. Expected both of %s with one of the "
+            "prefixes %s. REFUSING to guess a prefix - a guessed name can only 404, and a 404 loop "
+            "reads to the pilot as silence."
+            % (self.url,
+               "Ollama did not answer" if installed is None
+               else "installed models: " + (", ".join(sorted(installed)) or "none"),
+               " and ".join(SPEAKERS), " or ".join(MODEL_PREFIXES)))
 
     @staticmethod
     def available(url: str = OLLAMA_URL) -> bool:
@@ -240,7 +291,7 @@ class OllamaPairBackend:
     def generate(self, speaker: str, prompt: str, temperature: float) -> str:
         text = (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n"
                 "<|im_start|>assistant\n")
-        model = f"{self.prefix}{speaker}"
+        model = f"{self._resolved_prefix()}{speaker}"
         body = {"model": model, "raw": True, "stream": False, "prompt": text, "keep_alive": "10m",
                 "options": self.options(temperature)}
         self._used.add(model)
@@ -973,6 +1024,63 @@ def _selftest() -> int:
          and slow_a.closed)
     fo.stop()
     fo2.stop()
+
+    # ── 2026-09-26: the prefix must never be GUESSED from an absence ────────────────────────────
+    # The defect: `self.prefix = prefix or realizer_prefix(url) or MODEL_PREFIXES[0]`. A 2-second
+    # probe lost to a busy GPU made realizer_prefix() return None, the trailing `or` elected
+    # "suitmk2-" on a machine whose models are "realizer-*", and every generate 404'd — cached for
+    # the object's whole life. 28 asks, 22 errors, and the pilot heard silence.
+    # ⚠ THESE RUN AGAINST A DEAD PORT ON PURPOSE. They must not depend on what this machine has
+    #   installed, or the suite would pass here and fail on a developer's box, which is the same
+    #   class of mistake as the bug.
+    dead = "http://127.0.0.1:1"
+    b = OllamaPairBackend(url=dead, device="cpu")
+    case("an unresolvable prefix stays None instead of guessing", b.prefix is None)
+    try:
+        b._resolved_prefix()
+        refused, why = False, ""
+    except RuntimeError as e:
+        refused, why = True, str(e)
+    case("with no models reachable it REFUSES rather than naming one", refused)
+    case("the refusal says Ollama did not answer, not 'no models'", "did not answer" in why)
+    case("the refusal names the prefixes it expected", all(p in why for p in MODEL_PREFIXES))
+
+    # The other half: an early failure must not be permanent. Given a set that DOES resolve, a
+    # backend built with prefix=None picks it up on first use and keeps it.
+    _real = globals()["realizer_prefix"]
+    try:
+        globals()["realizer_prefix"] = lambda url=OLLAMA_URL, names=None: MODEL_PREFIXES[1]
+        late = OllamaPairBackend(url=dead, device="cpu")
+        late.prefix = None                       # exactly what a lost probe leaves behind
+        got = late._resolved_prefix()
+        case("a late resolve recovers the prefix", got == MODEL_PREFIXES[1])
+        case("and caches it rather than re-probing forever", late.prefix == MODEL_PREFIXES[1])
+    finally:
+        globals()["realizer_prefix"] = _real
+
+    # The STATIC half — the shape that caused it must not come back by hand.
+    # ⚠ READ BY AST, NOT BY SUBSTRING, and that is not fastidiousness: the first version of this
+    #   check was `"realizer_prefix(self.url) or MODEL_PREFIXES[0]" not in source` and it FAILED
+    #   immediately — on the docstring of `_resolved_prefix`, which quotes the old line verbatim
+    #   as the explanation of what went wrong. A text scan cannot tell live code from prose about
+    #   code, so documenting a defect would have meant permanently failing the test that guards it.
+    _src = Path(__file__).read_text(encoding="utf-8")
+    _tree = ast.parse(_src)
+    _init_assign = None
+    for _node in ast.walk(_tree):
+        if isinstance(_node, ast.ClassDef) and _node.name == "OllamaPairBackend":
+            for _fn in _node.body:
+                if isinstance(_fn, ast.FunctionDef) and _fn.name == "__init__":
+                    for _st in ast.walk(_fn):
+                        if (isinstance(_st, ast.Assign) and len(_st.targets) == 1
+                                and isinstance(_st.targets[0], ast.Attribute)
+                                and _st.targets[0].attr == "prefix"):
+                            _init_assign = ast.get_source_segment(_src, _st.value) or ""
+    case("__init__ assigns self.prefix at all (the check found its subject)", _init_assign is not None)
+    case("__init__ no longer falls through to MODEL_PREFIXES[0]",
+         _init_assign is not None and "MODEL_PREFIXES" not in _init_assign)
+    case("generate() asks for the RESOLVED prefix, not the raw attribute",
+         "self._resolved_prefix()}{speaker}" in _src)
 
     for name, ok in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
