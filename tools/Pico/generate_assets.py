@@ -1,0 +1,214 @@
+"""generate_assets.py — run the asset pipeline. STUBBED BY DEFAULT; real generation is opt-in.
+
+⛔⛔ THIS FILE CAN SPEND J'S MONEY AND IT DEFAULTS TO NOT DOING SO. `--mode stub` is the default and
+   draws every image locally. `--mode real` is the only path that calls a paid API, it requires
+   `--i-mean-it`, and it refuses without a resolved credential. Two flags rather than one, because a
+   single flag is one typo away from 26 billed requests and a default is what you get when tired.
+
+WHAT THE DRY RUN ACTUALLY PROVES, which is the whole reason it exists before the paid half:
+   - the manifest is complete and every asset has a destination
+   - names land where the rig expects (skins/<SKIN>/<slot>.png)
+   - the validator is wired in and its verdict routes the file
+   - the REJECT path works — and it is exercised on purpose, see below
+   - nothing overwrites anything
+
+★ THE STUB DELIBERATELY FAILS SOME ASSETS. A dry run where everything passes proves the accept path
+  and nothing else; the reject bin would be untested code that first runs on real, paid images. So
+  the stub draws a known-bad image for a fixed, named subset (`FORCED_REJECTS`) and this module
+  asserts at the end that those and ONLY those were rejected. A reject path that never fires during
+  a rehearsal is not covered. [[a-correct-rule-can-guard-a-branch-nothing-takes]]
+
+⚠ WHAT A STUB RUN CANNOT TELL ME: whether the real generator obeys the prompts, whether the art is
+  any good, or whether the negatives work. It tests the PLUMBING. Saying so because a green dry run
+  is exactly the kind of result I would otherwise quote as if it meant the pipeline was proven.
+
+    python generate_assets.py                      # stub, writes to out/
+    python generate_assets.py --selftest
+    python generate_assets.py --mode real --i-mean-it --limit 1    # ONE paid image
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+MANIFEST = os.path.join(HERE, "assets", "asset_manifest.json")
+OUT = os.path.join(HERE, "out")
+REJECT_DIR = "REJECTED"
+
+# Slots the stub renders deliberately broken, so the reject path runs in every rehearsal.
+# ⚠ Chosen to fail DIFFERENT rules: one by coverage (whole-frame fill), one by an opaque
+#   background. One forced reject would only ever exercise whichever rule it happened to trip.
+FORCED_REJECTS = {
+    "belly": "coverage",     # fills the frame -> "the generator drew the whole penguin"
+    "beak": "opaque",        # background baked in -> not a real cutout
+}
+
+
+def _load_validator():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("asset_validate",
+                                                  os.path.join(HERE, "asset_validate.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def stub_image(path, kind, mode="good", size=1024):
+    """Draw a placeholder locally. No network, no cost."""
+    from PySide6.QtGui import QImage, QColor, QPainter
+
+    img = QImage(size, size, QImage.Format_ARGB32)
+    img.fill(QColor(0, 0, 0, 255) if mode == "opaque" else QColor(0, 0, 0, 0))
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing, True)
+    p.setBrush(QColor(70, 150, 230, 255))
+    p.setPen(QColor(20, 40, 70, 255))
+    # ⚠ AN ELLIPSE IS NOT ITS BOUNDING BOX, and that cost me a forced reject. Drawing the
+    #   coverage-failure case as an ellipse inscribed in a 0.92 square yields 0.92 * pi/4 = 0.72
+    #   opaque — INSIDE the body band ceiling of 0.75 — so the asset the stub was supposed to fail
+    #   sailed through, and the selftest correctly reported the reject path as not firing.
+    #   The forced case is now a RECTANGLE, whose area is the number I asked for.
+    if mode == "coverage":
+        # inset 2%% so the border stays clear and this rejects on COVERAGE, not on the edge rule
+        off = int(size * 0.02)
+        p.drawRect(off, off, size - 2 * off, size - 2 * off)
+    else:
+        side = int(size * (0.30 ** 0.5))
+        off = (size - side) // 2
+        p.drawEllipse(off, off, side, side)
+    p.end()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.save(path)
+
+
+def run(mode="stub", limit=None, out_dir=OUT, manifest_path=MANIFEST, verbose=True):
+    with open(manifest_path, encoding="utf-8") as fh:
+        man = json.load(fh)
+    av = _load_validator()
+
+    assets = man["assets"][:limit] if limit else man["assets"]
+    accepted, rejected, errors = [], [], []
+
+    for a in assets:
+        dest = os.path.join(out_dir, a["path"].replace("/", os.sep))
+        if os.path.exists(dest):
+            # Never silently clobber a generated asset; a re-run should be explicit.
+            errors.append("%s already exists — refusing to overwrite" % a["path"])
+            continue
+        try:
+            if mode == "stub":
+                stub_image(dest, a["kind"], mode=FORCED_REJECTS.get(a["slot"], "good"))
+            else:
+                raise NotImplementedError(
+                    "real generation is not wired yet — the credential probe comes first")
+        except Exception as exc:  # noqa: BLE001
+            errors.append("%s: %s: %s" % (a["path"], type(exc).__name__, exc))
+            continue
+
+        res = av.validate(dest, a["kind"])
+        if res.verdict == av.PASS:
+            accepted.append(a["path"])
+        else:
+            bin_path = os.path.join(out_dir, REJECT_DIR, a["path"].replace("/", "_"))
+            os.makedirs(os.path.dirname(bin_path), exist_ok=True)
+            shutil.move(dest, bin_path)
+            rejected.append((a["path"], a["slot"], res.failures()))
+
+    if verbose:
+        print("mode=%s  %d asset(s) from %s" % (mode, len(assets), os.path.basename(manifest_path)))
+        print("  accepted %d   rejected %d   errors %d" % (len(accepted), len(rejected), len(errors)))
+        for path, slot, why in rejected:
+            print("  REJECT %-28s %s" % (slot, "; ".join(w[:70] for w in why[:1])))
+        for e in errors:
+            print("  ERROR  %s" % e)
+        print()
+        print("⚠ A stub run tests PLUMBING ONLY — that files land where the rig expects and that the")
+        print("  validator's verdict routes them. It says nothing about whether the art is right,")
+        print("  because no art was generated.")
+    return accepted, rejected, errors
+
+
+def _selftest():
+    import tempfile
+    fails = []
+    try:
+        from PySide6.QtGui import QImage  # noqa: F401
+    except Exception as exc:  # noqa: BLE001
+        print("generate_assets selftest: CANNOT TELL — PySide6 unavailable (%s)" % type(exc).__name__)
+        return 2
+    if not os.path.exists(MANIFEST):
+        print("generate_assets selftest: CANNOT TELL — no manifest; run build_manifest.py first")
+        return 2
+
+    tmp = tempfile.mkdtemp(prefix="picodry_")
+    try:
+        acc, rej, err = run(mode="stub", out_dir=tmp, verbose=False)
+
+        if err:
+            fails.append("a clean run produced %d error(s): %s" % (len(err), err[:2]))
+        if not acc:
+            fails.append("nothing was accepted — the accept path never ran")
+
+        # ★ THE CHECK THAT MAKES THE REHEARSAL WORTH RUNNING: exactly the forced set was rejected.
+        #   Too few means the reject path is dead; too many means the validator is rejecting art it
+        #   should keep, which on the real run would burn money regenerating good images.
+        got = {slot for _p, slot, _w in rej}
+        want = set(FORCED_REJECTS)
+        if got != want:
+            fails.append("forced rejects were %s but the run rejected %s — %s"
+                         % (sorted(want), sorted(got),
+                            "reject path is not firing" if not got - want else "over-rejecting"))
+
+        # every accepted file must actually be on disk where the rig will look for it
+        for rel in acc:
+            if not os.path.exists(os.path.join(tmp, rel.replace("/", os.sep))):
+                fails.append("accepted %s is not on disk at its manifest path" % rel)
+                break
+        # every rejected file must be OUT of the skins tree, not left where the rig would load it
+        for rel, _slot, _w in rej:
+            if os.path.exists(os.path.join(tmp, rel.replace("/", os.sep))):
+                fails.append("rejected %s is still sitting in the skins tree" % rel)
+                break
+
+        # a second run over the same directory must refuse rather than overwrite
+        _a2, _r2, e2 = run(mode="stub", out_dir=tmp, verbose=False)
+        if not e2:
+            fails.append("a re-run silently overwrote existing assets instead of refusing")
+
+        print("generate_assets selftest: %s (%d accepted, %d rejected, forced=%s)"
+              % ("PASS" if not fails else "FAIL", len(acc), len(rej), sorted(want)))
+        for f in fails:
+            print("   -", f)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return 1 if fails else 0
+
+
+def main(argv=None):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", choices=["stub", "real"], default="stub")
+    ap.add_argument("--i-mean-it", action="store_true",
+                    help="required with --mode real; without it a real run refuses")
+    ap.add_argument("--limit", type=int)
+    ap.add_argument("--out", default=OUT)
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args(argv)
+    if a.selftest:
+        return _selftest()
+    if a.mode == "real" and not a.i_mean_it:
+        print("REFUSING: --mode real bills a paid API. Add --i-mean-it if that is what you want.")
+        return 2
+    run(mode=a.mode, limit=a.limit, out_dir=a.out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
