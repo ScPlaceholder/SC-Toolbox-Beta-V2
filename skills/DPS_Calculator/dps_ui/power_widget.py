@@ -144,8 +144,44 @@ class PowerAllocatorWidget(QWidget):
         self._sync_ui()
 
     def set_mode(self, mode):
+        """Switch SCM/NAV and REBUILD the columns, because the engine replaced the slots.
+
+        ⛔ 2026-09-26 (issue #7-1, "NAV mode will not let shields be turned off"): this
+          method used to be `engine.set_mode` + `_update_mode_buttons` + `_sync_ui`, with
+          no `_rebuild_columns`. But `PowerAllocatorEngine.set_mode` re-enters `load_ship`
+          (power_engine.py:703), and `load_ship` → `_build_legacy_slots` CLEARS
+          `_slots`/`_categories` (power_engine.py:604-605) and builds BRAND-NEW slot dicts.
+          `_rebuild_columns` had captured the PREVIOUS mode's dicts — into `_pip_widgets`
+          and into every per-pip lambda default (`s=slot`) — so after one SCM→NAV click the
+          widget was painting and mutating objects the engine no longer owned:
+            - `_sync_ui`'s `pip_w.set_slot(slot)` redrew the DEAD SCM dict, so the shield
+              column kept showing 3 green pips while the live NAV slot was
+              `enabled=False, current_seg=0`. Measured on the Gladius fixture: the SCM
+              shield slot (enabled=True, cur=3) survives as an orphan; the NAV slot the
+              engine actually computes from is a different object (enabled=False, cur=0).
+            - `_on_pip_set` / `_on_right_click` mutated that orphan, and
+              `sync_seg_config_from_slots()` iterates `engine._slots` — which no longer
+              contains it — so "lowering the energy" moved pips on screen and changed
+              NOTHING in the allocator, not the draw, not the percentage.
+            - `_toggle_category` was the ONE path that still reached live state, because it
+              re-reads `self._categories` from the engine. So clicking the shield icon in
+              NAV flipped real shields ON (NAV leaves them off, so the first click is an
+              ON) while the stale pips never moved — which is exactly "clicking the shield
+              icon does not turn them off".
+        ★ THE ENGINE WAS NOT CHANGED and NAV's fill order was not touched. NAV already
+          leaves `shield` unpowered on purpose (`_power_config["shield"]["power"] = is_scm`,
+          and NAV's phase-2 fill order omits `shield`), which is erkul-exact; giving NAV a
+          shield allocation would move every ship's default AT LOAD. The defect was that
+          the widget drew the wrong OBJECT, so the repair belongs here.
+        ★★ Rebuilt unconditionally rather than "only when the slot list changed": every
+          `load_ship` mints new dicts, so an identity diff always says "changed" and a
+          contents diff that guesses wrong silently reintroduces a stale bar. `load_ship`
+          already rebuilds on every call; a no-op mode click just rebuilds identical
+          columns, which is cheap and cannot be stale.
+        """
         self._engine.set_mode(mode)
         self._update_mode_buttons()
+        self._rebuild_columns()
         self._sync_ui()
 
     def set_level_by_type(self, category, slot_idx, level):
@@ -203,6 +239,16 @@ class PowerAllocatorWidget(QWidget):
         return self._engine.shield_powered_count
 
     @property
+    def over_capacity_text(self) -> str:
+        """The OVER CAPACITY marker's text: "" when the allocation fits.
+
+        Exposed because `QLabel.isVisible()` is False for any widget whose window was
+        never shown, so visibility cannot be asserted in a headless test. The text IS
+        the state — `_set_over_capacity` clears it whenever the marker does not apply.
+        """
+        return self._lbl_over.text()
+
+    @property
     def _slots(self):
         return self._engine.slots
 
@@ -240,6 +286,9 @@ class PowerAllocatorWidget(QWidget):
             bar_color = GREEN
         self._consumption_bar.set_values(consumption_pct, bar_color)
 
+        self._set_over_capacity(result["total_draw"], result["total_capacity"],
+                                consumption_pct)
+
         for pip_w, slot in self._pip_widgets:
             pip_w.set_slot(slot)
 
@@ -249,6 +298,47 @@ class PowerAllocatorWidget(QWidget):
             except Exception:  # broad catch intentional: top-level UI handler
                 pass
         self.power_changed.emit()
+
+    def _set_over_capacity(self, total_draw, total_capacity, consumption_pct):
+        """Say OVER CAPACITY in words when the allocation exceeds the power plant.
+
+        ⛔ 2026-09-26 (issue #7-3, "power overdraw is allowed silently"): showing the
+          overdraw is CORRECT and is not being changed — this tool reports what you
+          allocated, it does not clamp to 100% the way erkul does, so 118% is a true
+          reading. What was wrong is that 118% was announced only by a red bar and a bare
+          percentage, and NEITHER of those reads as "you have overcommitted the plant":
+          the bar is red at 101% and red at 300% and `_ConsumptionBar.paintEvent` clamps
+          its fill at `min(bar_w, ...)`, so past 100% the bar stops moving entirely, which
+          looks like a full bar, i.e. like a rendering quirk. The number needed a word next
+          to it. Nothing is clamped, nothing is refused, and the percentage is untouched.
+        ★ The marker carries the EXCESS in power segments, not a restatement of the
+          percentage that is already on screen one label to the left. `+3 pwr` is the
+          actionable figure: it is how much you must free up.
+        ⚠ AND THE CAPACITY-0 CASE IS NOT A "0%". `recalculate()` computes
+          `consumption_pct = (draw / capacity * 100) if capacity > 0 else 0`
+          (power_engine.py:923), so a ship with no resolvable power plant reads 0% no
+          matter how many pips are lit — and pips CAN be lit there, because `_on_pip_set`
+          writes `current_seg` with no capacity check. That 0 is an ABSENCE of a
+          denominator, not a measurement of a healthy draw, so it must not be allowed to
+          render as the quiet state that a real 0% does. It gets its own text and the
+          excess is deliberately left unstated: with no known capacity there is no
+          "over by N" to state.
+        """
+        if total_capacity and total_capacity > 0:
+            over = total_draw - total_capacity
+            text = f"{_('OVER CAPACITY')}  +{over:.0f}" if over > 0 else ""
+        elif total_draw > 0:
+            text = f"{_('OVER CAPACITY')}  {_('no power plant data')}"
+        else:
+            text = ""
+
+        self._lbl_over.setText(text)
+        self._lbl_over.setVisible(bool(text))
+        pct_color = RED if text else FG
+        self._lbl_pct.setStyleSheet(
+            f"color: {pct_color}; font-family: Consolas; font-size: 9pt; "
+            f"font-weight: bold; background: transparent;"
+        )
 
     # -- internal: UI construction ---------------------------------------------
 
@@ -312,6 +402,15 @@ class PowerAllocatorWidget(QWidget):
         )
         hdr_layout.addWidget(self._lbl_pct)
 
+        # OVER CAPACITY marker — empty and hidden at or below 100%; see _set_over_capacity.
+        self._lbl_over = QLabel("", hdr)
+        self._lbl_over.setStyleSheet(
+            f"color: {BG2}; background-color: {RED}; font-family: Consolas; "
+            f"font-size: 8pt; font-weight: bold; padding: 0px 4px;"
+        )
+        self._lbl_over.setVisible(False)
+        hdr_layout.addWidget(self._lbl_over)
+
         main_layout.addWidget(hdr)
 
         # Column grid frame (populated by _rebuild_columns)
@@ -362,7 +461,34 @@ class PowerAllocatorWidget(QWidget):
             )
 
     def _rebuild_columns(self):
-        """Destroy and recreate the column grid from current categories."""
+        """Destroy and recreate the column grid from current categories.
+
+        ⛔ 2026-09-26 (issue #7-2, "the cooler control is doubled"): this loop used to
+          build ONE column per CATEGORY and drop every slot of that category into it as a
+          separate `_PipCanvas`. A Gladius has two Bracers, so `_build_legacy_slots` gives
+          `categories["cooler"]` TWO slots (power_engine.py:645-668 — coolers are the only
+          category built one-slot-per-component) and the widget stacked two independent
+          3-segment bars in one column under ONE shared snowflake. That is precisely the
+          report: "one icon combining all the energy levels" and "behaving as if they were
+          two separate bars, with one power bar above the other" — they ARE two bars, and
+          the pips really do belong to different coolers. Worse, the single icon ran
+          `_toggle_category("cooler")`, which switched BOTH coolers at once, so there was
+          no way to unpower one. erkul draws one icon per cooler.
+        ★ THE DATA WAS NEVER WRONG. Two slots for two coolers is correct, and the engine
+          keeps per-cooler `_power_config["coolers"][idx]` entries and per-cooler pip lists.
+          Nothing in the allocator changed; this is a layout defect and the fix is layout.
+        ★★ THE SPLIT IS ON SLOT COUNT, NOT ON THE NAME "cooler". `len(slots) > 1` →
+          one column, one icon, one toggle PER SLOT. Rejected `if cat_key == "cooler"`:
+          the shape is "a category whose slots are separate physical components", and the
+          next multi-slot category to appear would silently inherit the same defect.
+        ⚠ AND IT CHANGES NOTHING ELSE TODAY, which is why the generic rule is safe here:
+          `_build_legacy_slots` emits exactly ONE slot for each of weapon/engine/shield/
+          radar/lifeSupport/qdrive (it aggregates all components of a type into one slot,
+          power_engine.py:610-640), so `cooler` is the only category that currently takes
+          the `> 1` branch. Single-slot categories keep the old column and the old
+          `_toggle_category` call verbatim — no layout and no behaviour moves for any
+          category nobody complained about.
+        """
         # Clear existing
         while self._col_layout.count():
             item = self._col_layout.takeAt(0)
@@ -376,47 +502,68 @@ class PowerAllocatorWidget(QWidget):
             if not slots:
                 continue
 
-            col = QWidget(self._col_widget)
-            col_layout = QVBoxLayout(col)
-            col_layout.setContentsMargins(0, 0, 0, 0)
-            col_layout.setSpacing(0)
-            col_layout.setAlignment(Qt.AlignBottom)
+            if len(slots) > 1:
+                # One column per component, each with its own icon and its own toggle.
+                for slot in slots:
+                    self._add_column(label, icon, color, [slot], slot=slot)
+            else:
+                self._add_column(label, icon, color, slots, cat_key=cat_key)
 
-            # Category label at top
-            cat_lbl = QLabel(label, col)
-            cat_lbl.setStyleSheet(
-                f"color: {color}; font-family: Consolas; font-size: 6pt; "
-                f"font-weight: bold; background: transparent;"
+    def _add_column(self, label, icon, color, slots, cat_key=None, slot=None):
+        """Build one pip column: a label, the pip bars for `slots`, and a clickable icon.
+
+        Exactly one of `cat_key` / `slot` is given, and it decides what the icon toggles:
+        `cat_key` → `_toggle_category` (every slot of the category, the pre-existing
+        behaviour for single-slot categories), `slot` → `_toggle_slot` (that component
+        alone, for the per-component columns of a multi-slot category).
+        """
+        col = QWidget(self._col_widget)
+        col_layout = QVBoxLayout(col)
+        col_layout.setContentsMargins(0, 0, 0, 0)
+        col_layout.setSpacing(0)
+        col_layout.setAlignment(Qt.AlignBottom)
+
+        # Category label at top
+        cat_lbl = QLabel(label, col)
+        cat_lbl.setStyleSheet(
+            f"color: {color}; font-family: Consolas; font-size: 6pt; "
+            f"font-weight: bold; background: transparent;"
+        )
+        cat_lbl.setAlignment(Qt.AlignCenter)
+        col_layout.addWidget(cat_lbl)
+
+        col_layout.addStretch(1)
+
+        # Pip bars (stacked bottom-up by adding in reverse)
+        for si in range(len(slots) - 1, -1, -1):
+            s_ = slots[si]
+            pip_w = _PipCanvas(s_, col)
+            pip_w.pip_clicked.connect(
+                lambda level, s=s_: self._on_pip_set(s, level)
             )
-            cat_lbl.setAlignment(Qt.AlignCenter)
-            col_layout.addWidget(cat_lbl)
-
-            col_layout.addStretch(1)
-
-            # Pip bars (stacked bottom-up by adding in reverse)
-            for si in range(len(slots) - 1, -1, -1):
-                slot = slots[si]
-                pip_w = _PipCanvas(slot, col)
-                pip_w.pip_clicked.connect(
-                    lambda level, s=slot: self._on_pip_set(s, level)
-                )
-                pip_w.right_clicked.connect(
-                    lambda s=slot: self._on_right_click(s)
-                )
-                col_layout.addWidget(pip_w, 0, Qt.AlignCenter)
-                self._pip_widgets.append((pip_w, slot))
-
-            # Icon at bottom
-            icon_lbl = QLabel(icon, col)
-            icon_lbl.setStyleSheet(
-                f"color: {color}; font-size: 9pt; background: transparent;"
+            pip_w.right_clicked.connect(
+                lambda s=s_: self._on_right_click(s)
             )
-            icon_lbl.setAlignment(Qt.AlignCenter)
-            icon_lbl.setCursor(Qt.PointingHandCursor)
+            col_layout.addWidget(pip_w, 0, Qt.AlignCenter)
+            self._pip_widgets.append((pip_w, s_))
+
+        # Icon at bottom
+        icon_lbl = QLabel(icon, col)
+        icon_lbl.setStyleSheet(
+            f"color: {color}; font-size: 9pt; background: transparent;"
+        )
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setCursor(Qt.PointingHandCursor)
+        if slot is not None:
+            # Two identical snowflakes side by side are indistinguishable without this;
+            # the slot name is the installed component ("Bracer"), not a generic label.
+            icon_lbl.setToolTip(str(slot.get("name") or label))
+            icon_lbl.mousePressEvent = lambda e, s=slot: self._toggle_slot(s)
+        else:
             icon_lbl.mousePressEvent = lambda e, ck=cat_key: self._toggle_category(ck)
-            col_layout.addWidget(icon_lbl)
+        col_layout.addWidget(icon_lbl)
 
-            self._col_layout.addWidget(col)
+        self._col_layout.addWidget(col)
 
     # -- internal: interaction -------------------------------------------------
 
@@ -425,7 +572,14 @@ class PowerAllocatorWidget(QWidget):
         self._engine.sync_seg_config_from_slots()
         self._sync_ui()
 
-    def _on_right_click(self, slot: dict):
+    def _toggle_slot(self, slot: dict):
+        """Power one slot on/off, restoring its `default_seg` on the way back on.
+
+        Added with the issue #7-2 column split: the per-component icon of a multi-slot
+        category must move ONE component, where `_toggle_category` moves all of them.
+        It is the same operation right-click has always performed on a single bar, so
+        `_on_right_click` now delegates here rather than carrying a second copy.
+        """
         slot["enabled"] = not slot["enabled"]
         if not slot["enabled"]:
             slot["current_seg"] = 0
@@ -433,6 +587,9 @@ class PowerAllocatorWidget(QWidget):
             slot["current_seg"] = slot["default_seg"]
         self._engine.sync_seg_config_from_slots()
         self._sync_ui()
+
+    def _on_right_click(self, slot: dict):
+        self._toggle_slot(slot)
 
     def _toggle_category(self, cat_key: str):
         slots = self._categories.get(cat_key, [])
