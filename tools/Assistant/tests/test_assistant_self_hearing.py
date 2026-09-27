@@ -5,7 +5,7 @@ Owner's screenshot, 2026-09-27, "Always on" + "Voice Replies" both selected:
     You: Want me to open Starmouth? Say yes or not. Yes. Yes.
     AI:  Okay, I won't open Starmap.
 
-The first eight words of that "You:" line are the ASSISTANT'S OWN PROMPT ("Want me to
+The first NINE words of that "You:" line are the ASSISTANT'S OWN PROMPT ("Want me to
 open Starmap? Say yes or no"), spoken through the speakers and picked straight back up
 by the open mic, with the user's real "Yes. Yes." appended to the same utterance. The
 combined string contains "not", and `logic.classify_confirmation` is documented to let

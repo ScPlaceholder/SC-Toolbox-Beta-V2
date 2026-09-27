@@ -78,7 +78,7 @@ _TTS_TIMEOUT = 30
 #     You: Want me to open Starmouth? Say yes or not. Yes. Yes.
 #     AI:  Okay, I won't open Starmap.
 #
-# The first eight words of that "You:" line are the assistant's OWN prompt, spoken
+# The first NINE words of that "You:" line are the assistant's OWN prompt, spoken
 # through the speakers and picked back up by the open mic, with the user's real
 # "Yes. Yes." appended to the same utterance. logic.classify_confirmation lets any
 # negative marker win, so the mistranscribed "no" -> "not" read as a refusal and the
