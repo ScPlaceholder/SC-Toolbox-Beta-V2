@@ -109,3 +109,8 @@ tools/SuitMk2/**/*.bak*
 
 # Agent worktrees (full copies of the repo; never commit)
 **/.claude/worktrees/
+
+# The whole folder, not its contents one by one. Lines 83-84 and 111 enumerated
+# settings.local.json, scheduled_tasks.lock and worktrees/ individually, so
+# tool_cloning_prompt.enc — added later — was never covered and shipped publicly.
+.claude/
