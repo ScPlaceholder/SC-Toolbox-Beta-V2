@@ -96,7 +96,36 @@ def save_calibration(search_bar, destination, map_center) -> None:
 
 
 def _set_clipboard(text: str) -> None:
-    """Win32 clipboard set (CF_UNICODETEXT), same approach as the original."""
+    """Win32 clipboard set (CF_UNICODETEXT), same approach as the original.
+
+    ⛔ THIS FUNCTION RAISED "GlobalLock failed" ON EVERY CALL AND THE PORT DROPPED THE
+       EXACT LINES THE ORIGINAL LABELS CRITICAL. Found 2026-09-27 by J's dry run: point
+       the macro at a blank Notepad and watch what it types. It typed nothing — the
+       destination never reached the clipboard, so no route was ever plotted, in Notepad
+       or in game.
+
+       `tools/set_route_ai/main.py` carries the comment
+       ``# --- CRITICAL: Declare proper 64-bit return types ---`` above eight restype /
+       argtypes declarations. The port kept the call sequence and the comment's *shape*
+       and dropped the declarations. Without them ctypes assumes a C ``int`` return, so
+       on 64-bit Windows GlobalAlloc's HANDLE is truncated to 32 bits and sign-extended.
+       Measured on this machine:
+
+           default restype   -> -604110840        (truncated, sign-extended)
+           c_void_p restype  -> 2000850649112     (the real handle)
+           GlobalLock(truncated) -> 0             ->  "GlobalLock failed"
+
+       ★ The port did not lose the KNOWLEDGE — the original's comment survived into the
+         new file as the docstring's "same approach as the original". It lost the four
+         lines the comment was ABOUT. A copied reassurance is not a copied safeguard.
+
+    ⚠ SECOND, INDEPENDENT DEFECT in the same body, which the first one masked: it encoded
+      ``text`` without a terminator, set ``size = len(text_bytes) + 2``, then memmove'd
+      ``size`` bytes out of a buffer holding ``size - 2``. That over-reads the Python
+      bytes object by two bytes and never deliberately writes the NUL, so CF_UNICODETEXT
+      would be handed an unterminated string plus whatever followed in memory. Fixed the
+      way the original does it: append "\\0" BEFORE encoding and size from the result.
+    """
     import ctypes
 
     CF_UNICODETEXT = 13
@@ -105,8 +134,20 @@ def _set_clipboard(text: str) -> None:
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
 
-    text_bytes = text.encode("utf-16-le")
-    size = len(text_bytes) + 2
+    # CRITICAL on 64-bit: handles are pointer-width. See the docstring.
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalFree.restype = ctypes.c_void_p
+    kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+    user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+    user32.SetClipboardData.restype = ctypes.c_void_p
+    user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+
+    text_bytes = (text + "\0").encode("utf-16-le")
+    size = len(text_bytes)
 
     h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
     if not h_mem:
