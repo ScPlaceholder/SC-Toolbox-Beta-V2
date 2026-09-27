@@ -23,6 +23,11 @@ Rules (in the order they are checked):
   7. Support       a box above the floor needs a box under EVERY footprint cell
                    (no overhangs, no floating). Without an explicit y the box
                    drops onto the highest box under its footprint.
+
+Items (snap_item) keep rule 1 and rule 2, replace rule 3 with a bound onto the
+UNION of the grid floors (_bound_item — an item may lie across a seam between
+two grids, which a container may not), and turn rules 4-7 into warnings. The
+comment above _bound_item is the argument for that split.
 """
 
 from __future__ import annotations
@@ -94,6 +99,35 @@ def _g(grid: dict, key: str, default=0):
     return default if v is None else v
 
 
+def _clamp_span(v: int, size: int, lo: int, span: int) -> int:
+    """Keep the half-open run [v, v + size) inside [lo, lo + span).
+
+    When size > span the run cannot be contained at all; it is pinned to *lo*
+    so the overflow hangs off the FAR face. The alternative, min(lo + span -
+    size, ...), is below lo and would push an oversized item off the NEAR face
+    instead — i.e. backwards out of the bay, away from the grid the player
+    aimed at. Either way the overflowing columns still report a warning, so
+    this choice only decides which end the excess sticks out of.
+    """
+    return int(min(max(v, lo), max(lo, lo + span - size)))
+
+
+def _whole_cells(grid: dict, axis: str, span: str) -> tuple[int, int]:
+    """One axis of a grid as WHOLE cells: (first cell, how many).
+
+    ⚠ ceil() on both ends, not int(origin) and the raw span, because a grid
+      origin is not always a whole cell — 8 of the 1,069 placements in the
+      hand-made layouts are on half cells (Idris_M/Idris_P, x = 29.5 and
+      31.5). Items only ever sit on whole cells, so the cells a half-cell grid
+      actually covers are ceil(o) .. ceil(o + span) - 1: for 29.5 + 2 that is
+      30 and 31, and NOT 29, which int(29.5) would have offered as the first
+      legal position on a grid that does not reach it.
+    """
+    o = _g(grid, axis)
+    lo = math.ceil(o)
+    return lo, math.ceil(o + grid[span]) - lo
+
+
 class PlacementContext:
     """Pre-built state for one drag (grids + the other boxes).
 
@@ -109,6 +143,8 @@ class PlacementContext:
         self.occ = OccupancyGrid()
         for i, (x, y, z, w, h, l, _s) in enumerate(self.placed):
             self.occ.set_region(x, y, z, w, h, l, owner=i)
+        self._floor_cells: set[tuple[int, int]] | None = None
+        self._anchor_cache: dict[tuple[int, int], list[tuple[int, int]]] = {}
         self._union_cells: set[tuple[int, int, int]] | None = None
         if union:
             cells = set()
@@ -250,6 +286,194 @@ class PlacementContext:
     # items), and every rule a container must obey becomes a warning. No
     # per-item game snapping is modelled, on purpose.
 
+    # ⛔ 2026-09-26 (J: "make sure the ship items stay within the maximum
+    #   confines of the optimal layout"). snap_item used to return the snapped
+    #   target unchanged, so an item followed the mouse anywhere on the floor
+    #   plane: a click off the bay landed one at (20, 0, 20) with the grid at
+    #   x 0..6 / z 0..8, and the pointer is not bounded, so neither was the
+    #   item. The container path (snap) has always clamped — `x = min(max(x,
+    #   gx), gx + grid["w"] - w)` — and the item path simply never grew the
+    #   same line. Worst case was rotation: a 1x1x4 gun fits a 6-wide grid at
+    #   x=3 in every orientation EXCEPT yawed, where its footprint becomes
+    #   4x1 and runs to x=7, one cell outside. That is invisible to any
+    #   fixture written unrotated.
+    # ★ THE VOID IS A WALL AND THE FIT IS STILL A WARNING, which is not a
+    #   compromise — the two are different claims. J, same day: items are
+    #   "sized ROUGHLY", "if they don't match their cargo bay that's user
+    #   error not engine error", and impossible stacks are realistic. So
+    #   whether an item is too tall for the bay, overlaps its neighbour, or
+    #   overhangs its support stays amber and places: those are judgements
+    #   about the ARRANGEMENT, and the player is the quartermaster. Whether
+    #   the item is anchored to the ship at all is not a judgement, and that
+    #   is the only thing made impossible here. Read the precise claim off
+    #   _bound_item's four cases, not off this sentence: an item CAN still
+    #   finish with columns off the grid, but only from a deliberate aim into
+    #   a bay too small for it, never from the mouse drifting into empty
+    #   space, and always flagged.
+    # ★★ ONLY X AND Z ARE BOUNDED, and the asymmetry is the argument, not an
+    #   omission. X/Z come from the mouse and are unbounded — the defect. Y
+    #   comes from _item_rest (the floor, or the top of what is underneath) or
+    #   from the box the player clicked, so it is already bounded by the stack
+    #   below it, and containers refuse to breach the ceiling (R_TOO_TALL).
+    #   An item poking out of the top is therefore always a bounded overshoot
+    #   of a real stack, and clamping it would silently drop items INTO the
+    #   stack they were dropped onto. W_TOO_TALL keeps reporting it.
+    # ⛔⛔ THE BOUND IS THE UNION OF THE GRID FLOORS, NOT ONE GRID, and the
+    #   first version of this fix got that wrong in a way every test I had
+    #   written still passed. Copying snap()'s per-grid clamp — `x =
+    #   min(max(x, gx), gx + grid["w"] - w)` — looks like the obvious move and
+    #   is correct for CONTAINERS, because a container must live in a single
+    #   grid (R_TOO_BIG_FOR_GRID). An ITEM must not: item_warnings checks each
+    #   footprint COLUMN against every grid, so an item lying across the seam
+    #   between two abutting grids is clean by design, and per-grid clamping
+    #   dragged it off the seam into one side. Measured over all 144 ships and
+    #   all 33 hand-made layouts: of 68,935 already-clean item placements,
+    #   per-grid clamping MOVED 4,056 — and on the Aurora it moved them and
+    #   then flagged them W_OUTSIDE, so the fix for "items escape the grid"
+    #   would have put clean items outside it. Every one of the 4,056 spanned
+    #   more than one grid.
+    # ★★★ So the bound and the warning now ask ONE question — _footprint_
+    #   covered and item_warnings' W_OUTSIDE test are the same predicate over
+    #   the same cells — and that is the property to keep. Two checks derived
+    #   from one rule cannot drift into a bound that forbids what the warning
+    #   permits, which is precisely what the per-grid version did.
+    #   ⚠ What the shared predicate does NOT buy is the absence of W_OUTSIDE.
+    #     After _bound_item an item can still carry it, from case 2: a
+    #     deliberate aim into a bay too small for it. The honest statement is
+    #     that W_OUTSIDE now means "the player put it there", never "the
+    #     pointer wandered".
+    # ⚠ Saved plans are deliberately NOT bounded on load (_items_from_payload
+    #   keeps the stored pos verbatim). Moving someone's saved work on open,
+    #   without them touching anything, is worse than showing it amber — and
+    #   item_warnings flags exactly those items, which is what the amber tint
+    #   is for.
+
+    def _floor(self) -> set[tuple[int, int]]:
+        """Every WHOLE (x, z) cell a grid covers. Built once per context.
+
+        ⛔ Built through _whole_cells, so it agrees with item_warnings' own
+          `gx <= cx < gx + w` on a half-cell grid. The first version of this
+          added dx to a .5 origin and produced a set of .5 cells that no
+          integer item position could ever be a member of; it reported 26
+          already-clean placements on the two Idris layouts as off the grids
+          and moved them. A bound that disagrees with the warning it is
+          supposed to enforce is worse than no bound, because it moves things
+          and then flags them.
+        """
+        if self._floor_cells is None:
+            cells: set[tuple[int, int]] = set()
+            for g in self.grids:
+                x0, nx = _whole_cells(g, "x", "w")
+                z0, nz = _whole_cells(g, "z", "l")
+                for cx in range(x0, x0 + nx):
+                    for cz in range(z0, z0 + nz):
+                        cells.add((cx, cz))
+            self._floor_cells = cells
+        return self._floor_cells
+
+    def _footprint_covered(self, x: int, z: int, w: int, l: int) -> bool:
+        cells = self._floor()
+        return all((x + dx, z + dz) in cells
+                   for dx in range(w) for dz in range(l))
+
+    def _anchors(self, w: int, l: int) -> list[tuple[int, int]]:
+        """Every min corner where a w x l footprint is fully over the grids.
+
+        Cached per footprint, because a drag asks on every mouse move and the
+        two orientations of one item are two footprints. Candidates are the
+        floor cells themselves — a covered footprint's own min corner is
+        always one — so this costs O(cells x w x l) once, not a scan of the
+        bounding box, which for a ship with two distant bays is mostly void.
+        """
+        key = (w, l)
+        got = self._anchor_cache.get(key)
+        if got is None:
+            got = sorted(c for c in self._floor()
+                         if self._footprint_covered(c[0], c[1], w, l))
+            self._anchor_cache[key] = got
+        return got
+
+    def _nearest_grid(self, cx: float, cz: float) -> dict | None:
+        """The grid whose floor rectangle is nearest (cx, cz); ties by list
+        order, so the answer never depends on dict iteration.
+
+        Returns None only when there are no grids at all. That is the one case
+        the caller must not bound in: an absent grid list is missing data, not
+        a zero-sized bay, and treating it as one would collapse every item
+        onto the origin and call that "in bounds".
+        """
+        best = None
+        best_key = None
+        for i, g in enumerate(self.grids):
+            gx, gz = _g(g, "x"), _g(g, "z")
+            dx = max(gx - cx, 0.0, cx - (gx + g["w"]))
+            dz = max(gz - cz, 0.0, cz - (gz + g["l"]))
+            key = (dx * dx + dz * dz, i)
+            if best_key is None or key < best_key:
+                best, best_key = g, key
+        return best
+
+    def _pin_into(self, grid: dict, x: int, z: int,
+                  w: int, l: int) -> tuple[int, int]:
+        """Clamp a footprint into one grid's whole cells, min corner first."""
+        x0, nx = _whole_cells(grid, "x", "w")
+        z0, nz = _whole_cells(grid, "z", "l")
+        return _clamp_span(x, w, x0, nx), _clamp_span(z, l, z0, nz)
+
+    def _bound_item(self, x: int, z: int, w: int, l: int) -> tuple[int, int]:
+        """Pull a snapped item footprint back onto the grids.
+
+        Four cases, in order, and the ORDER is the whole design:
+
+        1. Already fully over the grids -> untouched. This must cost nothing,
+           so it is a w x l set membership test and no search, and it is what
+           leaves the 4,056 seam placements exactly where they were.
+        2. The player pointed AT a bay (the footprint's centre, or failing that
+           its min corner, stands on one) -> clamped into that bay and nowhere
+           else. If the item fits, the clamp pulls it fully in; if it is too
+           big for that bay it is pinned there, overflowing, and flagged.
+        3. The aim is off the grids entirely -> the nearest min corner that can
+           hold the footprint whole, by squared distance then (x, z) so the
+           answer is deterministic.
+        4. Off the grids and nothing anywhere can hold it -> pinned to the
+           nearest grid. Still on the ship; item_warnings reports the overflow.
+
+        ⛔ CASE 2 EXISTS BECAUSE CASE 3 ALONE TELEPORTS. Measured over all 144
+          ships and 33 layouts, aiming at every cell of every grid with nine
+          item footprints: 57,721 aims were not already covered, and while 65%
+          of them moved two cells or less, the tail ran to 86 — an 8x2x2 item
+          aimed at the nose of the Idris-P reappearing at the tail, because the
+          only bay that can hold it whole is there. A click is a statement
+          about WHERE; answering it by moving the item the length of the ship
+          is not a bound, it is a different placement. With case 2 in front,
+          that aim pins in the bay the player chose and the tail is gone.
+        ★ So the item can still end up with columns off the grid — but only
+          ever by the player's own aim, never by the mouse wandering into the
+          void, and always amber. That is the line J drew: the region is the
+          engine's business, the fit is the quartermaster's. A rule that also
+          refused case 2 would be turning his warning into a wall.
+        ⚠ Case 2 tries the centre first and the min corner second because one
+          test is not enough for both ends of the size range. A 1x1x1's centre
+          is always inside the bay its corner is in; a long item's centre can
+          fall past the far wall while it is plainly being aimed into the bay
+          (a 1x1x4 gun at z=0 of a 2-deep bay has its centre at z=2, outside).
+          Corner-only fails the mirror case. Neither alone is the aim.
+        """
+        if not self.grids:
+            return x, z
+        if self._footprint_covered(x, z, w, l):
+            return x, z
+        aimed = (self._grid_under(x + w / 2.0, z + l / 2.0)
+                 or self._grid_under(x + 0.5, z + 0.5))
+        if aimed is not None:
+            return self._pin_into(aimed, x, z, w, l)
+        anchors = self._anchors(w, l)
+        if anchors:
+            return min(anchors, key=lambda c: ((c[0] - x) ** 2 + (c[1] - z) ** 2,
+                                               c[0], c[1]))
+        return self._pin_into(self._nearest_grid(x + w / 2.0, z + l / 2.0),
+                              x, z, w, l)
+
     def _item_floor(self, x: int, z: int, w: int, l: int) -> int:
         ys = [_g(g, "y0") for g in self.grids
               if _g(g, "x") < x + w and x < _g(g, "x") + g["w"]
@@ -317,12 +541,21 @@ class PlacementContext:
         """
         w, h, l = box[0], box[1], box[2]
         tx, tz = float(target[0]), float(target[-1])
-        grid = self._grid_under(tx + w / 2.0, tz + l / 2.0)
+        cx, cz = tx + w / 2.0, tz + l / 2.0
+        grid = self._grid_under(cx, cz)
         z0 = _round(tz)
         x = _snap_axis(tx, w, self._wall_edges(grid, "x")
                        + self._neighbour_edges("x", z0, l), self.thr)
         z = _snap_axis(tz, l, self._wall_edges(grid, "z")
                        + self._neighbour_edges("z", x, w), self.thr)
+        # The ORIENTED footprint is bounded onto the grids — w and l are
+        # post-rotation, because the caller yaws the box before asking, and a
+        # bound applied to the nominal size would pass every unrotated fixture
+        # while letting a yawed item hang off the edge. The magnet above is
+        # deliberately left reading every grid's walls: it may pull the item
+        # onto a neighbouring grid's face, which is legal for an item, and
+        # _bound_item only intervenes when the footprint leaves the grids.
+        x, z = self._bound_item(x, z, w, l)
         if y is None:
             y = self._item_rest(x, z, w, l, self._item_floor(x, z, w, l))
         pos = (x, int(y), z)

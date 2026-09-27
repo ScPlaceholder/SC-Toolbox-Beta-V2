@@ -30,6 +30,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from cargo_engine import item_catalog  # noqa: E402
 from cargo_engine.manual_place import (  # noqa: E402
     PlacementContext, R_OVERLAP, R_TOO_TALL, W_OVERLAP, W_FLOATING, W_OUTSIDE,
+    W_TOO_TALL,
 )
 
 SHIP = {
@@ -386,3 +387,185 @@ def test_brush_paints_an_item(win):
     g = _group(win, (0, 0, 0, 2, 2, 2, POD))
     win._on_box_clicked(g)
     assert win._renderer._assignments[(0, 0, 0, POD)] == "Mission Cargo 1"
+
+
+# ── items stay inside the confines (J, 2026-09-26) ───────────────────────────
+#
+# "make sure the ship items stay within the maximum confines of the optimal
+# layout." The confines are the slot volumes build_slots() derives from the
+# grid data; the optimal layout (greedy_optimize_3d -> assign_slots_from_counts
+# -> place_containers_3d) is slot-bounded by construction because the packer
+# only ever iterates range(sw - cw + 1), so a CONTAINER could never leave.
+# snap_item had no equivalent line, and the pointer that feeds it is unbounded.
+#
+# The bound is on the REGION only. Overlap, floating and too-tall stay amber
+# warnings, per J the same day: items are sized roughly and a mismatch with the
+# bay is "user error not engine error". The tests below assert both halves —
+# making the soft rules hard would fail test_overlapping_item_still_places_amber
+# above and test_item_above_the_ceiling_stays_a_warning below.
+
+BOUND_GRIDS = [{"x": 0, "y0": 0, "z": 0, "w": 6, "h": 2, "l": 8}]
+
+
+def _footprint_inside(pos, dims, grids=BOUND_GRIDS) -> bool:
+    """True when the box's whole floor footprint lies inside a single grid."""
+    x, _y, z = pos[0], pos[1], pos[2]
+    w, _h, l = dims[0], dims[1], dims[2]
+    return any((g.get("x") or 0) <= x and x + w <= (g.get("x") or 0) + g["w"]
+               and (g.get("z") or 0) <= z and z + l <= (g.get("z") or 0) + g["l"]
+               for g in grids)
+
+
+def test_footprint_predicate_can_return_false():
+    """Every bound assertion below is worthless if this predicate is stuck on
+    True — an inverted comparison would report "all inside" forever. So: one
+    box in, three out, including the rotated footprint the clamp exists for."""
+    assert _footprint_inside((0, 0, 0), (2, 1, 2))
+    assert not _footprint_inside((20, 0, 20), (1, 1, 1))
+    assert not _footprint_inside((3, 0, 0), (4, 1, 1))     # yawed 1x1x4 -> x 3..7
+    assert not _footprint_inside((-1, 0, 0), (1, 1, 1))
+
+
+@pytest.mark.parametrize("dims,target,unclamped", [
+    ((1, 1, 1), (20.0, 20.0), (20, 0, 20)),      # dropped off the ship entirely
+    ((4, 1, 1), (3.0, 0.0), (3, 0, 0)),          # yawed 1x1x4: footprint ran to x=7
+    ((1, 1, 1), (0.0, 8.0), (0, 0, 8)),          # one cell past +Z
+    ((1, 1, 1), (-3.0, -3.0), (-3, 0, -3)),      # negative corner
+    ((2, 2, 2), (5.0, 7.0), (5, 0, 7)),          # a pod half off the +X/+Z corner
+])
+def test_item_is_bounded_to_the_grids(dims, target, unclamped):
+    ctx = PlacementContext(BOUND_GRIDS, [])
+    pos, warns = ctx.snap_item((dims[0], dims[1], dims[2], LONG), target)
+    # The fixture is only a test while the old answer was genuinely outside.
+    assert not _footprint_inside(unclamped, dims)
+    assert _footprint_inside(pos, dims), f"{pos} {dims} escaped {BOUND_GRIDS}"
+    assert W_OUTSIDE not in warns
+
+
+def test_oversized_item_pins_to_the_grid_and_still_warns():
+    """An item larger than the bay cannot be contained at all — items are sized
+    roughly, so this is a real case, not a bad input. It is pinned to the grid
+    instead of following the mouse into empty space, and the columns that hang
+    off the end are still reported. That report is the proof the warning path
+    did not go quiet when the clamp went in."""
+    small = [{"x": 0, "y0": 0, "z": 0, "w": 2, "h": 2, "l": 2}]
+    ctx = PlacementContext(small, [])
+    pos, warns = ctx.snap_item((4, 1, 1, LONG), (9.0, 9.0))
+    assert pos[0] == 0                                    # pinned, overflow on +X
+    assert 0 <= pos[2] and pos[2] + 1 <= 2                # the axis that fits, inside
+    assert warns == [W_OUTSIDE]
+
+
+def test_no_grid_data_is_not_a_zero_sized_grid():
+    """With no grids to measure against there is no bound to apply. The item
+    keeps the position it was given and is flagged; it is NOT collapsed onto
+    the origin and called in-bounds, which is what clamping an absent grid
+    list would do."""
+    ctx = PlacementContext([], [])
+    pos, warns = ctx.snap_item((1, 1, 1, LONG), (7.0, 9.0))
+    assert pos == (7, 0, 9)
+    assert warns == [W_OUTSIDE]
+
+
+# A small side bay and a roomy one far away: the distance is the point, so
+# that "relocate to where it fits" and "keep the aim" give visibly different
+# answers and a test can tell which rule ran.
+FAR_GRIDS = [
+    {"x": 0, "y0": 0, "z": 0, "w": 2, "h": 2, "l": 2},
+    {"x": 40, "y0": 0, "z": 0, "w": 8, "h": 2, "l": 8},
+]
+
+
+def test_flung_item_lands_in_a_bay_that_can_hold_it():
+    """Thrown clear of every grid there is no aim to respect, so a 1x1x4 gun
+    goes to the bay that can hold it whole — 40 cells away — rather than being
+    pinned in the near 2x2x2 one to overflow and flag."""
+    ctx = PlacementContext(FAR_GRIDS, [])
+    pos, warns = ctx.snap_item((1, 1, 4, LONG), (-9.0, -9.0))
+    assert _footprint_inside(pos, (1, 1, 4), FAR_GRIDS)
+    assert warns == []
+    # an item the near bay CAN hold still goes to the near bay
+    pos1, warns1 = ctx.snap_item((1, 1, 1, LONG), (-9.0, -9.0))
+    assert pos1 == (0, 0, 0) and warns1 == []
+
+
+def test_aiming_at_a_bay_too_small_does_not_teleport():
+    """A click is a statement about WHERE. Aimed into the small bay, a 1x1x4
+    gun stays in it — pinned, overflowing, amber — instead of reappearing 40
+    cells away in the only bay that fits. Over the real corpus the unbounded
+    version of that move ran to 86 cells, the length of the Idris-P."""
+    ctx = PlacementContext(FAR_GRIDS, [])
+    pos, warns = ctx.snap_item((1, 1, 4, LONG), (0.0, 0.0))
+    assert pos == (0, 0, 0)
+    assert warns == [W_OUTSIDE]
+
+
+def test_item_across_the_seam_between_two_grids_is_left_alone():
+    """The bound is the UNION of the grid floors, not one grid. An item lying
+    across two abutting grids is clean by item_warnings' own per-column test,
+    and a per-grid clamp dragged it off the seam into one side: 4,056 of
+    68,935 already-clean placements across all 144 ships and 33 layouts, some
+    of them moved AND then flagged. Containers are different — they must live
+    in one grid — which is why copying snap()'s clamp was wrong here."""
+    seam = [{"x": 0, "y0": 0, "z": 0, "w": 2, "h": 2, "l": 2},
+            {"x": 2, "y0": 0, "z": 0, "w": 2, "h": 2, "l": 2}]
+    ctx = PlacementContext(seam, [])
+    assert not _footprint_inside((1, 0, 0), (2, 1, 1), seam)   # in no SINGLE grid
+    pos, warns = ctx.snap_item((2, 1, 1, LONG), (1.0, 0.0))
+    assert pos == (1, 0, 0) and warns == []
+
+
+def test_half_cell_grid_origin_bounds_to_the_cells_it_covers():
+    """8 of the 1,069 placements in the hand-made layouts sit on half cells
+    (Idris_M/Idris_P, x = 29.5). The cells such a grid covers are 30 and 31,
+    so the bound must not offer 29 — which int(29.5) does, and which the grid
+    does not reach."""
+    half = [{"x": 29.5, "y0": 0, "z": 0, "w": 2, "h": 1, "l": 1}]
+    ctx = PlacementContext(half, [])
+    assert sorted(ctx._floor()) == [(30, 0), (31, 0)]
+    for aim in (25.0, 29.0, 33.0):
+        pos, warns = ctx.snap_item((1, 1, 1, LONG), (aim, 0.0))
+        assert pos[0] in (30, 31), f"aim {aim} -> {pos}"
+        assert warns == []
+
+
+def test_item_above_the_ceiling_stays_a_warning():
+    """The vertical rule is deliberately still soft. Y comes from the stack
+    underneath or the box the player clicked, never from the mouse, so it is
+    already bounded by what is below it; clamping it would drop items into the
+    box they were stacked on."""
+    ctx = PlacementContext(BOUND_GRIDS, [])
+    pos, warns = ctx.snap_item((1, 1, 1, LONG), (0.0, 0.0), y=9)
+    assert pos == (0, 9, 0)
+    assert W_TOO_TALL in warns
+
+
+def test_click_off_the_bay_lands_the_item_on_it(win):
+    """The click path (_place_target): with the pointer outside every grid it
+    falls back to unprojecting on the y=0 plane, which is the whole floor
+    plane, not the bay."""
+    _arm(win, POD)
+    _click(win, _vp(win, 9.0, 0, 11.0))
+    (item,) = win._renderer._items
+    assert _footprint_inside(item[:3], item[3:6], win._grids_world())
+
+
+def test_dragging_an_item_off_the_bay_keeps_it_on(win):
+    """The drag path (_drag_update): the mouse delta is unbounded."""
+    start = (2, 0, 3, 2, 2, 2, POD)
+    win._renderer._items = [start]
+    win._render_grid()
+    view, L, NB = win._view, Qt.LeftButton, Qt.NoButton
+    grab = _vp(win, 3, 2, 4)                       # top-face centre of the pod
+    _send(view, QEvent.MouseButtonPress, grab, L, L)
+    _send(view, QEvent.MouseMove, grab + QPoint(3, 3), NB, L)
+    _send(view, QEvent.MouseMove, _vp(win, 11.0, 2, 13.0), NB, L)
+    QtWidgets.QApplication.processEvents()
+    assert win._drag is not None and win._drag["active"]
+    pos = win._drag["result"][0]
+    assert _footprint_inside(pos, (2, 2, 2), win._grids_world())
+    _send(view, QEvent.MouseButtonRelease, _vp(win, 11.0, 2, 13.0), L, NB)
+    QTest.qWait(30)
+    QtWidgets.QApplication.processEvents()
+    (item,) = win._renderer._items
+    assert _footprint_inside(item[:3], item[3:6], win._grids_world())
