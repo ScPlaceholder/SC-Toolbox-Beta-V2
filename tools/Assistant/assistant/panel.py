@@ -164,6 +164,25 @@ class AssistantWindow(SCWindow):
         self._ears.transcript.connect(self._on_transcript)
         self._ears.needsInstall.connect(self._on_needs_install)
 
+        # ── listener penguin ─────────────────────────────────────────────
+        # Driven by speakingChanged, NOT listeningChanged: the latter says the MIC IS
+        # OPEN, which in "always" mode fires once at startup and never again, so he
+        # would fade in at launch and stand there for the rest of the session.
+        # Optional by construction — the Assistant already treats voice as optional and
+        # must not fail to open because an ornament is missing.
+        self._penguin = None
+        try:
+            from .listener_penguin import ListenerPenguin
+            self._penguin = ListenerPenguin(self)
+            if self._penguin.asset_ok():
+                self._ears.speakingChanged.connect(self._penguin.set_speaking)
+            else:
+                log.info("listener penguin idle: %s", self._penguin.degrade_reason())
+                self._penguin = None
+        except Exception as exc:                      # noqa: BLE001 - ornament, never fatal
+            log.info("listener penguin unavailable (%s: %s)", type(exc).__name__, exc)
+            self._penguin = None
+
         # ── chrome ───────────────────────────────────────────────────────
         tb = SCTitleBar(self, title="TOOLBOX ASSISTANT", icon_text="🤖",
                         accent_color=P.energy_cyan, show_minimize=True)
@@ -236,6 +255,9 @@ class AssistantWindow(SCWindow):
             f"color: {P.fg_bright}; font-family: Consolas; font-size: 10pt; "
             f"background: transparent; padding: 0 12px;")
         self.content_layout.addWidget(self._lbl_reply, 1)
+
+        if self._penguin is not None:
+            self.content_layout.addWidget(self._penguin, 0)
 
         # ── text input (for users without a mic) ───────────────────────
         input_row = QHBoxLayout()

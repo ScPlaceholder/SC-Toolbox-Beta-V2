@@ -291,6 +291,11 @@ class EarsController(QObject):
     """
 
     listeningChanged = Signal(bool)
+    #: True while the USER is audibly speaking, False when they stop. Distinct from
+    #: listeningChanged, which says the MIC IS OPEN — in "always" mode that fires once
+    #: at startup and never again, so anything driven off it would appear at launch and
+    #: stay there forever. This one tracks voice activity.
+    speakingChanged = Signal(bool)
     statusChanged = Signal(str)
     transcript = Signal(str)
     needsInstall = Signal(list)
@@ -330,6 +335,19 @@ class EarsController(QObject):
         self._gate = SpeechGate()
         self._echo = EchoFilter()
         self._deaf_blocks = 0
+        self._speaking = False
+        #: ⛔ A SECOND THRESHOLD, DELIBERATELY NOT THE TRANSCRIPTION ONE. J, 2026-09-27:
+        #:   "have the option for users to reduce the mic sensitivity to spawn him but it
+        #:    won't reduce the sensitivity to spawn the whisper".
+        #:   A player who finds the companion twitchy raises THIS, and the ears go on
+        #:   hearing exactly as well as before. `_VOICE_RMS` drives _voice_ms and therefore
+        #:   WHEN AN UTTERANCE IS CAPTURED; this drives only speakingChanged.
+        #: ⚠ Defaults EQUAL to _VOICE_RMS, so behaviour is unchanged until someone asks.
+        #:   Raising it can only make the indicator quieter — it can never deafen the mic,
+        #:   because nothing on the transcription path reads it. The test that matters is
+        #:   the one that raises it to a level no speech passes and asserts _finish() still
+        #:   fires on the same input.
+        self._show_rms = _VOICE_RMS
 
         self._tick = QTimer(self)
         self._tick.setInterval(100)
@@ -354,6 +372,28 @@ class EarsController(QObject):
 
     def set_mode(self, mode: str) -> None:
         self._mode = mode if mode in ("push", "toggle", "always") else "push"
+
+    def show_sensitivity(self) -> float:
+        """RMS above which the user counts as speaking FOR DISPLAY purposes."""
+        return self._show_rms
+
+    def set_show_sensitivity(self, rms: float) -> None:
+        """Raise to make a speech indicator less twitchy. Cannot affect hearing.
+
+        Clamped at _VOICE_RMS from below on purpose: lowering it beneath the
+        transcription threshold would light the indicator for sound the ears will never
+        act on, which is a worse lie than a twitchy penguin — it would show the player
+        "I heard that" for audio that produced no utterance.
+        """
+        self._show_rms = max(_VOICE_RMS, float(rms))
+
+    def _set_speaking(self, on: bool) -> None:
+        """Emit only on a CHANGE. A per-tick emit would fire 10x a second and make any
+        consumer's fade restart continuously."""
+        if bool(on) == self._speaking:
+            return
+        self._speaking = bool(on)
+        self.speakingChanged.emit(self._speaking)
 
     def set_model(self, name: str) -> None:
         self._model_name = name or "small.en"
@@ -584,6 +624,10 @@ class EarsController(QObject):
             self._voice_ms = 0
             self._quiet_ms = 0
             self._last_rms = 0.0
+            # The assistant is talking. Whatever the mic hears is ours, so the user is
+            # by definition not speaking — a companion that danced here would be dancing
+            # at my own voice, which is the bug the gate exists to stop, wearing a costume.
+            self._set_speaking(False)
             return
         if self._deaf_blocks:
             _log.info("ears: listening again (dropped %d block(s) of my own voice)",
@@ -598,6 +642,13 @@ class EarsController(QObject):
             self._quiet_ms = 0
         elif self._voice_ms >= _MIN_VOICE_MS:
             self._quiet_ms += 100
+        # Display only, and on its OWN threshold — see _show_rms. Nothing above this
+        # line reads it, which is what makes "less twitchy companion" unable to become
+        # "deafer ears".
+        if self._last_rms >= self._show_rms:
+            self._set_speaking(True)
+        elif self._quiet_ms >= _GAP_MS:
+            self._set_speaking(False)
         if self._mode == "push":
             # hold-to-talk: the release ends it, never a pause; 12 s cap
             # (wall clock: timer ticks drift late under load)
@@ -641,6 +692,7 @@ class EarsController(QObject):
                          type(exc).__name__, exc)
         self._stream = None
         self._recording = False
+        self._set_speaking(False)
         self.listeningChanged.emit(False)
 
     def _finish(self) -> None:
