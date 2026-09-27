@@ -144,8 +144,20 @@ STYLE = ("Soft-shaded stylised 3D render, glossy toy-like surfaces, rounded form
 
 MFR_FLAVOUR = {
     "BASE":     "",
-    "DRAKE":    "Drake Interplanetary: scrappy, industrial, worn edges, exposed fasteners, "
-                "orange and gunmetal, nothing precious.",
+    # ⛔ THIS SAID "orange and gunmetal" AND DRAKE IS BLACK AND INDUSTRIAL YELLOW.
+    #   J sent the target render 2026-09-27 (assets/reference/drake_penguin_target_2026-09-27.jpg)
+    #   after asking why my cap looked nothing like his example. I had built two theories about
+    #   RENDERING — that the prose was fighting the reference, then that the grit words were the
+    #   villain — spent two paid images testing them, and was wrong both times. The answer was a
+    #   plain fact about the COLOURWAY that I had invented and never checked against anything.
+    # ★ An orange leather cap and a black-and-yellow industrial one look completely different at
+    #   identical treatment. Most of the gap he was pointing at was colour, not style, and I went
+    #   looking in the hardest place first because that is where I had been working.
+    # ⚠ AND THE WEATHERING IS CORRECT. Scratched paint, worn edges, scuffed panels are all in his
+    #   target. "scrappy, worn edges" was never the problem; my second theory was as wrong as the
+    #   first, and I nearly deleted the one part of this line that was right.
+    "DRAKE":    "Drake Interplanetary: black and industrial yellow, scratched and scuffed paint, "
+                "worn edges, exposed fasteners and buckles, hazard striping, nothing precious.",
     "AEGIS":    "Aegis Dynamics: military, hard angles, matte olive and steel, painted hazard chevrons.",
     "ORIGIN":   "Origin Jumpworks: luxury, white and gold, seamless panels, polished.",
     "ANVIL":    "Anvil Aerospace: utilitarian military, olive drab, rivets, patch pockets.",
