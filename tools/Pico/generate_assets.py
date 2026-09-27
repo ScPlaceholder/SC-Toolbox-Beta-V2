@@ -103,8 +103,7 @@ def run(mode="stub", limit=None, out_dir=OUT, manifest_path=MANIFEST, verbose=Tr
             if mode == "stub":
                 stub_image(dest, a["kind"], mode=FORCED_REJECTS.get(a["slot"], "good"))
             else:
-                raise NotImplementedError(
-                    "real generation is not wired yet — the credential probe comes first")
+                real_image(dest, a["prompt"])
         except Exception as exc:  # noqa: BLE001
             errors.append("%s: %s: %s" % (a["path"], type(exc).__name__, exc))
             continue
@@ -131,6 +130,79 @@ def run(mode="stub", limit=None, out_dir=OUT, manifest_path=MANIFEST, verbose=Tr
         print("  because no art was generated.")
     return accepted, rejected, errors
 
+
+
+# ── the paid path ────────────────────────────────────────────────────────────────────────
+IMAGEGEN = r"C:/Users/prjgn/.codex/skills/.system/imagegen/scripts/image_gen.py"
+SECRETS = r"C:/Users/prjgn/AppData/Roaming/ShipBit/WingmanAI/2_0_0/configs/secrets.yaml"
+
+# ⛔⛔ THE MODEL IS PINNED AND THE REASON WOULD HAVE COST A WHOLE BATCH.
+#   image_gen.py's own guard, line ~194: "transparent backgrounds are not supported in gpt-image-2,
+#   the latest model. Use --model gpt-image-1.5 --background transparent --output-format png".
+#   gpt-image-2 is its DEFAULT. Every asset in this pipeline is an attachment that must have a real
+#   alpha cutout, and asset_validate rejects anything without one — so accepting the default would
+#   have generated 26 opaque images, failed all 26 on the `cutout` rule, and billed for every one.
+# ★ The dry run could never have caught this: the stub does not call the API. Reading the tool did.
+IMAGE_MODEL = "gpt-image-1.5"
+
+
+def _api_key(path=SECRETS):
+    """Read the OpenAI key out of WingmanAI's secrets. Returns the value; never logs it.
+
+    ⚠ Callers pass this into a subprocess ENV, not onto a command line. An API key in argv is
+      visible in the process table to anything that can list processes, and this house has a probe
+      that prints command lines.
+    """
+    import re
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        txt = fh.read()
+    m = re.search(r"^\s*openai\s*:\s*([^\s#]+)\s*$", txt, re.M | re.I)
+    if not m:
+        raise RuntimeError("no openai key found in secrets.yaml — refusing to call a paid API blind")
+    return m.group(1).strip().strip('"' + "'")
+
+
+def real_image(dest, prompt, model=IMAGE_MODEL, timeout=300):
+    """Generate ONE image. This bills. Raises on anything that is not a written PNG."""
+    import subprocess
+    import tempfile
+
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    env = dict(os.environ)
+    env["OPENAI_API_KEY"] = _api_key()
+    env["PYTHONIOENCODING"] = "utf-8"
+
+    fd, pf = tempfile.mkstemp(suffix=".txt", text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(prompt)
+        # ⚠ 'generate' IS A SUBCOMMAND AND OMITTING IT COST NOTHING ONLY BECAUSE I DRY-RAN FIRST.
+        #   image_gen.py's top-level parser takes {generate, generate-batch, edit}; every --flag I
+        #   read out of its add_argument calls belongs to the SUBPARSER. Without the verb it exits
+        #   'invalid choice: gpt-image-1.5' — so the wiring looked right and would have failed on
+        #   the first paid call. Reading argparse lines does not tell you which parser owns them.
+        cmd = [sys.executable, IMAGEGEN, "generate",
+               "--model", model,
+               "--prompt-file", pf,
+               "--background", "transparent",
+               "--output-format", "png",
+               "--size", "1024x1024",
+               "--no-augment",          # the manifest prompt is already fully specified
+               "--out", dest]
+        r = subprocess.run(cmd, env=env, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout)
+    finally:
+        try:
+            os.unlink(pf)
+        except OSError:
+            pass
+
+    if r.returncode != 0 or not os.path.exists(dest):
+        # ⚠ Surface the tool's OWN words. A generic "generation failed" would hide quota, moderation
+        #   and model-availability errors, which are three different decisions for a human.
+        tail = ((r.stderr or "") + (r.stdout or "")).strip().splitlines()
+        raise RuntimeError("image_gen rc=%s: %s" % (r.returncode, " | ".join(tail[-3:]) or "no output"))
+    return dest
 
 def _selftest():
     import tempfile
