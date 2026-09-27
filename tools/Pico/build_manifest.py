@@ -90,10 +90,33 @@ ALL_SKINS = ["BASE", "DRAKE", "RSI", "ANVIL", "AEGIS", "ORIGIN", "CRUSADER", "AR
 #   edge bleed — it PASSED. A structurally perfect asset with gibberish stamped across it, and no
 #   mechanical check in this pipeline will ever catch that. It is exactly why the plan was one image
 #   before twenty-six.
-NEGATIVES = ("No penguin. No head. No face. No body. No mannequin. No figure wearing it. "
+# ★ THIS LIST CAME FROM THE DESIGNER, NOT FROM ME, 2026-09-27. J pointed me at the ChatGPT
+#   conversation where the reference art was made and told me to ask what it actually used. Two
+#   things I would never have written myself:
+#     - the part list is ENUMERATED (skull, eyes, beak, hair, neck) rather than summarised. My
+#       "no head, no face" felt complete and was not; a generator that draws a beak has not drawn
+#       a "head" by any definition it is using.
+#     - "the inside or opening of the garment must be genuinely empty and transparent where the
+#       head would go". A hat whose interior is filled looks perfect in isolation and cannot be
+#       worn. No check I own measures the INSIDE of a shape.
+#   ⚠ And: a drawn checkerboard is not transparency. Worth saying in the prompt because the
+#     reference sheets are all rendered ON checkerboard, so the style examples actively invite it.
+#   ⚠ "No visor" specifically: from the same quality gate — "a hat containing even part of
+#     Pico's skull OR VISOR fails". My list covered head, face, body and mannequin and never
+#     named the visor, which is the one part of Pico that is ALWAYS present and therefore the
+#     part a generator is most likely to draw into a hat. The gap was invisible because my
+#     list LOOKED complete.
+NEGATIVES = (
+             "No penguin. No head. No skull. No face. No eyes. No beak. No visor. No hair. No neck. "
+             "No body. No other clothing. No mannequin. No figure wearing it. "
              "Nothing but the single item, floating, centred, on a fully transparent background. "
-             "No drop shadow. No ground plane. No background gradient of any kind. "
-             "NO TEXT, no letters, no words, no logos, no writing of any kind anywhere.")
+             "No drop shadow extending outside the object. No ground plane. No backdrop. "
+             "No background gradient of any kind. No border. NO CHECKERBOARD PATTERN — a drawn "
+             "checkerboard is not transparency. "
+             "NO TEXT, no letters, no words, no logos, no writing of any kind anywhere; "
+             "branding is composited separately from official logos. "
+             "The inside or opening of the garment must be genuinely empty and transparent where "
+             "the character's head or body would eventually go.")
 
 # ⛔⛔ THIS SAID "Flat vector game art, clean bold outlines" UNTIL 2026-09-27, AND IT WAS IN ALL
 #   26 PROMPTS. J's style sheet (assets/reference/pico_style_sheet_2026-09-27.jpg) shows Pico is

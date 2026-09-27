@@ -143,7 +143,14 @@ SECRETS = r"C:/Users/prjgn/AppData/Roaming/ShipBit/WingmanAI/2_0_0/configs/secre
 #   alpha cutout, and asset_validate rejects anything without one — so accepting the default would
 #   have generated 26 opaque images, failed all 26 on the `cutout` rule, and billed for every one.
 # ★ The dry run could never have caught this: the stub does not call the API. Reading the tool did.
-IMAGE_MODEL = "gpt-image-1.5"
+# ⚠⚠ gpt-image-1.5 IS DEPRECATED — shutdown scheduled 2026-12-01 (flagged by the designer
+#   2026-09-27). It is still the default here for ONE measured reason: image_gen.py refuses
+#   transparent backgrounds on gpt-image-2, and every asset in this pipeline needs real alpha.
+#   So the newer model is better at reference images and cannot do the one thing I require.
+# ⇒ Overridable rather than baked in, so the day gpt-image-2 (or its successor) supports
+#   transparency this is a flag and not a patch. PICO_IMAGE_MODEL wins if set.
+IMAGE_MODEL = os.environ.get("PICO_IMAGE_MODEL", "gpt-image-1.5")
+IMAGE_MODEL_SUNSET = "2026-12-01"   # gpt-image-1.5; re-evaluate before this date
 
 
 def _api_key(path=SECRETS):
