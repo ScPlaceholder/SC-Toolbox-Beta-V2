@@ -16,6 +16,7 @@ from dps_ui.constants import (
     CARD_EVEN, CARD_ODD, ROW_EVEN, ROW_ODD,
 )
 from shared.qt.theme import P
+from dps_ui.tooltips import tip_for
 
 
 class ComponentTable(QWidget):
@@ -34,7 +35,7 @@ class ComponentTable(QWidget):
     _EMPTY_BG = CARD_ODD
 
     def __init__(self, parent, columns, items, on_select, *,
-                 current_ref="", type_color=ACCENT, max_rows=6):
+                 current_ref="", type_color=ACCENT, max_rows=6, tip_ns=""):
         super().__init__(parent)
         self._cols      = columns
         self._items     = list(items)
@@ -43,6 +44,16 @@ class ComponentTable(QWidget):
         self._type_col  = type_color
         self._max_rows  = max_rows
         self._sel_item  = None
+        # ⚠ `tip_ns` ("weapon", "shield", "cooler", ...) exists ONLY so a column can be identified
+        #   for help text. A field key is NOT unique across tables — "name" appears in nearly every
+        #   *_TABLE_COLS spec, and shield "hp" and weapon "wp_hp" are deliberately different things
+        #   — so a lookup keyed on the field alone would answer the wrong table's question and look
+        #   right doing it. It is deliberately NOT keyed on the visible header either, which is a
+        #   `_()` translation lookup: that would stop matching the day anyone ships a localisation,
+        #   silently, with no error and no missing tooltip to notice.
+        #   ⚠ The caller derives it from the column SPEC, not from `section_key` — see
+        #     app.py `_COLS_NAMESPACE` for why that distinction is load-bearing.
+        self._tip_ns = tip_ns
 
         if current_ref:
             for it in self._items:
@@ -127,6 +138,9 @@ class ComponentTable(QWidget):
                     f"color: {fg_c}; font-family: Consolas; font-size: 8pt; "
                     f"padding: 0 2px; background: transparent;"
                 )
+                hint = tip_for(self._tip_ns, key)
+                if hint:
+                    lbl.setToolTip(hint)
                 row_lay.addWidget(lbl)
                 self._stat_labels[key] = lbl  # track for in-place updates
         else:
@@ -174,7 +188,7 @@ class ComponentTable(QWidget):
         popup = ComponentPickerPopup(
             self.window(), self, self._items, self._cols,
             self._sel_item.get("name", "") if self._sel_item else "",
-            self._on_picked,
+            self._on_picked, tip_ns=self._tip_ns,
         )
         popup.exec()
 
@@ -226,13 +240,15 @@ class ComponentPickerPopup(QDialog):
     """Erkul-style component picker: table with filter + leave-empty."""
 
     def __init__(self, parent_window, anchor_widget, items, columns,
-                 current_name, on_select):
+                 current_name, on_select, *, tip_ns=""):
         super().__init__(parent_window)
         self._items = list(items)
         self._columns = columns
         self._on_select = on_select
         self._cur_name = current_name
         self._result_item = None
+        #: Which table's columns these are, so a header can be explained. See ComponentTable.
+        self._tip_ns = tip_ns
 
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         self.setStyleSheet(f"""
@@ -359,6 +375,17 @@ class ComponentPickerPopup(QDialog):
         self._model.clear()
         headers = [_("Sz")] + [h for h, *_ in self._columns] + ["\U0001f6d2"]
         self._model.setHorizontalHeaderLabels(headers)
+
+        # ── Column help, the thing issue #7 actually asked for ────────────────
+        # "These columns lack descriptions to understand what they refer to."
+        # ⚠ The field order here must mirror `headers` above: Sz, then one per column, then the
+        #   cart glyph. `table.size` and `table.cart` are pseudo-columns with no field key of
+        #   their own, which is why they are named as literals rather than read off a spec.
+        for i, field in enumerate(["size"] + [k for _h, k, *_r in self._columns] + ["cart"]):
+            hint = tip_for(self._tip_ns, field)
+            item = self._model.horizontalHeaderItem(i)
+            if hint and item is not None:
+                item.setToolTip(hint)
 
         for item in self._items:
             row_items = []

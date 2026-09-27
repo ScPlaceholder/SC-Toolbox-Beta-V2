@@ -51,6 +51,7 @@ from dps_ui.constants import (
 )
 from dps_ui.helpers import _port_label, group_short, pct, _fy_slug, _fy_hp_group, fmt_sig
 from dps_ui.widgets import ComponentTable, ComponentPickerPopup, _picker_btn
+from dps_ui.tooltips import tip_for
 from dps_ui.power_widget import PowerAllocatorWidget as PowerAllocator
 from data.repository import ComponentRepository
 from data.source import ATTRIBUTION, erkul_network_allowed
@@ -68,6 +69,51 @@ from services.loadout_aggregator import (
 )
 
 _log = logging.getLogger(__name__)
+
+
+#: Which column spec belongs to which `dps_ui.tooltips` namespace, matched BY OBJECT IDENTITY.
+#:
+#: ⛔ THE OBVIOUS KEY — `section_key` — IS THE WRONG ONE, AND IT LOOKS RIGHT. `section_key` names
+#:   the SELECTION BUCKET a choice is stored under, not the kind of table being drawn. Coolers and
+#:   radars are BOTH "components"; shields are "defenses"; power plants are "components" too. So a
+#:   namespace derived from it would hand a radar the cooler's help text and still resolve, print
+#:   and look plausible. The spec object is the only thing on this call path that actually
+#:   identifies the table.
+#: ⚠ IDENTITY (`is`), NOT EQUALITY. These are lists of tuples holding lambdas; `==` on two of them
+#:   compares element by element and would be both slower and capable of a false match between two
+#:   specs that happen to share a prefix. There is exactly one live instance of each constant.
+#: ⚠ A spec NOT in this table yields "" and every column in it silently gets no tooltip — a quiet
+#:   degradation, chosen over raising, because a missing hint must never break a table build.
+#:   `test_tooltip_wiring.py` is what stops that silence from being invisible: it asserts every
+#:   spec `_build_table_slot` is actually called with appears here.
+_COLS_NAMESPACE = (
+    (WEAPON_TABLE_COLS,        "weapon"),
+    (MISSILE_TABLE_COLS,       "missile"),
+    (MISSILE_RACK_TABLE_COLS,  "missile_rack"),
+    (SHIELD_TABLE_COLS,        "shield"),
+    (COOLER_TABLE_COLS,        "cooler"),
+    (RADAR_TABLE_COLS,         "radar"),
+    (PP_COLS,                  "powerplant"),
+    (QD_COLS,                  "qdrive"),
+    (MOUNT_TABLE_COLS,         "mount"),
+    (EMP_TABLE_COLS,           "emp"),
+    (QED_TABLE_COLS,           "qed"),
+    (BOMB_TABLE_COLS,          "bomb"),
+    (MINING_LASER_TABLE_COLS,  "mining_laser"),
+    (TOOL_ARM_TABLE_COLS,      "tool_arm"),
+    (SALVAGE_HEAD_TABLE_COLS,  "salvage_head"),
+    (ORE_POD_TABLE_COLS,       "ore_pod"),
+    (FUEL_TANK_TABLE_COLS,     "fuel_tank"),
+    (ERKUL_MODULE_TABLE_COLS,  "module"),
+)
+
+
+def _cols_namespace(cols) -> str:
+    """-> the tooltips namespace for a column spec, or "" if it has none."""
+    for spec, ns in _COLS_NAMESPACE:
+        if cols is spec:
+            return ns
+    return ""
 
 
 class _CallbackProxy(QObject):
@@ -458,6 +504,14 @@ class DpsCalcApp(SCWindow):
                 f"color: {color}; font-family: Consolas; font-size: 9pt; "
                 f"font-weight: bold; background: transparent;"
             )
+            # \u26a0 The hint goes on BOTH the caption and the value. Qt shows a tooltip for the widget
+            #   under the pointer, and these are two separate QLabels sitting side by side \u2014 put it
+            #   on one only and the hint appears or does not depending on which half of "DPS: 4,210"
+            #   the pointer happens to be over, which reads as a flickering bug rather than a hint.
+            hint = tip_for("footer", key)
+            if hint:
+                lbl.setToolTip(hint)
+                val_lbl.setToolTip(hint)
             foot_lay.addWidget(val_lbl)
             foot_lay.addSpacing(8)
             self._footer_labels[key] = val_lbl
@@ -963,7 +1017,7 @@ class DpsCalcApp(SCWindow):
 
         tbl = ComponentTable(tbl_container, table_cols, items, _on_sel,
                              current_ref=stock_ref, type_color=type_color,
-                             max_rows=6)
+                             max_rows=6, tip_ns=_cols_namespace(table_cols))
         tbl_lay.addWidget(tbl)
         parent_layout.insertWidget(parent_layout.count() - 1, tbl_container)
 
