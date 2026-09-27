@@ -72,7 +72,11 @@ SLOT_KIND = {
 # Manufacturers, in the order the contract's gate names them. BASE is not a manufacturer; it is
 # the penguin, and every wardrobe hangs on it.
 GATE_SKINS = ["BASE", "DRAKE"]
-ALL_SKINS = ["BASE", "DRAKE", "AEGIS", "ORIGIN", "ANVIL", "MISC", "CRUSADER", "RSI", "ARGO"]
+# The full roster from J's style sheet, which lists 14 manufacturers. I had 9 and had invented
+# the list from memory of Star Citizen rather than reading his sheet; MIRAI, NAUTILUS, TUMBRIL,
+# GATAC, ESPERIA and BANU were simply missing.
+ALL_SKINS = ["BASE", "DRAKE", "RSI", "ANVIL", "AEGIS", "ORIGIN", "CRUSADER", "ARGO",
+             "MISC", "MIRAI", "NAUTILUS", "TUMBRIL", "GATAC", "ESPERIA", "BANU"]
 
 # ⛔ NEGATIVES ARE NOT DECORATION. J's pipeline notes fight one specific failure: the generator
 #   drawing the whole character instead of the one part. asset_validate.py's coverage rule catches
@@ -91,8 +95,17 @@ NEGATIVES = ("No penguin. No head. No face. No body. No mannequin. No figure wea
              "No drop shadow. No ground plane. No background gradient of any kind. "
              "NO TEXT, no letters, no words, no logos, no writing of any kind anywhere.")
 
-STYLE = ("Flat vector game art, clean bold outlines, saturated but slightly desaturated sci-fi "
-         "palette, readable at small size, consistent lighting from upper left.")
+# ⛔⛔ THIS SAID "Flat vector game art, clean bold outlines" UNTIL 2026-09-27, AND IT WAS IN ALL
+#   26 PROMPTS. J's style sheet (assets/reference/pico_style_sheet_2026-09-27.jpg) shows Pico is
+#   nothing of the kind: a soft-shaded 3D render, glossy, toy-like, with rounded forms and gentle
+#   specular highlights. I invented a house style and shipped it into every prompt, and the first
+#   real image came back in the wrong medium entirely.
+# ★ NO CHECK I OWN COULD HAVE CAUGHT THAT. asset_validate measures alpha, coverage, edges and
+#   dimensions — all of which a flawlessly-executed wrong-style asset passes. Style is a reference
+#   image and a human, which is what the sheet now supplies.
+STYLE = ("Soft-shaded stylised 3D render, glossy toy-like surfaces, rounded forms, gentle specular "
+         "highlights, clean studio lighting from upper left, saturated sci-fi palette, readable at "
+         "small size. Matches a collectible-figure look, NOT flat vector and NOT cel-shaded.")
 
 MFR_FLAVOUR = {
     "BASE":     "",
@@ -114,7 +127,10 @@ PART_PROMPT = {
     "jacket": "a {mfr_short} jacket piece ({part}) sized to fit a small round penguin torso",
     "sleeve": "a single {mfr_short} jacket {part} sized for a short penguin flipper",
     "belt": "a {mfr_short} utility belt with pouches, sized for a small round penguin waist",
-    "headwear": "a {mfr_short} {part} sized to sit on a small penguin head",
+    # ⚠ A CAP, NOT A HELMET. I generated DRAKE headwear as a combat helmet; the style sheet shows
+    #   a soft peaked CAP worn over a jacket. The manufacturer skins are CLOTHING, not armour, and
+    #   the slot name "headwear" was generic enough to let me pick the wrong garment entirely.
+    "headwear": "a soft peaked {mfr_short} cap sized to sit on a small penguin head",
     "prop": "a {mfr_short} handheld {part} prop, sized for a small penguin to hold",
     "fx": "a soft {part} element",
 }
