@@ -68,6 +68,20 @@ def lerp_pose(a, b, t):
     return out
 
 
+#: ★ HELD PROPS. J picked the size himself off a rendered ladder (38 / 55 / 75 / 95% of belly width):
+#:   "I think 55% is good." Recorded as a constant because a number that lives only in a Telegram
+#:   message is a number the next session re-guesses.
+#: ⚠ GRIP, NOT CENTRE. A prop is placed by a point ON THE OBJECT — where a hand would hold it —
+#:   exactly as every body part is placed by its pivot. My first prop test centred the art on the
+#:   hand bone and half of it hung into empty space; I nearly filed that as a rig fault. The bone
+#:   was fine (hand_R sits on real flipper artwork, alpha 253, 37 px from the tip). "Where is this
+#:   held" is a property of the object and cannot be guessed from its bounding box.
+#: ⚠⚠ STILL UNSOLVED: the prop is TOUCHED, not GRASPED. A convincing hold needs part of the flipper
+#:   drawn IN FRONT of the prop, and one rigid flipper at one z cannot be both behind and in front
+#:   of the same object. Astra flagged the identical shape for the hat. Needs split art, not code.
+PROP_SCALE = 0.55          # fraction of the belly's width, J's call 2026-09-27
+PROP_GRIP = (0.50, 0.88)   # default: near the bottom edge. Per-prop overrides belong in a table.
+
 #: ★ THE EXPRESSION SET, READ BY EYE off the designer's visor sheet (20 pieces, out/sliced/VISOR).
 #: J, 2026-09-27: "You can achieve cheap expression animation by flipping the visor to another
 #: visor and holding it for a few seconds before flipping back." He is right and it is the only
