@@ -68,6 +68,56 @@ HOOKS = {
     # bdl_tracker.py (an ESTIMATE from med pen use): too many stims worries the suit; the load coming down relieves it
     "bdl_warning":             {"elah": [("fear", 0.3)], "montaigne": [("fear", 0.1)]},
     "bdl_clear":               {"elah": [("relief", 0.3)]},
+
+    # ---- added 2026-09-28, from a measured survey of 25 logs / 250,914 lines / 4,104 events ----
+    # J greenlit these: "let's work on adding those and coming up with animations for everything
+    # except lifts." Amounts are scaled DOWN for high-frequency events so a common beat cannot
+    # dominate the mix; a rare event can afford to hit harder.
+
+    # 447 occurrences, the 2nd most common event in the corpus, and it is a FAILURE: a quantum
+    # drive that will not spool ("Failed to get starmap route data", or a route "obstructed").
+    # It is also the first thing ever to reach `irritation`, which had a half-life and a face
+    # and NO producer, so the suit was structurally incapable of looking annoyed until now.
+    "qt_error":                {"elah": [("irritation", 0.35)], "montaigne": [("irritation", 0.25)]},
+
+    # Closes an asymmetry: objective_new had curiosity and the two ENDINGS had nothing, so the
+    # face brightened when work appeared and went blank when it was finished.
+    "objective_complete":      {"elah": [("pride", 0.2)], "montaigne": [("joy", 0.15)]},
+    "objective_withdrawn":     {"elah": [("irritation", 0.15)], "montaigne": [("grief", 0.1)]},
+
+    # 195 each and almost certainly paired, so these are kept SMALL to avoid a flapping face.
+    # Direction is taken from the parser's own data["monitored"] flag, not from the names:
+    # restored -> True, down -> False. Mirrors exited/entered_monitored_space.
+    "monitored_space_down":    {"elah": [("fear", 0.15)], "montaigne": [("fear", 0.2)]},
+    "monitored_space_restored":{"elah": [("relief", 0.15)], "montaigne": [("relief", 0.2)]},
+
+    # "Hangar Request Completed" — pure anticipation, the moment before a flight.
+    "hangar_ready":            {"elah": [("curiosity", 0.25)], "montaigne": [("curiosity", 0.2)]},
+
+    # The bookends. Montaigne mourns an ending; Elah just says goodbye.
+    "session_start":           {"elah": [("warmth", 0.4)], "montaigne": [("warmth", 0.5)]},
+    "session_end":             {"elah": [("warmth", 0.3)], "montaigne": [("grief", 0.2)]},
+
+    # Small arrival/departure beats.
+    "docking_ready":           {"elah": [("relief", 0.15)], "montaigne": [("relief", 0.2)]},
+    "docking_detached":        {"elah": [("curiosity", 0.1)], "montaigne": [("curiosity", 0.15)]},
+
+    # The CARGO/SHIP platform of a freight run, NOT a personal lift — those are a separate and
+    # still-open question. The parser already discards the OpenIdle/ClosedIdle streaming spam, so
+    # every one of these is a real move. 226 occurrences, so the amount is deliberately tiny.
+    "platform_moving":         {"elah": [("curiosity", 0.1)], "montaigne": [("curiosity", 0.1)]},
+
+    # ---- DELIBERATELY NOT MAPPED, so nobody "closes the gap" later ----------------------------
+    # emergency_services (22): event_parser.py:194 DERIVES `incapacitated` from this same line
+    # when it contains "en route", and incapacitated already carries fear 0.8. Giving this one a
+    # feeling too would add two increments for ONE moment. The feeling belongs on the derived
+    # event, which has it.
+    #   ⚠ UNRESOLVED: only 10 incapacitated were emitted against 22 emergency_services, so ~12
+    #   are some other emergency notice that never became a death. Those may deserve their own
+    #   feeling, but I cannot say what they are without reading them. Left alone rather than
+    #   guessed at.
+    # weapon_holstered (926), channel_change (332), armistice_zone (425), jurisdiction_change (88):
+    # ambient state, not moments. A face that twitched at each would be noise.
 }
 # Follow-up lines that are still ABOUT an event (ambient_spec scenarios), so appraisal() can find their feeling.
 EVENT_OF_SCENARIO = {"injury_followup": "injury", "regen_followup": "player_respawned",
