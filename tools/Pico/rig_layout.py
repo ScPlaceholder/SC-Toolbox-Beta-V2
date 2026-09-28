@@ -308,6 +308,13 @@ def build(parts_dir, canvas=None):
         s["pivot"] = list(PIVOT.get(n, (0.5, 0.5)))
         s["offset"] = [round(px - B[bone][0], 2), round(py - B[bone][1], 2)]
     sk["scale"] = round(scale, 6)
+    # ⛔ DECLARE THE CANVAS WE ACTUALLY LAID OUT ON. build() accepted a `canvas` override, computed
+    #    every coordinate against it, then handed back a skeleton still declaring the REFERENCE
+    #    size — ask for 1024x1024 and get a file that says 2048x2048, so every consumer frames it
+    #    wrongly. Found by a reviewer, reproduced before fixing. A parameter that changes the maths
+    #    and not the record is worse than one that is ignored outright: the output looks authoritative.
+    sk["canvas"] = dict(sk.get("canvas") or {})
+    sk["canvas"]["width"], sk["canvas"]["height"] = cw, ch
     sk["coordinate_note"] = (
         "DERIVED by rig_layout.py from the art in the parts directory. Every bone position is "
         "computed, none typed. Body relationships MEASURED from body_front_composite.png; head "
@@ -323,6 +330,51 @@ def rot(px, py, ox, oy, deg):
     c, s = math.cos(r), math.sin(r)
     dx, dy = px - ox, py - oy
     return ox + dx * c - dy * s, oy + dx * s + dy * c
+
+
+def compose(bones, angles):
+    """Every bone's posed position and accumulated rotation. Returns name -> {x, y, acc}.
+
+        posed_child = posed_parent + R(parent_acc) · (rest_child − rest_parent)
+
+    ⛔ THE DELTA IS BETWEEN THE TWO **REST** POSITIONS. Writing it against the parent's POSED
+      position subtracts two different coordinate frames from each other — correct only for the
+      first rotated bone in a chain, with the error compounding down every level below it. That was
+      a live bug; rotating `root`, which is a RIGID rotation and cannot change which parts touch,
+      produced SEVEN separate pieces and +32% opaque area.
+
+    ★ IT LIVES HERE, NOT IN pose.py, FOR THE REASON render_part() DOES. A reviewer found that
+      check_rest() validated at a flat 0.0 while pose.py composed the hierarchy, so a skeleton
+      carrying a 30° REST rotation on the head passed validation and then rendered 86 px away.
+      Reproduced before fixing: ok=True, head_base at (708,242) against (696,328). Two composers
+      meant the validator and the renderer disagreed about what "rest" is — the exact class of
+      defect this module was created to end, reappearing one level up in the thing that checks it.
+    """
+    posed, seen = {}, set()
+
+    def resolve(name):
+        if name in seen:
+            return posed[name]
+        seen.add(name)
+        b = bones[name]
+        rx, ry, own = float(b["x"]), float(b["y"]), float(b.get("rotation", 0))
+        parent = b.get("parent")
+        if parent and parent in bones:
+            pp = resolve(parent)
+            pb = bones[parent]
+            dx, dy = rx - float(pb["x"]), ry - float(pb["y"])
+            rdx, rdy = rot(dx, dy, 0.0, 0.0, pp["acc"])
+            px, py = pp["x"] + rdx, pp["y"] + rdy
+            acc = pp["acc"] + own + angles.get(name, 0)
+        else:
+            px, py = rx, ry
+            acc = own + angles.get(name, 0)
+        posed[name] = {"x": px, "y": py, "acc": acc}
+        return posed[name]
+
+    for n in bones:
+        resolve(n)
+    return posed
 
 
 def render_part(part_im, scale, pivot, bone_xy, offset, angle):
@@ -405,20 +457,37 @@ def check_rest(parts_dir, canvas=None, tol=1.0, skeleton=None):
         sk, geom, _scale = build(parts_dir, canvas)
     bones = {b["name"]: b for b in sk["bones"]}
     parts = load_parts(parts_dir)
+    # ★ COMPOSE THE REST HIERARCHY instead of assuming zero. A bone may carry its OWN `rotation`,
+    #   and pose.py honours it — so validating at a flat 0.0 was validating a different rig than
+    #   the one that renders. Reproduced: a skeleton with head rotation 30 passed, then rendered
+    #   86 px away.
+    posed = compose(bones, {})
     rows, ok = [], True
+    seen_parts = set()
     for s in sk["slots"]:
         n = s.get("name")
         if n not in geom or "offset" not in s or n not in parts:
             continue
-        b = bones[s["bone"]]
+        p = posed[s["bone"]]
         im, (left, top) = render_part(parts[n], _scale * s["scale"], s["pivot"],
-                                      (b["x"], b["y"]), s["offset"], 0.0)
+                                      (p["x"], p["y"]), s["offset"], p["acc"])
         gx, gy, gw, gh = geom[n]
         dx, dy = left - gx, top - gy
         dw, dh = im.width - gw, im.height - gh
         good = max(abs(dx), abs(dy), abs(dw), abs(dh)) <= tol
         ok = ok and good
+        seen_parts.add(n)
         rows.append((n, s["bone"], dx, dy, dw, dh, good))
+    # ⛔ COVERAGE, NOT JUST CORRECTNESS. The loop above `continue`s past any slot lacking an offset,
+    #   so deleting the beak's offset left check_rest returning True over EIGHT rows instead of
+    #   nine — while pose.py, reading the same file, silently dropped the beak from the render. A
+    #   validator that reports PASS on a rig missing a part is worse than no validator: it certifies
+    #   the absence. Found by a reviewer; I had written the skipping `continue` myself and never
+    #   asked what it was skipping. [[a-silent-decision-passes-a-correctness-review]]
+    missing = [n for n in REQUIRED if n in parts and n not in seen_parts]
+    for n in missing:
+        ok = False
+        rows.append((n, "(none)", 0, 0, 0, 0, False))
     return ok, rows
 
 

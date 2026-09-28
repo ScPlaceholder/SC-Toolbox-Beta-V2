@@ -62,52 +62,14 @@ POSES = {
 }
 
 
-def compose(bones, angles):
-    """Every bone's posed position and accumulated rotation. Returns name -> {x, y, acc}.
-
-    posed_child = posed_parent + R(parent_acc) · (rest_child − rest_parent)
-
-    ⛔⛔ THE DELTA IS BETWEEN THE TWO **REST** POSITIONS, AND GETTING THAT WRONG IS THE BUG THE
-      COHESION CHECK CAUGHT. My first version wrote `rot(rest_child, posed_parent, parent_acc)`,
-      which expands to posed_parent + R(·)(rest_child − POSED_parent) — the child's rest coordinate
-      measured against the parent's *moved* coordinate. Two different frames subtracted from each
-      other. It is correct only while posed_parent == rest_parent, i.e. for the first rotated bone in
-      a chain, and the error then compounds down every level below it.
-    ★ HOW IT SURFACED, because I would never have found it by reading: rotating `root` is a RIGID
-      rotation of the whole character, so it cannot possibly change which parts touch. It produced
-      SEVEN separate pieces and 965k opaque px against rest's 732k — parts had stopped overlapping.
-      An impossible result from a pose with one angle in it.
-    ★★ AND IT HIDES FROM EVERY TEST I HAD. Single-limb poses (wave, look_left) drive a LEAF whose
-      children carry no art, so posed == rest for everything visible and they render perfectly. I
-      had verified `wave` by arithmetic and told J the hierarchy was "the part that actually worked"
-      — the angles WERE right; the positions were wrong, and no angle check can see that.
-      [[a-correct-rule-can-guard-a-branch-nothing-takes]]
-    """
-    posed, seen = {}, set()
-
-    def resolve(name):
-        if name in seen:
-            return posed[name]
-        seen.add(name)
-        b = bones[name]
-        rx, ry, own = float(b["x"]), float(b["y"]), float(b.get("rotation", 0))
-        parent = b.get("parent")
-        if parent and parent in bones:
-            pp = resolve(parent)
-            pb = bones[parent]
-            dx, dy = rx - float(pb["x"]), ry - float(pb["y"])
-            rdx, rdy = RL.rot(dx, dy, 0.0, 0.0, pp["acc"])
-            px, py = pp["x"] + rdx, pp["y"] + rdy
-            acc = pp["acc"] + own + angles.get(name, 0)
-        else:
-            px, py = rx, ry
-            acc = own + angles.get(name, 0)
-        posed[name] = {"x": px, "y": py, "acc": acc}
-        return posed[name]
-
-    for n in bones:
-        resolve(n)
-    return posed
+#: ★ ONE HIERARCHY COMPOSER, and it lives in rig_layout beside the one placement function.
+#: A reviewer showed the cost of having two: check_rest validated at a flat 0.0 while this file
+#: composed the bones, so a skeleton carrying a 30 deg REST rotation passed validation and then
+#: rendered 86 px away. The validator and the renderer must not hold separate opinions about what
+#: "rest" means — that is the whole defect this rig was rebuilt to remove.
+#: ⚠ Kept as a module-level name rather than called through RL so pose.selftest can substitute the
+#:   known-bad version and prove the rigid invariant still catches it.
+compose = RL.compose
 
 
 def render(parts_dir, skeleton, angles, guides=False, pad=0, art=None):
