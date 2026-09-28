@@ -206,6 +206,27 @@ def derive_bones(geom):
     put("spine_upper", (bx, sh_y), "DERIVED", "belly centre-line at the shoulder height the flippers set")
     put("spine_lower", (bx, hip_y), "DERIVED", "belly centre-line at the hip height the feet set")
 
+    # ⛔⛔ `body` IS MOVED TO THE HIPS, AND THIS IS THE ONE PLACE A BONE IS NOT ITS PART'S PIVOT.
+    #    J, 2026-09-27, on the dance clip: "it still looks like it's being hung by his head". He was
+    #    describing the rig exactly. Astra's belly pivot is (0.50, 0.05) — top-centre — which lands
+    #    the body bone 5% down the belly, level with the neck. Everything hangs off `body`, hips and
+    #    feet included, so a dance rotating `body` swung the entire lower half about a point under
+    #    the chin. Not a timing problem and not a bad angle: a correct rotation about a point no
+    #    torso ever hinges at.
+    # ★ THE DISTINCTION THE RIG WAS MISSING: where a part ATTACHES and where it ROTATES are two
+    #   different questions, and most rigs get away with one bone because the answers coincide. For
+    #   a belly they do not — it attaches at the neck and it pivots at the hips.
+    # ⇒ The offset machinery already handles this and was built for exactly this shape: a part's
+    #   pivot lands at bone + offset, so moving `body` to the hip line leaves the belly rendering in
+    #   precisely the same place (verify_rest still passes to the pixel) while changing what it
+    #   turns around. No art moved. Nothing was re-tuned. One coordinate.
+    # ⚠ hip_L/hip_R/foot_* are children of `body` and sit AT the hip line, so they now barely move
+    #   when the torso sways — which is what "feet planted" means and why the dance reads as weight
+    #   shifting rather than swinging.
+    put("body", (bx, hip_y), "DERIVED",
+        "hip line — the belly ATTACHES at its top but ROTATES at the hips; belly's offset carries "
+        "the art back up, so placement is unchanged and only the pivot moves")
+
     put("neck", B["head"][:2], "DERIVED",
         "COLLAPSED onto head: a rigid head PNG has one joint, and that joint is where it meets the body")
     for s in ("L", "R"):

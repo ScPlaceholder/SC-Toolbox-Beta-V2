@@ -110,7 +110,7 @@ def compose(bones, angles):
     return posed
 
 
-def render(parts_dir, skeleton, angles, guides=False, pad=0):
+def render(parts_dir, skeleton, angles, guides=False, pad=0, art=None):
     """Draw one pose. Returns (image, placed_rows).
 
     ⚠ `pad` widens the working canvas by that many pixels on every side and shifts everything into
@@ -131,6 +131,18 @@ def render(parts_dir, skeleton, angles, guides=False, pad=0):
                          % ", ".join(sorted(unknown)))
     posed = compose(bones, angles)
     parts = RL.load_parts(parts_dir)
+    if art:
+        # ★ ART SWAP, J's idea 2026-09-27: "cheap expression animation by flipping the visor to
+        #   another visor and holding it for a few seconds before flipping back." Swapping the IMAGE
+        #   in a slot costs nothing and buys a whole emotional range a rotation cannot reach — this
+        #   rig has no facial deformation and never will, so expression has to come from the art.
+        # ⚠ The replacement is placed by the SAME pivot fraction and the SAME scale as the original.
+        #   That is correct only while the alternates are drawn on a consistent footprint; if one
+        #   visor is cropped differently it will sit wrong, and the giveaway is a face that shifts
+        #   when the expression changes rather than when the head moves.
+        for slot_name, im in art.items():
+            if im is not None:
+                parts[slot_name] = im
     scale = sk.get("scale")
     if not scale:
         raise SystemExit("REFUSING: skeleton carries no `scale`. It was not written by rig_layout, "
