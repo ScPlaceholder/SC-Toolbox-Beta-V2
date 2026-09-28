@@ -335,3 +335,75 @@ def test_every_default_mood_is_constructible_and_bindable():
             out = f.bind(pair)
             assert set(out) <= set(FACE_SLOTS)
             assert out["visor"][0] in BASE_VISOR_ART.values()
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# THE AFFECT BRIDGE: three states, and the two that look alike must not collapse
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# SuitMk2's CompanionAffect.dominant() returns (None, 0.0) for BOTH "no record for this
+# speaker" AND "every emotion decayed to zero" — unknown and calm, one return value. For a
+# face that is flat dashes versus a smile, so mood_for() takes `feed_live` keyword-only with
+# NO DEFAULT: the caller must answer it and cannot answer it by accident.
+
+from pico.face import COMPANION_MOOD_FLOOR, EMOTION_TO_MOOD, mood_for  # noqa: E402
+
+
+def test_no_feed_is_unknown_not_calm():
+    """The case dominant() cannot express. None here means the UNKNOWN face."""
+    assert mood_for(None, 0.0, feed_live=False) is None
+    assert mood_for("fear", 0.9, feed_live=False) is None, (
+        "a dead feed must win over whatever stale emotion was last seen"
+    )
+
+
+def test_live_feed_with_no_emotion_is_calm_not_unknown():
+    """Known and unremarkable. Distinct from the test above, which is the entire point."""
+    assert mood_for(None, 0.0, feed_live=True) == "calm"
+    assert mood_for(None, COMPANION_MOOD_FLOOR - 0.01, feed_live=True) == "calm"
+
+
+def test_the_two_indistinguishable_states_give_different_faces():
+    """The regression that matters: if these ever agree, the collapse has been reintroduced."""
+    unknown = mood_for(None, 0.0, feed_live=False)
+    calm = mood_for(None, 0.0, feed_live=True)
+    assert unknown != calm, (
+        "no-feed and nothing-felt produced the same answer from IDENTICAL arguments — "
+        "that is dominant()'s ambiguity leaking through the bridge it was written to stop"
+    )
+
+
+def test_feed_live_has_no_default():
+    """It must be impossible to forget the question. A default would let it through."""
+    with pytest.raises(TypeError):
+        mood_for(None, 0.0)          # type: ignore[call-arg]
+
+
+def test_intensity_bands_between_moods():
+    hi = mood_for("fear", 0.9, feed_live=True)
+    lo = mood_for("fear", 0.1, feed_live=True)
+    assert hi == "startled" and lo == "hurt", (hi, lo)
+    assert hi != lo, "banding did nothing — intensity is not selecting"
+
+
+def test_unmapped_emotion_raises_rather_than_defaulting_to_calm():
+    with pytest.raises(FaceError):
+        mood_for("smugness", 0.9, feed_live=True)
+
+
+def test_every_mapped_mood_actually_exists():
+    """A table naming a mood the chooser lacks fails at runtime, on a real event, later."""
+    f = build()
+    for emotion, bands in EMOTION_TO_MOOD.items():
+        for _thr, mood in bands:
+            assert mood in f.moods, "%s -> %r, which is not a mood" % (emotion, mood)
+
+
+def test_every_companion_emotion_is_mapped():
+    """The nine emotions in SuitMk2's EMOTIONS. Restated, not imported — Pico must not
+    depend on another tool's internals. If upstream adds a tenth, mood_for RAISES on it
+    (tested above) rather than showing a contented face, and this list going stale is the
+    known cost of not coupling the trees."""
+    upstream = {"fear", "relief", "pride", "joy", "curiosity",
+                "boredom", "irritation", "warmth", "grief"}
+    missing = sorted(upstream - set(EMOTION_TO_MOOD))
+    assert not missing, "unmapped companion emotion(s): %s" % missing

@@ -91,6 +91,9 @@ __all__ = [
     "UNKNOWN_VISOR",
     "UNKNOWN_PAIR",
     "FACE_SLOTS",
+    "EMOTION_TO_MOOD",
+    "COMPANION_MOOD_FLOOR",
+    "mood_for",
 ]
 
 
@@ -188,6 +191,10 @@ DEFAULT_MOODS: Mapping[str, Mood] = {
                             ("content", "closed")), ttl_s=120.0),
     "startled": Mood("startled", (("wide", "open"),
                                   ("static", "ajar")), ttl_s=20.0),
+    # emotion.py carries `irritation` with a 900s decay and I had no face family for it,
+    # which would have quietly routed irritation to `hurt`. Different feeling, different face.
+    "irritated": Mood("irritated", (("angry", "closed"),
+                                    ("squint", "closed")), ttl_s=240.0),
 }
 
 
@@ -330,3 +337,89 @@ class FaceChooser:
                  ) -> dict[str, tuple[str, ...]]:
         """choose() then bind(). The one call a renderer needs."""
         return self.bind(self.choose(at=at), tier=tier, beak_art=beak_art)
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# THE BRIDGE FROM THE COMPANION'S AFFECT MODEL
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# J, 2026-09-28: "Can't we basically port the event and emotional mapper from the ai
+# companion and use it?" Mostly yes. SuitMk2's core/emotion.py has `CompanionAffect` with
+# nine emotions, each with its OWN decay constant (fear 300s, grief 1800s, boredom 1200s),
+# twenty-four event hooks, and `dominant(speaker) -> (emotion|None, level)`. That is a
+# better decay model than the flat per-mood TTL above and it already exists.
+#
+# ⚠ NO IMPORT OF SuitMk2 HERE, DELIBERATELY. This takes (emotion, level) as plain values.
+#   Pico must not depend on another tool's internals — two implementations of one concept
+#   drifting unwatched is the defect I found in this very project this morning, where
+#   animate.py and pico/ both hold idle_breathe and nothing checks they agree. Whoever wires
+#   this passes what `dominant()` returned; the mapping does not reach for it.
+#
+# ⛔⛔ AND `dominant()` COLLAPSES TWO STATES INTO ONE RETURN VALUE. Read it:
+#
+#       if not lv: return None, 0.0
+#       e = max(lv, key=lv.get)
+#       return (e, lv[e]) if lv[e] >= MOOD_FLOOR else (None, lv[e])
+#
+#   `(None, 0.0)` means EITHER "there is no affect record for this speaker" OR "every
+#   emotion has decayed to exactly zero". Those are *unknown* and *calm*, and for a face
+#   that is the difference between flat dashes and a content smile — the lying-dashboard
+#   distinction this whole module is built around. The caller cannot tell them apart from
+#   the return value.
+#
+# ⇒ So `feed_live` is keyword-only WITH NO DEFAULT. The caller must answer "is there an
+#   affect feed at all?" separately, and cannot answer it by accident. A default would let
+#   the ambiguity through silently, which is exactly how it got here.
+
+#: emotion -> ((min_level, mood), ...) tried in order, highest threshold first. Intensity
+#: selects BETWEEN moods rather than within a pool: the pool rotates on TIME to give
+#: variety, so an index driven by intensity would fight it and one of the two would lose.
+EMOTION_TO_MOOD: Mapping[str, tuple[tuple[float, str], ...]] = {
+    "fear":       ((0.55, "startled"), (0.0, "hurt")),
+    "grief":      ((0.0, "hurt"),),
+    "irritation": ((0.0, "irritated"),),
+    "relief":     ((0.0, "calm"),),
+    "boredom":    ((0.0, "calm"),),
+    "warmth":     ((0.0, "happy"),),
+    "joy":        ((0.0, "happy"),),
+    "pride":      ((0.0, "happy"),),
+    "curiosity":  ((0.0, "alert"),),
+}
+
+#: emotion.py's own floor, restated rather than imported. If it moves there this goes stale,
+#: which is a real risk — but importing it would couple the trees, and the comment above
+#: explains why that is worse. Checked against the source on 2026-09-28: MOOD_FLOOR = 0.25.
+COMPANION_MOOD_FLOOR = 0.25
+
+
+def mood_for(emotion: Optional[str], level: float, *, feed_live: bool) -> Optional[str]:
+    """Map the companion's (emotion, level) onto a mood name, or None for UNKNOWN.
+
+    Three outcomes, kept apart on purpose:
+
+      feed_live=False           -> None. Nothing is known. The chooser shows the UNKNOWN
+                                   face. This is the case `dominant()` cannot distinguish.
+      feed_live, no emotion     -> "calm". A feeling exists below the floor, or none does.
+                                   KNOWN and unremarkable, which is not the same as unknown.
+      feed_live, emotion named  -> the banded mood.
+
+    Raises on an emotion this table has never heard of, rather than defaulting to calm — a
+    new emotion added upstream must surface as a failure here, not as a penguin looking
+    content about something nobody mapped.
+    """
+    if not feed_live:
+        return None
+    if emotion is None:
+        return "calm"
+    bands = EMOTION_TO_MOOD.get(emotion)
+    if bands is None:
+        raise FaceError(
+            "no face mapping for emotion %r. Known: %s. Refusing rather than defaulting to "
+            "calm, because an unmapped feeling must show up as a fault and not as a "
+            "contented face." % (emotion, ", ".join(sorted(EMOTION_TO_MOOD)))
+        )
+    lv = float(level)
+    for threshold, mood in bands:
+        if lv >= threshold:
+            return mood
+    # Unreachable while every table ends at 0.0; asserted rather than assumed.
+    raise FaceError("emotion %r level %r fell through its bands" % (emotion, level))
