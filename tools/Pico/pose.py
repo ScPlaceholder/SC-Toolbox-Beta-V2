@@ -72,7 +72,7 @@ POSES = {
 compose = RL.compose
 
 
-def render(parts_dir, skeleton, angles, guides=False, pad=0, art=None):
+def render(parts_dir, skeleton, angles, guides=False, pad=0, art=None, grow=None):
     """Draw one pose. Returns (image, placed_rows).
 
     ⚠ `pad` widens the working canvas by that many pixels on every side and shifts everything into
@@ -122,8 +122,12 @@ def render(parts_dir, skeleton, angles, guides=False, pad=0, art=None):
             print("   UNBOUND: %s -> bone %r not in skeleton" % (n, bone))
             continue
         p = posed[bone]
+        # `grow` is keyed by SLOT, not by bone: two parts on one bone can breathe differently
+        # (the belly swells, the rigid feet under it do not), and keying it to the bone would
+        # inflate the whole torso stack together.
+        g = (grow or {}).get(n, 1.0)
         im, at = RL.render_part(parts[n], scale * s["scale"], s["pivot"],
-                               (p["x"], p["y"]), s["offset"], p["acc"])
+                               (p["x"], p["y"]), s["offset"], p["acc"], grow=g)
         out.alpha_composite(im, (at[0] + pad, at[1] + pad))
         rows.append((s.get("z"), n, bone, round(p["acc"], 1), at, im.size))
 

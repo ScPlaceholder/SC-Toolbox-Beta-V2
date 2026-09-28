@@ -377,7 +377,7 @@ def compose(bones, angles):
     return posed
 
 
-def render_part(part_im, scale, pivot, bone_xy, offset, angle):
+def render_part(part_im, scale, pivot, bone_xy, offset, angle, grow=1.0):
     """★ THE ONE PLACEMENT FUNCTION. Everything that draws a part calls THIS.
 
     Returns (image, (left, top)) ready for alpha_composite. The part is scaled, rotated about its
@@ -388,8 +388,22 @@ def render_part(part_im, scale, pivot, bone_xy, offset, angle):
     ⚠ IT EXISTS BECAUSE HAVING TWO OF IT IS THE BUG. snap_rig placed parts by their CENTRE, pose.py
       by their PIVOT, and neither knew the other disagreed. Two placement implementations cannot be
       kept in step by discipline; there has to be one.
+
+    ★ `grow` IS A UNIFORM SCALE CHANNEL AND IT IS THE ONE DEFORMATION THIS ART CAN HONESTLY DO.
+      Breathing is the core idle of any character and the rig could not do it at all: a belly that
+      swells is a SCALE change, not a rotation. Red's list opens with "gentle breathing (body scale
+      1.00<->1.03)" and it was unreachable.
+    ⚠ UNIFORM ONLY, AND THE DISTINCTION IS THE WHOLE POINT. Cartoon squash-and-stretch is
+      NON-uniform — wider AND shorter, conserving volume — and that genuinely needs deformation this
+      rigid PNG cannot give. Scaling a flat image evenly is just drawing it bigger, which is exactly
+      what a chest expanding looks like from the front. So `grow` is legitimate and `squash` remains
+      impossible; do not let the first tempt anyone into claiming the second.
+    ⚠ It scales about the PIVOT, not the centre, because the pivot is where the part is anchored —
+      a belly that grows from its own hips stays planted, one that grows from its centre rises off
+      the floor.
     """
     from PIL import Image
+    scale = scale * float(grow)
     w = max(1, int(part_im.width * scale))
     h = max(1, int(part_im.height * scale))
     im = part_im.resize((w, h), Image.LANCZOS)

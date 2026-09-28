@@ -106,6 +106,23 @@ VISOR = {
 #:   the PREVIOUS art. That is deliberate — blending two expressions would look like a ghost.
 #: ⚠ HAND-AUTHORED TIMINGS. They are starting values that make the machinery visible, not J's
 #:   direction. Every number here is a guess with an opinion, and the opinions are cheap to change.
+#: ★ THE BEAK IS A SWAP SLOT NOW. 60 mouths cut from the designer's sheet tonight; until then the
+#: beak was one rigid closed shape and nine otherwise-good animation ideas were impossible.
+#: ⚠ NAMES BOUND BY MEASUREMENT, THEN CONFIRMED BY EYE — not guessed off a montage. Each piece was
+#:   ranked by the fraction of its ink that is dark cavity rather than orange bill, which orders
+#:   them closed -> open with no judgement involved; I then looked at the extremes and the median to
+#:   attach words. The RANKING is objective; the WORDS are mine and are the first thing to doubt.
+#: ⚠⚠ 22 of the 60 cutouts carried a stray sliver bled in from the neighbouring cell on the sheet
+#:   (0.4-2.4% of the ink each). A fragment like that renders as a floating orange blob beside his
+#:   mouth, silently, and only becomes visible once it is on his face. All 60 are now single
+#:   connected shapes — 38 fixed by blanking outside the main bbox, and ONE (beak_21) that needed a
+#:   true component mask because its fragment sat INSIDE that bbox. The cheap method succeeded 38
+#:   times and failed once without saying so, which is the whole reason the re-check exists.
+BEAK = {
+    "closed": "beak_01", "pressed": "beak_08", "smirk": "beak_25", "teeth": "beak_29",
+    "open": "beak_58", "wide": "beak_20", "widest": "beak_35",
+}
+
 CLIPS = {
     # ⛔ EXPRESSION BUDGET, J 2026-09-27: "besides the death one it shouldn't alternate to so many
     #    different emotions." He is right and the reason is legible once said: a face that changes
@@ -113,10 +130,15 @@ CLIPS = {
     #    enough to be a state. So: ONE expression per clip, with a second only where the clip is
     #    explicitly about a change of state — and `ko` keeps its cycle, because a malfunction
     #    flickering IS the point.
+    # ★ REAL BREATHING, now that a uniform scale channel exists. The belly swells 3% and the head
+    #   rides up on the same curve; the FEET DO NOT GROW, which is the whole reason grow is keyed by
+    #   slot rather than by bone. A tiny counter-rotation on the flippers keeps it from looking like
+    #   a balloon inflating.
     "idle_breathe": [
-        ({}, 2, 0, "ease_in_out", {"visor": "content"}),
-        ({"body": 1.1, "head": -1.4, "flipper_L": 2.0, "flipper_R": -2.0}, 2, 14, "ease_in_out"),
-        ({}, 2, 14, "ease_in_out"),
+        ({}, 2, 0, "ease_in_out", {"visor": "content"}, {}),
+        ({"body": 1.1, "head": -1.4, "flipper_L": 2.0, "flipper_R": -2.0}, 2, 14, "ease_in_out",
+         None, {"belly": 1.03, "body_back": 1.03, "head_base": 1.012}),
+        ({}, 2, 14, "ease_in_out", None, {}),
     ],
     "wave": [
         ({}, 3, 0, "ease_in_out", {"visor": "content"}),
@@ -199,6 +221,64 @@ CLIPS = {
 _ART_CACHE = {}
 
 
+
+# ★ ASTRA'S IDLE SET, authored by it and bound/gated by idle_import.py. Merged rather than pasted so
+#   a regeneration cannot be silently forgotten, and so the hand-written clips above stay separable
+#   from the generated ones — I want to know which half a defect came from.
+try:
+    from idles_generated import IDLES as _ASTRA_IDLES
+    for _n, _c in _ASTRA_IDLES.items():
+        CLIPS[_n] = _c
+except ImportError:
+    pass  # not generated yet; the hand-written clips still work
+
+# ★★ ONE AUGMENTATION, AND THE AUTHORSHIP IS KEPT SEPARATE ON PURPOSE.
+#    Astra's `small_yawn` staged the FACE beautifully — closed -> open -> wide, with the visor
+#    squint arriving a beat after the mouth opens, which is its own stated rule about perception
+#    versus physical action. But every keyframe's `angles` was empty, so the clip had 0% tweens:
+#    six states held and cut across 51 frames. motion_check caught it; the frame count could not.
+#    A yawn is a whole-body event — the head tips back, the chest rises, the flippers go slack — so
+#    the BODY track is added here while its swap timing is left untouched.
+# ⚠ Its version is KEPT as `small_yawn_face_only` rather than overwritten. If the added motion turns
+#   out to be wrong, the thing that was right is still there to go back to, and the difference
+#   between the two is legible instead of lost in a diff.
+try:
+    _base = CLIPS.get("small_yawn")
+    if _base and all(not kf[0] for kf in _base):
+        CLIPS["small_yawn_face_only"] = _base
+        _body = [{}, {"head": -3, "neck": -2}, {"head": -7, "neck": -4, "flipper_L": 5,
+                                                "flipper_R": -5},
+                 {"head": -4, "neck": -2, "flipper_L": 3, "flipper_R": -3},
+                 {"head": 1}, {}]
+        _grow = [{}, {"belly": 1.012}, {"belly": 1.028, "body_back": 1.028},
+                 {"belly": 1.015, "body_back": 1.015}, {}, {}]
+        # ⛔ AND IT NEEDS TRANSITIONS, WHICH WAS THE REAL CAUSE. Astra set transition=0 on every
+        #    keyframe — correct for a pure face swap, since an expression must cut rather than
+        #    blend — but with body angles added, zero transition makes the HEAD jump too. Adding
+        #    angles without travel time produced a clip that still scored 0% tweens, and I read
+        #    that as "the augmentation did not apply" before checking the timing.
+        # ★ This is exactly why swaps and angles are separate channels: with travel time restored,
+        #   the head and chest move SMOOTHLY while the beak still CUTS between mouth shapes, which
+        #   is what a yawn actually does. One channel tweens, the other does not, in the same frame.
+        # ⚠ The ease is left at Astra's `linear` for the swap-driven beats and lifted to ease_out
+        #   only where the body carries the motion; overriding its choices wholesale would discard
+        #   the staging that was the good part of its spec.
+        _trans = [0, 4, 5, 7, 5, 9]
+        _ease = ["linear", "ease_out", "ease_out", "ease_in_out", "ease_in_out", "ease_in_out"]
+        _new = []
+        for _i, (_a, _h, _t, _e, _sw, _g) in enumerate(_base):
+            _new.append((dict(_body[_i]) if _i < len(_body) else {}, _h,
+                         _trans[_i] if _i < len(_trans) else _t,
+                         _ease[_i] if _i < len(_ease) else _e, _sw,
+                         dict(_grow[_i]) if _i < len(_grow) else {}))
+        CLIPS["small_yawn"] = _new
+except Exception as _e:  # noqa: BLE001
+    # ⛔ NOT `pass`. My first version swallowed this and the augmentation silently did nothing —
+    #    the clip still reported 0% tweens and I only noticed because I re-ran the check. A bare
+    #    except around a transformation turns "it failed" into "it was never applied", which is
+    #    indistinguishable from "there was nothing to apply".
+    print("⚠ small_yawn augmentation FAILED and the face-only version is what you have: %r" % (_e,))
+
 def _art_for(parts_dir, swaps):
     """Load the alternate art named by a swap dict, alpha-cropped like every other part.
 
@@ -212,7 +292,7 @@ def _art_for(parts_dir, swaps):
     from PIL import Image
     out = {}
     for slot, name in swaps.items():
-        stem = VISOR.get(name, name)
+        stem = name
         key = (parts_dir, slot, stem)
         if key not in _ART_CACHE:
             here = os.path.dirname(os.path.abspath(__file__))
@@ -220,11 +300,20 @@ def _art_for(parts_dir, swaps):
             #   15% across two drawn size groups; out/rig/VISOR_NORM holds the same twenty with
             #   every shell scaled to one size. J caught the raw version by eye: "the visors need
             #   to stay the same size."
-            path = os.path.join(here, "out", "rig", "VISOR_NORM", stem + ".png")
+            # route by SLOT. The visor reads the NORMALISED set (its shells were drawn at two
+            # sizes and varied 15%); the beak reads its cut pieces directly, and its shell matching
+            # happens below against the slot's own default art.
+            sub = {"visor": ("out/rig/VISOR_NORM", VISOR),
+                   "beak": ("out/sliced/BEAKS", BEAK)}.get(slot)
+            if sub is None:
+                raise SystemExit("REFUSING: no art source registered for slot %r. Adding one is a "
+                                 "deliberate act, not something to infer from a name." % slot)
+            sub_dir, table = sub
+            stem = table.get(name, stem)
+            path = os.path.join(here, *sub_dir.split("/"), stem + ".png")
             if not os.path.exists(path):
-                raise SystemExit("REFUSING: expression %r for slot %r is not on disk (%s). Run "
-                                 "`python visor_norm.py --write` first. Known: %s"
-                                 % (name, slot, path, ", ".join(sorted(VISOR))))
+                raise SystemExit("REFUSING: expression %r for slot %r is not on disk (%s). Known "
+                                 "for this slot: %s" % (name, slot, path, ", ".join(sorted(table))))
             im = Image.open(path).convert("RGBA")
             # ⛔ MATCH THE SHELL TO THE SLOT'S DEFAULT ART, NOT THE BOUNDING BOX. The default
             #    visor.png is a different drawing at a different resolution — 425x238 against the
@@ -250,29 +339,129 @@ def _art_for(parts_dir, swaps):
 
 
 def build_frames(clip):
-    """Expand a clip into [(angles, swaps)] — one entry per frame.
+    """Expand a clip into [(angles, swaps, grow)] — one entry per frame.
 
-    `swaps` is the CURRENT art selection, carried forward until a keyframe changes it, so a clip
-    never has a frame with no expression on it.
+    A keyframe is (angles, hold, transition, ease[, swaps][, grow]):
+      angles  bone -> degrees          INTERPOLATED
+      grow    slot -> scale multiplier INTERPOLATED (1.0 = unchanged)
+      swaps   slot -> expression name  NOT interpolated; lands on its keyframe and holds
+
+    ⚠ `swaps` is carried forward until changed, so no frame is ever faceless. `grow` is carried the
+      same way but BLENDED, because a belly mid-breath has a real value between two keyframes while
+      a face mid-swap does not — there is no half-heart. Same table, deliberately different rules,
+      and conflating them would either make expressions ghost or make breathing pop.
     """
-    frames, prev, cur = [], None, {}
+    frames, prev, cur, prevg = [], None, {}, {}
     for step in clip:
         target, hold, trans, ease = step[0], step[1], step[2], step[3]
         swaps = step[4] if len(step) > 4 else None
+        grow = step[5] if len(step) > 5 else None
+        # ⛔ `None` CARRIES FORWARD; `{}` RESETS. They are different instructions and my first
+        #    version could not tell them apart, because it tested `if grow:` and an empty dict is
+        #    falsy. idle_breathe's exhale keyframe passes {} meaning "everything back to 1.0", and
+        #    it silently carried the inhale forward instead: the belly swelled to 1.030 and STAYED
+        #    there for the rest of the clip. The loop popped on every repeat.
+        # ★ Caught by asking a question about the ARTEFACT'S PURPOSE rather than its correctness —
+        #   "a looping idle must start and end at the same value" — not by any test of the maths.
+        #   The renders were all valid; they were valid pictures of a penguin holding its breath.
+        # ⇒ Semantics now match `angles`, which is what an animator expects of a channel that
+        #   interpolates: a keyframe states the WHOLE target, and a slot it omits is 1.0, exactly as
+        #   a bone omitted from a pose is 0 degrees. Only `swaps` carries forward, because an
+        #   expression has no neutral value to fall back to.
+        gt = dict(prevg) if grow is None else dict(grow)
         f = EASES[ease]
         if prev is not None and trans:
             for i in range(1, trans + 1):
-                frames.append((lerp_pose(prev, target, f(i / float(trans))), dict(cur)))
+                t = f(i / float(trans))
+                frames.append((lerp_pose(prev, target, t), dict(cur), lerp_grow(prevg, gt, t)))
         elif prev is None:
             if swaps:
                 cur.update(swaps)
-            frames.append((dict(target), dict(cur)))
+            frames.append((dict(target), dict(cur), dict(gt)))
         if swaps:
             cur.update(swaps)
         for _ in range(hold):
-            frames.append((dict(target), dict(cur)))
-        prev = target
+            frames.append((dict(target), dict(cur), dict(gt)))
+        prev, prevg = target, gt
     return frames
+
+
+def motion_check(frames):
+    """★ "IS THIS AN ANIMATION OR A SLIDESHOW?" — because the frame count cannot tell you.
+
+    A clip built only of ART SWAPS has no interpolated frames at all: it jumps between a handful of
+    states and holds. It still reports a long frame count, still passes cohesion, still loops
+    cleanly, and still plays for the right duration. Nothing in the pipeline objects. It just does
+    not MOVE.
+
+    ⛔ FOUND ON A REAL CLIP. Astra's `small_yawn` composed 51 frames and the GIF encoder collapsed
+      them to SIX, because 45 were byte-identical — every keyframe's `angles` was empty and the only
+      changes were beak and visor swaps. Its own shape label ("staged facial opening") was honest;
+      the defect was that a face-only clip reads as a slideshow next to clips that tween.
+      The tell was already on screen in "composed 51 frames -> 6 in the file" and I nearly read past
+      it as an encoder statistic.
+
+    Returns (n_distinct_states, n_frames, fraction_of_frames_that_are_tweens).
+    ⚠ A LOW SCORE IS NOT AUTOMATICALLY WRONG. A deliberate hard-cut glitch SHOULD be steppy. This
+      names a property; whether it suits the clip is the author's call, so it never blocks.
+    """
+    prev, distinct, tween = None, 0, 0
+    for ang, sw, gr in frames:
+        cur = (tuple(sorted((k, round(v, 2)) for k, v in ang.items())),
+               tuple(sorted(sw.items())),
+               tuple(sorted((k, round(v, 3)) for k, v in gr.items())))
+        if cur != prev:
+            distinct += 1
+            if prev is not None and cur[1] == prev[1]:
+                tween += 1          # changed WITHOUT an art swap -> it actually moved
+        prev = cur
+    n = len(frames) or 1
+    return distinct, n, tween / float(n)
+
+
+def loop_check(frames, name=""):
+    """★ A LOOPING IDLE MUST END WHERE IT STARTED, IN EVERY CHANNEL.
+
+    An idle plays on repeat forever. If the last frame does not match the first, the character
+    SNAPS at every loop point — and that snap is the single most visible defect an idle can have,
+    far more noticeable than a mediocre pose, because the eye is drawn to sudden change.
+
+    ⛔ THIS EXISTS BECAUSE IT ALREADY HAPPENED. idle_breathe inflated to 1.030 and never exhaled;
+      every frame rendered correctly and the clip was a valid picture of a penguin holding its
+      breath. No test of the maths could see it — the question that found it was about the
+      artefact's PURPOSE ("does the loop close?"), not its correctness.
+
+    ⚠ IT CHECKS CHANNELS, NOT PIXELS. Matching first and last keyframe values is necessary and not
+      sufficient: easing can still make the approach visibly uneven. And a clip that is NOT meant
+      to loop — a one-shot like `ko`, which ends on the floor on purpose — must fail this and
+      should be exempted AT THE CALL SITE with a reason, never by a list inside the checker.
+      (I shipped an exemption list with a check once tonight already and it pre-excused the only
+      real failure.)
+
+    Returns (ok, [(channel, key, first, last)]) naming every channel that does not close.
+    """
+    if not frames:
+        return True, []
+    (a0, _s0, g0), (a1, _s1, g1) = frames[0], frames[-1]
+    bad = []
+    for k in set(a0) | set(a1):
+        f, l = a0.get(k, 0.0), a1.get(k, 0.0)
+        if abs(f - l) > 0.05:
+            bad.append(("angle", k, round(f, 2), round(l, 2)))
+    for k in set(g0) | set(g1):
+        f, l = g0.get(k, 1.0), g1.get(k, 1.0)
+        if abs(f - l) > 0.001:
+            bad.append(("grow", k, round(f, 4), round(l, 4)))
+    return not bad, bad
+
+
+def lerp_grow(a, b, t):
+    """Blend two slot->multiplier dicts. A slot absent from either side is 1.0 there, NOT missing —
+    otherwise a part that breathes in only one keyframe would snap to full size instead of easing."""
+    out = {}
+    for k in set(a) | set(b):
+        out[k] = a.get(k, 1.0) * (1 - t) + b.get(k, 1.0) * t
+    return out
 
 
 def render_clip(parts_dir, sk, frames, box=None, size=360):
@@ -289,8 +478,9 @@ def render_clip(parts_dir, sk, frames, box=None, size=360):
     W, H = sk["canvas"]["width"], sk["canvas"]["height"]
     pad = W // 2
     raw, coh = [], []
-    for ang, swaps in frames:
-        big, _rows = P.render(parts_dir, sk, ang, pad=pad, art=_art_for(parts_dir, swaps))
+    for ang, swaps, grow in frames:
+        big, _rows = P.render(parts_dir, sk, ang, pad=pad, art=_art_for(parts_dir, swaps),
+                              grow=grow)
         raw.append(big)
         # ⛔ COHESION IS MEASURED HERE, ON THE FRAME WE ALREADY HAVE. It used to run in a second
         #    loop in main() that re-rendered every frame from scratch — an exact 2x waste of the
@@ -386,6 +576,25 @@ def main(argv=None):
         # mid-swing is exactly the failure a single still cannot show.
         worst = max(coh) if coh else 1
         worst_i = coh.index(worst) if coh else -1
+        # ONE-SHOTS are named here, at the call site, with the reason — never in a list inside
+        # loop_check. `ko` ends face-down on purpose; that is the clip, not a bug.
+        ONE_SHOT = {"ko": "ends toppled on the floor by design"}
+        dist, nfr, tw = motion_check(frames)
+        if tw < 0.15:
+            print("   ⚠ SLIDESHOW: only %d distinct state(s) across %d frames, and %.0f%% of frames"
+                  " are tweens." % (dist, nfr, 100 * tw))
+            print("      It holds and cuts rather than moving. Fine for a glitch; thin for an idle.")
+        else:
+            print("   motion: %d distinct state(s), %.0f%% of frames are tweens" % (dist, 100 * tw))
+        lok, lbad = loop_check(frames, name)
+        if name in ONE_SHOT:
+            print("   loop: not checked — one-shot (%s)" % ONE_SHOT[name])
+        elif lok:
+            print("   loop: closes cleanly — first frame == last frame in every channel")
+        else:
+            print("   ⛔ LOOP DOES NOT CLOSE — it will SNAP on every repeat:")
+            for ch, k, f, l in lbad:
+                print("      %-5s %-12s first %s  last %s" % (ch, k, f, l))
         print("%-13s composed %d frames -> %d in the file, plays %.2fs   %6.0f KB   %s"
               % (name, len(frames), nfile, secs, nbytes / 1024.0, dest))
         if worst > 1:
