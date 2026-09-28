@@ -123,6 +123,105 @@ BEAK = {
     "open": "beak_58", "wide": "beak_20", "widest": "beak_35",
 }
 
+#: ★ THE SEVERITY TIERS - the same twenty expressions redrawn in three alarm colours.
+#: A tiered expression is written `name@tier`: `{"visor": "alert@red"}`. No tier means blue, so every
+#: clip written before tiers existed is unchanged, and blue stays the thing you get by saying nothing.
+#: ⛔ THE TIER SHEETS DO NOT SHARE BLUE'S ORDER AND CANNOT BE INDEXED INTO. Blue holds 20 pieces
+#:   and each tier holds 28, and the extra eight are interleaved rather than appended: blue's
+#:   `static` (visor_08) is red's visor_18, and blue's `locked_on` (visor_16) is red's visor_21.
+#:   Lining the sets up by position yields a complete, plausible, entirely wrong table that renders a
+#:   face for every swap and never complains. So every pair comes from `visor_tier_map.json`, read BY
+#:   EYE off rendered sheets and audited on a second one.
+#: ⛔⛔ ONLY RED IS MAPPED, AND ASKING FOR ORANGE OR YELLOW REFUSES. Their sheets were cut from
+#:   the same 28-slot layout, which makes the red table a reasonable HYPOTHESIS for them and nothing
+#:   more - and a hypothesis that renders is indistinguishable from a mapping that is right. The map
+#:   file says exactly this in its own `_scope`; enforcing it here is what stops that sentence being
+#:   decorative. Audit a tier by eye, add it to TIER_MAPPED, and the refusal lifts.
+#: ⚠ visor_06/07 are a MIRROR PAIR in both sets and are recorded confident=false, so they refuse
+#:   too. Shape alone cannot say which blue mirror is which red mirror, and a 50/50 asserted as fact
+#:   is worse than a named gap. Resolving it means looking, not coding.
+VISOR_TIERS = {
+    "blue": "out/rig/VISOR_NORM",
+    "red": "out/rig/VISOR_RED_NORM",
+    "orange": "out/rig/VISOR_ORANGE_NORM",
+    "yellow": "out/rig/VISOR_YELLOW_NORM",
+}
+TIER_MAPPED = ("red",)          # tiers with an audited blue->tier table. Grows only by eye.
+TIER_MAP_FILE = "visor_tier_map.json"
+_TIER_MAP = {}
+
+
+def _tier_map():
+    """The audited blue->tier table, loaded once. A missing file is a refusal, not an empty dict."""
+    if not _TIER_MAP:
+        import json
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, TIER_MAP_FILE)
+        if not os.path.exists(path):
+            raise SystemExit("REFUSING: %s is missing, so no tiered expression can be resolved. "
+                             "Index-matching the sheets instead would produce a full wrong table."
+                             % TIER_MAP_FILE)
+        _TIER_MAP.update(json.load(io.open(path, encoding="utf-8")).get("map") or {})
+    return _TIER_MAP
+
+
+def resolve_swap(slot, name):
+    """(sub_dir, stem) for one swap, or raise SystemExit naming exactly what is wrong.
+
+    ★ ONE resolver, called by BOTH the renderer and idle_import's gate. They used to hold separate
+      ideas of what a legal expression name is - the gate checked membership in VISOR, the renderer
+      checked the disk - so a name the gate accepted could still refuse at render time, and a name
+      the gate rejected might have been fine. Two implementations of one rule drift by default.
+    """
+    tier = "blue"
+    if slot == "visor" and "@" in name:
+        name, tier = name.rsplit("@", 1)
+        if tier not in VISOR_TIERS:
+            raise SystemExit("REFUSING: unknown visor tier %r. Known: %s"
+                             % (tier, ", ".join(sorted(VISOR_TIERS))))
+    sub = {"visor": (VISOR_TIERS["blue"], VISOR),
+           "beak": ("out/sliced/BEAKS", BEAK)}.get(slot)
+    if sub is None:
+        raise SystemExit("REFUSING: no art source registered for slot %r. Adding one is a "
+                         "deliberate act, not something to infer from a name." % slot)
+    sub_dir, table = sub
+    if name not in table:
+        raise SystemExit("REFUSING: expression %r is not in the %s table. Known: %s"
+                         % (name, slot, ", ".join(sorted(table))))
+    stem = table[name]
+    if tier != "blue":
+        if tier not in TIER_MAPPED:
+            raise SystemExit(
+                "REFUSING: tier %r has art on disk but NO AUDITED MAP. The red table is a "
+                "hypothesis for it, not a mapping, and a wrong pairing renders a perfectly good "
+                "face that means something else. Audit %s by eye and add it to TIER_MAPPED."
+                % (tier, VISOR_TIERS[tier]))
+        row = _tier_map().get(stem)
+        if not row or not row.get(tier):
+            raise SystemExit("REFUSING: %s (%r) has no %s pairing in %s."
+                             % (stem, name, tier, TIER_MAP_FILE))
+        if not row.get("confident", False):
+            raise SystemExit(
+                "REFUSING: the %s pairing for %s (%r) is recorded confident=false - %s. A coin "
+                "flip asserted as fact is worse than a gap; settle it by looking, then set "
+                "confident=true in %s." % (tier, stem, name, row.get("glyph", "ambiguous"),
+                                           TIER_MAP_FILE))
+        sub_dir, stem = VISOR_TIERS[tier], row[tier]
+    return sub_dir, stem
+
+
+def swap_problem(slot, name):
+    """The same rule as resolve_swap, reported instead of raised - for gates that survey many."""
+    try:
+        sub_dir, stem = resolve_swap(slot, name)
+    except SystemExit as e:
+        return str(e)
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, *sub_dir.split("/"), stem + ".png")
+    if not os.path.exists(path):
+        return "resolves to %s, which is not on disk" % path
+    return None
+
 CLIPS = {
     # ⛔ EXPRESSION BUDGET, J 2026-09-27: "besides the death one it shouldn't alternate to so many
     #    different emotions." He is right and the reason is legible once said: a face that changes
@@ -215,6 +314,22 @@ CLIPS = {
         ({"root": 3, "head": 6}, 2, 8, "ease_in_out", {"visor": "ko"}),
         ({"root": 72, "head": 14, "flipper_L": -34, "flipper_R": 26}, 18, 12, "ease_in_out"),
     ],
+    # ★ THE ONE CLIP THAT SPENDS THE SEVERITY TIER, and it exists so the tier has a CALLER.
+    #   Art on disk, a resolver that routes to it and a probe that says so are three things that can
+    #   all be true while nothing in the product ever asks for a red face. A capability with no
+    #   caller is indistinguishable from an absent one from the outside, which is how "normalised"
+    #   quietly gets heard as "working". [[a-fix-parked-off-the-hot-path-is-not-a-fix]]
+    # ⚠ IT DELIBERATELY BREAKS THE ONE-EXPRESSION BUDGET, and that is the exception J's rule
+    #   already carves out: the budget is against a face that flickers through moods for no reason,
+    #   and this clip IS a change of state - calm, then alarmed, then calm. Blue bookends the red so
+    #   the loop closes on the resting face and the alarm reads as something that happened.
+    "red_alert": [
+        ({}, 6, 0, "ease_in_out", {"visor": "content"}),
+        ({"head": -4}, 2, 3, "overshoot", {"visor": "alert@red"}),
+        ({"head": 3, "flipper_L": -10, "flipper_R": 10}, 10, 4, "ease_in_out",
+         {"visor": "alert@red"}),
+        ({}, 8, 6, "ease_in_out", {"visor": "content"}),
+    ],
 }
 
 
@@ -296,24 +411,17 @@ def _art_for(parts_dir, swaps):
         key = (parts_dir, slot, stem)
         if key not in _ART_CACHE:
             here = os.path.dirname(os.path.abspath(__file__))
-            # ★ NORMALISED ART ONLY. out/sliced/VISOR holds the raw cut pieces, whose shells vary
-            #   15% across two drawn size groups; out/rig/VISOR_NORM holds the same twenty with
-            #   every shell scaled to one size. J caught the raw version by eye: "the visors need
-            #   to stay the same size."
-            # route by SLOT. The visor reads the NORMALISED set (its shells were drawn at two
-            # sizes and varied 15%); the beak reads its cut pieces directly, and its shell matching
-            # happens below against the slot's own default art.
-            sub = {"visor": ("out/rig/VISOR_NORM", VISOR),
-                   "beak": ("out/sliced/BEAKS", BEAK)}.get(slot)
-            if sub is None:
-                raise SystemExit("REFUSING: no art source registered for slot %r. Adding one is a "
-                                 "deliberate act, not something to infer from a name." % slot)
-            sub_dir, table = sub
-            stem = table.get(name, stem)
+            # ★ NORMALISED ART ONLY, AND THE ROUTE IS resolve_swap's CALL, NOT THIS FUNCTION'S.
+            #   out/sliced/VISOR holds the raw cut pieces, whose shells vary 15% across two drawn
+            #   size groups; every VISOR*_NORM directory holds the same pieces at one shell size.
+            #   J caught the raw version by eye: "the visors need to stay the same size."
+            #   The TIER (`alert@red`) is decided there too, against the audited map - resolve_swap
+            #   is the one place that knows what a legal expression name is.
+            sub_dir, stem = resolve_swap(slot, name)
             path = os.path.join(here, *sub_dir.split("/"), stem + ".png")
             if not os.path.exists(path):
-                raise SystemExit("REFUSING: expression %r for slot %r is not on disk (%s). Known "
-                                 "for this slot: %s" % (name, slot, path, ", ".join(sorted(table))))
+                raise SystemExit("REFUSING: expression %r for slot %r resolved to %s, which is not "
+                                 "on disk." % (name, slot, path))
             im = Image.open(path).convert("RGBA")
             # ⛔ MATCH THE SHELL TO THE SLOT'S DEFAULT ART, NOT THE BOUNDING BOX. The default
             #    visor.png is a different drawing at a different resolution — 425x238 against the
@@ -540,6 +648,59 @@ def save_gif(frames, path, fps, bg=(24, 22, 26)):
     return os.path.getsize(path), len(durs), sum(durs) / 1000.0
 
 
+def _claim_output(out_dir):
+    """★ REFUSE TO RENDER INTO A DIRECTORY ANOTHER RENDER IS ALREADY WRITING.
+
+    Two `--all` runs against the same out/ interleave: each writes the same filenames in the same
+    order, so the survivor is whichever finished last PER FILE, and a set can end up half from one
+    run and half from the other with nothing anywhere saying so. Every GIF is individually valid.
+
+    ⛔ I NEARLY HAD EXACTLY THIS. A backgrounded run and a nohup run both existed tonight; a process
+      listing showed two pids and by the time I looked again one was gone, so I would have reported
+      a phantom either way — and the ABSENCE of a guard was the real finding, not the count.
+    ★ run_selftests already does this and says why: "overlapping runs compete for the same files and
+      manufacture drift." The rule existed in one tool and not in its neighbour, which is the shape
+      I keep finding. [[a-fix-parked-off-the-hot-path-is-not-a-fix]]
+
+    ⚠ A STALE LOCK MUST NOT BLOCK FOREVER, so the holder's pid is recorded and checked. A lock that
+      outlives a crash is a tool that has to be repaired by hand at 3am.
+    """
+    import errno
+    lock = os.path.join(out_dir, ".render.lock")
+    os.makedirs(out_dir, exist_ok=True)
+    try:
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return lock
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    try:
+        held = int(io.open(lock, encoding="utf-8").read().strip() or 0)
+    except Exception:  # noqa: BLE001
+        held = 0
+    alive = False
+    if held:
+        try:
+            import subprocess
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                "(Get-Process -Id %d -ErrorAction SilentlyContinue).Id" % held],
+                               capture_output=True, text=True, timeout=25)
+            alive = str(held) in (r.stdout or "")
+        except Exception:  # noqa: BLE001
+            alive = True   # cannot tell -> assume held. Refusing is recoverable; racing is not.
+    if alive:
+        print("REFUSING: pid %d is already rendering into %s." % (held, out_dir))
+        print("  Two runs writing the same filenames interleave, and the result is a set that is")
+        print("  half from each with every individual file looking fine. Wait for it, or use a")
+        print("  different --out.")
+        return None
+    print("⚠ clearing a STALE lock from pid %s, which is no longer running" % (held or "?"))
+    os.remove(lock)
+    return _claim_output(out_dir)
+
+
 def main(argv=None):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -560,6 +721,9 @@ def main(argv=None):
     else:
         sk, _g, _s = RL.build(a.parts)
 
+    _lock = _claim_output(a.out)
+    if _lock is None:
+        return 3
     names = sorted(CLIPS) if a.all else [a.clip]
     bad = [n for n in names if n not in CLIPS]
     if bad:
@@ -602,6 +766,10 @@ def main(argv=None):
                   % (worst_i, worst))
         else:
             print("   cohesion: every frame is one connected penguin")
+    try:
+        os.remove(_lock)
+    except OSError:
+        pass
     return 0
 
 

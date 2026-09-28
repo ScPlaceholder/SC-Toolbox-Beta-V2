@@ -36,6 +36,9 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import animate as A  # noqa: E402  - after HERE is on the path, and convert() needs it
+
 
 EASES = ("ease_in_out", "ease_out", "linear", "overshoot")
 
@@ -48,8 +51,13 @@ def load(path):
     return json.loads(t[i:j + 1])
 
 
-def convert(idle, bones, slots, visor_tbl, beak_tbl):
-    """Return (clip, problems). A clip is the list of tuples animate.CLIPS holds."""
+def convert(idle, bones, slots, visor_tbl=None, beak_tbl=None):
+    """Return (clip, problems). A clip is the list of tuples animate.CLIPS holds.
+
+    ⚠ visor_tbl/beak_tbl are VESTIGIAL and unused - swap names are now judged by
+      animate.swap_problem, which is the same code the renderer runs. They stay in the signature
+      only so existing callers keep working; pass them or don't.
+    """
     probs, clip = [], []
     kfs = idle.get("keyframes") or []
     if len(kfs) < 2:
@@ -68,12 +76,16 @@ def convert(idle, bones, slots, visor_tbl, beak_tbl):
             if sl not in slots:
                 probs.append("kf%d grows slot %r, which does not exist" % (n, sl))
         for sl, name in list(swaps.items()):
-            tbl = {"visor": visor_tbl, "beak": beak_tbl}.get(sl)
-            if tbl is None:
-                probs.append("kf%d swaps slot %r, which has no art source" % (n, sl))
-            elif name not in tbl:
-                probs.append("kf%d wants %s=%r, not in the table (have: %s)"
-                             % (n, sl, name, ", ".join(sorted(tbl))))
+            # ★ ASK THE RENDERER'S OWN RESOLVER, don't re-implement its rule. This block used to
+            #   test membership in the VISOR/BEAK dicts, which was a SECOND, SIMPLER idea of what a
+            #   legal expression is - and the moment tiers arrived (`alert@red`) the two diverged:
+            #   the gate would have rejected every tiered name as unknown while the renderer
+            #   resolved it happily, and an orange name the gate waved through would have died at
+            #   render time. A gate that does not run the rule it is gating is a second opinion, not
+            #   a check. [[a-fix-parked-off-the-hot-path-is-not-a-fix]]
+            why = A.swap_problem(sl, name)
+            if why:
+                probs.append("kf%d %s=%r: %s" % (n, sl, name, why.replace("REFUSING: ", "")))
         if ease not in EASES:
             probs.append("kf%d ease %r unknown" % (n, ease))
             ease = "ease_in_out"
@@ -113,9 +125,7 @@ def main(argv=None):
     ap.add_argument("--write", help="write the accepted clips to this python file")
     a = ap.parse_args(argv)
 
-    sys.path.insert(0, HERE)
     import rig_layout as RL
-    import animate as A
 
     sk, _g, _s = RL.build(a.parts)
     bones = {b["name"] for b in sk["bones"]}

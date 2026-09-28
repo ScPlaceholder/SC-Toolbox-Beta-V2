@@ -1,0 +1,117 @@
+{
+  "_method": "READ BY EYE off rendered pairs, then AUDITED by eye on a second rendered sheet. NOT produced by visor_match.py, which was REJECTED: 3 of 4 of its 'resolved' rows were wrong and the one row its margin filter refused was correct. An IoU on glyph masks rewards symbols that fill the same area, so asterisks scored 0.71 against concentric circles while the correct sparse pair scored 0.42.",
+  "_scope": "BLUE -> RED only. Orange and yellow are NOT mapped here; their sheets were cut from the same 28-slot layout as red, so the red table is the obvious starting hypothesis for them \u2014 and a hypothesis is not a mapping. Audit them the same way before use.",
+  "_extra_in_red": [
+    "visor_17 ??",
+    "visor_19 chevrons",
+    "visor_20 zeros",
+    "visor_22 diamonds",
+    "visor_23 TT",
+    "visor_24 droplets",
+    "visor_25 zigzags",
+    "visor_27 brackets"
+  ],
+  "_uncertain": "visor_06 and visor_07 are a MIRROR PAIR in both sets (spark-left/circle-right vs circle-left/spark-right). Shape alone cannot say which blue mirror corresponds to which red mirror, and the audit sheet shows blue_07 spark-LEFT against red_07 circle-LEFT. Recorded as confident=false rather than guessed: a 50/50 asserted as fact is worse than a named gap.",
+  "map": {
+    "visor_01": {
+      "red": "visor_01",
+      "glyph": "content, arcs down",
+      "confident": true
+    },
+    "visor_02": {
+      "red": "visor_02",
+      "glyph": "content2, arcs up",
+      "confident": true
+    },
+    "visor_03": {
+      "red": "visor_03",
+      "glyph": "squint ><",
+      "confident": true
+    },
+    "visor_04": {
+      "red": "visor_04",
+      "glyph": "flat dashes",
+      "confident": true
+    },
+    "visor_05": {
+      "red": "visor_05",
+      "glyph": "flat dashes v2",
+      "confident": true
+    },
+    "visor_06": {
+      "red": "visor_06",
+      "glyph": "glitch, spark+circle",
+      "confident": false
+    },
+    "visor_07": {
+      "red": "visor_07",
+      "glyph": "glitch, mirrored",
+      "confident": false
+    },
+    "visor_08": {
+      "red": "visor_18",
+      "glyph": "static, both sparks",
+      "confident": true
+    },
+    "visor_09": {
+      "red": "visor_08",
+      "glyph": "wide, two circles",
+      "confident": true
+    },
+    "visor_10": {
+      "red": "visor_09",
+      "glyph": "focus, concentric",
+      "confident": true
+    },
+    "visor_11": {
+      "red": "visor_10",
+      "glyph": "woozy, tildes",
+      "confident": true
+    },
+    "visor_12": {
+      "red": "visor_11",
+      "glyph": "angry",
+      "confident": true
+    },
+    "visor_13": {
+      "red": "visor_12",
+      "glyph": "downcast, L brackets",
+      "confident": true
+    },
+    "visor_14": {
+      "red": "visor_13",
+      "glyph": "love, hearts",
+      "confident": true
+    },
+    "visor_15": {
+      "red": "visor_14",
+      "glyph": "starstruck, asterisks",
+      "confident": true
+    },
+    "visor_16": {
+      "red": "visor_21",
+      "glyph": "locked on, bullseyes",
+      "confident": true
+    },
+    "visor_17": {
+      "red": "visor_15",
+      "glyph": "ko, X",
+      "confident": true
+    },
+    "visor_18": {
+      "red": "visor_16",
+      "glyph": "alert, !!",
+      "confident": true
+    },
+    "visor_19": {
+      "red": "visor_26",
+      "glyph": "sparks",
+      "confident": true
+    },
+    "visor_20": {
+      "red": "visor_28",
+      "glyph": "crackle",
+      "confident": true
+    }
+  }
+}
