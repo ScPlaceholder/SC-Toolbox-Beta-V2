@@ -94,6 +94,9 @@ __all__ = [
     "EMOTION_TO_MOOD",
     "COMPANION_MOOD_FLOOR",
     "mood_for",
+    "Temperament",
+    "PERSON",
+    "CREATURE",
 ]
 
 
@@ -214,6 +217,7 @@ class FaceChooser:
         audited_tiers: Iterable[str] = ("red",),
         rotate_s: float = 2.5,
         slots: Sequence[str] = FACE_SLOTS,
+        temperament: "Temperament" = None,   # type: ignore[assignment]
     ) -> None:
         if UNKNOWN_VISOR.startswith("content"):
             raise FaceError(
@@ -230,6 +234,7 @@ class FaceChooser:
         self.audited_tiers = tuple(audited_tiers)
         self.rotate_s = float(rotate_s)
         self.slots = tuple(slots)
+        self.temperament = temperament if temperament is not None else PERSON
         self._mood: Optional[str] = None
         self._since: float = 0.0
 
@@ -254,7 +259,10 @@ class FaceChooser:
         if self._mood is None:
             return None
         m = self.moods[self._mood]
-        if float(at) - self._since >= m.ttl_s:
+        # A creature's feelings pass faster. ttl_scale is the only place the temperament
+        # touches decay, because the underlying emotion decay lives upstream in
+        # CompanionAffect and is not mine to speed up.
+        if float(at) - self._since >= m.ttl_s * self.temperament.ttl_scale:
             return None
         return self._mood
 
@@ -339,6 +347,69 @@ class FaceChooser:
         return self.bind(self.choose(at=at), tier=tier, beak_art=beak_art)
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# TEMPERAMENT: the same event, felt harder
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# J, 2026-09-28: "Pico as a creature. Think Chibi. The bigger and more exaggerated emotions
+# the more charming something is when built in those visual proportions."
+#
+# ⚠ THAT IS NOT IN TENSION WITH THE RIG'S "SMALL ANGLES" RULE, though it reads like it. The
+#   angle limits are about ROTATION — 8 degrees already reads as a big movement on a chibi
+#   body. This is about EMOTIONAL amplitude: which face, how readable, how soon. Bigger
+#   feelings, not bigger arcs.
+#
+# ★ WHY THIS LIVES HERE AND NOT AS A THIRD SPEAKER IN SuitMk2. The obvious implementation is
+#   to add "pico" to emotion.py's SPEAKERS with its own hook amounts. It is also a trap I
+#   found before writing any of it: `hushed()` is `any(... for s in SPEAKERS)`, and hushed
+#   means idle talk waits — so a frightened penguin would SILENCE ME. I would go quiet and
+#   the reason would be a mascot.
+#   ⇒ A temperament applied on Pico's side needs no new speaker, touches nothing upstream,
+#     and cannot gate anybody's voice, because Pico is not a speaker at all. Same events,
+#     bigger reaction. It sidesteps the trap instead of working around it.
+
+
+@dataclass(frozen=True)
+class Temperament:
+    """How hard a character feels the same event, and how fast it passes.
+
+    `gain` multiplies the incoming level before banding, so a creature reaches the big
+    readable faces on events a person would shrug at. `ttl_scale` shortens how long a mood
+    holds, because a creature's feelings spike and pass — a dog forgets.
+
+    ⛔ GAIN IS NOT FREE, AND THE TEST IS WHAT KEEPS IT HONEST. Push it high enough and every
+      level lands in the top band, at which point the face is permanently startled and
+      carries exactly as much information as one that is permanently content. Both ends
+      destroy the signal; the floor is just the more obvious one. `test_exaggeration_does_
+      not_collapse_the_range` sweeps the level range and demands more than one mood remain
+      reachable, so raising this knob to something useless fails loudly instead of quietly.
+    """
+
+    name: str
+    gain: float = 1.0
+    ttl_scale: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not (self.gain > 0):
+            raise FaceError("temperament %r gain=%r: a non-positive gain mutes every event"
+                            % (self.name, self.gain))
+        if not (self.ttl_scale > 0):
+            raise FaceError("temperament %r ttl_scale=%r would expire moods instantly or "
+                            "never" % (self.name, self.ttl_scale))
+
+    def felt(self, level: float) -> float:
+        """The level as THIS character experiences it, capped at 1.0 like emotion.py's CAP."""
+        return min(1.0, float(level) * self.gain)
+
+
+#: A person: feels the event as reported. What the companion's own speakers use.
+PERSON = Temperament("person", gain=1.0, ttl_scale=1.0)
+
+#: A creature: chibi proportions, exaggerated feelings, short memory. gain=2.0 is a FIRST
+#: GUESS chosen so a fear of 0.3 crosses the 0.55 startled band; it is not measured against
+#: anyone's eye yet, and the range test above is the only thing currently defending it.
+CREATURE = Temperament("creature", gain=2.0, ttl_scale=0.4)
+
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # THE BRIDGE FROM THE COMPANION'S AFFECT MODEL
 # ══════════════════════════════════════════════════════════════════════════════════════════
@@ -391,7 +462,8 @@ EMOTION_TO_MOOD: Mapping[str, tuple[tuple[float, str], ...]] = {
 COMPANION_MOOD_FLOOR = 0.25
 
 
-def mood_for(emotion: Optional[str], level: float, *, feed_live: bool) -> Optional[str]:
+def mood_for(emotion: Optional[str], level: float, *, feed_live: bool,
+             temperament: "Temperament" = PERSON) -> Optional[str]:
     """Map the companion's (emotion, level) onto a mood name, or None for UNKNOWN.
 
     Three outcomes, kept apart on purpose:
@@ -417,7 +489,7 @@ def mood_for(emotion: Optional[str], level: float, *, feed_live: bool) -> Option
             "calm, because an unmapped feeling must show up as a fault and not as a "
             "contented face." % (emotion, ", ".join(sorted(EMOTION_TO_MOOD)))
         )
-    lv = float(level)
+    lv = temperament.felt(level)
     for threshold, mood in bands:
         if lv >= threshold:
             return mood

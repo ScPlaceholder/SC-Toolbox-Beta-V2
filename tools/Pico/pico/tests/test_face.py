@@ -407,3 +407,91 @@ def test_every_companion_emotion_is_mapped():
                 "boredom", "irritation", "warmth", "grief"}
     missing = sorted(upstream - set(EMOTION_TO_MOOD))
     assert not missing, "unmapped companion emotion(s): %s" % missing
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# TEMPERAMENT: exaggeration has to stay informative
+# ══════════════════════════════════════════════════════════════════════════════════════════
+
+from pico.face import CREATURE, PERSON, Temperament  # noqa: E402
+
+
+def test_creature_feels_the_same_event_harder():
+    """If this ever agrees, the knob does nothing and the green means nothing."""
+    ev = 0.3
+    assert mood_for("fear", ev, feed_live=True, temperament=PERSON) == "hurt"
+    assert mood_for("fear", ev, feed_live=True, temperament=CREATURE) == "startled"
+
+
+#: No single mood may claim more than this share of the input range, for an emotion that has
+#: more than one band. A JUDGEMENT, not a measurement: 0.85 passes gain=2.0 (the top band
+#: takes ~71% of the range) and fails gain=20.0 (~95%). If someone tunes the gain for real
+#: against an actual eye, this number is the thing to revisit, not to delete.
+MAX_SHARE_OF_RANGE = 0.85
+
+
+def test_exaggeration_does_not_collapse_the_range():
+    """⛔ THE ONE THAT DEFENDS THE GAIN, and its FIRST VERSION COULD NOT FAIL.
+
+    A creature permanently startled carries exactly as much information as one permanently
+    content — both ends destroy the signal and the floor is only the more obvious end.
+
+    ⚠ Version one asserted merely that more than ONE mood was reachable across the sweep.
+      That passes for ANY gain, because level 0.0 multiplied by anything is still 0.0 and
+      lands in the bottom band. I set CREATURE.gain to 20.0 to check the test bit, and it
+      stayed green: 1 of 21 sample points in `hurt`, 20 in `startled`, two distinct moods,
+      assertion satisfied. The face would be startled for 95% of possible inputs and the
+      test called that a range.
+    ⇒ So measure the SHARE, not the variety. Second test today that passed for a reason
+      unrelated to what it was checking, both found by mutating rather than by re-reading.
+      [[prove-the-test-can-fail-before-trusting-it-passes]]
+    """
+    for emotion, bands in EMOTION_TO_MOOD.items():
+        if len(bands) < 2:
+            continue
+        got = [mood_for(emotion, lv / 40.0, feed_live=True, temperament=CREATURE)
+               for lv in range(41)]
+        reached = set(got)
+        assert len(reached) > 1, (
+            "under CREATURE, %r reaches only %r across 0..1 — the gain of %.2f flattened a "
+            "banded emotion into a constant face" % (emotion, reached, CREATURE.gain)
+        )
+        top = max(reached, key=got.count)
+        share = got.count(top) / len(got)
+        assert share <= MAX_SHARE_OF_RANGE, (
+            "under CREATURE, %r spends %.0f%% of the 0..1 range in %r (cap %.0f%%). More than "
+            "one mood is technically reachable, but the face is effectively constant — a gain "
+            "of %.2f has spent the signal it was meant to amplify."
+            % (emotion, share * 100, top, MAX_SHARE_OF_RANGE * 100, CREATURE.gain)
+        )
+
+
+def test_gain_is_capped_so_it_cannot_exceed_the_upstream_ceiling():
+    """emotion.py caps a level at 1.0; amplifying must not invent a level above it."""
+    assert CREATURE.felt(0.9) <= 1.0
+    assert Temperament("wild", gain=99.0).felt(1.0) == 1.0
+
+
+def test_creature_moods_pass_faster():
+    slow = build(temperament=PERSON)
+    fast = build(temperament=CREATURE)
+    for f in (slow, fast):
+        f.set_mood("alert", at=0.0)
+    ttl = slow.moods["alert"].ttl_s
+    mid = ttl * 0.5
+    assert slow.choose(at=mid) != UNKNOWN_PAIR, "the person forgot too early"
+    assert fast.choose(at=mid) == UNKNOWN_PAIR, (
+        "the creature still remembers at half the person's TTL — ttl_scale did nothing"
+    )
+
+
+def test_temperament_validation():
+    with pytest.raises(FaceError):
+        Temperament("mute", gain=0.0)
+    with pytest.raises(FaceError):
+        Temperament("frozen", ttl_scale=0.0)
+
+
+def test_default_temperament_is_person_so_existing_callers_are_unchanged():
+    assert build().temperament is PERSON
+    assert mood_for("fear", 0.3, feed_live=True) == "hurt"
