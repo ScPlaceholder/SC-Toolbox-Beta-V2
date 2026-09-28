@@ -1,0 +1,332 @@
+"""pico/face.py — THE FACE CHOOSER. Which face is on the snap points right now.
+
+J's shape for the engine (2026-09-28): body and limbs, mouth and visor, props, clothes,
+where "the mouth and visor are snap points that a different pipeline streams to... we just
+need to animate the penguin with no face and everything else gets streamed in on top."
+
+The rig already holds up its half. `Skeleton` declares `visor`, `beak`, `eye_L`, `eye_R`
+as slots carrying only (name, bone, z) and no artwork, and `Rig.slot_transforms(pose,
+attachments)` takes `{slot: [art_id, ...]}` as a SKIN that "CANNOT influence any matrix".
+Not one .anim clip in pico/clips names a face. So the streaming separation is enforced,
+not merely intended.
+
+What did not exist is the CHOOSER: the thing that decides which face is on the point at a
+given moment. This is it. It is the only piece here that makes a judgement, which is why
+it is written by hand rather than delegated.
+
+──────────────────────────────────────────────────────────────────────────────────────────
+WHAT THIS MODULE REFUSES TO DO, AND WHY EACH REFUSAL IS LOAD-BEARING
+──────────────────────────────────────────────────────────────────────────────────────────
+
+1. ⛔ IT NEVER FALLS BACK TO "CONTENT". The recorded requirement is blunt: *UNKNOWN needs
+   its OWN face, or a mascot defaulting to content is a dashboard that lies.* A face is a
+   status display. Showing a happy penguin because the state is unreadable is not a
+   cosmetic default, it is a false report — the same defect as a checker that prints CLEAR
+   when it could not read the thing it was checking.
+   ⚠ AND THE ART HAS NO "UNKNOWN" FACE, which I found by reading the inventory rather than
+     assuming one. Twenty blue expressions, none of them blank. So UNKNOWN is bound to
+     `neutral` (visor_04, "flat dashes") DELIBERATELY: flat dashes read as no-information,
+     where arcs-down reads as contentment. The two are different claims and the art can
+     tell them apart. `UNKNOWN_VISOR` must never be pointed at content_*.
+
+2. ⛔ IT REFUSES AN UNAUDITED TIER rather than substituting. `animate.py` records
+   `TIER_MAPPED = ("red",)` — "tiers with an audited blue->tier table. Grows only by eye."
+   Measured 2026-09-28: orange and yellow show NO confident evidence against sharing red's
+   slot layout, but that is a population statement about a matcher, not an eye. An expression
+   meaning "alert" rendering as "content" is a mascot that lies and nothing downstream can
+   catch it.
+
+3. ⛔ IT REFUSES A NON-CONFIDENT MAPPING. visor_06 and visor_07 are a mirror pair recorded
+   `confident: false` in visor_tier_map.json, because shape alone cannot order a mirror.
+   A 50/50 asserted as fact is worse than a named gap, so those two are excluded from every
+   pool and raise if requested under a tier.
+
+4. ⛔ IT EMITS SEMANTIC NAMES AND MAKES THE BINDER REFUSE. Astra's own caveat on the idles
+   it wrote: *"names below are semantic targets from your description, not verified
+   filenames or beak indices. Bind them to actual assets before building."* `idle_import`
+   already works this way — it refuses anything that does not bind rather than substituting
+   a default face. Same contract here: `choose()` returns meaning, `bind()` returns art, and
+   an unbound name raises.
+
+──────────────────────────────────────────────────────────────────────────────────────────
+WHY THE POOL HOLDS PAIRS AND NOT TWO INDEPENDENT SLOTS
+──────────────────────────────────────────────────────────────────────────────────────────
+
+Asked what the right relationship between mouth and eyes is, Astra answered:
+
+    "Give both channels the same underlying intention, but let the action determine their
+     timing. Neither channel should always lead."
+    "Independent timing is useful; INDEPENDENTLY RANDOMIZED EMOTIONS ARE NOT. Select
+     compatible expression pairs for each intention."
+
+My first sketch rotated the visor and the beak separately, which is precisely the mistake
+that names. So a mood's pool is a tuple of (visor, beak) PAIRS chosen to go together, and
+rotation picks a pair. The timing may differ between the two channels; the CHOICE may not.
+
+Also from that answer, and honoured here: the beak stays closed through quiet idling ("It
+does not need to accompany every eye change"), and swaps use "a few readable stages, not a
+tour through the mouth library" — hence pools of two or three, never the whole inventory.
+
+──────────────────────────────────────────────────────────────────────────────────────────
+WHAT IT DOES NOT KNOW
+──────────────────────────────────────────────────────────────────────────────────────────
+Nothing here reads Game.log. The contract assigns that to an EVENT MAPPER at
+`pico/events.py`, which does not exist. So this module takes a mood from its caller and has
+no opinion about where the mood came from. It is the half that can be built and tested
+without inventing the other half. `set_mood` is the seam they will meet at.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Iterable, Mapping, Optional, Sequence
+
+__all__ = [
+    "FaceError",
+    "Mood",
+    "FaceChooser",
+    "DEFAULT_MOODS",
+    "BASE_VISOR_ART",
+    "UNKNOWN_VISOR",
+    "UNKNOWN_PAIR",
+    "FACE_SLOTS",
+]
+
+
+class FaceError(Exception):
+    """Raised instead of guessing. Every raise site is a refusal, not a bug."""
+
+
+# Semantic visor name -> art id in the BLUE (base) set, read off visor_tier_map.json's
+# glyph column rather than inferred from the file numbering. The numbering is NOT the
+# ordering: blue_08 is "static, both sparks" and maps to red_18, not red_08.
+BASE_VISOR_ART: Mapping[str, str] = {
+    "content": "visor_01",        # arcs down
+    "content_alt": "visor_02",    # arcs up
+    "squint": "visor_03",         # ><
+    "neutral": "visor_04",        # flat dashes  <- also UNKNOWN. See refusal 1.
+    "neutral_alt": "visor_05",    # flat dashes v2
+    "static": "visor_08",
+    "wide": "visor_09",           # two circles
+    "focus": "visor_10",          # concentric
+    "woozy": "visor_11",          # tildes
+    "angry": "visor_12",
+    "downcast": "visor_13",       # L brackets
+    "love": "visor_14",           # hearts
+    "starstruck": "visor_15",     # asterisks
+    "locked_on": "visor_16",      # bullseyes
+    "ko": "visor_17",             # X
+    "alert": "visor_18",          # !!
+    "sparks": "visor_19",
+    "crackle": "visor_20",
+    # visor_06 / visor_07 are ABSENT ON PURPOSE: the mirror pair recorded
+    # confident:false. Excluded from the vocabulary so no pool can reach them.
+}
+
+# ⛔ The unknown face. Asserted below to be distinct from every content_* name, because
+#    this single binding is what stops the mascot from lying when it knows nothing.
+UNKNOWN_VISOR = "neutral"
+UNKNOWN_BEAK = "closed"
+UNKNOWN_PAIR = (UNKNOWN_VISOR, UNKNOWN_BEAK)
+
+# Slots this module is allowed to write. Anything outside is somebody else's layer.
+FACE_SLOTS = ("visor", "beak")
+
+
+@dataclass(frozen=True)
+class Mood:
+    """A named intention, a small pool of compatible (visor, beak) pairs, and a deadline.
+
+    `ttl_s` is not decoration. A mood with no expiry is a mood that outlives the thing that
+    justified it, and a face still showing ALERT an hour after the alert cleared is the same
+    false report as the content-fallback. Decay is how this module forgets.
+    """
+
+    name: str
+    pool: tuple[tuple[str, str], ...]
+    ttl_s: float
+
+    def __post_init__(self) -> None:
+        if not self.pool:
+            raise FaceError("mood %r has an empty pool — it could never show anything"
+                            % self.name)
+        if not (self.ttl_s > 0):
+            raise FaceError(
+                "mood %r has ttl_s=%r; a non-positive TTL either never expires or expires "
+                "instantly, and both defeat decay" % (self.name, self.ttl_s)
+            )
+        for pair in self.pool:
+            if len(pair) != 2:
+                raise FaceError(
+                    "mood %r pool entry %r is not a (visor, beak) PAIR. Pools hold pairs "
+                    "because independently randomised emotions produce incompatible "
+                    "combinations." % (self.name, pair)
+                )
+            if pair[0] not in BASE_VISOR_ART:
+                raise FaceError(
+                    "mood %r names visor %r, which is not in the vocabulary. (visor_06 and "
+                    "visor_07 are excluded on purpose: confident:false mirror pair.)"
+                    % (self.name, pair[0])
+                )
+
+
+DEFAULT_MOODS: Mapping[str, Mood] = {
+    # Pools of two or three, per "a few readable stages, not a tour through the library".
+    # The beak stays closed while idling; it opens only where the intention needs it.
+    "calm": Mood("calm", (("content", "closed"),
+                          ("content_alt", "closed"),
+                          ("neutral", "closed")), ttl_s=300.0),
+    "alert": Mood("alert", (("alert", "ajar"),
+                            ("locked_on", "closed"),
+                            ("focus", "closed")), ttl_s=60.0),
+    "hurt": Mood("hurt", (("downcast", "closed"),
+                          ("woozy", "ajar"),
+                          ("squint", "closed")), ttl_s=180.0),
+    "happy": Mood("happy", (("love", "open"),
+                            ("starstruck", "open"),
+                            ("content", "closed")), ttl_s=120.0),
+    "startled": Mood("startled", (("wide", "open"),
+                                  ("static", "ajar")), ttl_s=20.0),
+}
+
+
+class FaceChooser:
+    """Decides the (visor, beak) pair now, and binds it to art on request.
+
+    Two calls on purpose. `choose()` answers "what does he mean", `bind()` answers "which
+    files", and keeping them apart is what lets the tier be a MODIFIER over one expression
+    set rather than a second set of expressions.
+    """
+
+    def __init__(
+        self,
+        *,
+        moods: Mapping[str, Mood] = DEFAULT_MOODS,
+        tier_map: Optional[Mapping[str, Mapping[str, object]]] = None,
+        audited_tiers: Iterable[str] = ("red",),
+        rotate_s: float = 2.5,
+        slots: Sequence[str] = FACE_SLOTS,
+    ) -> None:
+        if UNKNOWN_VISOR.startswith("content"):
+            raise FaceError(
+                "UNKNOWN_VISOR is a content face. That is the lying-dashboard defect this "
+                "module exists to prevent."
+            )
+        if UNKNOWN_VISOR not in BASE_VISOR_ART:
+            raise FaceError("UNKNOWN_VISOR %r is not bindable" % UNKNOWN_VISOR)
+        if not (rotate_s > 0):
+            raise FaceError("rotate_s must be positive; %r would divide by zero or never "
+                            "advance" % rotate_s)
+        self.moods = dict(moods)
+        self.tier_map = dict(tier_map or {})
+        self.audited_tiers = tuple(audited_tiers)
+        self.rotate_s = float(rotate_s)
+        self.slots = tuple(slots)
+        self._mood: Optional[str] = None
+        self._since: float = 0.0
+
+    # ── state in ────────────────────────────────────────────────────────────────────────
+    def set_mood(self, name: str, *, at: float) -> None:
+        """The seam the event mapper will meet. Unknown mood names RAISE."""
+        if name not in self.moods:
+            raise FaceError(
+                "no mood %r. Known: %s. Refusing rather than picking a neighbour, because "
+                "a wrong mood shows a wrong face and nothing downstream can tell."
+                % (name, ", ".join(sorted(self.moods)))
+            )
+        self._mood = name
+        self._since = float(at)
+
+    def forget(self) -> None:
+        self._mood = None
+
+    # ── the decision ────────────────────────────────────────────────────────────────────
+    def current_mood(self, *, at: float) -> Optional[str]:
+        """The live mood, or None once it has decayed. None is a RESULT, not a gap."""
+        if self._mood is None:
+            return None
+        m = self.moods[self._mood]
+        if float(at) - self._since >= m.ttl_s:
+            return None
+        return self._mood
+
+    def choose(self, *, at: float) -> tuple[str, str]:
+        """The (visor, beak) semantic pair for this instant.
+
+        Returns UNKNOWN_PAIR when no mood is live — never the last one seen, and never a
+        content face. Rotation is a pure function of (mood, elapsed) so the same clock
+        always gives the same face, which is the only reason this is testable.
+        """
+        name = self.current_mood(at=at)
+        if name is None:
+            return UNKNOWN_PAIR
+        m = self.moods[name]
+        elapsed = float(at) - self._since
+        step = int(math.floor(elapsed / self.rotate_s))
+        return m.pool[step % len(m.pool)]
+
+    # ── meaning -> files ────────────────────────────────────────────────────────────────
+    def bind(self, pair: tuple[str, str], *, tier: Optional[str] = None,
+             beak_art: Optional[Mapping[str, str]] = None) -> dict[str, tuple[str, ...]]:
+        """Resolve a semantic pair to an attachments map for `Rig.slot_transforms`.
+
+        `tier` is a MODIFIER over the same expression set, not a different set — red means
+        injured wearing the very same expression. Composition, e.g. dead = red + ko.
+        """
+        visor, beak = pair
+        if visor not in BASE_VISOR_ART:
+            raise FaceError("visor %r does not bind to any art id" % visor)
+        art = BASE_VISOR_ART[visor]
+
+        if tier is not None:
+            if tier not in self.audited_tiers:
+                raise FaceError(
+                    "tier %r is NOT AUDITED (audited: %s). The slot layout may transfer — "
+                    "measured 2026-09-28, no confident evidence against it — but that is a "
+                    "statement about a shape matcher, not an eye. Refusing: an expression "
+                    "meaning 'alert' rendering as 'content' is a mascot that lies."
+                    % (tier, ", ".join(self.audited_tiers) or "none")
+                )
+            row = self.tier_map.get(art)
+            if row is None:
+                raise FaceError(
+                    "no %s mapping for %s (%s). Refusing rather than reusing the blue art, "
+                    "which would silently drop the severity colour." % (tier, art, visor)
+                )
+            if not row.get("confident", False):
+                raise FaceError(
+                    "the %s mapping for %s (%s) is recorded confident:false — a mirror pair "
+                    "shape cannot order. A 50/50 asserted as fact is worse than a gap."
+                    % (tier, art, visor)
+                )
+            mapped = row.get(tier)
+            if not mapped:
+                raise FaceError("%s row for %s has no %r field" % (tier, art, tier))
+            art = str(mapped)
+
+        out: dict[str, tuple[str, ...]] = {}
+        if "visor" in self.slots:
+            out["visor"] = (art,)
+        if "beak" in self.slots:
+            table = dict(beak_art or {})
+            if table:
+                if beak not in table:
+                    raise FaceError(
+                        "beak %r does not bind. Astra flagged its own beak names as "
+                        "semantic targets, not verified indices — bind or refuse, never "
+                        "substitute." % beak
+                    )
+                out["beak"] = (table[beak],)
+            else:
+                # No beak table supplied: pass the SEMANTIC name through unresolved rather
+                # than inventing an index. The caller's binder must reject it if it cannot
+                # resolve it, exactly as idle_import does.
+                out["beak"] = (beak,)
+        return out
+
+    def face_now(self, *, at: float, tier: Optional[str] = None,
+                 beak_art: Optional[Mapping[str, str]] = None
+                 ) -> dict[str, tuple[str, ...]]:
+        """choose() then bind(). The one call a renderer needs."""
+        return self.bind(self.choose(at=at), tier=tier, beak_art=beak_art)

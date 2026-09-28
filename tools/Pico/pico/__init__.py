@@ -128,6 +128,13 @@ from .anim import (  # noqa: F401
     Layered,
     Track,
 )
+from .face import (  # noqa: F401
+    DEFAULT_MOODS,
+    FaceChooser,
+    FaceError,
+    Mood,
+    UNKNOWN_PAIR,
+)
 
 __all__ = [
     "AnimError",
@@ -152,4 +159,9 @@ __all__ = [
     "Track",
     "default_skeleton_path",
     "verify_skeleton_provenance",
+    "DEFAULT_MOODS",
+    "FaceChooser",
+    "FaceError",
+    "Mood",
+    "UNKNOWN_PAIR",
 ]
