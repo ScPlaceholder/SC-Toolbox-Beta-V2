@@ -32,8 +32,11 @@ UNKNOWN = "unknown"
 # mood (face.DEFAULT_MOODS names) -> loop names (<anim>_<expr>, no extension).
 # Pools are small on purpose, per face.py: "a few readable stages, not a tour through the library".
 MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
+    # J 2026-10-01 16:15 "Sure go ahead": drift, look_up, peek and scratch added for variety.
     "calm": ("idle_look_default", "idle_settle_default", "idle_shuffle_default",
-             "idle_stargaze_default", "idle_preen_default", "idle_tap_foot_default"),
+             "idle_stargaze_default", "idle_preen_default", "idle_tap_foot_default",
+             "idle_drift_default", "idle_look_up_default", "idle_peek_default",
+             "idle_scratch_default"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy"),
