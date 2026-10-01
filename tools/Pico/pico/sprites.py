@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -76,6 +77,63 @@ EVENT_LOOPS: Mapping[str, str] = {
     "session_start": "idle_stretch_default",
     "session_end": "idle_yawn_sleepy",
 }
+
+# What is in the player's right hand -> the loop Pico holds while it is there (J 2026-10-01: "red and
+# white alternate between the users 1 & 2 weapons"). Read from Game.log, measured over J's last 20
+# sessions: every draw is an <AttachmentReceived> into Port[weapon_attach_hand_right], and the item's
+# PREVIOUS port says which slot it came from (wep_stocked_2 = slot 1, LMG, 118 draws; wep_stocked_3 =
+# slot 2, sniper, 147; utility_attach_N = multitool, 87). There is no detach line: putting it away
+# is the same item arriving back in a wep_/utility_ port. Sidearm (a medgun for J), grenades and
+# drinks are deliberately unmapped for now.
+HAND_LOOPS: Mapping[str, str] = {
+    "slot1": "weapon_draw_focused_prop40",     # white pistol
+    "slot2": "weapon_draw_focused_prop41",     # red pistol
+    "utility": "weapon_draw_focused_prop42",   # the utility gun, for the multitool
+}
+_ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
+HAND_PORT = "weapon_attach_hand_right"
+
+
+def _slot_of(port: str) -> Optional[str]:
+    if port == "wep_stocked_2":
+        return "slot1"
+    if port == "wep_stocked_3":
+        return "slot2"
+    if port.startswith("utility_attach"):
+        return "utility"
+    return None
+
+
+class HandTracker:
+    """Game.log lines in; what Pico should be holding out. Tracks each item's last port by its id."""
+
+    def __init__(self):
+        self.last_port: dict[str, str] = {}
+        self.holding: Optional[str] = None     # a HAND_LOOPS key, or None
+        self.held_uid: Optional[str] = None
+
+    def feed_line(self, line: str) -> Optional[tuple[str, Optional[str]]]:
+        """Returns ("draw", key) / ("holster", None) when the hand changes, else None."""
+        m = _ATTACH.search(line)
+        if not m:
+            return None
+        uid, _item, port = m.groups()
+        prev = self.last_port.get(uid)
+        self.last_port[uid] = port
+        if port == HAND_PORT:
+            key = _slot_of(prev or "")
+            if key is None:                            # something unmapped went into the hand
+                if self.holding is not None:
+                    self.holding, self.held_uid = None, None
+                    return ("holster", None)
+                return None
+            self.holding, self.held_uid = key, uid
+            return ("draw", key)
+        if uid == self.held_uid:                       # the held item went back to a holster
+            self.holding, self.held_uid = None, None
+            return ("holster", None)
+        return None
+
 
 # The same event again within this many seconds plays nothing. A burst (injury ticks, repeated
 # monitored-space flips) is one thing that happened, not a reason to restart the gesture.
@@ -137,6 +195,8 @@ class LoopChooser:
         self.oneshot = False          # an event loop is playing; moods wait until it ends
         self.last_fired: dict[str, float] = {}
         self.until = 0.0               # the current mood loop repeats until this time
+        self.hand = {k: n for k, n in HAND_LOOPS.items() if n in catalog.loops}
+        self.held: Optional[str] = None  # a loop name while something is in his hand
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -149,8 +209,8 @@ class LoopChooser:
         key = mood if mood is not None else UNKNOWN
         if key not in self.pools:
             raise SpriteError("mood %r has no loop pool (known: %s)" % (key, ", ".join(self.pools)))
-        if self.oneshot:
-            self.mood = key           # remembered; shown when the event loop finishes
+        if self.oneshot or self.held:
+            self.mood = key           # remembered; shown when the event loop / held item ends
             return None
         if key == self.mood and self.current is not None:
             return None
@@ -172,11 +232,30 @@ class LoopChooser:
         self.current = name
         return self.catalog.loops[name]
 
+    def on_hand(self, change: Optional[tuple[str, Optional[str]]]) -> Optional[Path]:
+        """A HandTracker change. Draw -> hold that loop until holstered; holster -> back to the mood."""
+        if change is None:
+            return None
+        kind, key = change
+        if kind == "draw" and key in self.hand:
+            self.held = self.current = self.hand[key]
+            self.oneshot = False
+            return self.catalog.loops[self.held]
+        if kind == "holster" and self.held:
+            self.held = None
+            self.current = self._pick(self.mood or UNKNOWN)
+            self.until = time.time() + self.rng.uniform(*DWELL_S)
+            return self.catalog.loops[self.current]
+        return None
+
     def on_loop_end(self, at: Optional[float] = None) -> Path:
         """The current loop finished. After an event: back to the mood. Otherwise repeat the same
         loop until its dwell runs out, then rotate to another from the pool."""
         at = time.time() if at is None else at
         was_event, self.oneshot = self.oneshot, False
+        if self.held:                                   # still holding it: keep the held loop
+            self.current = self.held
+            return self.catalog.loops[self.held]
         if self.mood is None:
             self.mood = UNKNOWN
         if not was_event and self.current is not None and at < self.until:
@@ -230,6 +309,23 @@ def selftest() -> int:
         c2.on_event("injury", at=1000.0)
         ck("the same event inside the cooldown plays nothing", c2.on_event("injury", at=1010.0) is None)
         ck("after the cooldown it plays again", c2.on_event("injury", at=1000.0 + EVENT_COOLDOWN_S) is not None)
+        for n in HAND_LOOPS.values():
+            (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        c3 = LoopChooser(Catalog.scan(d), rng=random.Random(3)); c3.on_mood("calm")
+        ht = HandTracker()
+        L = "<t> [Notice] <AttachmentReceived> Player[J] Attachment[%s, item, 1] Status[x] Port[%s] Elapsed[0]"
+        ht.feed_line(L % ("lmg_7", "wep_stocked_2"))
+        ch = ht.feed_line(L % ("lmg_7", HAND_PORT))
+        ck("slot-1 weapon into the hand reads as a slot1 draw", ch == ("draw", "slot1"))
+        ck("a slot1 draw holds the white pistol loop", c3.on_hand(ch).stem == HAND_LOOPS["slot1"])
+        ck("while held, a mood change does not interrupt", c3.on_mood("happy") is None)
+        ck("while held, loop end repeats the held loop", c3.on_loop_end(at=1e12).stem == HAND_LOOPS["slot1"])
+        ch = ht.feed_line(L % ("lmg_7", "wep_stocked_2"))
+        ck("the same item back in its holster reads as holster", ch == ("holster", None))
+        ck("after holstering, Pico returns to the latest mood", c3.on_hand(ch).stem in MOOD_LOOPS["happy"])
+        ht.feed_line(L % ("snp_9", "wep_stocked_3"))
+        ck("slot-2 weapon reads as slot2", ht.feed_line(L % ("snp_9", HAND_PORT)) == ("draw", "slot2"))
+        ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()

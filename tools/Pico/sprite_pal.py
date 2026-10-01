@@ -7,7 +7,8 @@
     py -3.13 sprite_pal.py --loops <folder>        # another outfit's loops (e.g. Origin)
 
 Moods pick his looping idle; Game.log EVENTS (docking, quantum, injury, contract complete...) play a
-one-shot gesture from sprites.EVENT_LOOPS, then he goes back to his mood.
+one-shot gesture from sprites.EVENT_LOOPS, then he goes back to his mood. Drawing a weapon in game
+(slot 1, slot 2, multitool) makes him hold the matching prop until you holster (sprites.HAND_LOOPS).
 
 A frameless, transparent, always-on-top window. Drag it with the left button. Right-click Pico for
 Customise / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
@@ -118,6 +119,8 @@ class Pal(QWidget):
         self.drag = None
         self.movie = None
         self.height_px = HEIGHT
+        self.hand = sprites.HandTracker()      # what is in the player's right hand (Game.log)
+        self.hand_change = None
         self.pic = QLabel(self)
         self.pic.setAlignment(Qt.AlignCenter)
         self.why = QLabel(self)
@@ -149,12 +152,17 @@ class Pal(QWidget):
             return None, "UNKNOWN: no Game.log found"
         quiet = self.tail.quiet_s()
         if quiet > GAME_QUIET_S:
+            if self.chooser.held:                 # game gone: nothing is in anyone's hand
+                self.hand_change = ("holster", None)
             return None, "UNKNOWN: game not running (Game.log untouched %.0f min)" % (quiet / 60)
         # One line at a time, so every event is seen (MoodSource keeps only the LAST event).
         # The newest gesture-bearing event in this batch wins; older ones in the same second
         # would only be interrupted a frame later anyway.
         self.event = None
         for line in self.tail.read():
+            hc = self.hand.feed_line(line)
+            if hc is not None:
+                self.hand_change = hc            # the newest hand change in this batch wins
             seen = self.source.events_seen
             self.source.feed_line(line)
             if self.source.events_seen != seen:
@@ -171,6 +179,11 @@ class Pal(QWidget):
             why = "event: %s | %s" % (self.event, why)
         self.why.setText(why if len(why) < 90 else why[:87] + "...")
         self.pic.setToolTip(why)
+        if self.hand_change is not None:
+            held = self.chooser.on_hand(self.hand_change)
+            self.hand_change = None
+            if held is not None:
+                self.play(held)
         if self.event:
             gesture = self.chooser.on_event(self.event)   # None while that event is cooling down
             if gesture is not None:
