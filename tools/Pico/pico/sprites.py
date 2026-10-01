@@ -100,6 +100,9 @@ HAND_LOOPS: Mapping[str, str] = {
 # were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
 # cap a thrown grenade leaves Pico hugging the bomb forever.
 HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0}
+# What he does as the cap lets go. J 2026-10-01 18:24: "By let go does he drop it or toss it?" There is
+# no throw animation yet, but cheer throws both arms up, which reads as a toss once the bomb is gone.
+HAND_RELEASE: Mapping[str, str] = {"bomb": "cheer_happy"}
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
 
@@ -270,7 +273,12 @@ class LoopChooser:
         at = time.time() if at is None else at
         cap = HAND_MAX_S.get(self.held_key or "")
         if self.held and cap is not None and at - self.held_since >= cap:
-            return self.on_hand(("holster", None))
+            toss = HAND_RELEASE.get(self.held_key or "")
+            self.on_hand(("holster", None))
+            if toss in self.catalog.loops:              # a one-shot toss, then back to the mood
+                self.oneshot, self.current = True, toss
+                return self.catalog.loops[toss]
+            return self.catalog.loops[self.current]
         return None
 
     def on_loop_end(self, at: Optional[float] = None) -> Path:
@@ -357,7 +365,12 @@ def selftest() -> int:
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
         c3.on_hand(("draw", "bomb"))
         ck("a held bomb is kept before its cap", c3.expire(at=c3.held_since + 7) is None and c3.held)
-        ck("a held bomb is let go after its cap (thrown)", c3.expire(at=c3.held_since + 9) is not None and not c3.held)
+        (Path(d) / "cheer_happy.gif").write_bytes(b"GIF89a")
+        c3 = LoopChooser(Catalog.scan(d), rng=random.Random(4)); c3.on_mood("calm"); c3.on_hand(("draw", "bomb"))
+        tossed = c3.expire(at=c3.held_since + 9)
+        ck("a held bomb is let go after its cap (thrown)", tossed is not None and not c3.held)
+        ck("letting go of the bomb plays the toss once", tossed.stem == "cheer_happy" and c3.oneshot)
+        ck("after the toss he goes back to his mood", c3.on_loop_end(at=0).stem in MOOD_LOOPS["calm"])
         c3.on_hand(("draw", "slot1"))
         ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
         (Path(d) / "confused_confused.gif").unlink()
