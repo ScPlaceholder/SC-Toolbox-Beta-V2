@@ -92,6 +92,8 @@ HAND_LOOPS: Mapping[str, str] = {
     # J 2026-10-01 18:16: "For a medgun or med pen he should pull out a first aid kit." Prop 07, held in
     # front with both flippers (the reload pose). J's sidearm slot holds a medgun, so it maps here too.
     "medical": "weapon_reload_focused_prop07",
+    # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
+    "bomb": "weapon_reload_focused_prop17",
 }
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
@@ -106,6 +108,8 @@ def _slot_of(port: str) -> Optional[str]:
         return "utility"
     if port == "wep_sidearm" or port.startswith("medPen_attach"):
         return "medical"
+    if port.startswith("grenade_attach"):
+        return "bomb"
     return None
 
 
@@ -333,6 +337,8 @@ def selftest() -> int:
         ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
         ht.feed_line(L % ("med_3", "wep_sidearm"))
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
+        ht.feed_line(L % ("gren_5", "grenade_attach_1"))
+        ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()
