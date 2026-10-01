@@ -41,6 +41,35 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     UNKNOWN: ("confused_confused",),
 }
 
+# Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
+# An event is something that HAPPENED; a mood is how he feels about it. The mood engine already turns
+# events into feelings, so this layer only adds the gesture. MY PICKS, OPEN FOR J, like MOOD_LOOPS.
+EVENT_LOOPS: Mapping[str, str] = {
+    "docking_ready": "docking_focused",
+    "docking_detached": "undock_default",
+    "qt_route_calculated": "nav_plot_focused",
+    "qt_target_selected": "quantum_spool_default",
+    "qt_arrived": "quantum_drop_default",
+    "qt_error": "quantum_wobble_spiral",
+    "hangar_queue": "hangar_wait_default",
+    "hangar_ready": "ship_enter_default",
+    "injury": "hull_warn_surprised",
+    "incapacitated": "crash_X_X",
+    "session_crash": "crash_X_X",
+    "player_respawned": "relieved_happy",
+    "med_bed_heal": "relieved_happy",
+    "contract_accepted": "determined_focused",
+    "contract_complete": "celebrate_happy",
+    "contract_failed": "disappointed_sad",
+    "objective_complete": "cheer_happy",
+    "reward_earned": "proud_happy",
+    "incoming_call": "radar_contact_surprised",
+    "exited_monitored_space": "nervous_confused",
+    "entered_monitored_space": "relieved_happy",
+    "session_start": "idle_stretch_default",
+    "session_end": "idle_yawn_sleepy",
+}
+
 DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
 
 
@@ -88,6 +117,8 @@ class LoopChooser:
         self.rng = rng or random.Random()
         self.mood: Optional[str] = None
         self.current: Optional[str] = None
+        self.events = {e: n for e, n in EVENT_LOOPS.items() if n in catalog.loops}
+        self.oneshot = False          # an event loop is playing; moods wait until it ends
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -100,16 +131,29 @@ class LoopChooser:
         key = mood if mood is not None else UNKNOWN
         if key not in self.pools:
             raise SpriteError("mood %r has no loop pool (known: %s)" % (key, ", ".join(self.pools)))
+        if self.oneshot:
+            self.mood = key           # remembered; shown when the event loop finishes
+            return None
         if key == self.mood and self.current is not None:
             return None
         self.mood = key
         self.current = self._pick(key)
         return self.catalog.loops[self.current]
 
+    def on_event(self, event_type: str) -> Optional[Path]:
+        """A Game.log event happened. Returns its one-shot loop, or None if it has no gesture."""
+        name = self.events.get(event_type)
+        if name is None:
+            return None
+        self.oneshot = True
+        self.current = name
+        return self.catalog.loops[name]
+
     def on_loop_end(self) -> Path:
-        """The current loop finished: rotate within the same mood's pool."""
+        """The current loop finished: after an event, back to the mood; otherwise rotate the pool."""
+        self.oneshot = False
         if self.mood is None:
-            raise SpriteError("on_loop_end before any mood")
+            self.mood = UNKNOWN
         self.current = self._pick(self.mood)
         return self.catalog.loops[self.current]
 
@@ -143,6 +187,14 @@ def selftest() -> int:
             ck("unknown mood name raises", True)
         ck("a .webp wins over the .gif of the same loop",
            Catalog.scan(d).loops["happy_happy"].suffix == ".webp")
+        for n in set(EVENT_LOOPS.values()):
+            (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        c2 = LoopChooser(Catalog.scan(d), rng=random.Random(2))
+        c2.on_mood("calm")
+        ck("an event plays its own loop", c2.on_event("qt_arrived").stem == "quantum_drop_default")
+        ck("a mood change during an event does NOT interrupt it", c2.on_mood("happy") is None)
+        ck("after the event, Pico returns to the LATEST mood", c2.on_loop_end().stem in MOOD_LOOPS["happy"])
+        ck("an event with no gesture changes nothing", c2.on_event("weapon_holstered") is None)
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()

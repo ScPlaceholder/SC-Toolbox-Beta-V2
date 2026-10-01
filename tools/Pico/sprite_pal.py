@@ -6,6 +6,9 @@
     py -3.13 sprite_pal.py --mood happy            # pin one mood (art review)
     py -3.13 sprite_pal.py --loops <folder>        # another outfit's loops (e.g. Origin)
 
+Moods pick his looping idle; Game.log EVENTS (docking, quantum, injury, contract complete...) play a
+one-shot gesture from sprites.EVENT_LOOPS, then he goes back to his mood.
+
 A frameless, transparent, always-on-top window. Drag it with the left button. Right-click Pico for
 Customise / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
 the box opens on FIRST LAUNCH, EVERY app start ("so users can't forget how to customize their pico").
@@ -147,14 +150,29 @@ class Pal(QWidget):
         quiet = self.tail.quiet_s()
         if quiet > GAME_QUIET_S:
             return None, "UNKNOWN: game not running (Game.log untouched %.0f min)" % (quiet / 60)
-        self.source.feed_lines(self.tail.read())
+        # One line at a time, so every event is seen (MoodSource keeps only the LAST event).
+        # The newest gesture-bearing event in this batch wins; older ones in the same second
+        # would only be interrupted a frame later anyway.
+        self.event = None
+        for line in self.tail.read():
+            seen = self.source.events_seen
+            self.source.feed_line(line)
+            if self.source.events_seen != seen:
+                et = getattr(self.source.last_event, "event_type", None)
+                if et in self.chooser.events:
+                    self.event = et
         r = self.source.reading()
         return r.mood, str(r)
 
     def tick(self):
+        self.event = None
         mood, why = self.reading()
+        if self.event:
+            why = "event: %s | %s" % (self.event, why)
         self.why.setText(why if len(why) < 90 else why[:87] + "...")
         self.pic.setToolTip(why)
+        if self.event:
+            self.play(self.chooser.on_event(self.event))
         path = self.chooser.on_mood(mood)
         if path is not None:
             self.play(path)
