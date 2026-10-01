@@ -42,7 +42,8 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              "weapon_reload_happy_prop22", "scan_ping_default_prop28"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
-    "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy"),
+    "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
+              "ship_claim_star_prophuckaby"),   # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
