@@ -82,13 +82,16 @@ EVENT_LOOPS: Mapping[str, str] = {
 # white alternate between the users 1 & 2 weapons"). Read from Game.log, measured over J's last 20
 # sessions: every draw is an <AttachmentReceived> into Port[weapon_attach_hand_right], and the item's
 # PREVIOUS port says which slot it came from (wep_stocked_2 = slot 1, LMG, 118 draws; wep_stocked_3 =
-# slot 2, sniper, 147; utility_attach_N = multitool, 87). There is no detach line: putting it away
-# is the same item arriving back in a wep_/utility_ port. Sidearm (a medgun for J), grenades and
-# drinks are deliberately unmapped for now.
+# slot 2, sniper, 147; utility_attach_N = multitool, 87; wep_sidearm = J's medgun, 148, and medPen
+# ports = med pens -> "medical"). There is no detach line: putting it away is the same item arriving
+# back in its port. Grenades and drinks are deliberately unmapped for now.
 HAND_LOOPS: Mapping[str, str] = {
     "slot1": "weapon_draw_focused_prop40",     # white pistol
     "slot2": "weapon_draw_focused_prop41",     # red pistol
     "utility": "weapon_draw_focused_prop42",   # the utility gun, for the multitool
+    # J 2026-10-01 18:16: "For a medgun or med pen he should pull out a first aid kit." Prop 07, held in
+    # front with both flippers (the reload pose). J's sidearm slot holds a medgun, so it maps here too.
+    "medical": "weapon_reload_focused_prop07",
 }
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
@@ -101,6 +104,8 @@ def _slot_of(port: str) -> Optional[str]:
         return "slot2"
     if port.startswith("utility_attach"):
         return "utility"
+    if port == "wep_sidearm" or port.startswith("medPen_attach"):
+        return "medical"
     return None
 
 
@@ -326,6 +331,8 @@ def selftest() -> int:
         ht.feed_line(L % ("snp_9", "wep_stocked_3"))
         ck("slot-2 weapon reads as slot2", ht.feed_line(L % ("snp_9", HAND_PORT)) == ("draw", "slot2"))
         ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
+        ht.feed_line(L % ("med_3", "wep_sidearm"))
+        ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()
