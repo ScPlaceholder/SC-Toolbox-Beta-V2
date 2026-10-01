@@ -37,7 +37,9 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     "calm": ("idle_look_default", "idle_settle_default", "idle_shuffle_default",
              "idle_stargaze_default", "idle_preen_default", "idle_tap_foot_default",
              "idle_drift_default", "idle_look_up_default", "idle_peek_default",
-             "idle_scratch_default"),
+             "idle_scratch_default",
+             # J 19:15 prop idles: a handheld console (his gaming idea) and a scanner sweep
+             "weapon_reload_happy_prop22", "scan_ping_default_prop28"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy"),
@@ -52,7 +54,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 EVENT_LOOPS: Mapping[str, str] = {
     "docking_ready": "docking_focused",
     "docking_detached": "undock_default",
-    "qt_route_calculated": "nav_plot_focused",
+    "qt_route_calculated": "nav_plot_focused_prop01",   # plotting a route on a datapad
     "qt_target_selected": "quantum_spool_default",
     "qt_arrived": "quantum_drop_default",
     # qt_error is NOT here, on evidence. Measured over J's last 20 logs (2026-08-02..09-26, 161k
@@ -94,12 +96,15 @@ HAND_LOOPS: Mapping[str, str] = {
     "medical": "weapon_reload_focused_prop07",
     # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
     "bomb": "weapon_reload_focused_prop17",
+    "gadget": "weapon_draw_focused_prop34",     # mining gadget -> the drill (12 draws in J's logs)
+    "drink": "weapon_reload_happy_prop20",      # a drink bottle -> sipping from a canister
 }
 # A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
 # was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
 # were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
 # cap a thrown grenade leaves Pico hugging the bomb forever.
-HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0}
+HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0,
+                                   "drink": 6.0}   # a finished drink never goes back to a pocket
 # J's bomb gag, 2026-10-01 18:29-18:32: hold it; at 4 s his eyes become "!"; at 8 s one of FIVE random
 # endings plays ("aim for 5 random bomb animation sequences"). A step is (loop, seconds): 0 = play it
 # once, N = keep repeating it for N seconds. Endings whose FIRST loop is missing for an outfit are
@@ -125,7 +130,7 @@ _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+)
 HAND_PORT = "weapon_attach_hand_right"
 
 
-def _slot_of(port: str) -> Optional[str]:
+def _slot_of(port: str, item: str = "") -> Optional[str]:
     if port == "wep_stocked_2":
         return "slot1"
     if port == "wep_stocked_3":
@@ -136,6 +141,10 @@ def _slot_of(port: str) -> Optional[str]:
         return "medical"
     if port.startswith("grenade_attach"):
         return "bomb"
+    if port.startswith("gadget_attach"):
+        return "gadget"
+    if item.lower().startswith(("drink_", "food_", "consumable_drink", "consumable_food")):
+        return "drink"                                  # comes out of inventory_pocket
     return None
 
 
@@ -152,11 +161,11 @@ class HandTracker:
         m = _ATTACH.search(line)
         if not m:
             return None
-        uid, _item, port = m.groups()
+        uid, item, port = m.groups()
         prev = self.last_port.get(uid)
         self.last_port[uid] = port
         if port == HAND_PORT:
-            key = _slot_of(prev or "")
+            key = _slot_of(prev or "", item)
             if key is None:                            # something unmapped went into the hand
                 if self.holding is not None:
                     self.holding, self.held_uid = None, None
@@ -417,6 +426,11 @@ def selftest() -> int:
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
         ht.feed_line(L % ("gren_5", "grenade_attach_1"))
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
+        ht.feed_line(L % ("gad_8", "gadget_attach_1"))
+        ck("a mining gadget reads as gadget", ht.feed_line(L % ("gad_8", HAND_PORT)) == ("draw", "gadget"))
+        LD = "<t> [Notice] <AttachmentReceived> Player[J] Attachment[%s, Drink_bottle_cruz_01_lux_a, 1] Status[x] Port[%s] Elapsed[0]"
+        ht.feed_line(LD % ("drk_2", "inventory_pocket"))
+        ck("a drink bottle reads as drink", ht.feed_line(LD % ("drk_2", HAND_PORT)) == ("draw", "drink"))
         c3.on_hand(("draw", "bomb"))
         ck("a held bomb is kept before its cap", c3.expire(at=c3.held_since + 7) is None and c3.held)
         for e in BOMB_ENDINGS:
