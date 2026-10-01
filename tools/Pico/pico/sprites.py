@@ -81,6 +81,11 @@ EVENT_LOOPS: Mapping[str, str] = {
 # monitored-space flips) is one thing that happened, not a reason to restart the gesture.
 EVENT_COOLDOWN_S = 45.0
 
+# How long one mood loop keeps repeating before Pico switches to another from the pool, in seconds.
+# Measured 2026-10-01: a loop is ~1.4s (10 frames at 7fps), and rotating on every loop end swapped his
+# idle every 1.4s with no rest - twitchy. J asked "how much time is there between idle animations".
+DWELL_S = (8.0, 14.0)
+
 DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
 
 
@@ -131,6 +136,7 @@ class LoopChooser:
         self.events = {e: n for e, n in EVENT_LOOPS.items() if n in catalog.loops}
         self.oneshot = False          # an event loop is playing; moods wait until it ends
         self.last_fired: dict[str, float] = {}
+        self.until = 0.0               # the current mood loop repeats until this time
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -150,6 +156,7 @@ class LoopChooser:
             return None
         self.mood = key
         self.current = self._pick(key)
+        self.until = time.time() + self.rng.uniform(*DWELL_S)
         return self.catalog.loops[self.current]
 
     def on_event(self, event_type: str, at: Optional[float] = None) -> Optional[Path]:
@@ -165,12 +172,17 @@ class LoopChooser:
         self.current = name
         return self.catalog.loops[name]
 
-    def on_loop_end(self) -> Path:
-        """The current loop finished: after an event, back to the mood; otherwise rotate the pool."""
-        self.oneshot = False
+    def on_loop_end(self, at: Optional[float] = None) -> Path:
+        """The current loop finished. After an event: back to the mood. Otherwise repeat the same
+        loop until its dwell runs out, then rotate to another from the pool."""
+        at = time.time() if at is None else at
+        was_event, self.oneshot = self.oneshot, False
         if self.mood is None:
             self.mood = UNKNOWN
+        if not was_event and self.current is not None and at < self.until:
+            return self.catalog.loops[self.current]
         self.current = self._pick(self.mood)
+        self.until = at + self.rng.uniform(*DWELL_S)
         return self.catalog.loops[self.current]
 
 
@@ -194,8 +206,10 @@ def selftest() -> int:
         ck("same mood again returns None (keeps playing)", c.on_mood(None) is None)
         p = c.on_mood("happy")
         ck("mood change picks from the new pool", p.stem in MOOD_LOOPS["happy"])
-        q = c.on_loop_end()
-        ck("loop end rotates to a different loop", q.stem != p.stem and q.stem in MOOD_LOOPS["happy"])
+        ck("loop end INSIDE the dwell repeats the same loop", c.on_loop_end(at=c.until - 1).stem == p.stem)
+        q = c.on_loop_end(at=c.until + 1)
+        ck("loop end after the dwell rotates to a different loop",
+           q.stem != p.stem and q.stem in MOOD_LOOPS["happy"])
         try:
             c.on_mood("bogus")
             ck("unknown mood name raises", False)
@@ -209,7 +223,8 @@ def selftest() -> int:
         c2.on_mood("calm")
         ck("an event plays its own loop", c2.on_event("qt_arrived").stem == "quantum_drop_default")
         ck("a mood change during an event does NOT interrupt it", c2.on_mood("happy") is None)
-        ck("after the event, Pico returns to the LATEST mood", c2.on_loop_end().stem in MOOD_LOOPS["happy"])
+        ck("after the event, Pico returns to the LATEST mood",
+           c2.on_loop_end(at=0.0).stem in MOOD_LOOPS["happy"])
         ck("an event with no gesture changes nothing", c2.on_event("weapon_holstered") is None)
         ck("qt_error (route-data noise) has no gesture", c2.on_event("qt_error", at=0.0) is None)
         c2.on_event("injury", at=1000.0)
