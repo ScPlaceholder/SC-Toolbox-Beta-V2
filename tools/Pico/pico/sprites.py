@@ -100,9 +100,20 @@ HAND_LOOPS: Mapping[str, str] = {
 # were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
 # cap a thrown grenade leaves Pico hugging the bomb forever.
 HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0}
-# What he does as the cap lets go. J 2026-10-01 18:24: "By let go does he drop it or toss it?" There is
-# no throw animation yet, but cheer throws both arms up, which reads as a toss once the bomb is gone.
-HAND_RELEASE: Mapping[str, str] = {"bomb": "cheer_happy"}
+# J's bomb gag, 2026-10-01 18:29-18:32: hold it; at 4 s his eyes become "!"; at 8 s one of FIVE random
+# endings plays ("aim for 5 random bomb animation sequences"). A step is (loop, seconds): 0 = play it
+# once, N = keep repeating it for N seconds. Endings whose FIRST loop is missing for an outfit are
+# skipped, and missing later steps are dropped, so a half-built outfit still does something sensible.
+# The explosions are baked into the *_boom loops by elah-audio/pico_bomb_gag.py.
+BOMB_ALERT_S = 4.0
+BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
+BOMB_ENDINGS = [
+    [("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump, lands dizzy (J's)
+    [("cheer_happy", 0)],                                            # 2 toss it away
+    [("crash_X_X_boom", 0), ("idle_settle_spiral", 3.0)],            # 3 goes off in his hands
+    [("scared_surprised_boom", 0), ("sulk_sad", 4.0)],               # 4 it blows, he flinches, sulks
+    [("confused_confused", 3.0), ("relieved_happy", 0)],             # 5 a dud
+]
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
 
@@ -216,6 +227,11 @@ class LoopChooser:
         self.held: Optional[str] = None  # a loop name while something is in his hand
         self.held_key: Optional[str] = None
         self.held_since = 0.0
+        self.endings = [[st for st in e if st[0] in catalog.loops] for e in BOMB_ENDINGS
+                        if e[0][0] in catalog.loops]
+        self.seq: list = []               # remaining steps of a running bomb ending
+        self.in_seq = False
+        self.step_until: Optional[float] = None
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -228,8 +244,8 @@ class LoopChooser:
         key = mood if mood is not None else UNKNOWN
         if key not in self.pools:
             raise SpriteError("mood %r has no loop pool (known: %s)" % (key, ", ".join(self.pools)))
-        if self.oneshot or self.held:
-            self.mood = key           # remembered; shown when the event loop / held item ends
+        if self.oneshot or self.held or self.in_seq:
+            self.mood = key           # remembered; shown when the event loop / held item / ending ends
             return None
         if key == self.mood and self.current is not None:
             return None
@@ -241,7 +257,7 @@ class LoopChooser:
     def on_event(self, event_type: str, at: Optional[float] = None) -> Optional[Path]:
         """A Game.log event happened. Returns its one-shot loop, or None (no gesture, or cooling down)."""
         name = self.events.get(event_type)
-        if name is None:
+        if name is None or self.in_seq:   # a bomb ending is never cut off by a game event
             return None
         at = time.time() if at is None else at
         if at - self.last_fired.get(event_type, float("-inf")) < EVENT_COOLDOWN_S:
@@ -269,23 +285,47 @@ class LoopChooser:
         return None
 
     def expire(self, at: Optional[float] = None) -> Optional[Path]:
-        """Let go of a held item that has a time cap (a thrown grenade never logs a holster)."""
+        """Time-driven hand changes (a thrown grenade never logs a holster): the bomb's "!" at 4 s,
+        and at its cap a random ending. Call every tick."""
         at = time.time() if at is None else at
+        if not self.held:
+            return None
+        age = at - self.held_since
+        if (self.held_key == "bomb" and BOMB_ALERT_S <= age < HAND_MAX_S["bomb"]
+                and self.held != BOMB_ALERT_LOOP and BOMB_ALERT_LOOP in self.catalog.loops):
+            self.held = self.current = BOMB_ALERT_LOOP
+            return self.catalog.loops[self.held]
         cap = HAND_MAX_S.get(self.held_key or "")
-        if self.held and cap is not None and at - self.held_since >= cap:
-            toss = HAND_RELEASE.get(self.held_key or "")
-            self.on_hand(("holster", None))
-            if toss in self.catalog.loops:              # a one-shot toss, then back to the mood
-                self.oneshot, self.current = True, toss
-                return self.catalog.loops[toss]
-            return self.catalog.loops[self.current]
+        if cap is not None and age >= cap:
+            if self.held_key == "bomb" and self.endings:
+                self.held = None
+                self.seq = list(self.rng.choice(self.endings))
+                self.in_seq = True
+                return self._next_step(at)
+            return self.on_hand(("holster", None))
         return None
+
+    def _next_step(self, at: float) -> Optional[Path]:
+        if not self.seq:
+            self.in_seq = False
+            return None
+        name, secs = self.seq.pop(0)
+        self.current = name
+        self.step_until = at + secs if secs else None
+        return self.catalog.loops[name]
 
     def on_loop_end(self, at: Optional[float] = None) -> Path:
         """The current loop finished. After an event: back to the mood. Otherwise repeat the same
         loop until its dwell runs out, then rotate to another from the pool."""
         at = time.time() if at is None else at
         was_event, self.oneshot = self.oneshot, False
+        if self.in_seq:
+            if self.step_until is not None and at < self.step_until:
+                return self.catalog.loops[self.current]     # a timed step keeps repeating
+            nxt = self._next_step(at)
+            if nxt is not None:
+                return nxt
+            was_event = True                                # ending done: back to a fresh mood loop
         if self.held:                                   # still holding it: keep the held loop
             self.current = self.held
             return self.catalog.loops[self.held]
@@ -365,12 +405,29 @@ def selftest() -> int:
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
         c3.on_hand(("draw", "bomb"))
         ck("a held bomb is kept before its cap", c3.expire(at=c3.held_since + 7) is None and c3.held)
-        (Path(d) / "cheer_happy.gif").write_bytes(b"GIF89a")
+        for e in BOMB_ENDINGS:
+            for n, _ in e:
+                (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        (Path(d) / (BOMB_ALERT_LOOP + ".gif")).write_bytes(b"GIF89a")
         c3 = LoopChooser(Catalog.scan(d), rng=random.Random(4)); c3.on_mood("calm"); c3.on_hand(("draw", "bomb"))
-        tossed = c3.expire(at=c3.held_since + 9)
-        ck("a held bomb is let go after its cap (thrown)", tossed is not None and not c3.held)
-        ck("letting go of the bomb plays the toss once", tossed.stem == "cheer_happy" and c3.oneshot)
-        ck("after the toss he goes back to his mood", c3.on_loop_end(at=0).stem in MOOD_LOOPS["calm"])
+        t0 = c3.held_since
+        ck("before 4 s he just holds the bomb", c3.expire(at=t0 + 2) is None and c3.held == HAND_LOOPS["bomb"])
+        ck("at 4 s his eyes go to exclamation marks", c3.expire(at=t0 + 5).stem == BOMB_ALERT_LOOP)
+        first = c3.expire(at=t0 + 9)
+        ck("at 8 s a random ending starts", first is not None and not c3.held and c3.in_seq
+           and first.stem in {e[0][0] for e in BOMB_ENDINGS})
+        ck("a mood change cannot cut an ending short", c3.on_mood("happy") is None)
+        for i in range(10):                      # time moves: each loop end is 10 s later
+            if not c3.in_seq:
+                break
+            c3.on_loop_end(at=t0 + 10 + 10 * i)
+        ck("the ending runs to completion and he returns to his mood",
+           not c3.in_seq and c3.current in MOOD_LOOPS["happy"])
+        picks = set()
+        for seed in range(40):
+            cx = LoopChooser(Catalog.scan(d), rng=random.Random(seed)); cx.on_hand(("draw", "bomb"))
+            picks.add(cx.expire(at=cx.held_since + 9).stem)
+        ck("all five endings get picked across seeds (%d seen)" % len(picks), len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
         ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
         (Path(d) / "confused_confused.gif").unlink()
