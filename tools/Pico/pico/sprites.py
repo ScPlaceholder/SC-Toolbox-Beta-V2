@@ -109,10 +109,16 @@ BOMB_ALERT_S = 4.0
 BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
 BOMB_ENDINGS = [
     [("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump, lands dizzy (J's)
-    [("cheer_happy", 0)],                                            # 2 toss it away
+    [("cheer_happy_boom", 0)],                                       # 2 toss it; it blows up off to
+                                                                     #   the side (J 18:36)
     [("crash_X_X_boom", 0), ("idle_settle_spiral", 3.0)],            # 3 goes off in his hands
     [("scared_surprised_boom", 0), ("sulk_sad", 4.0)],               # 4 it blows, he flinches, sulks
     [("confused_confused", 3.0), ("relieved_happy", 0)],             # 5 a dud
+    # 6 the love-bomb, J 18:36: "blows up in his hands as confetti and hearts and he does a few poses
+    #   with heart eyes like dancing and some cute pose before shaking himself free from the spell and
+    #   stomps angrily and then returns to normal"
+    [("love_heart_confetti", 0), ("idle_dance_heart", 4.0), ("shy_heart", 0),
+     ("startled_surprised", 0), ("annoyed_angry", 0)],
 ]
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
@@ -424,10 +430,11 @@ def selftest() -> int:
         ck("the ending runs to completion and he returns to his mood",
            not c3.in_seq and c3.current in MOOD_LOOPS["happy"])
         picks = set()
-        for seed in range(40):
+        for seed in range(80):
             cx = LoopChooser(Catalog.scan(d), rng=random.Random(seed)); cx.on_hand(("draw", "bomb"))
             picks.add(cx.expire(at=cx.held_since + 9).stem)
-        ck("all five endings get picked across seeds (%d seen)" % len(picks), len(picks) == len(BOMB_ENDINGS))
+        ck("every ending gets picked across seeds (%d of %d)" % (len(picks), len(BOMB_ENDINGS)),
+           len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
         ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
         (Path(d) / "confused_confused.gif").unlink()
