@@ -22,6 +22,8 @@ Layer B for the sprite path (see pico/sprites.py). Logic stays in pico/; this fi
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -49,6 +51,27 @@ DEMO_S = 8.0
 # game is not running, and Pico shows UNKNOWN with the reason, not the last mood it remembers.
 # mtime, not the parsed timestamps, because those are only "good to hours" (events.log_age_s).
 GAME_QUIET_S = 15 * 60
+
+
+# Where he sat, how big, which outfit - remembered between launches (J's polish list, 2026-10-01).
+SETTINGS = Path(os.environ.get("APPDATA", str(Path.home()))) / "PicoPal" / "settings.json"
+
+
+def load_settings() -> dict:
+    try:
+        return json.loads(SETTINGS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}                       # first launch, or an unreadable file: defaults, never a crash
+
+
+def save_settings(d: dict) -> None:
+    try:
+        SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SETTINGS.with_suffix(".tmp")
+        tmp.write_text(json.dumps(d, indent=2), encoding="utf-8")
+        os.replace(tmp, SETTINGS)
+    except OSError:
+        pass                            # a read-only profile must not take Pico down
 
 
 class LogTail:
@@ -230,6 +253,7 @@ class Pal(QWidget):
             return
         self.height_px = dlg.size.value()
         root = Path(dlg.outfit.currentData())
+        self.remember(outfit=str(root))
         try:
             self.chooser = sprites.LoopChooser(sprites.Catalog.scan(root))
         except sprites.SpriteError as ex:
@@ -243,7 +267,14 @@ class Pal(QWidget):
             self.move(e.globalPosition().toPoint() - self.drag)
 
     def mouseReleaseEvent(self, e):
+        if self.drag is not None:
+            self.remember()
         self.drag = None
+
+    def remember(self, **extra):
+        d = load_settings()
+        d.update({"x": self.x(), "y": self.y(), "height": self.height_px}, **extra)
+        save_settings(d)
 
 
 def main(argv=None) -> int:
@@ -253,7 +284,14 @@ def main(argv=None) -> int:
     ap.add_argument("--demo", action="store_true")
     ap.add_argument("--mood")
     a = ap.parse_args(argv)
-    chooser = sprites.LoopChooser(sprites.Catalog.scan(a.loops))
+    saved = load_settings()
+    loops = a.loops
+    if a.loops == sprites.DEFAULT_DIR and saved.get("outfit") and Path(saved["outfit"]).is_dir():
+        loops = Path(saved["outfit"])      # the outfit the user picked last time
+    try:
+        chooser = sprites.LoopChooser(sprites.Catalog.scan(loops))
+    except sprites.SpriteError:
+        chooser = sprites.LoopChooser(sprites.Catalog.scan(sprites.DEFAULT_DIR))
     if a.mood and a.mood not in chooser.pools:
         print("unknown mood %r; known: %s" % (a.mood, ", ".join(chooser.pools)))
         return 2
@@ -270,8 +308,15 @@ def main(argv=None) -> int:
             print("tailing", log)
     app = QApplication(sys.argv)
     pal = Pal(chooser, source, tail, demo=a.demo, pinned=a.mood)
+    if saved.get("height"):
+        pal.height_px = int(saved["height"])
+        if pal.chooser.current:                     # re-play so the first loop is the remembered size
+            pal.play(pal.chooser.catalog.loops[pal.chooser.current])
     scr = app.primaryScreen().availableGeometry()
-    pal.move(QPoint(scr.right() - 320, scr.bottom() - HEIGHT - 60))
+    pos = QPoint(int(saved.get("x", scr.right() - 320)), int(saved.get("y", scr.bottom() - HEIGHT - 60)))
+    if not any(s.availableGeometry().contains(pos) for s in app.screens()):
+        pos = QPoint(scr.right() - 320, scr.bottom() - HEIGHT - 60)   # saved spot is off every screen now
+    pal.move(pos)
     pal.show()
     QTimer.singleShot(300, pal.customise)     # first launch, every app start (J, PICO_CONTRACT.md)
     return app.exec()
