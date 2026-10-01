@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import random
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping, Optional
@@ -50,7 +51,10 @@ EVENT_LOOPS: Mapping[str, str] = {
     "qt_route_calculated": "nav_plot_focused",
     "qt_target_selected": "quantum_spool_default",
     "qt_arrived": "quantum_drop_default",
-    "qt_error": "quantum_wobble_spiral",
+    # qt_error is NOT here, on evidence. Measured over J's last 20 logs (2026-08-02..09-26, 161k
+    # lines): 352 qt_error against 21 qt_arrived, median gap 17.8s, 112 under 5s apart. The line is
+    # "Failed to get starmap route data! ... No Route loaded!" - background noise, not a failed jump.
+    # Mapped, Pico would spin dizzily every 18 seconds of every session.
     "hangar_queue": "hangar_wait_default",
     "hangar_ready": "ship_enter_default",
     "injury": "hull_warn_surprised",
@@ -69,6 +73,10 @@ EVENT_LOOPS: Mapping[str, str] = {
     "session_start": "idle_stretch_default",
     "session_end": "idle_yawn_sleepy",
 }
+
+# The same event again within this many seconds plays nothing. A burst (injury ticks, repeated
+# monitored-space flips) is one thing that happened, not a reason to restart the gesture.
+EVENT_COOLDOWN_S = 45.0
 
 DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
 
@@ -119,6 +127,7 @@ class LoopChooser:
         self.current: Optional[str] = None
         self.events = {e: n for e, n in EVENT_LOOPS.items() if n in catalog.loops}
         self.oneshot = False          # an event loop is playing; moods wait until it ends
+        self.last_fired: dict[str, float] = {}
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -140,11 +149,15 @@ class LoopChooser:
         self.current = self._pick(key)
         return self.catalog.loops[self.current]
 
-    def on_event(self, event_type: str) -> Optional[Path]:
-        """A Game.log event happened. Returns its one-shot loop, or None if it has no gesture."""
+    def on_event(self, event_type: str, at: Optional[float] = None) -> Optional[Path]:
+        """A Game.log event happened. Returns its one-shot loop, or None (no gesture, or cooling down)."""
         name = self.events.get(event_type)
         if name is None:
             return None
+        at = time.time() if at is None else at
+        if at - self.last_fired.get(event_type, float("-inf")) < EVENT_COOLDOWN_S:
+            return None
+        self.last_fired[event_type] = at
         self.oneshot = True
         self.current = name
         return self.catalog.loops[name]
@@ -195,6 +208,10 @@ def selftest() -> int:
         ck("a mood change during an event does NOT interrupt it", c2.on_mood("happy") is None)
         ck("after the event, Pico returns to the LATEST mood", c2.on_loop_end().stem in MOOD_LOOPS["happy"])
         ck("an event with no gesture changes nothing", c2.on_event("weapon_holstered") is None)
+        ck("qt_error (route-data noise) has no gesture", c2.on_event("qt_error", at=0.0) is None)
+        c2.on_event("injury", at=1000.0)
+        ck("the same event inside the cooldown plays nothing", c2.on_event("injury", at=1010.0) is None)
+        ck("after the cooldown it plays again", c2.on_event("injury", at=1000.0 + EVENT_COOLDOWN_S) is not None)
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()

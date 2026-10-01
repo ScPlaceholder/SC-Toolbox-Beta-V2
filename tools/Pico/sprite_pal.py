@@ -172,7 +172,9 @@ class Pal(QWidget):
         self.why.setText(why if len(why) < 90 else why[:87] + "...")
         self.pic.setToolTip(why)
         if self.event:
-            self.play(self.chooser.on_event(self.event))
+            gesture = self.chooser.on_event(self.event)   # None while that event is cooling down
+            if gesture is not None:
+                self.play(gesture)
         path = self.chooser.on_mood(mood)
         if path is not None:
             self.play(path)
