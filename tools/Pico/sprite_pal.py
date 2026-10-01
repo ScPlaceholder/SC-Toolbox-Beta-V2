@@ -204,7 +204,8 @@ class Pal(QWidget):
         self.pic.setToolTip(why)
         let_go = self.chooser.expire()             # a thrown grenade never logs a holster
         if let_go is not None:
-            self.play(let_go)
+            carry, self.chooser.carry_frame = self.chooser.carry_frame, False
+            self.play(let_go, carry=carry)
         if self.hand_change is not None:
             held = self.chooser.on_hand(self.hand_change)
             self.hand_change = None
@@ -218,7 +219,8 @@ class Pal(QWidget):
         if path is not None:
             self.play(path)
 
-    def play(self, path: Path):
+    def play(self, path: Path, carry: bool = False):
+        at = self.movie.currentFrameNumber() if (carry and self.movie is not None) else 0
         if self.movie is not None:
             self.movie.stop()
         m = QMovie(str(path))
@@ -231,6 +233,9 @@ class Pal(QWidget):
         self.movie = m
         self.pic.setMovie(m)
         m.start()
+        if at and at < m.frameCount():
+            m.jumpToFrame(at)              # same pose, new eyes: no restart
+            self.last_frame = at
         self.adjustSize()
 
     def on_frame(self, n: int):

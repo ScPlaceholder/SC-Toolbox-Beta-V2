@@ -108,12 +108,13 @@ HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0}
 BOMB_ALERT_S = 4.0
 BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
 BOMB_ENDINGS = [
-    [("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump, lands dizzy (J's)
+    # J 18:39: "the bomb should physically fall to the ground" -> bomb_drop first wherever he lets go
+    [("bomb_drop", 0), ("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump
     [("cheer_happy_boom", 0)],                                       # 2 toss it; it blows up off to
                                                                      #   the side (J 18:36)
     [("crash_X_X_boom", 0), ("idle_settle_spiral", 3.0)],            # 3 goes off in his hands
-    [("scared_surprised_boom", 0), ("sulk_sad", 4.0)],               # 4 it blows, he flinches, sulks
-    [("confused_confused", 3.0), ("relieved_happy", 0)],             # 5 a dud
+    [("bomb_drop", 0), ("scared_surprised_boom", 0), ("sulk_sad", 4.0)],   # 4 flinch, then sulk
+    [("bomb_drop", 0), ("confused_confused", 3.0), ("relieved_happy", 0)],   # 5 a dud
     # 6 the love-bomb, J 18:36: "blows up in his hands as confetti and hearts and he does a few poses
     #   with heart eyes like dancing and some cute pose before shaking himself free from the spell and
     #   stomps angrily and then returns to normal"
@@ -233,8 +234,12 @@ class LoopChooser:
         self.held: Optional[str] = None  # a loop name while something is in his hand
         self.held_key: Optional[str] = None
         self.held_since = 0.0
-        self.endings = [[st for st in e if st[0] in catalog.loops] for e in BOMB_ENDINGS
-                        if e[0][0] in catalog.loops]
+        # Usable if its first REAL step exists for this outfit (the drop is a lead-in, not the gag).
+        def usable(e):
+            core = [st for st in e if st[0] != "bomb_drop"]
+            return bool(core) and core[0][0] in catalog.loops
+        self.endings = [[st for st in e if st[0] in catalog.loops] for e in BOMB_ENDINGS if usable(e)]
+        self.carry_frame = False          # next play should keep the current frame number
         self.seq: list = []               # remaining steps of a running bomb ending
         self.in_seq = False
         self.step_until: Optional[float] = None
@@ -300,6 +305,9 @@ class LoopChooser:
         if (self.held_key == "bomb" and BOMB_ALERT_S <= age < HAND_MAX_S["bomb"]
                 and self.held != BOMB_ALERT_LOOP and BOMB_ALERT_LOOP in self.catalog.loops):
             self.held = self.current = BOMB_ALERT_LOOP
+            # Only the eyes change (J 18:39: "the clip starts again when it switches to ! eyes"): the
+            # alert loop is the same pose frame for frame, so the window carries the frame across.
+            self.carry_frame = True
             return self.catalog.loops[self.held]
         cap = HAND_MAX_S.get(self.held_key or "")
         if cap is not None and age >= cap:
@@ -422,6 +430,8 @@ def selftest() -> int:
         first = c3.expire(at=t0 + 9)
         ck("at 8 s a random ending starts", first is not None and not c3.held and c3.in_seq
            and first.stem in {e[0][0] for e in BOMB_ENDINGS})
+        ck("the panic jump starts with the bomb falling", any(e[0][0] == "bomb_drop" and
+           e[1][0] == "celebrate_exclaim_boom" for e in c3.endings))
         ck("a mood change cannot cut an ending short", c3.on_mood("happy") is None)
         for i in range(10):                      # time moves: each loop end is 10 s later
             if not c3.in_seq:
@@ -432,7 +442,8 @@ def selftest() -> int:
         picks = set()
         for seed in range(80):
             cx = LoopChooser(Catalog.scan(d), rng=random.Random(seed)); cx.on_hand(("draw", "bomb"))
-            picks.add(cx.expire(at=cx.held_since + 9).stem)
+            first = cx.expire(at=cx.held_since + 9).stem      # endings share a first step (the drop),
+            picks.add((first,) + tuple(n for n, _ in cx.seq))  # so tell them apart by every step
         ck("every ending gets picked across seeds (%d of %d)" % (len(picks), len(BOMB_ENDINGS)),
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
