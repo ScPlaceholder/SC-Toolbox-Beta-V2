@@ -202,6 +202,9 @@ class Pal(QWidget):
             why = "event: %s | %s" % (self.event, why)
         self.why.setText(why if len(why) < 90 else why[:87] + "...")
         self.pic.setToolTip(why)
+        let_go = self.chooser.expire()             # a thrown grenade never logs a holster
+        if let_go is not None:
+            self.play(let_go)
         if self.hand_change is not None:
             held = self.chooser.on_hand(self.hand_change)
             self.hand_change = None

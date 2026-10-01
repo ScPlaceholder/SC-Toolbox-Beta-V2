@@ -95,6 +95,11 @@ HAND_LOOPS: Mapping[str, str] = {
     # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
     "bomb": "weapon_reload_focused_prop17",
 }
+# A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
+# was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
+# were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
+# cap a thrown grenade leaves Pico hugging the bomb forever.
+HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0}
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[[^\]]*\] Attachment\[([^,]+), ([^,]+),.*?Port\[([^\]]+)\]")
 HAND_PORT = "weapon_attach_hand_right"
 
@@ -206,6 +211,8 @@ class LoopChooser:
         self.until = 0.0               # the current mood loop repeats until this time
         self.hand = {k: n for k, n in HAND_LOOPS.items() if n in catalog.loops}
         self.held: Optional[str] = None  # a loop name while something is in his hand
+        self.held_key: Optional[str] = None
+        self.held_since = 0.0
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -247,6 +254,7 @@ class LoopChooser:
             return None
         kind, key = change
         if kind == "draw" and key in self.hand:
+            self.held_key, self.held_since = key, time.time()
             self.held = self.current = self.hand[key]
             self.oneshot = False
             return self.catalog.loops[self.held]
@@ -255,6 +263,14 @@ class LoopChooser:
             self.current = self._pick(self.mood or UNKNOWN)
             self.until = time.time() + self.rng.uniform(*DWELL_S)
             return self.catalog.loops[self.current]
+        return None
+
+    def expire(self, at: Optional[float] = None) -> Optional[Path]:
+        """Let go of a held item that has a time cap (a thrown grenade never logs a holster)."""
+        at = time.time() if at is None else at
+        cap = HAND_MAX_S.get(self.held_key or "")
+        if self.held and cap is not None and at - self.held_since >= cap:
+            return self.on_hand(("holster", None))
         return None
 
     def on_loop_end(self, at: Optional[float] = None) -> Path:
@@ -339,6 +355,11 @@ def selftest() -> int:
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
         ht.feed_line(L % ("gren_5", "grenade_attach_1"))
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
+        c3.on_hand(("draw", "bomb"))
+        ck("a held bomb is kept before its cap", c3.expire(at=c3.held_since + 7) is None and c3.held)
+        ck("a held bomb is let go after its cap (thrown)", c3.expire(at=c3.held_since + 9) is not None and not c3.held)
+        c3.on_hand(("draw", "slot1"))
+        ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()
