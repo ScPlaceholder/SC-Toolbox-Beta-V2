@@ -1,0 +1,160 @@
+"""pico/sprites.py — WHOLE-BODY SPRITE LOOPS, chosen by mood. The Drake Pico, wired in.
+
+J, 2026-10-01: after the bone-driven tweens kept glitching, J picked rendered key-frame loops
+("Left is better") and asked to wire the Drake Pico into the Pico Pals tool. 89 Drake loops
+exist (BrAi/_forJ/VNCCS/pico_anim_sequences/<anim>_<expr>.gif), each with its expression baked in.
+
+This is a SECOND renderer path beside the bone rig, not a replacement for it. The rig, face.py
+and the skin format are untouched. Both consume the same MoodReading from events.MoodSource, so
+the state machine (layer C) stays the single source of what Pico is feeling.
+
+Pure logic, no Qt, headless-testable, same rule as layer A. The window lives in sprite_pal.py.
+
+WHAT IT REFUSES, CARRIED OVER FROM face.py:
+  1. UNKNOWN never falls back to a happy or calm loop. A mascot that idles contentedly while the
+     feed is dead is a dashboard that lies. UNKNOWN gets its own pool.
+     ⚠ MY PICK, OPEN FOR J: the art has no blank-faced loop, so UNKNOWN plays `confused` —
+       "I can't tell" is the honest claim. Overrule in MOOD_LOOPS["unknown"].
+  2. A mood whose whole pool is missing from the catalog is an error at load time, not a silent
+     substitute at play time.
+"""
+from __future__ import annotations
+
+import os
+import random
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Mapping, Optional
+
+UNKNOWN = "unknown"
+
+# mood (face.DEFAULT_MOODS names) -> loop names (<anim>_<expr>, no extension).
+# Pools are small on purpose, per face.py: "a few readable stages, not a tour through the library".
+MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
+    "calm": ("idle_look_default", "idle_settle_default", "idle_shuffle_default",
+             "idle_stargaze_default", "idle_preen_default", "idle_tap_foot_default"),
+    "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
+    "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
+    "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy"),
+    "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
+    "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
+    UNKNOWN: ("confused_confused",),
+}
+
+DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
+
+
+class SpriteError(Exception):
+    pass
+
+
+@dataclass
+class Catalog:
+    """Which loops exist on disk for one outfit."""
+
+    root: Path
+    loops: dict[str, Path] = field(default_factory=dict)
+
+    @classmethod
+    def scan(cls, root: Path | str = DEFAULT_DIR) -> "Catalog":
+        root = Path(root)
+        if not root.is_dir():
+            raise SpriteError("no loop folder at %s" % root)
+        # .webp is the desktop copy: transparent, and every loop on one shared frame so Pico does not
+        # jump between loops. The .gif is the flattened review copy, used only where no .webp exists.
+        loops = {p.stem: p for p in sorted(root.glob("*.gif"))}
+        loops.update({p.stem: p for p in sorted(root.glob("*.webp"))})
+        if not loops:
+            raise SpriteError("%s holds no .webp or .gif loops" % root)
+        return cls(root, loops)
+
+    def check(self, moods: Mapping[str, tuple[str, ...]] = MOOD_LOOPS) -> dict[str, list[str]]:
+        """Missing loops per mood. Raises if any mood has NONE — it could never show anything."""
+        missing = {m: [n for n in pool if n not in self.loops] for m, pool in moods.items()}
+        dead = [m for m, pool in moods.items() if len(missing[m]) == len(pool)]
+        if dead:
+            raise SpriteError("moods with no loop on disk: %s" % ", ".join(dead))
+        return {m: v for m, v in missing.items() if v}
+
+
+class LoopChooser:
+    """Mood in, loop path out. Stays on the current loop until the mood changes or the loop ends."""
+
+    def __init__(self, catalog: Catalog, moods: Mapping[str, tuple[str, ...]] = MOOD_LOOPS,
+                 rng: Optional[random.Random] = None):
+        catalog.check(moods)
+        self.catalog = catalog
+        self.pools = {m: tuple(n for n in pool if n in catalog.loops) for m, pool in moods.items()}
+        self.rng = rng or random.Random()
+        self.mood: Optional[str] = None
+        self.current: Optional[str] = None
+
+    def _pick(self, mood: str) -> str:
+        pool = self.pools[mood]
+        if len(pool) > 1 and self.current in pool:
+            pool = tuple(n for n in pool if n != self.current)   # never the same loop twice in a row
+        return self.rng.choice(pool)
+
+    def on_mood(self, mood: Optional[str]) -> Optional[Path]:
+        """Call on every reading. Returns a new loop path when the loop should change, else None."""
+        key = mood if mood is not None else UNKNOWN
+        if key not in self.pools:
+            raise SpriteError("mood %r has no loop pool (known: %s)" % (key, ", ".join(self.pools)))
+        if key == self.mood and self.current is not None:
+            return None
+        self.mood = key
+        self.current = self._pick(key)
+        return self.catalog.loops[self.current]
+
+    def on_loop_end(self) -> Path:
+        """The current loop finished: rotate within the same mood's pool."""
+        if self.mood is None:
+            raise SpriteError("on_loop_end before any mood")
+        self.current = self._pick(self.mood)
+        return self.catalog.loops[self.current]
+
+
+def selftest() -> int:
+    import tempfile
+    fails = 0
+
+    def ck(name, ok):
+        nonlocal fails
+        print(("PASS " if ok else "FAIL ") + name)
+        fails += 0 if ok else 1
+
+    with tempfile.TemporaryDirectory() as d:
+        for pool in MOOD_LOOPS.values():
+            for n in pool:
+                (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        (Path(d) / "happy_happy.webp").write_bytes(b"RIFF")
+        c = LoopChooser(Catalog.scan(d), rng=random.Random(1))
+        ck("unknown mood plays the unknown pool, not calm",
+           c.on_mood(None).stem in MOOD_LOOPS[UNKNOWN])
+        ck("same mood again returns None (keeps playing)", c.on_mood(None) is None)
+        p = c.on_mood("happy")
+        ck("mood change picks from the new pool", p.stem in MOOD_LOOPS["happy"])
+        q = c.on_loop_end()
+        ck("loop end rotates to a different loop", q.stem != p.stem and q.stem in MOOD_LOOPS["happy"])
+        try:
+            c.on_mood("bogus")
+            ck("unknown mood name raises", False)
+        except SpriteError:
+            ck("unknown mood name raises", True)
+        ck("a .webp wins over the .gif of the same loop",
+           Catalog.scan(d).loops["happy_happy"].suffix == ".webp")
+        (Path(d) / "confused_confused.gif").unlink()
+        try:
+            Catalog.scan(d).check()
+            ck("a mood with no loops on disk is refused at load", False)
+        except SpriteError:
+            ck("a mood with no loops on disk is refused at load", True)
+    real = DEFAULT_DIR
+    if real.is_dir():
+        missing = Catalog.scan(real).check()
+        ck("real Drake folder covers every mood (missing: %s)" % (missing or "none"), True)
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(selftest())
