@@ -49,6 +49,13 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     UNKNOWN: ("confused_confused",),
 }
 
+# Gag props show up only SOMETIMES. J 2026-10-01 19:28, on the Huckaby puppet: "Like other gag props it
+# shouldn't always spawn but sometimes." When the pool draws one of these, it plays with this probability;
+# otherwise a regular loop from the same pool is drawn instead.
+RARE_LOOPS: Mapping[str, float] = {
+    "ship_claim_star_prophuckaby": 0.15,
+}
+
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
 # An event is something that HAPPENED; a mood is how he feels about it. The mood engine already turns
 # events into feelings, so this layer only adds the gesture. MY PICKS, OPEN FOR J, like MOOD_LOOPS.
@@ -258,7 +265,13 @@ class LoopChooser:
         pool = self.pools[mood]
         if len(pool) > 1 and self.current in pool:
             pool = tuple(n for n in pool if n != self.current)   # never the same loop twice in a row
-        return self.rng.choice(pool)
+        pick = self.rng.choice(pool)
+        p = RARE_LOOPS.get(pick)
+        if p is not None and self.rng.random() >= p:               # a gag prop: only sometimes
+            common = tuple(n for n in pool if n not in RARE_LOOPS)
+            if common:
+                pick = self.rng.choice(common)
+        return pick
 
     def on_mood(self, mood: Optional[str]) -> Optional[Path]:
         """Call on every reading. Returns a new loop path when the loop should change, else None."""
@@ -459,6 +472,19 @@ def selftest() -> int:
             cx = LoopChooser(Catalog.scan(d), rng=random.Random(seed)); cx.on_hand(("draw", "bomb"))
             first = cx.expire(at=cx.held_since + 9).stem      # endings share a first step (the drop),
             picks.add((first,) + tuple(n for n, _ in cx.seq))  # so tell them apart by every step
+        # a gag loop in a pool shows up far less often than a regular one
+        cg = LoopChooser(Catalog.scan(d), rng=random.Random(7))
+        rare = next(iter(RARE_LOOPS))
+        if any(rare in pool for pool in cg.pools.values()):
+            mood = next(m for m, pool in cg.pools.items() if rare in pool)
+            hits = 0
+            for _ in range(2000):
+                cg.current = None
+                hits += cg._pick(mood) == rare
+            share = hits / 2000.0
+            fair = 1.0 / len(cg.pools[mood])
+            ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
+               0 < share < fair * 0.5)
         ck("every ending gets picked across seeds (%d of %d)" % (len(picks), len(BOMB_ENDINGS)),
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
