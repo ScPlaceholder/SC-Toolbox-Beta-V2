@@ -28,13 +28,13 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QSize, Qt, QTimer
-from PySide6.QtGui import QMovie, QPixmap
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QImage, QMovie, QPainter, QPixmap, QRadialGradient
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
                                QLabel, QMenu, QSlider, QVBoxLayout, QWidget)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pico import snap, sprites  # noqa: E402
+from pico import aura, snap, sprites  # noqa: E402
 
 DEFAULT_LOGS = (
     Path("C:/Star Citizen/StarCitizen/LIVE/Game.log"),
@@ -102,13 +102,166 @@ class LogTail:
         return data.splitlines()
 
 
+def outfit_name(d: Path, root: Path = sprites.DEFAULT_DIR) -> str:
+    """The outfit's display name from its loop folder: Drake for the base folder, else the brand
+    suffix of pico_anim_sequences_<brand>. One function, so the Customise list and the aura rule
+    can never disagree about what an outfit is called."""
+    d = Path(d)
+    if d == root:
+        return "Drake"
+    if d.name.startswith(root.name + "_"):
+        return d.name[len(root.name) + 1:].replace("_", " ").title()
+    return d.name
+
+
 def outfits(root: Path = sprites.DEFAULT_DIR) -> dict[str, Path]:
     """Every outfit with loops on disk: Drake's folder, plus pico_anim_sequences_<brand> beside it."""
     found = {"Drake": root} if root.is_dir() else {}
     for d in sorted(root.parent.glob(root.name + "_*")):
         if d.is_dir() and (any(d.glob("*.webp")) or any(d.glob("*.gif"))):
-            found[d.name[len(root.name) + 1:].replace("_", " ").title()] = d
+            found[outfit_name(d, root)] = d
     return found
+
+
+AURA_GRID = 24         # silhouette mask resolution: a GRID x GRID thumbnail of the loop's first frame
+AURA_TICK_MS = 33      # ~30 fps; the aura runs on its own clock, so loop changes never stutter it
+
+
+def silhouette_cells(img: QImage, grid: int = AURA_GRID) -> tuple[list, float]:
+    """Centres of the opaque cells of a loop frame, normalised to 0..1, and the cell size.
+
+    The frame is shrunk to a grid-by-grid thumbnail (Qt averages alpha while scaling) so this is a
+    few hundred pixel reads per LOOP, not per frame."""
+    if img.isNull() or img.width() <= 0 or img.height() <= 0:
+        return [], 0.0
+    small = img.scaled(grid, grid, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    cells = []
+    for gy in range(grid):
+        for gx in range(grid):
+            if small.pixelColor(gx, gy).alpha() >= 140:
+                cells.append(((gx + 0.5) / grid, (gy + 0.5) / grid))
+    return cells, 1.0 / grid
+
+
+def tint_to(img: QImage, rgb) -> QImage:
+    """Recolour a glow sprite to rgb, keeping its alpha and brightness: dim parts take the colour, the
+    brightest core stays near white so it still reads as a glint."""
+    out = img.convertToFormat(QImage.Format_ARGB32)
+    r0, g0, b0 = rgb
+
+    def luma(c):
+        return (0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()) / 255.0
+    # normalise to the sprite's own peak, so a saturated source (the lavender star) is not dimmed by the swap
+    peak = max((luma(out.pixelColor(x, y)) for y in range(out.height()) for x in range(out.width())
+                if out.pixelColor(x, y).alpha() > 0), default=1.0) or 1.0
+    for y in range(out.height()):
+        for x in range(out.width()):
+            c = out.pixelColor(x, y)
+            if c.alpha() == 0:
+                continue
+            lum = min(1.0, luma(c) / peak)
+            core = lum ** 4
+            out.setPixelColor(x, y, QColor(int(min(255, r0 * lum + (255 - r0) * core)),
+                                           int(min(255, g0 * lum + (255 - g0) * core)),
+                                           int(min(255, b0 * lum + (255 - b0) * core)), c.alpha()))
+    return out
+
+
+def round_off(img: QImage) -> QImage:
+    """Fade a region crop to zero alpha outside a centred circle.
+
+    vfx_map's region boxes are hand-read to ~10px, and s60.star_d's box catches the edge of a
+    neighbouring blue object in its bottom-left corner: drawn as-is, every sparkle trailed a light
+    blue speck (seen in the first proof render). The star's rays reach the box edges along the axes,
+    which stay inside the circle; only the corners, where the bleed is, are cut."""
+    out = img.convertToFormat(QImage.Format_ARGB32_Premultiplied)
+    w, h = out.width(), out.height()
+    g = QRadialGradient(QPointF(w / 2.0, h / 2.0), max(w, h) / 2.0)
+    g.setColorAt(0.0, QColor(0, 0, 0, 255))
+    g.setColorAt(0.75, QColor(0, 0, 0, 255))
+    g.setColorAt(1.0, QColor(0, 0, 0, 0))
+    p = QPainter(out)
+    p.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+    p.fillRect(out.rect(), g)
+    p.end()
+    return out
+
+
+class AuraLayer(QWidget):
+    """Draws an outfit's aura (aura.AURAS) over Pico. Transparent to the mouse, so hover, drag and the
+    right-click menu all reach the window underneath; draws no background, only the sparkles."""
+
+    def __init__(self, parent: "Pal"):
+        super().__init__(parent)
+        self.pal = parent
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        self.setAutoFillBackground(False)
+        self.field = None
+        self.which = None                 # the Aura currently running, so a re-set is a no-op
+        self.pix = None
+        self.t0 = time.monotonic()
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update)
+        self.hide()
+
+    def set_aura(self, a) -> None:
+        """Turn the aura on (an aura.Aura) or off (None). Same aura again keeps the running field,
+        so its twinkles carry straight through a loop change."""
+        if a is self.which:
+            return
+        self.which, self.field, self.pix = a, None, None
+        if a is not None:
+            try:
+                clip, rrec, srec, sample = aura.load_clip(a.clip)
+                sheet = QImage(str(Path(__file__).resolve().parent / "assets" / "reference" / "sheets"
+                                   / srec["file"]))
+                if sheet.isNull():
+                    raise aura.AuraError("sheet %s not readable" % srec["file"])
+                # ⚠ The map says sheet 60 blends SCREEN (glow on a black field). Over a translucent
+                # desktop window there is no backdrop to screen against, and s60.star_d already
+                # carries a real graded alpha (corners at 0-2), so it is drawn source-over.
+                crop = sheet.copy(QRect(rrec["x"], rrec["y"], rrec["w"], rrec["h"]))
+                if a.tint:
+                    crop = tint_to(crop, a.tint)
+                self.pix = QPixmap.fromImage(round_off(crop))
+                self.field = aura.SparkleField(a, clip, sample)
+            except aura.AuraError as ex:
+                print("aura off: %s" % ex)       # a broken sparkle must never take Pico down
+                self.which = None
+        if self.field is None:
+            self.timer.stop()
+            self.hide()
+        else:
+            self.timer.start(AURA_TICK_MS)
+            self.show()
+            self.raise_()
+            self.pal.prop_lbl.raise_()           # a prop held in front stays on top of the sparkles
+
+    def set_area(self, cells, cell) -> None:
+        if self.field is not None:
+            self.field.set_area(cells, cell)
+
+    def paintEvent(self, _e):
+        if self.field is None or self.pix is None:
+            return
+        rect = self.pal.movie_rect()
+        if rect is None:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        pw, ph = self.pix.width(), self.pix.height()
+        for (x, y, size, alpha, rot) in self.field.states(time.monotonic() - self.t0):
+            side = size * rect.height()                  # size is a fraction of Pico's height
+            k = side / float(max(pw, ph))
+            p.save()
+            p.setOpacity(alpha)
+            p.translate(QPointF(rect.x() + x * rect.width(), rect.y() + y * rect.height()))
+            p.rotate(rot)
+            p.scale(k, k)
+            p.drawPixmap(QPointF(-pw / 2.0, -ph / 2.0), self.pix)
+            p.restore()
+        p.end()
 
 
 class Customise(QDialog):
@@ -167,6 +320,9 @@ class Pal(QWidget):
         self.anchors = None
         self.prop_rec = None
         self.prop_pix = None
+        # OUTFIT AURA (J 2026-10-01: Origin sparkles on every frame). Its own child widget and clock,
+        # sized to the whole window; which outfit gets one is aura.AURAS, not a branch here.
+        self.aura_layer = AuraLayer(self)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.pic)
@@ -245,6 +401,7 @@ class Pal(QWidget):
         m.frameChanged.connect(self.on_frame)
         self.last_frame = 0
         self.movie = m
+        self.setup_aura(m)
         self.setup_prop(path)
         self.pic.setMovie(m)
         sz = m.scaledSize()
@@ -255,6 +412,28 @@ class Pal(QWidget):
             m.jumpToFrame(at)              # same pose, new eyes: no restart
             self.last_frame = at
         self.adjustSize()
+
+    def setup_aura(self, m: QMovie):
+        """Aura on or off for the current outfit, and his silhouette for this loop. Runs on every
+        play(), so an outfit switch from Customise turns it on or off on the very next loop."""
+        self.aura_layer.set_aura(aura.aura_for(outfit_name(self.chooser.catalog.root)))
+        if self.aura_layer.field is not None:
+            self.aura_layer.set_area(*silhouette_cells(m.currentImage()))
+
+    def movie_rect(self):
+        """Where the loop is drawn inside the window (the movie is centred in its label), or None."""
+        if self.movie is None:
+            return None
+        mw = self.movie.scaledSize().width()
+        if mw <= 0:
+            return None
+        ox = self.pic.x() + (self.pic.width() - mw) // 2
+        oy = self.pic.y() + (self.pic.height() - self.height_px) // 2
+        return QRect(ox, oy, mw, self.height_px)
+
+    def resizeEvent(self, e):
+        self.aura_layer.setGeometry(self.rect())
+        super().resizeEvent(e)
 
     def setup_prop(self, path: Path):
         """Pick up the snap prop for the loop just started, if the chooser named one."""
