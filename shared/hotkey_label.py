@@ -14,7 +14,8 @@ import json
 import os
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETTINGS_FILE = os.path.join(_ROOT, "skill_launcher_settings.json")
+from shared.user_settings import launcher_settings, load_json
+SETTINGS_FILE, _LEGACY_SETTINGS_FILE = launcher_settings(_ROOT)
 
 _NAMES = {"ctrl": "Ctrl", "control": "Ctrl", "shift": "Shift", "alt": "Alt",
           "cmd": "Win", "win": "Win", "super": "Win"}
@@ -36,10 +37,9 @@ def hotkey_label(settings_key: str, default: str) -> str:
     """The display label for the tool whose launcher settings key is ``settings_key``."""
     binding = default
     try:
-        with open(SETTINGS_FILE, encoding="utf-8") as fh:
-            saved = json.load(fh).get(settings_key)
+        saved = load_json(SETTINGS_FILE, legacy=_LEGACY_SETTINGS_FILE).get(settings_key)
         if isinstance(saved, str) and saved.strip():
             binding = saved
-    except (OSError, ValueError, AttributeError):
-        pass            # no/garbled launcher settings: the tool's default is the binding
+    except AttributeError:
+        pass            # garbled launcher settings: the tool's default is the binding
     return format_hotkey(binding)

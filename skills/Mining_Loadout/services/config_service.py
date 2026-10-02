@@ -8,10 +8,17 @@ from models.items import MAX_MODULE_SLOTS, NONE_GADGET, NONE_LASER, NONE_MODULE,
 
 log = logging.getLogger("MiningLoadout.config")
 
-_CONFIG_PATH = os.path.join(
+_LEGACY_CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "mining_loadout_config.json",
 )
+# Outside the install folder, which every update replaces; the old in-folder file is read once as a migration.
+try:
+    from shared.user_settings import settings_path, source_path
+    _CONFIG_PATH = settings_path("mining_loadout", "config.json")
+except ImportError:                  # run without the toolbox root on sys.path
+    source_path = None
+    _CONFIG_PATH = _LEGACY_CONFIG_PATH
 
 CONFIG_VERSION = 2
 
@@ -86,7 +93,11 @@ def load_config(path: Optional[str] = None) -> Dict[str, Any]:
     Returns a validated config dict with all required keys.
     Falls back to defaults on any error.
     """
-    config_path = path or _CONFIG_PATH
+    config_path = path
+    if config_path is None:
+        config_path = _CONFIG_PATH
+        if source_path is not None:
+            config_path = source_path(_CONFIG_PATH, _LEGACY_CONFIG_PATH) or _CONFIG_PATH
     try:
         with open(config_path, "r", encoding="utf-8") as fh:
             raw = json.load(fh)
@@ -129,6 +140,7 @@ def save_config(
     }
 
     try:
+        os.makedirs(os.path.dirname(config_path) or ".", exist_ok=True)
         with open(config_path, "w", encoding="utf-8") as fh:
             json.dump(cfg, fh, indent=2)
         return True

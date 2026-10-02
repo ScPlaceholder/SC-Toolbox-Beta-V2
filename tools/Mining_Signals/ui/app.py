@@ -164,6 +164,19 @@ from mining_shared.paths import (
 )
 
 _LEGACY_CONFIG_FILE = _legacy_config_file_fn()
+
+
+def _legacy_is_shipped_copy() -> bool:
+    """True when the legacy file in an INSTALLED copy is byte-identical to one a release shipped: that is the
+    developer's own config (OCR and HUD regions included), not this user's, so it must not be migrated."""
+    try:
+        from shared.user_settings import in_installed_copy, is_shipped_copy
+    except ImportError:
+        return False
+    return in_installed_copy(_LEGACY_CONFIG_FILE) and is_shipped_copy(
+        _LEGACY_CONFIG_FILE, "mining_signals_config.json")
+
+
 _CONFIG_FILE = _config_file_fn()
 
 # Ship slots available in the Mining Ships tab. Keys are the internal
@@ -316,7 +329,7 @@ def _load_config() -> dict:
     read_path: Optional[str] = None
     if os.path.isfile(_CONFIG_FILE):
         read_path = _CONFIG_FILE
-    elif os.path.isfile(_LEGACY_CONFIG_FILE):
+    elif os.path.isfile(_LEGACY_CONFIG_FILE) and not _legacy_is_shipped_copy():
         read_path = _LEGACY_CONFIG_FILE
         log.info(
             "config: migrating from legacy in-app path %s to persistent "

@@ -237,14 +237,13 @@ def _hidden_startupinfo():
 
 def _launcher_settings(base_dir: str) -> dict:
     """The launcher's raw settings dict (language, ui_scale, geometry...)."""
-    path = os.path.join(base_dir, "skill_launcher_settings.json")
     try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError) as exc:
+        from shared.user_settings import launcher_settings, load_json
+    except ImportError as exc:      # run without the toolbox root on sys.path
         log.debug("ipc_bus: no launcher settings (%s)", exc)
         return {}
+    data = load_json(*launcher_settings(base_dir))
+    return data if isinstance(data, dict) else {}
 
 
 def _spawn_env(base_dir: str) -> dict:

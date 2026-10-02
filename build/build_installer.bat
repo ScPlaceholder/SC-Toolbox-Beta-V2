@@ -236,7 +236,6 @@ echo  [*] Staging runtime files...
 
 :: Root-level runtime files
 copy "%ROOT%\skill_launcher.py"             "%STAGE%\" >nul
-copy "%ROOT%\skill_launcher_settings.json"  "%STAGE%\" >nul
 copy "%ROOT%\pyproject.toml"                "%STAGE%\" >nul
 copy "%ROOT%\README.txt"                    "%STAGE%\" >nul
 copy "%ROOT%\README.md"                     "%STAGE%\" >nul 2>nul
@@ -976,6 +975,41 @@ echo  [OK] All runtime components validated.
 :: root, and any other nesting.
 echo  [*] Cleaning staging directory...
 powershell -Command "Get-ChildItem -Path '%STAGE%' -Recurse -Directory -Force | Where-Object { $_.Name -in @('__pycache__','.pytest_cache','tests','.claude') } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
+
+:: ── Step 7f: No user settings in the package (2026-10-02) ──
+:: Releases 2.2.17 to 2.4.0 shipped the developer's own settings files. Velopack replaces the install
+:: folder on every update, so each update overwrote every user's choices with his: all tool hotkeys
+:: disabled, UI scale 1.5, his OCR/HUD regions and Trade Hub filters. Settings now live in
+:: ~/.sctoolbox (shared/user_settings.py) and every tool falls back to its own defaults when none
+:: exist, so the package carries none. The check below FAILS THE BUILD if one comes back. It runs
+:: here, after the recursive .claude prune, because worktree copies under skills\<S>\.claude carry
+:: settings files of their own and would fail every build on the dev machine.
+echo  [*] Removing user settings from staging...
+del /q "%STAGE%\skill_launcher_settings.json" 2>nul
+del /q "%STAGE%\skills\Trade_Hub\trade_hub_config.json" 2>nul
+del /q "%STAGE%\skills\Market_Finder\uex_settings.json" 2>nul
+del /q "%STAGE%\skills\Mining_Loadout\mining_loadout_config.json" 2>nul
+del /q "%STAGE%\skills\Cargo_loader\cargo_loader_config.json" 2>nul
+if exist "%STAGE%\skills\Mission_Database\.mission_db_cache" rmdir /s /q "%STAGE%\skills\Mission_Database\.mission_db_cache"
+del /q "%STAGE%\tools\Battle_Buddy\battle_buddy_settings.json" 2>nul
+del /q "%STAGE%\tools\Mining_Signals\mining_signals_config.json" 2>nul
+set "SETTINGS_LEAK=0"
+:: Two loops, not one over (skills tools): FOR /R cannot take a FOR variable as its root, and the
+:: nested form silently searched nothing (caught by a test stage with a planted file, 2026-10-02).
+for /r "%STAGE%\skills" %%F in (*_settings.json *_config.json) do (
+    echo  [ERR] user settings file in staging: %%F
+    set "SETTINGS_LEAK=1"
+)
+for /r "%STAGE%\tools" %%F in (*_settings.json *_config.json) do (
+    echo  [ERR] user settings file in staging: %%F
+    set "SETTINGS_LEAK=1"
+)
+if exist "%STAGE%\skill_launcher_settings.json" set "SETTINGS_LEAK=1"
+if "!SETTINGS_LEAK!"=="1" (
+    echo  [ERR] Staging still contains user settings - refusing to package them.
+    goto :fail
+)
+
 
 :: locales/ — only include compiled .mo translation files, not the .pot template
 :: Copies the full locales/ tree but skips .pot files (dev-only)

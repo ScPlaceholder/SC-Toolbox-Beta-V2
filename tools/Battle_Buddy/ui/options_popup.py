@@ -74,6 +74,16 @@ def _auto_detect_game_log() -> str:
     return best.replace("\\", "/")
 
 
+def _is_shipped_copy(path: str) -> bool:
+    """True when the legacy file in an INSTALLED copy is byte-identical to one a release shipped (2.2.17-2.4.0
+    carried the developer's own settings, HUD position included). Migrating that would hand every user his."""
+    try:
+        from shared.user_settings import in_installed_copy, is_shipped_copy
+    except ImportError:
+        return False
+    return in_installed_copy(path) and is_shipped_copy(path, "battle_buddy_settings.json")
+
+
 def load_settings() -> dict:
     defaults = {
         "log_path":          "C:/StarCitizen/LIVE/Game.log",
@@ -82,6 +92,8 @@ def load_settings() -> dict:
     }
     migrated = False
     for path in (_SETTINGS_FILE, _LEGACY_SETTINGS_FILE):
+        if path == _LEGACY_SETTINGS_FILE and _is_shipped_copy(path):
+            continue                 # the copy a release put there, not this user's HUD position
         try:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as fh:

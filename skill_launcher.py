@@ -46,7 +46,9 @@ from ui.main_window import LauncherWindow, get_hotkey_display
 logger = logging.getLogger(__name__)
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
-SETTINGS_FILE = os.path.join(_skill_dir, "skill_launcher_settings.json")
+# Outside the install folder: an update replaces that folder, and with it any settings kept there.
+from shared.user_settings import launcher_settings as _launcher_settings, load_json as _load_json, save_json as _save_json
+SETTINGS_FILE, _LEGACY_SETTINGS_FILE = _launcher_settings(_skill_dir)
 
 
 def _find_skill_log(skill_id: str) -> str | None:
@@ -66,21 +68,13 @@ def _find_skill_log(skill_id: str) -> str | None:
 # ── Settings persistence ────────────────────────────────────────────────────
 
 def _load_settings_raw() -> dict:
-    try:
-        if os.path.isfile(SETTINGS_FILE):
-            with open(SETTINGS_FILE, encoding="utf-8") as f:
-                return json.load(f)
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Could not load settings: %s", exc)
-    return {}
+    data = _load_json(SETTINGS_FILE, legacy=_LEGACY_SETTINGS_FILE)
+    return data if isinstance(data, dict) else {}
 
 
 def _save_settings_raw(data: dict) -> None:
     try:
-        tmp = SETTINGS_FILE + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        os.replace(tmp, SETTINGS_FILE)
+        _save_json(SETTINGS_FILE, data)
     except (OSError, TypeError) as exc:
         logger.warning("Could not save settings: %s", exc)
 

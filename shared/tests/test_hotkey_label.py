@@ -1,7 +1,15 @@
 """Title-bar hotkey labels follow the launcher's real binding."""
 import json
 
+import pytest
+
 from shared import hotkey_label as hl
+
+
+@pytest.fixture(autouse=True)
+def _no_legacy_file(tmp_path, monkeypatch):
+    """The real in-folder launcher settings must not leak into a test that points SETTINGS_FILE elsewhere."""
+    monkeypatch.setattr(hl, "_LEGACY_SETTINGS_FILE", str(tmp_path / "no_legacy.json"))
 
 
 def test_formats_launcher_bindings():

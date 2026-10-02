@@ -34,7 +34,10 @@ from shared.api_config import (  # noqa: E402
 log = logging.getLogger("TradeHub.data")
 
 # ── Persistent config ─────────────────────────────────────────────────────────
-_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_hub_config.json")
+# Outside the install folder, which every update replaces; the old in-folder file is read once as a migration.
+from shared.user_settings import settings_path, load_json, save_json  # noqa: E402
+_LEGACY_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_hub_config.json")
+_CONFIG_PATH = settings_path("trade_hub", "config.json")
 
 
 # ── Column definitions ────────────────────────────────────────────────────────
@@ -895,16 +898,12 @@ class DataFetcher:
 # ── Config persistence ────────────────────────────────────────────────────────
 
 def load_config() -> dict:
-    try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return {}
+    cfg = load_json(_CONFIG_PATH, legacy=_LEGACY_CONFIG_PATH)
+    return cfg if isinstance(cfg, dict) else {}
 
 
 def save_config(cfg: dict) -> None:
     try:
-        with open(_CONFIG_PATH, "w", encoding="utf-8") as fh:
-            json.dump(cfg, fh)
-    except OSError:
+        save_json(_CONFIG_PATH, cfg)
+    except (OSError, TypeError):
         pass
