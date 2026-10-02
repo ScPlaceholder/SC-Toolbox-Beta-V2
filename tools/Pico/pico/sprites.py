@@ -162,7 +162,9 @@ BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
 BOMB_ENDINGS = [
     # J 18:39: "the bomb should physically fall to the ground" -> bomb_drop first wherever he lets go
     [("bomb_drop", 0), ("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump
-    [("cheer_happy_boom", 0)],                                       # 2 toss it; it blows up off to
+    # 2 the throw, VISIBLE now (J 2026-10-02): the bomb rides his flipper up, flies an arc out to the frame
+    #   edge and goes off there (pico_bomb_gag.make_throw; every finished outfit has it).
+    [("cheer_happy_throw", 0)],                                      # 2 toss it; it blows up off to
                                                                      #   the side (J 18:36)
     [("crash_X_X_boom", 0), ("idle_settle_spiral", 3.0)],            # 3 goes off in his hands
     [("bomb_drop", 0), ("scared_surprised_boom", 0), ("sulk_sad", 4.0)],   # 4 flinch, then sulk
