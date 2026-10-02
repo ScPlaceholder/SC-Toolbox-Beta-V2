@@ -5,6 +5,6 @@
   "color": "#44ccff",
   "folder": "Starmap",
   "script": "starmap_app.py",
-  "hotkey": "<shift>+9",
+  "hotkey": "<ctrl>+5",
   "settings_key": "hotkey_starmap"
 }

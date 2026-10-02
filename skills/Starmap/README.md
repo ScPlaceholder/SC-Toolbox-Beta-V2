@@ -2,7 +2,7 @@
 
 Galaxy, system and planet map for the SC Toolbox, with UEX commodity and
 item prices, a grocery list, lore cards and voice navigation.
-Built by Red (Kimi) for J, 2026-09-23. Default hotkey: Shift+9.
+Built by Red (Kimi) for J, 2026-09-23. Default hotkey: Ctrl+5 (was Shift+9, which earlier releases gave Mining Signals).
 
 ## Voice
 
