@@ -41,8 +41,10 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              # J 19:15 prop idles: a handheld console (his gaming idea) and a scanner sweep
              "weapon_reload_happy+console", "scan_ping_default+scanner",
              # J 2026-10-02 06:36 "Sure!": more snapped idles from the unused half of the prop sheet
-             "weapon_reload_focused+wrench", "idle_look_default+binoculars_eyes",
-             "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "idle_look_up_default+camera"),
+             # J 06:53 "several aren't snapped onto the fins": each now sits on a pose where a flipper is
+             # actually out for it, checked on every frame of the loop
+             "weapon_draw_focused+wrench", "weapon_reload_happy+binoculars",
+             "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "scan_ping_default+camera_out"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
