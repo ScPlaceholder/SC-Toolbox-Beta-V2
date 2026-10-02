@@ -29,18 +29,20 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import QPoint, QSize, Qt, QTimer
-from PySide6.QtGui import QMovie
+from PySide6.QtGui import QMovie, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
                                QLabel, QMenu, QSlider, QVBoxLayout, QWidget)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pico import sprites  # noqa: E402
+from pico import snap, sprites  # noqa: E402
 
 DEFAULT_LOGS = (
     Path("C:/Star Citizen/StarCitizen/LIVE/Game.log"),
     Path("C:/Program Files/Roberts Space Industries/StarCitizen/LIVE/Game.log"),
 )
 HEIGHT = 280          # on-screen px for Pico; the loops are rendered much larger
+MARGIN = 0.75         # transparent room around Pico, as a fraction of his frame width, so a snapped
+                      # prop held out to the side (a sign) is not cut off at the window edge
 POLL_MS = 1000
 DEMO_S = 8.0
 # ⚠ MY PICK, OPEN FOR J. events.FeedState leaves staleness undecided on purpose ("observed once
@@ -153,6 +155,18 @@ class Pal(QWidget):
         # J 2026-10-01: "We don't need the caption showing." The reason still travels with the face,
         # as a hover tooltip, because a face with no stated reason is where debugging starts.
         self.why.hide()
+        # SNAP STATES (J 19:42): a prop is drawn by this label over (or under) the loop, moved every
+        # frame to the loop's grip point from <loop>.anchors.json. One loop serves every prop.
+        self.prop_lbl = QLabel(self)
+        self.prop_lbl.hide()
+        self.snap_props = {}
+        try:
+            self.snap_props = snap.load_props()
+        except snap.SnapError:
+            pass
+        self.anchors = None
+        self.prop_rec = None
+        self.prop_pix = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.pic)
@@ -231,14 +245,55 @@ class Pal(QWidget):
         m.frameChanged.connect(self.on_frame)
         self.last_frame = 0
         self.movie = m
+        self.setup_prop(path)
         self.pic.setMovie(m)
+        sz = m.scaledSize()
+        mx = int(sz.width() * MARGIN)
+        self.layout().setContentsMargins(mx, int(sz.height() * 0.15), mx, 0)
         m.start()
         if at and at < m.frameCount():
             m.jumpToFrame(at)              # same pose, new eyes: no restart
             self.last_frame = at
         self.adjustSize()
 
+    def setup_prop(self, path: Path):
+        """Pick up the snap prop for the loop just started, if the chooser named one."""
+        pid = self.chooser.prop_for()
+        rec = self.snap_props.get(pid) if pid else None
+        self.anchors = snap.load_anchors(path) if rec else None
+        if not rec or not self.anchors:
+            self.prop_rec = self.prop_pix = None
+            self.prop_lbl.hide()
+            return
+        self.prop_rec = rec
+        self.prop_pix = QPixmap(str(snap.PROPS_DIR / rec["png"]))
+        self.place_prop(0)
+
+    def place_prop(self, n: int):
+        if not self.prop_rec or not self.anchors or self.prop_pix is None or self.prop_pix.isNull():
+            return
+        frames = self.anchors["frames"]
+        f = frames[min(n, len(frames) - 1)]
+        r = snap.place(self.prop_rec, f, self.anchors["belly_w"], (self.prop_pix.width(), self.prop_pix.height()))
+        if r is None:
+            self.prop_lbl.hide()
+            return
+        k = self.height_px / float(self.anchors["size"][1])      # loop pixels -> on-screen pixels
+        w, h = max(1, int(r[2] * k)), max(1, int(r[3] * k))
+        self.prop_lbl.setPixmap(self.prop_pix.scaled(w, h))
+        self.prop_lbl.resize(w, h)
+        mw = self.movie.scaledSize().width()
+        ox = self.pic.x() + (self.pic.width() - mw) // 2          # the movie is centred in its label
+        oy = self.pic.y() + (self.pic.height() - self.height_px) // 2
+        self.prop_lbl.move(int(ox + r[0] * k), int(oy + r[1] * k))
+        if self.prop_rec.get("layer") == "behind":
+            self.prop_lbl.lower()
+        else:
+            self.prop_lbl.raise_()
+        self.prop_lbl.show()
+
     def on_frame(self, n: int):
+        self.place_prop(n)
         # QMovie loops forever on its own; a wrap back to frame 0 is the end of one pass.
         if n == 0 and self.last_frame > 0:
             self.play(self.chooser.on_loop_end())

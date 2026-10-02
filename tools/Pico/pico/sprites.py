@@ -39,11 +39,11 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              "idle_drift_default", "idle_look_up_default", "idle_peek_default",
              "idle_scratch_default",
              # J 19:15 prop idles: a handheld console (his gaming idea) and a scanner sweep
-             "weapon_reload_happy_prop22", "scan_ping_default_prop28"),
+             "weapon_reload_happy+console", "scan_ping_default+scanner"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
-              "ship_claim_star_prophuckaby"),   # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
+              "ship_claim_star+huckaby"),   # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
@@ -53,7 +53,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 # shouldn't always spawn but sometimes." When the pool draws one of these, it plays with this probability;
 # otherwise a regular loop from the same pool is drawn instead.
 RARE_LOOPS: Mapping[str, float] = {
-    "ship_claim_star_prophuckaby": 0.15,
+    "ship_claim_star+huckaby": 0.15,
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -62,7 +62,7 @@ RARE_LOOPS: Mapping[str, float] = {
 EVENT_LOOPS: Mapping[str, str] = {
     "docking_ready": "docking_focused",
     "docking_detached": "undock_default",
-    "qt_route_calculated": "nav_plot_focused_prop01",   # plotting a route on a datapad
+    "qt_route_calculated": "nav_plot_focused+datapad",   # plotting a route on a datapad
     "qt_target_selected": "quantum_spool_default",
     "qt_arrived": "quantum_drop_default",
     # qt_error is NOT here, on evidence. Measured over J's last 20 logs (2026-08-02..09-26, 161k
@@ -96,16 +96,18 @@ EVENT_LOOPS: Mapping[str, str] = {
 # ports = med pens -> "medical"). There is no detach line: putting it away is the same item arriving
 # back in its port. Grenades and drinks are deliberately unmapped for now.
 HAND_LOOPS: Mapping[str, str] = {
-    "slot1": "weapon_draw_focused_prop40",     # white pistol
-    "slot2": "weapon_draw_focused_prop41",     # red pistol
-    "utility": "weapon_draw_focused_prop42",   # the utility gun, for the multitool
+    # "loop+prop" = a SNAP STATE (J 19:42): the plain loop, with the prop drawn on at runtime from the
+    # loop's .anchors.json and out/snap_props. No baked copy per prop.
+    "slot1": "weapon_draw_focused+pistol_white",
+    "slot2": "weapon_draw_focused+pistol_red",
+    "utility": "weapon_draw_focused+utility_gun",   # the utility gun, for the multitool
     # J 2026-10-01 18:16: "For a medgun or med pen he should pull out a first aid kit." Prop 07, held in
     # front with both flippers (the reload pose). J's sidearm slot holds a medgun, so it maps here too.
-    "medical": "weapon_reload_focused_prop07",
+    "medical": "weapon_reload_focused+med_kit",
     # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
     "bomb": "weapon_reload_focused_prop17",
-    "gadget": "weapon_draw_focused_prop34",     # mining gadget -> the drill (12 draws in J's logs)
-    "drink": "weapon_reload_happy_prop20",      # a drink bottle -> sipping from a canister
+    "gadget": "weapon_draw_focused+drill",      # mining gadget -> the drill (12 draws in J's logs)
+    "drink": "weapon_reload_happy+drink",       # a drink bottle -> sipping from a canister
 }
 # A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
 # was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
@@ -232,11 +234,51 @@ class Catalog:
         return {m: v for m, v in missing.items() if v}
 
 
+SNAP_SEP = "+"
+
+# SIGNS (J's 25 on pico_signs_transparent.png): held up in the ship-claim pose as snap props. pico/signs.py
+# decides WHETHER and WHICH (event-driven, 8 min cooldown, mood veto, no repeat of the last 6, 35% roll).
+SIGN_LOOP = "ship_claim_star"
+SIGN_HOLD_S = 4.0                      # long enough to read the slogan
+# this chooser's moods -> the picker's veto vocabulary (grief, fear, irritation)
+SIGN_MOOD = {"hurt": "grief", "startled": "fear", "irritated": "irritation"}
+
+
+def _sign_names() -> list:
+    try:
+        from pico import signs
+        return [SIGN_LOOP + SNAP_SEP + "sign_" + sid for sid, _t, _tags in signs.SIGNS]
+    except Exception:
+        return []
+
+
+def split_snap(name: str) -> tuple[str, Optional[str]]:
+    base, _, prop = name.partition(SNAP_SEP)
+    return base, (prop or None)
+
+
+def _snap_props() -> dict:
+    try:
+        from pico import snap
+        return snap.load_props()
+    except Exception:
+        return {}                   # no manifest yet: snapped entries simply are not available
+
+
 class LoopChooser:
     """Mood in, loop path out. Stays on the current loop until the mood changes or the loop ends."""
 
     def __init__(self, catalog: Catalog, moods: Mapping[str, tuple[str, ...]] = MOOD_LOOPS,
                  rng: Optional[random.Random] = None):
+        # Snapped entries ("loop+prop") exist when their plain loop does and the prop is in the manifest.
+        # They map to the PLAIN loop's file; the window draws the prop (prop_for()).
+        self.snap_props = _snap_props()
+        names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
+                 | set(_sign_names()))
+        for n in names:
+            base, prop = split_snap(n)
+            if prop and base in catalog.loops and prop in self.snap_props:
+                catalog.loops[n] = catalog.loops[base]
         catalog.check(moods)
         self.catalog = catalog
         self.pools = {m: tuple(n for n in pool if n in catalog.loops) for m, pool in moods.items()}
@@ -257,9 +299,17 @@ class LoopChooser:
             return bool(core) and core[0][0] in catalog.loops
         self.endings = [[st for st in e if st[0] in catalog.loops] for e in BOMB_ENDINGS if usable(e)]
         self.carry_frame = False          # next play should keep the current frame number
+        self.last_sign_at: Optional[float] = None
+        self.recent_signs: list = []
+        self.last_sign: Optional[dict] = None   # the picker's last decision, with its reason
         self.seq: list = []               # remaining steps of a running bomb ending
         self.in_seq = False
         self.step_until: Optional[float] = None
+
+    def prop_for(self, name: Optional[str] = None) -> Optional[str]:
+        """The snap prop to draw over the current (or named) loop, or None."""
+        name = self.current if name is None else name
+        return split_snap(name)[1] if name else None
 
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
@@ -288,12 +338,38 @@ class LoopChooser:
         self.until = time.time() + self.rng.uniform(*DWELL_S)
         return self.catalog.loops[self.current]
 
+    def maybe_sign(self, event_type: str, at: float) -> Optional[Path]:
+        """Ask pico/signs.py whether this event earns a sign. Held SIGN_HOLD_S seconds, then back."""
+        try:
+            from pico import signs
+        except Exception:
+            return None
+        ev = signs.EVENT_ALIASES.get(event_type, event_type)
+        d = signs.pick(ev, mood=SIGN_MOOD.get(self.mood or "", self.mood), now_s=at,
+                       last_sign_s=self.last_sign_at, recent=self.recent_signs, rng=self.rng)
+        self.last_sign = d
+        if not d.get("show"):
+            return None
+        name = SIGN_LOOP + SNAP_SEP + "sign_" + d["sign"]
+        if name not in self.catalog.loops:
+            return None
+        self.last_sign_at = at
+        self.recent_signs = (self.recent_signs + [d["sign"]])[-signs.NOVELTY_WINDOW:]
+        self.seq, self.in_seq = [(name, SIGN_HOLD_S)], True
+        return self._next_step(at)
+
     def on_event(self, event_type: str, at: Optional[float] = None) -> Optional[Path]:
-        """A Game.log event happened. Returns its one-shot loop, or None (no gesture, or cooling down)."""
-        name = self.events.get(event_type)
-        if name is None or self.in_seq:   # a bomb ending is never cut off by a game event
+        """A Game.log event happened. Returns its one-shot loop, or None (no gesture, or cooling down).
+        A sign, when the picker allows one, replaces the gesture."""
+        if self.in_seq or self.held:      # a bomb ending / held item is never cut off by a game event
             return None
         at = time.time() if at is None else at
+        sign = self.maybe_sign(event_type, at)
+        if sign is not None:
+            return sign
+        name = self.events.get(event_type)
+        if name is None:
+            return None
         if at - self.last_fired.get(event_type, float("-inf")) < EVENT_COOLDOWN_S:
             return None
         self.last_fired[event_type] = at
@@ -427,9 +503,12 @@ def selftest() -> int:
         ht.feed_line(L % ("lmg_7", "wep_stocked_2"))
         ch = ht.feed_line(L % ("lmg_7", HAND_PORT))
         ck("slot-1 weapon into the hand reads as a slot1 draw", ch == ("draw", "slot1"))
-        ck("a slot1 draw holds the white pistol loop", c3.on_hand(ch).stem == HAND_LOOPS["slot1"])
+        c3.on_hand(ch)                       # a snapped entry plays the PLAIN loop; the prop is drawn on
+        ck("a slot1 draw holds the white pistol", c3.current == HAND_LOOPS["slot1"]
+           and c3.prop_for() == "pistol_white")
         ck("while held, a mood change does not interrupt", c3.on_mood("happy") is None)
-        ck("while held, loop end repeats the held loop", c3.on_loop_end(at=1e12).stem == HAND_LOOPS["slot1"])
+        c3.on_loop_end(at=1e12)
+        ck("while held, loop end repeats the held loop", c3.current == HAND_LOOPS["slot1"])
         ch = ht.feed_line(L % ("lmg_7", "wep_stocked_2"))
         ck("the same item back in its holster reads as holster", ch == ("holster", None))
         ck("after holstering, Pico returns to the latest mood", c3.on_hand(ch).stem in MOOD_LOOPS["happy"])
@@ -485,6 +564,23 @@ def selftest() -> int:
             fair = 1.0 / len(cg.pools[mood])
             ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
                0 < share < fair * 0.5)
+        # signs: a qualifying event can raise one, and the cooldown stops a second straight after
+        (Path(d) / (SIGN_LOOP + ".gif")).write_bytes(b"GIF89a")   # the plain loop the signs snap onto
+        cs = LoopChooser(Catalog.scan(d), rng=random.Random(0)); cs.on_mood("calm")
+        fired = None
+        for i in range(40):                       # the 35% roll means it may take a few events
+            cs.last_sign_at = None
+            p = cs.maybe_sign("contract_complete", at=1000.0 + i)
+            if p is not None:
+                fired = cs.current; break
+        ck("a qualifying event can raise a sign (%s)" % fired, fired is not None and "+sign_" in fired)
+        ck("a sign is held, then he goes back", cs.in_seq and cs.step_until is not None)
+        cs.in_seq = False
+        ck("the cooldown blocks a second sign straight after",
+           cs.maybe_sign("contract_complete", at=cs.last_sign_at + 5) is None
+           and cs.last_sign["why"] == "cooldown")
+        ck("a sad Pico holds up no sign", (cs.on_mood("hurt") or True)
+           and cs.maybe_sign("contract_complete", at=1e7) is None and cs.last_sign["why"] == "mood_veto")
         ck("every ending gets picked across seeds (%d of %d)" % (len(picks), len(BOMB_ENDINGS)),
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
