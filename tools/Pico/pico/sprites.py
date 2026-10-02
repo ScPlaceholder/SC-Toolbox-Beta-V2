@@ -43,7 +43,8 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
-              "ship_claim_star+huckaby"),   # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
+              "ship_claim_star+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
+              "weapon_reload_happy+chrisroberts_hold"),   # the Chris Roberts action figure (GAG_SEQS)
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
@@ -54,6 +55,15 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 # otherwise a regular loop from the same pool is drawn instead.
 RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star+huckaby": 0.15,
+    "weapon_reload_happy+chrisroberts_hold": 0.15,
+}
+
+# A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
+# repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
+# action figure: "keep the whole package. Have him hold it then wave it around."
+GAG_SEQS: Mapping[str, list] = {
+    "weapon_reload_happy+chrisroberts_hold": [("weapon_reload_happy+chrisroberts_hold", 3.0),
+                                              ("cheer_happy+chrisroberts_wave", 3.5)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -274,7 +284,7 @@ class LoopChooser:
         # They map to the PLAIN loop's file; the window draws the prop (prop_for()).
         self.snap_props = _snap_props()
         names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
-                 | set(_sign_names()))
+                 | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -311,6 +321,15 @@ class LoopChooser:
         name = self.current if name is None else name
         return split_snap(name)[1] if name else None
 
+    def _gag(self, at: float) -> None:
+        """If the loop just picked opens a multi-step gag, queue the rest of it."""
+        steps = GAG_SEQS.get(self.current or "")
+        if not steps:
+            return
+        self.seq = [st for st in steps[1:] if st[0] in self.catalog.loops]
+        self.in_seq = True
+        self.step_until = at + steps[0][1]
+
     def _pick(self, mood: str) -> str:
         pool = self.pools[mood]
         if len(pool) > 1 and self.current in pool:
@@ -336,6 +355,7 @@ class LoopChooser:
         self.mood = key
         self.current = self._pick(key)
         self.until = time.time() + self.rng.uniform(*DWELL_S)
+        self._gag(time.time())
         return self.catalog.loops[self.current]
 
     def maybe_sign(self, event_type: str, at: float) -> Optional[Path]:
@@ -448,6 +468,7 @@ class LoopChooser:
             return self.catalog.loops[self.current]
         self.current = self._pick(self.mood)
         self.until = at + self.rng.uniform(*DWELL_S)
+        self._gag(at)
         return self.catalog.loops[self.current]
 
 
@@ -564,6 +585,18 @@ def selftest() -> int:
             fair = 1.0 / len(cg.pools[mood])
             ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
                0 < share < fair * 0.5)
+        # a multi-step gag: hold the package, then wave it, then back to the mood
+        cq = LoopChooser(Catalog.scan(d), rng=random.Random(3)); cq.on_mood("happy")
+        gname = next(iter(GAG_SEQS))
+        if gname in cq.catalog.loops and "cheer_happy+chrisroberts_wave" in cq.catalog.loops:
+            cq.current = gname; cq._gag(at=500.0)
+            ck("the gag holds its first step for its seconds", cq.on_loop_end(at=501.0) == cq.catalog.loops[gname])
+            cq.on_loop_end(at=503.5)
+            ck("then waves the package", cq.current == "cheer_happy+chrisroberts_wave")
+            cq.on_loop_end(at=508.0)
+            ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
+        else:
+            ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
         # signs: a qualifying event can raise one, and the cooldown stops a second straight after
         (Path(d) / (SIGN_LOOP + ".gif")).write_bytes(b"GIF89a")   # the plain loop the signs snap onto
         cs = LoopChooser(Catalog.scan(d), rng=random.Random(0)); cs.on_mood("calm")
