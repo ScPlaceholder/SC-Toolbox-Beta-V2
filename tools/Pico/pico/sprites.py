@@ -49,7 +49,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
-              "ship_claim_star+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
+              "ship_claim_star_grab+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!" (GAG_SEQS)
               "weapon_reload_happy_grab+chrisroberts_hold",    # the Chris Roberts action figure (GAG_SEQS)
               "proud_happy_grab+whale_hold"),   # the Chairman's Club WHALE certificate (GAG_SEQS)
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
@@ -61,7 +61,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 # shouldn't always spawn but sometimes." When the pool draws one of these, it plays with this probability;
 # otherwise a regular loop from the same pool is drawn instead.
 RARE_LOOPS: Mapping[str, float] = {
-    "ship_claim_star+huckaby": 0.15,
+    "ship_claim_star_grab+huckaby": 0.15,
     "weapon_reload_happy_grab+chrisroberts_hold": 0.15,
     "proud_happy_grab+whale_hold": 0.15,
 }
@@ -83,6 +83,9 @@ GAG_SEQS: Mapping[str, list] = {
                                                    ("celebrate_happy+chrisroberts_wave_r", 3.5),
                                                    ("weapon_reload_happy_release+chrisroberts_hold", 0)],
     # J 2026-10-02: "another prop for Pico to show off on occasion" -- grab it once, hold it up, put it away
+    # the puppet, raised once and held, not re-raised every cycle (audit 2026-10-02)
+    "ship_claim_star_grab+huckaby": [("ship_claim_star_grab+huckaby", 0), ("ship_claim_star_held+huckaby", 3.0),
+                                     ("ship_claim_star_release+huckaby", 0)],
     "proud_happy_grab+whale_hold": [("proud_happy_grab+whale_hold", 0), ("proud_happy_held+whale_hold", 4.0),
                                     ("proud_happy_release+whale_hold", 0)],
 }
@@ -283,7 +286,9 @@ SIGN_MOOD = {"hurt": "grief", "startled": "fear", "irritated": "irritation"}
 def _sign_names() -> list:
     try:
         from pico import signs
-        return [SIGN_LOOP + SNAP_SEP + "sign_" + sid for sid, _t, _tags in signs.SIGNS]
+        # the whole loop, plus its grab/held/release cuts (one raise, a steady hold, one lowering)
+        return [SIGN_LOOP + part + SNAP_SEP + "sign_" + sid for sid, _t, _tags in signs.SIGNS
+                for part in ("", "_grab", "_held", "_release")]
     except Exception:
         return []
 
@@ -406,7 +411,15 @@ class LoopChooser:
             return None
         self.last_sign_at = at
         self.recent_signs = (self.recent_signs + [d["sign"]])[-signs.NOVELTY_WINDOW:]
-        self.seq, self.in_seq = [(name, SIGN_HOLD_S)], True
+        # Audit 2026-10-02: the full ship-claim loop drops his arm to rest every ~1.4 s, so a 4 s sign was
+        # raised and lowered three times - the re-grab J objected to on the action figure. Use the cuts.
+        cut = [(SIGN_LOOP + p + SNAP_SEP + "sign_" + d["sign"], secs)
+               for p, secs in (("_grab", 0), ("_held", SIGN_HOLD_S), ("_release", 0))]
+        if all(n in self.catalog.loops for n, _ in cut):
+            self.seq = cut
+        else:
+            self.seq = [(name, SIGN_HOLD_S)]             # an outfit not yet sliced: the old behaviour
+        self.in_seq = True
         return self._next_step(at)
 
     def on_event(self, event_type: str, at: Optional[float] = None) -> Optional[Path]:
@@ -668,7 +681,10 @@ def selftest() -> int:
             if p is not None:
                 fired = cs.current; break
         ck("a qualifying event can raise a sign (%s)" % fired, fired is not None and "+sign_" in fired)
-        ck("a sign is held, then he goes back", cs.in_seq and cs.step_until is not None)
+        ck("a sign is raised once, held, then lowered once",
+           cs.in_seq and "_grab+sign_" in (fired or "")
+           and [secs for _n, secs in cs.seq] == [SIGN_HOLD_S, 0]
+           and cs.seq[0][0].startswith(SIGN_LOOP + "_held+sign_"))
         cs.in_seq = False
         ck("the cooldown blocks a second sign straight after",
            cs.maybe_sign("contract_complete", at=cs.last_sign_at + 5) is None
