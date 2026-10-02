@@ -63,7 +63,9 @@ RARE_LOOPS: Mapping[str, float] = {
 # action figure: "keep the whole package. Have him hold it then wave it around."
 GAG_SEQS: Mapping[str, list] = {
     "weapon_reload_happy+chrisroberts_hold": [("weapon_reload_happy+chrisroberts_hold", 3.0),
-                                              ("cheer_happy+chrisroberts_wave", 3.5)],
+                                              ("cheer_happy+chrisroberts_wave", 3.5),
+                                              # J 21:03: "also move it into the other hand as well"
+                                              ("celebrate_happy+chrisroberts_wave_r", 3.5)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -593,7 +595,9 @@ def selftest() -> int:
             ck("the gag holds its first step for its seconds", cq.on_loop_end(at=501.0) == cq.catalog.loops[gname])
             cq.on_loop_end(at=503.5)
             ck("then waves the package", cq.current == "cheer_happy+chrisroberts_wave")
-            cq.on_loop_end(at=508.0)
+            cq.on_loop_end(at=507.0)
+            ck("then swaps it to the other flipper", cq.current == "celebrate_happy+chrisroberts_wave_r")
+            cq.on_loop_end(at=511.0)
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
