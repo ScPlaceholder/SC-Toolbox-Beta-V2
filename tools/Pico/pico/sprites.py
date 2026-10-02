@@ -57,6 +57,9 @@ RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star+huckaby": 0.15,
     "weapon_reload_happy_grab+chrisroberts_hold": 0.15,
 }
+# J 2026-10-01 21:47: "maybe once an hour at the most for the puppet and the action figure". One SHARED
+# cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
+GAG_COOLDOWN_S = 3600.0
 
 # A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
 # repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
@@ -319,6 +322,7 @@ class LoopChooser:
         self.last_sign_at: Optional[float] = None
         self.recent_signs: list = []
         self.last_sign: Optional[dict] = None   # the picker's last decision, with its reason
+        self.last_gag_at: Optional[float] = None   # when a gag prop last played (GAG_COOLDOWN_S)
         self.seq: list = []               # remaining steps of a running bomb ending
         self.in_seq = False
         self.step_until: Optional[float] = None
@@ -337,16 +341,20 @@ class LoopChooser:
         self.in_seq = True
         self.step_until = at + steps[0][1]
 
-    def _pick(self, mood: str) -> str:
+    def _pick(self, mood: str, at: Optional[float] = None) -> str:
         pool = self.pools[mood]
         if len(pool) > 1 and self.current in pool:
             pool = tuple(n for n in pool if n != self.current)   # never the same loop twice in a row
         pick = self.rng.choice(pool)
         p = RARE_LOOPS.get(pick)
-        if p is not None and self.rng.random() >= p:               # a gag prop: only sometimes
+        if p is not None:                                          # a gag prop: only sometimes
+            now = time.time() if at is None else at
+            cooled = self.last_gag_at is None or now - self.last_gag_at >= GAG_COOLDOWN_S
             common = tuple(n for n in pool if n not in RARE_LOOPS)
-            if common:
+            if (not cooled or self.rng.random() >= p) and common:
                 pick = self.rng.choice(common)
+            else:
+                self.last_gag_at = now
         return pick
 
     def on_mood(self, mood: Optional[str]) -> Optional[Path]:
@@ -473,7 +481,7 @@ class LoopChooser:
             self.mood = UNKNOWN
         if not was_event and self.current is not None and at < self.until:
             return self.catalog.loops[self.current]
-        self.current = self._pick(self.mood)
+        self.current = self._pick(self.mood, at)
         self.until = at + self.rng.uniform(*DWELL_S)
         self._gag(at)
         return self.catalog.loops[self.current]
@@ -590,11 +598,26 @@ def selftest() -> int:
             hits = 0
             for _ in range(2000):
                 cg.current = None
+                cg.last_gag_at = None                  # the rarity roll alone, without the hourly cap
                 hits += cg._pick(mood) == rare
             share = hits / 2000.0
             fair = 1.0 / len(cg.pools[mood])
             ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
                0 < share < fair * 0.5)
+        # the hourly cap: once a gag has played, none plays again within GAG_COOLDOWN_S
+        ch = LoopChooser(Catalog.scan(d), rng=random.Random(5))
+        gags = set(RARE_LOOPS)
+        mood = next((m for m, pool in ch.pools.items() if gags & set(pool)), None)
+        if mood:
+            t, first = 0.0, None
+            for _ in range(5000):                       # picks every 10 s for ~14 hours
+                ch.current = None
+                if ch._pick(mood, at=t) in gags:
+                    if first is not None and t - first < 3600.0:   # J's hour, not the constant under test
+                        first = -1.0; break
+                    first = t
+                t += 10.0
+            ck("no two gags within an hour", first is not None and first >= 0)
         # a multi-step gag: hold the package, then wave it, then back to the mood
         cq = LoopChooser(Catalog.scan(d), rng=random.Random(3)); cq.on_mood("happy")
         gname = next(iter(GAG_SEQS))
