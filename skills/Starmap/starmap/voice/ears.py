@@ -343,8 +343,13 @@ class EarsController(QObject):
     def _transcribe(self, pcm) -> None:
         try:
             model = self._get_model()
+            # vad_filter: the gate above opens on LOUDNESS, so an engine, gunfire or music
+            # reaches Whisper too, and Whisper invents words for noise (an engine hum came back as
+            # 'Subs by www.zeoranger.com'). Silero VAD drops the non-speech first. Measured 2026-10-02:
+            # 8 of 8 spoken commands unchanged, the hum's invented line gone. Synthetic clips, not a game.
             segments, _info = model.transcribe(pcm, language="en", beam_size=5,
-                                              initial_prompt=_WHISPER_PROMPT)
+                                              initial_prompt=_WHISPER_PROMPT,
+                                              vad_filter=True)
             text = " ".join(s.text for s in segments).strip()
             if text:
                 self.transcript.emit(text)
