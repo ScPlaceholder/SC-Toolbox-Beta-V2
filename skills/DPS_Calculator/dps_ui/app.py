@@ -67,6 +67,7 @@ from services.stat_computation import (
 from services.loadout_aggregator import (
     compute_footer_totals, compute_raw_signatures, select_shield_display,
 )
+from services.saved_selections import resolve_selections, not_restored_message
 
 _log = logging.getLogger(__name__)
 
@@ -1136,17 +1137,26 @@ class DpsCalcApp(SCWindow):
         self._pending_sel = saved_sel
         self._load_ship(ship_name)
 
-    def _apply_pending_sel(self) -> None:
-        """Apply saved component selections to all slot tables after ship load."""
+    def _apply_pending_sel(self) -> int:
+        """Apply saved component selections to all slot tables after ship load.
+
+        Saved ids from before 3.0 are translated where certain
+        (services/saved_selections.py). Returns how many saved selections
+        could not be restored."""
         sel = self._pending_sel or {}
-        for section_key, tables in self._slot_tables.items():
-            saved_section = sel.get(section_key, {})
-            for slot, tbl, find_fn in tables:
-                sid = slot["id"]
-                saved_name = saved_section.get(sid)
-                if saved_name:
-                    tbl.select_by_name(saved_name)
+        slots_by_section = {k: [slot for slot, _t, _f in tables]
+                            for k, tables in self._slot_tables.items()}
+        plan, not_restored = resolve_selections(sel, slots_by_section)
+        for section_key, wanted in plan.items():
+            for sid, saved_name in wanted.items():
+                ok = False
+                for slot, tbl, find_fn in self._slot_tables.get(section_key, []):
+                    if slot["id"] == sid and tbl.select_by_name(saved_name):
+                        ok = True
+                if not ok:
+                    not_restored += 1   # slot exists, but that component is not offered
         self._update_footer()
+        return not_restored
 
     def _on_ship_selected(self, name: str) -> None:
         self._pending_sel = None  # clear any pending loadout on manual ship change
@@ -1467,14 +1477,17 @@ class DpsCalcApp(SCWindow):
         self._compute_power_stats(ship)
 
         # Apply a saved loadout if one was queued by _load_loadout()
+        restore_note = ""
         if self._pending_sel is not None:
-            self._apply_pending_sel()
+            restore_note = not_restored_message(self._apply_pending_sel())
+            restore_note = f" \u2014 {restore_note}" if restore_note else ""
             self._pending_sel = None
         else:
             self._update_footer()
 
         ship_name = ship.get("name", "?")
-        self._status_lbl.setText(f"Loaded: {ship_name} \u2014 fetching Fleetyards\u2026")
+        self._status_lbl.setText(
+            f"Loaded: {ship_name}{restore_note} \u2014 fetching Fleetyards\u2026")
         self._fy_groups = {}
 
         def _fy_done(groups: dict):
@@ -1482,10 +1495,11 @@ class DpsCalcApp(SCWindow):
             self._rebuild_thrusters_section(groups)
             if any(groups.get(k) for k in ("main_thrusters", "retro_thrusters",
                                            "maneuvering_thrusters")):
-                self._status_lbl.setText(f"Loaded: {ship_name}")
+                self._status_lbl.setText(f"Loaded: {ship_name}{restore_note}")
             else:
                 self._status_lbl.setText(
-                    f"Loaded: {ship_name} (thrusters: no FleetYards data for this ship)")
+                    f"Loaded: {ship_name}{restore_note} "
+                    f"(thrusters: no FleetYards data for this ship)")
 
         # FleetYards model slugs are the game class name ("aegs-gladius"); the
         # scunpacked display name ("Aegis Gladius") does not resolve there
