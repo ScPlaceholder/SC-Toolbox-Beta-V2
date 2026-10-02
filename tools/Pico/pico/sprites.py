@@ -39,7 +39,10 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              "idle_drift_default", "idle_look_up_default", "idle_peek_default",
              "idle_scratch_default",
              # J 19:15 prop idles: a handheld console (his gaming idea) and a scanner sweep
-             "weapon_reload_happy+console", "scan_ping_default+scanner"),
+             "weapon_reload_happy+console", "scan_ping_default+scanner",
+             # J 2026-10-02 06:36 "Sure!": more snapped idles from the unused half of the prop sheet
+             "weapon_reload_focused+wrench", "idle_look_default+binoculars_eyes",
+             "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "idle_look_up_default+camera"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
@@ -106,7 +109,7 @@ EVENT_LOOPS: Mapping[str, str] = {
     "contract_failed": "disappointed_sad",
     "objective_complete": "cheer_happy",
     "reward_earned": "proud_happy",
-    "incoming_call": "radar_contact_surprised",
+    "incoming_call": "radar_contact_surprised+walkie",   # he answers it on a walkie-talkie
     "exited_monitored_space": "nervous_confused",
     "entered_monitored_space": "relieved_happy",
     "session_start": "idle_stretch_default",
@@ -133,6 +136,9 @@ HAND_LOOPS: Mapping[str, str] = {
     "bomb": "weapon_reload_focused_prop17",
     "gadget": "weapon_draw_focused+drill",      # mining gadget -> the drill (12 draws in J's logs)
     "drink": "weapon_reload_happy+drink",       # a drink bottle -> sipping from a canister
+    # J 06:36: "Do we have a fish? Because that would make for a hilarious melee weapon." Melee items
+    # (banu_melee_01 etc.) sit in a utility port, so they are told apart by NAME (108 hand draws in J's logs).
+    "melee": "weapon_draw_focused+fish_club",
 }
 # A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
 # was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
@@ -170,6 +176,8 @@ def _slot_of(port: str, item: str = "") -> Optional[str]:
         return "slot1"
     if port == "wep_stocked_3":
         return "slot2"
+    if "_melee" in item.lower() or "knife" in item.lower():
+        return "melee"                                  # a knife lives in a utility port too
     if port.startswith("utility_attach"):
         return "utility"
     if port == "wep_sidearm" or port.startswith("medPen_attach"):
@@ -561,6 +569,11 @@ def selftest() -> int:
         ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
         ht.feed_line(L % ("med_3", "wep_sidearm"))
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
+        LM = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[banu_melee_01_77, banu_melee_01, 77] "
+              "Status[x] Port[%s] Elapsed[0]")             # the real shape: uid, then the item name
+        ht.feed_line(LM % "utility_attach_2")
+        ck("a knife from a utility port reads as melee, not utility",
+           ht.feed_line(LM % HAND_PORT) == ("draw", "melee"))
         ht.feed_line(L % ("gren_5", "grenade_attach_1"))
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
         ht.feed_line(L % ("gad_8", "gadget_attach_1"))
