@@ -130,28 +130,37 @@ EVENT_LOOPS: Mapping[str, str] = {
 # ports = med pens -> "medical"). There is no detach line: putting it away is the same item arriving
 # back in its port. Grenades and drinks are deliberately unmapped for now.
 HAND_LOOPS: Mapping[str, str] = {
+    # Audit 2026-10-02: a held item sat on the FULL loop, which dips to the empty-handed rest pose every
+    # cycle, so he re-grabbed his pistol / kit / drink every ~1.4 s (what J objected to on the action
+    # figure). Held items use the loop's _held cut (pico_loop_slice.py): the steady part only.
     # "loop+prop" = a SNAP STATE (J 19:42): the plain loop, with the prop drawn on at runtime from the
     # loop's .anchors.json and out/snap_props. No baked copy per prop.
-    "slot1": "weapon_draw_focused+pistol_white",
-    "slot2": "weapon_draw_focused+pistol_red",
-    "utility": "weapon_draw_focused+utility_gun",   # the utility gun, for the multitool
+    "slot1": "weapon_draw_focused_held+pistol_white",
+    "slot2": "weapon_draw_focused_held+pistol_red",
+    "utility": "weapon_draw_focused_held+utility_gun",   # the utility gun, for the multitool
     # J 2026-10-01 18:16: "For a medgun or med pen he should pull out a first aid kit." Prop 07, held in
     # front with both flippers (the reload pose). J's sidearm slot holds a medgun, so it maps here too.
-    "medical": "weapon_reload_focused+med_kit",
+    "medical": "weapon_reload_focused_held+med_kit",
     # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
     "bomb": "weapon_reload_focused_prop17",
-    "gadget": "weapon_draw_focused+drill",      # mining gadget -> the drill (12 draws in J's logs)
-    "drink": "weapon_reload_happy+drink",       # a drink bottle -> sipping from a canister
+    "gadget": "weapon_draw_focused_held+drill",      # mining gadget -> the drill (12 draws in J's logs)
+    "drink": "weapon_reload_happy_held+drink",       # a drink bottle -> sipping from a canister
     # J 06:36: "Do we have a fish? Because that would make for a hilarious melee weapon." Melee items
     # (banu_melee_01 etc.) sit in a utility port, so they are told apart by NAME (108 hand draws in J's logs).
-    "melee": "weapon_draw_focused+fish_club",
+    "melee": "weapon_draw_focused_held+fish_club",
 }
 # A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
 # was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
 # were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
 # cap a thrown grenade leaves Pico hugging the bomb forever.
 HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0,
-                                   "drink": 6.0}   # a finished drink never goes back to a pocket
+                                   "drink": 6.0,   # a finished drink never goes back to a pocket
+                                   "food": 6.0}    # nor does an eaten hot dog
+# A hand key with several looks: one is drawn at random each time it comes out. J 2026-10-02 07:39,
+# "Here's food": eight hot dogs, held in the hands-together pose.
+HAND_VARIANTS: Mapping[str, tuple] = {
+    "food": tuple("weapon_reload_happy_held+hotdog_%d" % i for i in range(1, 9)),
+}
 # J's bomb gag, 2026-10-01 18:29-18:32: hold it; at 4 s his eyes become "!"; at 8 s one of FIVE random
 # endings plays ("aim for 5 random bomb animation sequences"). A step is (loop, seconds): 0 = play it
 # once, N = keep repeating it for N seconds. Endings whose FIRST loop is missing for an outfit are
@@ -194,7 +203,9 @@ def _slot_of(port: str, item: str = "") -> Optional[str]:
         return "bomb"
     if port.startswith("gadget_attach"):
         return "gadget"
-    if item.lower().startswith(("drink_", "food_", "consumable_drink", "consumable_food")):
+    if item.lower().startswith(("food_", "consumable_food")):
+        return "food"                                   # a hot dog, not the drink canister (J 10-02)
+    if item.lower().startswith(("drink_", "consumable_drink")):
         return "drink"                                  # comes out of inventory_pocket
     return None
 
@@ -317,7 +328,8 @@ class LoopChooser:
         # They map to the PLAIN loop's file; the window draws the prop (prop_for()).
         self.snap_props = _snap_props()
         names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
-                 | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq})
+                 | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq}
+                 | {n for v in HAND_VARIANTS.values() for n in v})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -333,6 +345,10 @@ class LoopChooser:
         self.last_fired: dict[str, float] = {}
         self.until = 0.0               # the current mood loop repeats until this time
         self.hand = {k: n for k, n in HAND_LOOPS.items() if n in catalog.loops}
+        self.variants = {k: [n for n in v if n in catalog.loops] for k, v in HAND_VARIANTS.items()}
+        for k, v in self.variants.items():
+            if v:
+                self.hand.setdefault(k, v[0])
         self.held: Optional[str] = None  # a loop name while something is in his hand
         self.held_key: Optional[str] = None
         self.held_since = 0.0
@@ -450,7 +466,8 @@ class LoopChooser:
         kind, key = change
         if kind == "draw" and key in self.hand:
             self.held_key, self.held_since = key, time.time()
-            self.held = self.current = self.hand[key]
+            vs = self.variants.get(key)
+            self.held = self.current = self.rng.choice(vs) if vs else self.hand[key]
             self.oneshot = False
             return self.catalog.loops[self.held]
         if kind == "holster" and self.held:
@@ -531,6 +548,8 @@ def selftest() -> int:
         for pool in MOOD_LOOPS.values():
             for n in pool:
                 (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        for n in list(HAND_LOOPS.values()) + [x for v in HAND_VARIANTS.values() for x in v]:
+            (Path(d) / (split_snap(n)[0] + ".gif")).write_bytes(b"GIF89a")   # held cuts the hand loops use
         for steps in GAG_SEQS.values():                  # the plain loops a gag's snapped steps sit on
             for n, _secs in steps:
                 (Path(d) / (split_snap(n)[0] + ".gif")).write_bytes(b"GIF89a")
@@ -587,6 +606,10 @@ def selftest() -> int:
         ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
         ht.feed_line(L % ("med_3", "wep_sidearm"))
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
+        LF = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[food_hotdog_9, food_hotdog_basic, 9] "
+              "Status[x] Port[%s] Elapsed[0]")
+        ht.feed_line(LF % "inventory_pocket")
+        ck("a hot dog reads as food, not drink", ht.feed_line(LF % HAND_PORT) == ("draw", "food"))
         LM = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[banu_melee_01_77, banu_melee_01, 77] "
               "Status[x] Port[%s] Elapsed[0]")             # the real shape: uid, then the item name
         ht.feed_line(LM % "utility_attach_2")
