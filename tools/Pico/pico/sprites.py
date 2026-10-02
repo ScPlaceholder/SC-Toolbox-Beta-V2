@@ -66,7 +66,7 @@ RARE_LOOPS: Mapping[str, float] = {
 # and _release, so he reaches for it once, holds it through the waves, and puts it away once.
 GAG_SEQS: Mapping[str, list] = {
     "weapon_reload_happy_grab+chrisroberts_hold": [("weapon_reload_happy_grab+chrisroberts_hold", 0),
-                                                   ("weapon_reload_happy_held+chrisroberts_hold", 3.0),
+                                                   ("weapon_reload_happy_held+chrisroberts_hold", 1.5),
                                                    ("cheer_happy+chrisroberts_wave", 3.5),
                                                    # J 21:03: "also move it into the other hand as well"
                                                    ("celebrate_happy+chrisroberts_wave_r", 3.5),
