@@ -379,9 +379,23 @@ class LoopChooser:
         self.recent_signs: list = []
         self.last_sign: Optional[dict] = None   # the picker's last decision, with its reason
         self.last_gag_at: Optional[float] = None   # when a gag prop last played (GAG_COOLDOWN_S)
+        # User preferences (the Customise dialog, J 2026-10-02 "run through those"): defaults = as built.
+        self.gags_on = True
+        self.signs_on = True
+        self.gag_cooldown_s = GAG_COOLDOWN_S
         self.seq: list = []               # remaining steps of a running bomb ending
         self.in_seq = False
         self.step_until: Optional[float] = None
+
+    def apply_prefs(self, prefs: Mapping) -> None:
+        """Settings from the Customise dialog. Missing or bad values keep the defaults."""
+        self.gags_on = bool(prefs.get("gags", True))
+        self.signs_on = bool(prefs.get("signs", True))
+        try:
+            m = float(prefs.get("gag_cooldown_min", GAG_COOLDOWN_S / 60))
+            self.gag_cooldown_s = max(60.0, m * 60)
+        except (TypeError, ValueError):
+            self.gag_cooldown_s = GAG_COOLDOWN_S
 
     def prop_for(self, name: Optional[str] = None) -> Optional[str]:
         """The snap prop to draw over the current (or named) loop, or None."""
@@ -405,9 +419,9 @@ class LoopChooser:
         p = RARE_LOOPS.get(pick)
         if p is not None:                                          # a gag prop: only sometimes
             now = time.time() if at is None else at
-            cooled = self.last_gag_at is None or now - self.last_gag_at >= GAG_COOLDOWN_S
+            cooled = self.last_gag_at is None or now - self.last_gag_at >= self.gag_cooldown_s
             common = tuple(n for n in pool if n not in RARE_LOOPS)
-            if (not cooled or self.rng.random() >= p) and common:
+            if (not self.gags_on or not cooled or self.rng.random() >= p) and common:
                 pick = self.rng.choice(common)
             else:
                 self.last_gag_at = now
@@ -431,6 +445,8 @@ class LoopChooser:
 
     def maybe_sign(self, event_type: str, at: float) -> Optional[Path]:
         """Ask pico/signs.py whether this event earns a sign. Held SIGN_HOLD_S seconds, then back."""
+        if not self.signs_on:
+            return None
         try:
             from pico import signs
         except Exception:
@@ -703,6 +719,22 @@ def selftest() -> int:
                     first = t
                 t += 10.0
             ck("no two gags within an hour", first is not None and first >= 0)
+        # the Customise settings: gags off means never a gag; signs off means never a sign
+        cp = LoopChooser(Catalog.scan(d), rng=random.Random(11))
+        cp.apply_prefs({"gags": False})
+        mood = next((m for m, pool in cp.pools.items() if set(RARE_LOOPS) & set(pool)), None)
+        if mood:
+            seen = set()
+            for _ in range(500):
+                cp.current = None; cp.last_gag_at = None
+                seen.add(cp._pick(mood, at=0.0))
+            ck("gags switched off never play", not (seen & set(RARE_LOOPS)))
+        cp.apply_prefs({"signs": False})
+        ck("signs switched off never show", cp.maybe_sign("contract_complete", at=5.0) is None)
+        cp.apply_prefs({"gag_cooldown_min": 120})
+        ck("the gag limit follows the setting", cp.gag_cooldown_s == 7200)
+        cp.apply_prefs({"gag_cooldown_min": "nonsense"})
+        ck("a bad setting falls back to the default", cp.gag_cooldown_s == GAG_COOLDOWN_S)
         # a multi-step gag: hold the package, then wave it, then back to the mood
         cq = LoopChooser(Catalog.scan(d), rng=random.Random(3)); cq.on_mood("happy")
         gname = next(iter(GAG_SEQS))

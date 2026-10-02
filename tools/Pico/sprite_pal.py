@@ -30,7 +30,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QMovie, QPainter, QPixmap, QRadialGradient
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
                                QLabel, QMenu, QSlider, QVBoxLayout, QWidget)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -277,9 +277,23 @@ class Customise(QDialog):
         self.size = QSlider(Qt.Horizontal)
         self.size.setRange(140, 560)
         self.size.setValue(height)
+        prefs = load_settings()
+        self.gags = QCheckBox("Gag props (puppet, action figure, Whale certificate)")
+        self.gags.setChecked(bool(prefs.get("gags", True)))
+        self.signs = QCheckBox("Signs on game events")
+        self.signs.setChecked(bool(prefs.get("signs", True)))
+        self.often = QComboBox()
+        for label, mins in (("every 30 min", 30), ("once an hour", 60), ("every 2 hours", 120),
+                            ("every 4 hours", 240)):
+            self.often.addItem(label, mins)
+        cur = prefs.get("gag_cooldown_min", 60)
+        self.often.setCurrentIndex(max(0, self.often.findData(cur)))
         form = QFormLayout(self)
         form.addRow("Outfit", self.outfit)
         form.addRow("Size", self.size)
+        form.addRow(self.gags)
+        form.addRow("Gags at most", self.often)
+        form.addRow(self.signs)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -495,9 +509,11 @@ class Pal(QWidget):
             return
         self.height_px = dlg.size.value()
         root = Path(dlg.outfit.currentData())
-        self.remember(outfit=str(root))
+        self.remember(outfit=str(root), gags=dlg.gags.isChecked(), signs=dlg.signs.isChecked(),
+                      gag_cooldown_min=dlg.often.currentData())
         try:
             self.chooser = sprites.LoopChooser(sprites.Catalog.scan(root))
+            self.chooser.apply_prefs(load_settings())
         except sprites.SpriteError as ex:
             # An outfit still rendering may not cover every mood yet: say so, keep the old one.
             self.why.setText("outfit not ready: %s" % ex)
@@ -534,6 +550,7 @@ def main(argv=None) -> int:
         chooser = sprites.LoopChooser(sprites.Catalog.scan(loops))
     except sprites.SpriteError:
         chooser = sprites.LoopChooser(sprites.Catalog.scan(sprites.DEFAULT_DIR))
+    chooser.apply_prefs(saved)                     # gags / signs / how often, from the Customise dialog
     if a.mood and a.mood not in chooser.pools:
         print("unknown mood %r; known: %s" % (a.mood, ", ".join(chooser.pools)))
         return 2
