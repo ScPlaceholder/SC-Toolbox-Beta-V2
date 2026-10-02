@@ -44,7 +44,8 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
               "ship_claim_star+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
-              "weapon_reload_happy_grab+chrisroberts_hold"),   # the Chris Roberts action figure (GAG_SEQS)
+              "weapon_reload_happy_grab+chrisroberts_hold",    # the Chris Roberts action figure (GAG_SEQS)
+              "proud_happy_grab+whale_hold"),   # the Chairman's Club WHALE certificate (GAG_SEQS)
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
@@ -56,6 +57,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star+huckaby": 0.15,
     "weapon_reload_happy_grab+chrisroberts_hold": 0.15,
+    "proud_happy_grab+whale_hold": 0.15,
 }
 # J 2026-10-01 21:47: "maybe once an hour at the most for the puppet and the action figure". One SHARED
 # cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
@@ -74,6 +76,9 @@ GAG_SEQS: Mapping[str, list] = {
                                                    # J 21:03: "also move it into the other hand as well"
                                                    ("celebrate_happy+chrisroberts_wave_r", 3.5),
                                                    ("weapon_reload_happy_release+chrisroberts_hold", 0)],
+    # J 2026-10-02: "another prop for Pico to show off on occasion" -- grab it once, hold it up, put it away
+    "proud_happy_grab+whale_hold": [("proud_happy_grab+whale_hold", 0), ("proud_happy_held+whale_hold", 4.0),
+                                    ("proud_happy_release+whale_hold", 0)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
