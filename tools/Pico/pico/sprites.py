@@ -43,7 +43,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              # J 2026-10-02 06:36 "Sure!": more snapped idles from the unused half of the prop sheet
              # J 06:53 "several aren't snapped onto the fins": each now sits on a pose where a flipper is
              # actually out for it, checked on every frame of the loop
-             "weapon_draw_focused+wrench", "scan_ping_default+binoculars_salute",   # J 07:03: the salute pose, binoculars in the raised flipper
+             "weapon_draw_focused+wrench", "scan_ping_default_held+binoculars_salute",   # J 07:03/07:09: salute pose, binoculars at the END of the raised flipper (held frames only)
             
              "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "scan_ping_default+camera_out"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
