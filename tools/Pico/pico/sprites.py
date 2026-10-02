@@ -44,7 +44,7 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
               "ship_claim_star+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!"
-              "weapon_reload_happy+chrisroberts_hold"),   # the Chris Roberts action figure (GAG_SEQS)
+              "weapon_reload_happy_grab+chrisroberts_hold"),   # the Chris Roberts action figure (GAG_SEQS)
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
@@ -55,17 +55,22 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
 # otherwise a regular loop from the same pool is drawn instead.
 RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star+huckaby": 0.15,
-    "weapon_reload_happy+chrisroberts_hold": 0.15,
+    "weapon_reload_happy_grab+chrisroberts_hold": 0.15,
 }
 
 # A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
 # repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
 # action figure: "keep the whole package. Have him hold it then wave it around."
+# A step of 0 seconds plays ONCE. J 21:18: "he grabs it too much. Should be one grab then the rest of the
+# animation then grab it again" -> the reload loop is cut (elah-audio/pico_loop_slice.py) into _grab, _held
+# and _release, so he reaches for it once, holds it through the waves, and puts it away once.
 GAG_SEQS: Mapping[str, list] = {
-    "weapon_reload_happy+chrisroberts_hold": [("weapon_reload_happy+chrisroberts_hold", 3.0),
-                                              ("cheer_happy+chrisroberts_wave", 3.5),
-                                              # J 21:03: "also move it into the other hand as well"
-                                              ("celebrate_happy+chrisroberts_wave_r", 3.5)],
+    "weapon_reload_happy_grab+chrisroberts_hold": [("weapon_reload_happy_grab+chrisroberts_hold", 0),
+                                                   ("weapon_reload_happy_held+chrisroberts_hold", 3.0),
+                                                   ("cheer_happy+chrisroberts_wave", 3.5),
+                                                   # J 21:03: "also move it into the other hand as well"
+                                                   ("celebrate_happy+chrisroberts_wave_r", 3.5),
+                                                   ("weapon_reload_happy_release+chrisroberts_hold", 0)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -487,6 +492,9 @@ def selftest() -> int:
         for pool in MOOD_LOOPS.values():
             for n in pool:
                 (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
+        for steps in GAG_SEQS.values():                  # the plain loops a gag's snapped steps sit on
+            for n, _secs in steps:
+                (Path(d) / (split_snap(n)[0] + ".gif")).write_bytes(b"GIF89a")
         (Path(d) / "happy_happy.webp").write_bytes(b"RIFF")
         c = LoopChooser(Catalog.scan(d), rng=random.Random(1))
         ck("unknown mood plays the unknown pool, not calm",
@@ -592,12 +600,17 @@ def selftest() -> int:
         gname = next(iter(GAG_SEQS))
         if gname in cq.catalog.loops and "cheer_happy+chrisroberts_wave" in cq.catalog.loops:
             cq.current = gname; cq._gag(at=500.0)
-            ck("the gag holds its first step for its seconds", cq.on_loop_end(at=501.0) == cq.catalog.loops[gname])
+            cq.on_loop_end(at=500.2)
+            ck("one grab, then it is held", cq.current == "weapon_reload_happy_held+chrisroberts_hold")
+            ck("the held step repeats for its seconds, with no second grab",
+               cq.on_loop_end(at=501.0) == cq.catalog.loops["weapon_reload_happy_held+chrisroberts_hold"])
             cq.on_loop_end(at=503.5)
             ck("then waves the package", cq.current == "cheer_happy+chrisroberts_wave")
             cq.on_loop_end(at=507.0)
             ck("then swaps it to the other flipper", cq.current == "celebrate_happy+chrisroberts_wave_r")
             cq.on_loop_end(at=511.0)
+            ck("then puts it away once", cq.current == "weapon_reload_happy_release+chrisroberts_hold")
+            cq.on_loop_end(at=511.3)
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
