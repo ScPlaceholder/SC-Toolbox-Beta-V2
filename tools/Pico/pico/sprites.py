@@ -158,6 +158,22 @@ HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0,
                                    "food": 6.0}    # nor does an eaten hot dog
 # A hand key with several looks: one is drawn at random each time it comes out. J 2026-10-02 07:39,
 # "Here's food": eight hot dogs, held in the hands-together pose.
+# The game's eight hot dogs match J's eight pictures one-for-one (checked 2026-10-02 against the hand
+# draws in his saved logs: Food_hotdog_01_<kind>_a). Other food draws a random hot dog.
+HOTDOG_BY_KIND: Mapping[str, int] = {"": 1, "breakfast": 2, "chili": 3, "cruiser": 4, "double": 5,
+                                     "melty": 6, "veggie": 7, "yakisoba": 8}
+_HOTDOG = re.compile(r"food_hotdog_\d+(?:_([a-z]+))?_[a-z]$")
+
+
+def food_variant(item: str) -> Optional[str]:
+    """The hot dog that matches this in-game food item, or None (not a hot dog / unknown kind)."""
+    m = _HOTDOG.match((item or "").lower())
+    if not m:
+        return None
+    n = HOTDOG_BY_KIND.get(m.group(1) or "")
+    return None if n is None else "weapon_reload_happy_held+hotdog_%d" % n
+
+
 HAND_VARIANTS: Mapping[str, tuple] = {
     "food": tuple("weapon_reload_happy_held+hotdog_%d" % i for i in range(1, 9)),
 }
@@ -216,6 +232,7 @@ class HandTracker:
     def __init__(self):
         self.last_port: dict[str, str] = {}
         self.holding: Optional[str] = None     # a HAND_LOOPS key, or None
+        self.item: Optional[str] = None        # the in-game item name of the last draw
         self.held_uid: Optional[str] = None
 
     def feed_line(self, line: str) -> Optional[tuple[str, Optional[str]]]:
@@ -233,7 +250,7 @@ class HandTracker:
                     self.holding, self.held_uid = None, None
                     return ("holster", None)
                 return None
-            self.holding, self.held_uid = key, uid
+            self.holding, self.held_uid, self.item = key, uid, item
             return ("draw", key)
         if uid == self.held_uid:                       # the held item went back to a holster
             self.holding, self.held_uid = None, None
@@ -459,7 +476,7 @@ class LoopChooser:
         self.current = name
         return self.catalog.loops[name]
 
-    def on_hand(self, change: Optional[tuple[str, Optional[str]]]) -> Optional[Path]:
+    def on_hand(self, change: Optional[tuple[str, Optional[str]]], item: Optional[str] = None) -> Optional[Path]:
         """A HandTracker change. Draw -> hold that loop until holstered; holster -> back to the mood."""
         if change is None:
             return None
@@ -467,7 +484,11 @@ class LoopChooser:
         if kind == "draw" and key in self.hand:
             self.held_key, self.held_since = key, time.time()
             vs = self.variants.get(key)
-            self.held = self.current = self.rng.choice(vs) if vs else self.hand[key]
+            exact = food_variant(item) if key == "food" and item else None
+            if exact and exact in self.catalog.loops:
+                self.held = self.current = exact          # the hot dog he is actually eating
+            else:
+                self.held = self.current = self.rng.choice(vs) if vs else self.hand[key]
             self.oneshot = False
             return self.catalog.loops[self.held]
         if kind == "holster" and self.held:
@@ -610,6 +631,11 @@ def selftest() -> int:
               "Status[x] Port[%s] Elapsed[0]")
         ht.feed_line(LF % "inventory_pocket")
         ck("a hot dog reads as food, not drink", ht.feed_line(LF % HAND_PORT) == ("draw", "food"))
+        ck("the game's chili dog is J's chili dog",
+           food_variant("Food_hotdog_01_chili_a") == "weapon_reload_happy_held+hotdog_3"
+           and food_variant("Food_hotdog_01_a") == "weapon_reload_happy_held+hotdog_1"
+           and food_variant("Food_hotdog_01_yakisoba_a") == "weapon_reload_happy_held+hotdog_8")
+        ck("a burrito is not a hot dog", food_variant("Food_burrito_01_beef_a") is None)
         LM = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[banu_melee_01_77, banu_melee_01, 77] "
               "Status[x] Port[%s] Elapsed[0]")             # the real shape: uid, then the item name
         ht.feed_line(LM % "utility_attach_2")

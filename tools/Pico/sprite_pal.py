@@ -377,7 +377,7 @@ class Pal(QWidget):
             carry, self.chooser.carry_frame = self.chooser.carry_frame, False
             self.play(let_go, carry=carry)
         if self.hand_change is not None:
-            held = self.chooser.on_hand(self.hand_change)
+            held = self.chooser.on_hand(self.hand_change, item=self.hand.item)
             self.hand_change = None
             if held is not None:
                 self.play(held)
