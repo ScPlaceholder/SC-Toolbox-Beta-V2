@@ -897,6 +897,16 @@ def selftest() -> int:
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
+        # wrapped foods (J 2026-10-03 "start them wrapped"): shown closed, then the opened art, then eaten
+        cw = LoopChooser(Catalog.scan(d), rng=random.Random(4))
+        wrapped = FOOD_HOLD + SNAP_SEP + "ma-s-ready-to-eat-fish-home-stew"
+        if wrapped + "_eat_1" in cw.catalog.loops:
+            cw.held = wrapped
+            ck("a wrapped food is held closed, then opened, then eaten",
+               cw._bite(0.5) == wrapped and cw._bite(EAT_START_S + 0.1) == wrapped + "_eat_1"
+               and cw._bite(HAND_MAX_S["food"] - 0.1) == wrapped + "_eat_%d" % EAT_STAGES)
+        else:
+            ck("the opened stages of a wrapped food resolve (needs out/snap_props)", False)
         # the Banu stall gag shows up on the Banu outfit only, and is a rare gag like the others
         bmm = "idle_shuffle_default+bmm_table"
         ck("the BMM stall is a rare gag in calm", bmm in MOOD_LOOPS["calm"] and bmm in RARE_LOOPS)
