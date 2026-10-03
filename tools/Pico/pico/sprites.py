@@ -238,6 +238,12 @@ HAND_VARIANTS: Mapping[str, tuple] = {
 # skipped, and missing later steps are dropped, so a half-built outfit still does something sensible.
 # The explosions are baked into the *_boom loops by elah-audio/pico_bomb_gag.py.
 BOMB_ALERT_S = 4.0
+# J 2026-10-02 12:39, the eating gag: hold it, then "use opacity from top down to make it look like he's
+# eating it". A food whose bite stages are in the manifest (<prop>_eat_1..N, from pico_snap_export) stays
+# whole for EAT_START_S, then steps through them, finishing EAT_END_S before the food cap puts it away.
+EAT_STAGES = 5
+EAT_START_S = 1.5
+EAT_END_S = 0.5
 BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
 BOMB_ENDINGS = [
     # J 18:39: "the bomb should physically fall to the ground" -> bomb_drop first wherever he lets go
@@ -402,7 +408,9 @@ class LoopChooser:
         names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
                  | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq}
                  | {n for v in HAND_VARIANTS.values() for n in v}
-                 | {FOOD_HOLD + SNAP_SEP + pid for pid in FOOD_BY_ENTITY.values()})
+                 | {FOOD_HOLD + SNAP_SEP + pid for pid in FOOD_BY_ENTITY.values()}
+                 | {FOOD_HOLD + SNAP_SEP + "%s_eat_%d" % (pid, i) for pid in FOOD_BY_ENTITY.values()
+                    for i in range(1, EAT_STAGES + 1)})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -584,6 +592,12 @@ class LoopChooser:
             # alert loop is the same pose frame for frame, so the window carries the frame across.
             self.carry_frame = True
             return self.catalog.loops[self.held]
+        if self.held_key == "food":
+            bite = self._bite(age)
+            if bite and bite != self.held:
+                self.held = self.current = bite
+                self.carry_frame = True          # same pose frame for frame: only the food changes
+                return self.catalog.loops[self.held]
         cap = HAND_MAX_S.get(self.held_key or "")
         if cap is not None and age >= cap:
             if self.held_key == "bomb" and self.endings:
@@ -593,6 +607,22 @@ class LoopChooser:
                 return self._next_step(at)
             return self.on_hand(("holster", None))
         return None
+
+    def _bite(self, age: float) -> Optional[str]:
+        """Which stage of the held food to show at this age, or None if it has no bite stages."""
+        base, prop = split_snap(self.held or "")
+        if not prop:
+            return None
+        root = prop.split("_eat_")[0]
+        stages = [base + SNAP_SEP + "%s_eat_%d" % (root, i) for i in range(1, EAT_STAGES + 1)]
+        stages = [n for n in stages if n in self.catalog.loops]
+        if not stages:
+            return None
+        if age < EAT_START_S:
+            return base + SNAP_SEP + root
+        span = max(0.1, HAND_MAX_S["food"] - EAT_END_S - EAT_START_S)
+        i = min(len(stages) - 1, int((age - EAT_START_S) / (span / len(stages))))
+        return stages[i]
 
     def _next_step(self, at: float) -> Optional[Path]:
         if not self.seq:
@@ -849,6 +879,25 @@ def selftest() -> int:
     if real.is_dir():
         missing = Catalog.scan(real).check()
         ck("real Drake folder covers every mood (missing: %s)" % (missing or "none"), True)
+        cr = LoopChooser(Catalog.scan(real), rng=random.Random(5))
+        skewer = FOOD_HOLD + SNAP_SEP + "aloprat-skewer"
+        if skewer + "_eat_1" in cr.catalog.loops:
+            cr.on_hand(("draw", "food"), item="Food_Skewered_Rat_1_a")
+            t0 = cr.held_since
+            seen = [cr.held]
+            for dt in (1.0, 1.6, 2.5, 3.4, 4.3, 5.2):
+                cr.expire(at=t0 + dt)
+                seen.append(cr.held)
+            ck("an eaten skewer: whole first, then bites in order, no stage skipped (%s)"
+               % [x.split("+")[-1] if x else x for x in seen],
+               seen[0] == skewer and seen[1] == skewer
+               and [x for i, x in enumerate(seen) if i == 0 or x != seen[i - 1]]
+               == [skewer] + [skewer + "_eat_%d" % i for i in range(1, EAT_STAGES + 1)])
+            cr.expire(at=t0 + HAND_MAX_S["food"] + 0.1)
+            ck("an eaten food is put away at its cap", cr.held is None)
+            cr.on_hand(("draw", "food"), item="Food_hotdog_01_chili_a")
+            ck("a hot dog (no bite stages) is just held", cr.expire(at=cr.held_since + 3) is None
+               and cr.held == FOOD_HOLD + SNAP_SEP + "hotdog_3")
     return 1 if fails else 0
 
 
