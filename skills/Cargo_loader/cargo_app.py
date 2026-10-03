@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QGraphicsView, QGraphicsScene, QGraphicsPolygonItem, QGraphicsTextItem,
     QGraphicsItemGroup, QDialog, QFileDialog,
     QApplication, QLineEdit, QTreeWidget, QTreeWidgetItem, QHeaderView, QSlider,
+    QMessageBox,
 )
 
 # Bootstrap project root and skill directory
@@ -55,19 +56,25 @@ from shared.api_config import (
 
 from cargo_engine.schema import CONTAINER_SIZES, CONTAINER_COLORS, CONTAINER_DIMS
 from cargo_engine.placement import best_rotation, max_containers_in_slot
-from cargo_engine.packing import place_containers_3d, build_slots
+from cargo_engine.packing import (
+    place_containers_3d, build_slots, slot_blocked_cells, fill_slot_around,
+)
 from cargo_engine.optimizer import greedy_optimize_3d, assign_slots_from_counts
 from cargo_engine.rendering import (
     iso_project, auto_fit_cell, center_origin, compute_scene_extents,
     topological_sort_boxes, shade, label_color, iso_unproject,
 )
-from cargo_engine.manual_place import PlacementContext, rotate_yaw, move_box, is_item, OK
+from cargo_engine.manual_place import (
+    PlacementContext, rotate_yaw, move_box, is_item, OK, R_ITEM_FULL,
+)
 from cargo_engine import item_catalog
 from cargo_engine.item_catalog import (
     CATEGORIES as ITEM_CATEGORIES, CATEGORY_COLORS as ITEM_COLORS,
     COMPONENT_CATEGORIES,
 )
-from cargo_engine.validation import validate_layout
+# validate_layout is no longer imported here: the app does not read
+# layouts/*.json any more. The schema check moved to the one place that still
+# does - datamine/layouts_to_grids.load_layouts - rather than being dropped.
 from cargo_engine import crate_items
 from crate_ui import CratePanel, CrateWindow
 
@@ -118,53 +125,177 @@ HEADERS = SC_CARGO_HEADERS
 
 REFERENCE_LOADOUTS: dict[str, dict[int, int]] = load_reference_loadouts(_DIR)
 
-# ── Layout JSON loader ───────────────────────────────────────────────────────
+# ── Hand-made holds, in the ONE grid format ──────────────────────────────────
+#
+# ⛔ 2026-09-26: this file used to carry a SECOND grid format. layouts/*.json
+#    ({schemaVersion, ship, gridW, gridZ, gridH, containers, placements}) was
+#    read by a `_layout_to_slots` that turned each placement into a one-
+#    container slot, and 31 ships took that path while the other 113 took
+#    build_slots. Two formats, two slot builders, two renderer branches, two
+#    placement modes. Three measured defects came out of the split:
+#
+#      1. No floor on an upper deck (29 of 33 layouts have raised slots).
+#      2. The painted deck was a superset of the legal one - only 20.6% of the
+#         Idris-P's drawn floor would accept a box.
+#      3. Eight containers could not be dropped where they already sat: the
+#         Idris' four-each x=29.5 / x=31.5 boxes snap to an integer cell that
+#         the float-positioned union does not contain ("outside the cargo
+#         grids"). Measured over all 1049 placements.
+#
+#    Now there is one format. datamine/layouts_to_grids.py converts the
+#    layouts into ordinary unified-format entries (grids grouped by column
+#    profile, so no two grids share an (x, z) column - see that module) and
+#    attaches the layout's placements as an OPTIONAL `arrangement` field. The
+#    geometry goes through build_slots like every other ship; the arrangement
+#    goes into the renderer's `_manual_boxes`, which has existed for hand-
+#    arranged boxes since drag-and-drop landed.
+#
+#    layouts/ is KEPT as the source the converter and cargo_grid_editor.html
+#    read and write. Nothing in the app reads it at runtime any more.
 LAYOUTS_DIR = os.path.join(_DIR, "layouts")
+LAYOUT_GRIDS_FILE = os.path.join(_DIR, "datamine", "cargo_grids_layouts.json")
 
 
-def _load_ship_layouts() -> dict[str, dict]:
-    result: dict[str, dict] = {}
-    if not os.path.isdir(LAYOUTS_DIR):
-        return result
-    import glob
-    for path in glob.glob(os.path.join(LAYOUTS_DIR, "*.json")):
+def load_layout_grids(path: str = LAYOUT_GRIDS_FILE) -> dict[str, dict]:
+    """name.lower() -> unified-format entry for each hand-made hold.
+
+    Missing or malformed is not fatal: the app then shows every ship with its
+    game-file grids and the optimiser's packing, which is what the other 113
+    ships already do.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            obj = json.load(fh)
+    except FileNotFoundError:
+        log.warning("No hand-layout grid file at %s - run "
+                    "datamine/layouts_to_grids.py", path)
+        return {}
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        log.warning("Hand-layout grid file %s unreadable: %s", path, exc)
+        return {}
+    if not isinstance(obj, dict) or not isinstance(obj.get("ships"), list):
+        log.warning("%s is not a converted grid file", path)
+        return {}
+    out: dict[str, dict] = {}
+    for entry in obj["ships"]:
+        name = (entry.get("name") or "").strip()
+        if name and entry.get("groups"):
+            out[name.lower()] = entry
+    return out
+
+
+LAYOUT_GRIDS = load_layout_grids()
+
+
+def merge_layout_grids(ships: list, overlay: dict | None = None) -> list:
+    """Overlay the hand-made holds onto a ship list, in place.
+
+    Applied to WHICHEVER source loaded (game files, cache, or scrape), because
+    a hand-solved hold is not a property of one source. The overlay replaces
+    geometry and capacity and adds the arrangement; it keeps the existing
+    entry's manufacturer, labels and anything else it carries, because a
+    layout has none of those.
+    """
+    if overlay is None:
+        overlay = LAYOUT_GRIDS
+    if not overlay:
+        return ships
+    by_name = {}
+    for s in ships:
+        key = (s.get("name") or "").strip().lower()
+        if key and key not in by_name:
+            by_name[key] = s
+    for key, entry in overlay.items():
+        target = by_name.get(key)
+        if target is None:
+            # No counterpart in this source: append it so a hand-made hold is
+            # never silently dropped. Appending is also how a source that has
+            # never heard of the ship still lists it.
+            ships.append(dict(entry))
+            log.info("Hand layout %s has no counterpart in this source - added",
+                     entry.get("name"))
+            continue
+        old_cap = target.get("capacity") or target.get("scu") or target.get("cargo")
+        new_cap = entry.get("capacity")
+        # ⛔ A HAND LAYOUT MUST NEVER SHRINK A HOLD. Corrected 2026-09-27.
+        #   This block used to hand the layout's geometry the win unconditionally,
+        #   on the reasoning that a capacity larger than its geometry is what
+        #   clamped the Freelancer to 28 of 66 SCU. That rule is right and it did
+        #   not apply here: the Freelancer CLAIMED 68 while having 66 cells, an
+        #   internal contradiction. The Hammerhead's datamined entry says 64 and
+        #   HAS 64 — one grid, 4 x 2 x 8, provenance scunpacked 4.10.1 — so
+        #   nothing about it is inconsistent. It is simply a fuller hold than the
+        #   older hand-solve, which covers 40 of those 64 cells.
+        #   ⚠ The comment that used to sit here also called the 64 "one half of a
+        #     same-name duplicate". There is no duplicate: exactly ONE Hammerhead
+        #     entry exists in each source. That premise was checked and is false.
+        #   ⇒ So compare GEOMETRY, not just capacity. A layout contributes a
+        #     hand-solved DECOMPOSITION of an irregular hold; it has no business
+        #     removing cells the ship source knows about. Where it is smaller,
+        #     keep the source's hold and take only the arrangement.
+        #   Measured over all 32 layout ships: exactly ONE reaches this branch
+        #   (Hammerhead, 40 vs 64, -24 cells). Every other layout matches or
+        #   exceeds its source, so this changes nothing else.
+        def _cells(d):
+            return sum((g.get("width") or 0) * (g.get("height") or 0) * (g.get("length") or 0)
+                       for grp in (d.get("groups") or []) for g in (grp.get("grids") or []))
+
+        entry_cells, target_cells = _cells(entry), _cells(target)
+        if target_cells and entry_cells and entry_cells < target_cells:
+            log.warning("Hand layout %s covers %d cell(s) of the source's %d - keeping the "
+                        "source hold (capacity %s, not %s) and taking only the arrangement",
+                        entry.get("name"), entry_cells, target_cells, old_cap, new_cap)
+        else:
+            if old_cap is not None and new_cap is not None and old_cap != new_cap:
+                log.warning("Hand layout %s: capacity %s from the grids, %s from "
+                            "the ship source - using the grids",
+                            entry.get("name"), new_cap, old_cap)
+            target["groups"] = entry["groups"]
+            target["capacity"] = new_cap
+            target["scu"] = new_cap
+            target["cargo"] = new_cap
+        target["arrangement"] = entry.get("arrangement") or []
+        target["provenance"] = entry.get("provenance") or {}
+    return ships
+
+
+def arrangement_to_boxes(ship: dict, bounds: tuple) -> list[tuple] | None:
+    """A ship's `arrangement` as renderer boxes, or None if it has none.
+
+    Renderer boxes are (x, y, z, w, h, l, scu) in world coords, so the grid
+    origin comes off x and z. y is already a deck height.
+    """
+    arrangement = ship.get("arrangement")
+    if not arrangement:
+        return None
+    x_min, z_min = bounds[0], bounds[1]
+    out = []
+    for b in arrangement:
         try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-            errors = validate_layout(data)
-            if errors:
-                log.warning("Layout %s has validation errors: %s", path, errors[:3])
-            ship = data.get("ship", "")
-            if ship and ship != "Custom":
-                result[ship.lower()] = data
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
-            log.warning("Failed to load layout %s: %s", path, exc)
-    return result
+            px, py, pz = (int(v) for v in b["pos"])
+            bw, bh, bl = (int(v) for v in b["dims"])
+            scu = int(b["scu"])
+        except (KeyError, TypeError, ValueError):
+            log.warning("%s: malformed arrangement entry %r discarded",
+                        ship.get("name"), b)
+            return None
+        out.append((px - x_min, py, pz - z_min, bw, bh, bl, scu))
+    return out or None
 
 
-SHIP_LAYOUTS = _load_ship_layouts()
+def has_union_grids(ship: dict | None) -> bool:
+    """Do this ship's grids decompose ONE hold rather than list real bays?
 
-
-def _layout_to_slots(layout: dict) -> tuple[list[dict], tuple]:
-    placements = layout.get("placements", [])
-    if not placements:
-        return [], (0, 0, 1, 1)
-    slots = []
-    for p in placements:
-        dims = p["dims"]
-        pw, ph, pl = dims["w"], dims["h"], dims["l"]
-        px, py, pz = p["pos"]["x"], p["pos"]["y"], p["pos"]["z"]
-        slots.append({
-            "x": px, "y0": py, "z": pz,
-            "w": pw, "h": ph, "l": pl,
-            "capacity": p["scu"], "scu": p["scu"],
-            "placed_size": p["scu"], "maxSize": p["scu"], "minSize": p["scu"],
-        })
-    x_min = min(s["x"] for s in slots)
-    z_min = min(s["z"] for s in slots)
-    x_max = max(s["x"] + s["w"] for s in slots)
-    z_max = max(s["z"] + s["l"] for s in slots)
-    return slots, (x_min, z_min, x_max, z_max)
+    A hand-made hold is an irregular volume cut into rectangles by a converter;
+    the rectangle boundaries are an artifact of the decomposition, not walls,
+    so a container may straddle two of them. The game files list real bays with
+    real walls and real per-grid size rules, and there a container must fit
+    inside one. That is a property of the DATA, which is why it is read off
+    provenance instead of off which file the ship came from.
+    """
+    if not ship:
+        return False
+    return (ship.get("provenance") or {}).get("source") == "hand-layout"
 
 
 def _find_reference_loadout(ship_name: str) -> dict[int, int] | None:
@@ -288,8 +419,10 @@ SLOT_OUTLINE = "#252f48"
 
 _ROTATION_LABELS = ["0\u00b0", "90\u00b0", "180\u00b0", "270\u00b0"]
 
-# Items tab (J, 2026-09-26). An item that breaks a container rule still
-# places, tinted this amber, with the reason in the status line.
+# Items tab (J, 2026-09-26). Since 2026-10-03 items are solid: overlap,
+# leaving the grid and poking through the ceiling refuse. This amber is for
+# the one soft rule left (floating / overhanging) and for items already in a
+# loaded plan that break a rule — they are flagged, never moved.
 ITEM_WARN = "#ffb000"
 
 
@@ -351,15 +484,15 @@ class ShipDataLoader:
         try:
             scunpacked = self._load_scunpacked()
             if scunpacked is not None:
-                self._index(scunpacked)
+                self._index(merge_layout_grids(scunpacked))
             else:
                 cached = self._load_cache()
                 if cached:
-                    self._index(cached)
+                    self._index(merge_layout_grids(cached))
                 else:
                     ships = self._fetch_and_parse()
                     self._save_cache(ships)
-                    self._index(ships)
+                    self._index(merge_layout_grids(ships))
         except (OSError, requests.RequestException, RuntimeError, ValueError, json.JSONDecodeError, KeyError, TypeError) as e:
             with self._lock:
                 self.error = str(e)
@@ -378,7 +511,7 @@ class ShipDataLoader:
             with open(CACHE_FILE, encoding="utf-8") as f:
                 obj = json.load(f)
             if isinstance(obj, dict) and "ships" in obj:
-                self._index(obj["ships"])
+                self._index(merge_layout_grids(obj["ships"]))
                 log.info("Loaded stale cache as fallback (%d ships)", len(obj["ships"]))
         except (OSError, json.JSONDecodeError, KeyError, TypeError):
             pass
@@ -492,20 +625,29 @@ class ShipDataLoader:
             self.ships = ships
             self.by_name = local_by_name
 
+    # Capital ships the sc-cargo.space scrape carried with junk grids. The
+    # exemption below is load-bearing: the Idris-M and Idris-P are ONLY in the
+    # ship list because they carry a hand-made hold, and before the formats
+    # were unified they arrived by a separate layout-name injection. Excluding
+    # them now would delete 2700 SCU of hand-solved hold from the combo box.
+    #
+    # ⚠ So those two ships depend on datamine/cargo_grids_layouts.json being
+    #   present: without it they are excluded again and the list drops from 144
+    #   names to 142. That is NOT a new coupling - _load_ship_layouts returned
+    #   {} if layouts/ was missing and they vanished exactly the same way. The
+    #   dependency moved from one file to another; it did not appear. If it
+    #   should be broken, the fix is to scope _EXCLUDE to the scrape it was
+    #   written for (provenance != "scunpacked-data"), which is a separate
+    #   decision about the exclusion, not about the formats.
     _EXCLUDE = {"idris-m", "idris-p", "idrisp"}
 
     def get_ship_names(self) -> list[str]:
         with self._lock:
             ships = self.ships
-        names = set(
+        return sorted(set(
             s["name"] for s in ships
-            if s["name"].lower() not in self._EXCLUDE
-        )
-        for layout_key, layout in SHIP_LAYOUTS.items():
-            display = layout.get("ship") or layout.get("shipName") or layout_key.title()
-            if display.lower() not in {n.lower() for n in names}:
-                names.add(display)
-        return sorted(names)
+            if s["name"].lower() not in self._EXCLUDE or s.get("arrangement")
+        ))
 
     def find(self, name: str) -> None:
         if not name:
@@ -515,15 +657,6 @@ class ShipDataLoader:
         key = name.strip().lower()
         if key in by_name:
             return by_name[key]
-        for layout_key, layout in SHIP_LAYOUTS.items():
-            display = layout.get("ship") or layout.get("shipName") or layout_key.title()
-            if key == display.lower() or key == layout_key:
-                cap = layout.get("totalCapacity", 0)
-                return {
-                    "name": display, "ref": f"layout_{layout_key}",
-                    "scu": cap, "cargo": cap,
-                    "maxSize": 32, "minSize": 1, "loadout": [],
-                }
         for k, v in by_name.items():
             if key in k or k in key:
                 return v
@@ -1111,74 +1244,77 @@ class CargoRenderer:
     def _draw_ground(self, slots, bounds, has_layout, current_ship, pt, cell, gw, gl) -> None:
         x_min, z_min = bounds[0], bounds[1]
 
-        if has_layout and current_ship:
-            layout_key = current_ship["name"].lower()
-            layout = SHIP_LAYOUTS.get(layout_key, {})
-            floor_w = layout.get("gridW", gw)
-            floor_l = layout.get("gridZ", gl)
-            corners = [pt(0, 0, 0), pt(floor_w, 0, 0),
-                       pt(floor_w, 0, floor_l), pt(0, 0, floor_l)]
+        # ⛔ 2026-09-26: the hand-layout branch used to draw ONE polygon spanning
+        #    layout["gridW"] x layout["gridZ"] with y HARDCODED to 0 in all four
+        #    corners and in both gridline loops. Two measured defects came out of
+        #    that single rectangle, and J hit both in one evening:
+        #
+        #    1. NO FLOOR UNDER AN UPPER DECK. 29 of the 33 hand-made layouts have
+        #       slots above the deck (Starfarer and Starfarer_Gemini reach y=4),
+        #       while containers draw at slot["y0"] and items rest on the grid's
+        #       y0. So everything on an upper deck was painted with empty space
+        #       beneath it.
+        #    2. THE PAINTED DECK WAS A SUPERSET OF THE LEGAL ONE. The rectangle is
+        #       the layout's full extent; the placement rules bind to the actual
+        #       slot volumes. Measured: only 20.6% of the Idris-P's drawn floor
+        #       will accept a box, 19.5% on the Idris-M, 24.7% on the Caterpillar.
+        #       Four fifths of a visibly solid deck refused cargo, which reads as
+        #       the grid being ignored -- J's words were "not honoring the grid".
+        #
+        #    Both dissolve by deleting the special case: the per-slot loop below
+        #    was ALREADY correct and is what the other 113 ships have always used.
+        #    Drawn and legal become the same set by construction, and the floor
+        #    follows each slot's own height. This is a VISIBLE change on those 29
+        #    ships -- the deck shrinks to the real cargo volumes -- and that is the
+        #    point, not a side effect.
+        #    `has_layout`, `current_ship`, `gw` and `gl` stay in the signature;
+        #    callers pass them and the other uses are unaffected.
+        for slot in slots:
+            x0 = slot["x"] - x_min
+            yf = slot.get("y0", 0)
+            z0 = slot["z"] - z_min
+            w = slot["w"]
+            l = slot["l"]
+            corners = [pt(x0, yf, z0), pt(x0 + w, yf, z0),
+                       pt(x0 + w, yf, z0 + l), pt(x0, yf, z0 + l)]
             self._add_polygon(corners, SLOT_FILL, SLOT_OUTLINE)
-            if cell >= 6:
-                for lx in range(floor_w + 1):
-                    p1, p2 = pt(lx, 0, 0), pt(lx, 0, floor_l)
+            if cell >= 9:
+                for lx in range(w + 1):
+                    p1, p2 = pt(x0 + lx, yf, z0), pt(x0 + lx, yf, z0 + l)
                     self._add_line(p1, p2, GRID_LINE)
-                for lz in range(floor_l + 1):
-                    p1, p2 = pt(0, 0, lz), pt(floor_w, 0, lz)
+                for lz in range(l + 1):
+                    p1, p2 = pt(x0, yf, z0 + lz), pt(x0 + w, yf, z0 + lz)
                     self._add_line(p1, p2, GRID_LINE)
-        else:
-            for slot in slots:
-                x0 = slot["x"] - x_min
-                yf = slot.get("y0", 0)
-                z0 = slot["z"] - z_min
-                w = slot["w"]
-                l = slot["l"]
-                corners = [pt(x0, yf, z0), pt(x0 + w, yf, z0),
-                           pt(x0 + w, yf, z0 + l), pt(x0, yf, z0 + l)]
-                self._add_polygon(corners, SLOT_FILL, SLOT_OUTLINE)
-                if cell >= 9:
-                    for lx in range(w + 1):
-                        p1, p2 = pt(x0 + lx, yf, z0), pt(x0 + lx, yf, z0 + l)
-                        self._add_line(p1, p2, GRID_LINE)
-                    for lz in range(l + 1):
-                        p1, p2 = pt(x0, yf, z0 + lz), pt(x0 + w, yf, z0 + lz)
-                        self._add_line(p1, p2, GRID_LINE)
 
     def _collect_boxes(self, slots, bounds, slot_assignment, has_layout) -> None:
+        # ⛔ 2026-09-26: there used to be a second branch here for hand-made
+        #    layouts, keyed on slot["placed_size"] - a field only
+        #    _layout_to_slots invented, because in that format one slot WAS one
+        #    container and the branch existed to draw it whole rather than
+        #    re-pack it. With one format there are no one-container slots and
+        #    no placed_size: the hand-solved positions now arrive as the
+        #    renderer's _manual_boxes (see CargoApp._apply_arrangement), which
+        #    render() already prefers over anything this function returns. So
+        #    this is the packer's path for every ship, which is what the other
+        #    113 always used.
+        #    `has_layout` stays in the signature; callers pass it.
         x_min, z_min = bounds[0], bounds[1]
         all_boxes: list[tuple] = []
-
-        if has_layout:
-            for i, slot in enumerate(slots):
-                asgn = slot_assignment[i] if i < len(slot_assignment) else {}
-                if not asgn:
-                    continue
-                bx = slot["x"] - x_min
-                by = slot.get("y0", 0)
-                bz = slot["z"] - z_min
-                original_sz = slot.get("placed_size", 0)
-                is_original = (len(asgn) == 1
-                               and original_sz in asgn
-                               and asgn[original_sz] == 1)
-                if is_original:
-                    all_boxes.append((bx, by, bz,
-                                      slot["w"], slot["h"], slot["l"],
-                                      original_sz))
-                else:
-                    for (lx, ly, lz, dw, dh, dl, size) in place_containers_3d(slot, asgn):
-                        all_boxes.append((bx + lx, by + ly, bz + lz,
-                                          dw, dh, dl, size))
-        else:
-            for i, slot in enumerate(slots):
-                asgn = slot_assignment[i] if i < len(slot_assignment) else {}
-                if not asgn:
-                    continue
-                x0 = slot["x"] - x_min
-                y0 = slot.get("y0", 0)
-                z0 = slot["z"] - z_min
-                for (lx, ly, lz, dw, dh, dl, size) in place_containers_3d(slot, asgn):
-                    all_boxes.append((x0 + lx, y0 + ly, z0 + lz, dw, dh, dl, size))
-
+        for i, slot in enumerate(slots):
+            asgn = slot_assignment[i] if i < len(slot_assignment) else {}
+            if not asgn:
+                continue
+            x0 = slot["x"] - x_min
+            y0 = slot.get("y0", 0)
+            z0 = slot["z"] - z_min
+            # Items placed by hand are solid to the packer too (J, 2026-10-03:
+            # "should treat objects as objects"): a container never takes a
+            # cell an item stands in, and one with nowhere left to go is not
+            # drawn. CargoApp._report_packing_shortfall says how many.
+            blocked = (slot_blocked_cells(x0, y0, z0, slot, self._items)
+                       if self._items else None)
+            for (lx, ly, lz, dw, dh, dl, size) in place_containers_3d(slot, asgn, blocked):
+                all_boxes.append((x0 + lx, y0 + ly, z0 + lz, dw, dh, dl, size))
         return all_boxes
 
     def _draw_box(self, wx, wy, wz, dw, dh, dl, size, pt, cell, box_index) -> None:
@@ -1633,7 +1769,7 @@ header re-reads them.</p>
       neighbouring boxes and walls.</li>
   <li>The ghost tells you the verdict:
       <b style="color:#4caf50">green</b> it lands there,
-      <b style="color:#e0a54d">amber</b> an item lands but breaks a rule
+      <b style="color:#e0a54d">amber</b> an item lands but overhangs
       (see the Items tab),
       <b style="color:#f44336">red</b> refused — the box returns home.</li>
   <li><b>R</b> or <b>right-click</b> rotates it mid-drag, <b>Esc</b> cancels,
@@ -1697,7 +1833,9 @@ are a reminder of whichever mode you are in.</p>
 <b style="color:#c8d4e8">Buttons</b>
 <ul>
   <li><b style="color:#44aaff">▶ Optimize</b> — fill the hold with the best
-      mix for maximum SCU. You can keep editing afterwards.</li>
+      mix for maximum SCU. You can keep editing afterwards. If you have
+      placed things by hand it asks first; items and crates stay put and the
+      containers are packed around them.</li>
   <li><b style="color:#ff5533">✕ Clear</b> — zero every container count.</li>
   <li><b style="color:#ffaa22">↺ Reset</b> — go back to the known reference
       loadout, for ships that have one.</li>
@@ -1726,11 +1864,14 @@ yourself.</p>
       to see which.</li>
 </ul>
 
-<b style="color:#c8d4e8">Items warn, they do not refuse</b>
-<p>An item that lands outside a grid, overlaps something, sticks out of the
-top or floats is still placed, with an <b style="color:#e0a54d">amber</b>
-ghost and a <b>⚠</b> in the status line. Real holds take shapes a grid model
-does not, so the call is yours. Containers are still strict.</p>
+<b style="color:#c8d4e8">Items are solid</b>
+<p>An item cannot pass through a container, a crate or another item, cannot
+hang outside the cargo grid and cannot stick out of the top. The ghost turns
+<b style="color:#f44336">red</b> and the status line says what is in the way,
+or that the hold is full. Only an item that rests on something and overhangs
+it is placed with an <b style="color:#e0a54d">amber</b> ghost and a <b>⚠</b>.
+A plan saved before this rule loads unchanged; anything in it that breaks a
+rule is tinted amber, not moved.</p>
 <p style="color:#5a6480;font-size:8pt">Items are counted on their own line
 under the capacity bar and never added to your SCU.
 <b>✕ Clear items</b> removes them all (Ctrl+Z undoes it).
@@ -1993,7 +2134,11 @@ class CargoApp(SCWindow):
         self._bounds: tuple = (0, 0, 1, 1)
         self._slot_assignment: list[dict] = []
         self._counts: dict[int, int] = {s: 0 for s in CONTAINER_SIZES}
-        self._has_layout: bool = False
+        # True when this ship's grids are a converter's decomposition of ONE
+        # irregular hold, so a container may straddle two of them; False when
+        # they are the game files' real bays, where it may not. Read off the
+        # data by has_union_grids(), not off which file the ship came from.
+        self._union_grids: bool = False
         # Manual (default): blank grid, boxes placed by hand. Auto: counts + Optimize.
         self._mode: str = "manual"
         self._place_size: int | None = None
@@ -2633,7 +2778,8 @@ class CargoApp(SCWindow):
             }}
             QPushButton:hover {{ background-color: #6cf; }}
         """)
-        btn_optimize.clicked.connect(self._optimize)
+        # A lambda, not the bound method: clicked(bool) would land in confirm.
+        btn_optimize.clicked.connect(lambda _checked=False: self._optimize())
         btn_lay.addWidget(btn_optimize)
 
         btn_clear = QPushButton("\u2715 " + _("Clear"), btn_row)
@@ -3112,11 +3258,38 @@ class CargoApp(SCWindow):
                       if self._renderer._manual_boxes is not None
                       else list(self._renderer._last_boxes))
         ctx = PlacementContext(self._grids_world(), containers + items,
-                               union=self._has_layout)
+                               union=self._union_grids)
         out = {}
         for i, b in enumerate(items):
             out[b] = ctx.item_warnings(b[:3], b[3:6], skip=len(containers) + i)
         return out
+
+    def _obstacle_name(self, box: tuple) -> str:
+        """How a refused item names what is in its way."""
+        if not is_item(box):
+            return _("the {n} SCU container").format(n=box[6])
+        name = self._item_def(box[6])["name"]
+        # A crate's name is already "Crate 3 (4 SCU)"; an item reads "the X".
+        return name if crate_no(box[6]) is not None else _("the {name}").format(name=name)
+
+    def _item_refusal(self, key: str, dims: tuple, reason: str) -> str:
+        """Status text for a refused item click. When the spot is blocked AND
+        no spot anywhere can take one more, say the hold is full — the
+        "86 ore pods in a ship that fits 3" case (J, 2026-10-03)."""
+        name = self._item_def(key)["name"]
+        ctx = PlacementContext(self._grids_world(),
+                               list(self._renderer._manual_boxes or [])
+                               + list(self._renderer._items),
+                               union=self._union_grids)
+        if not ctx.item_fits_anywhere(dims):
+            if self._item_def(key).get("category") == "crate":
+                n = sum(1 for b in self._renderer._items
+                        if str(b[6]).split("#", 1)[0] == key)
+            else:
+                n = sum(1 for b in self._renderer._items if b[6] == key)
+            return _("Can't place: ") + _(R_ITEM_FULL).format(name=name, n=n)
+        return (_("Can't place {name}: ").format(name=name) + _(reason)
+                + "  ·  " + _("there is room elsewhere"))
 
     def _update_items_summary(self) -> None:
         crates = sum(1 for b in self._renderer._items if crate_no(b[6]) is not None)
@@ -3179,7 +3352,7 @@ class CargoApp(SCWindow):
     # on it and they will create a tab at the top of the page that you can
     # swap to or pop out ... fuzzy search and assign any item ingame that will
     # fit in the crate ... you can't shove a Kraken engine into a handheld
-    # crate". In the hold a crate is an item (warnings, not walls) whose key is
+    # crate". In the hold a crate is an item (solid since 2026-10-03) whose key is
     # "<class>#<n>"; what is INSIDE it obeys a strict volume rule
     # (cargo_engine.crate_items.check_fit).
 
@@ -3568,17 +3741,10 @@ class CargoApp(SCWindow):
         self._current_ship = ship
         self._ship_combo.set_text(ship["name"])
 
-        layout_key = ship["name"].lower()
-        layout = SHIP_LAYOUTS.get(layout_key)
-        if layout:
-            self._slots, self._bounds = _layout_to_slots(layout)
-            grid_w = layout.get("gridW", self._bounds[2])
-            grid_z = layout.get("gridZ", self._bounds[3])
-            self._bounds = (0, 0, grid_w, grid_z)
-            self._has_layout = True
-        else:
-            self._slots, self._bounds = build_slots(ship)
-            self._has_layout = False
+        # One slot builder for every ship. A hand-made hold differs only in
+        # provenance and in carrying an `arrangement`.
+        self._slots, self._bounds = build_slots(ship)
+        self._union_grids = has_union_grids(ship)
 
         self._slot_assignment = []
         self._drop_manual_layout()
@@ -3598,14 +3764,13 @@ class CargoApp(SCWindow):
         if self._mode == "manual":
             # J: "the default grid should be blank" - place boxes by hand.
             self._clear_containers()
-        elif self._has_layout:
+        elif ship.get("arrangement"):
             self._reset_containers()
         else:
-            self._optimize()
+            # The hold was just emptied above: nothing to confirm.
+            self._optimize(confirm=False)
 
         cap = ship.get("capacity") or ship.get("cargo") or ship.get("scu") or 0
-        if layout and not cap:
-            cap = layout.get("totalCapacity", 0)
         ship["capacity"] = cap
         mfr = ship.get("manufacturer", ship.get("company_name", ""))
         n_grp = len(ship.get("groups", []))
@@ -3789,10 +3954,12 @@ class CargoApp(SCWindow):
             g = dict(s)
             g["x"] = s["x"] - x_min
             g["z"] = s["z"] - z_min
-            if self._has_layout:
-                # Hand-made layouts: slots are placement volumes; their size
-                # tags just echo the box drawn there, so they are not limits.
-                g["maxSize"] = g["minSize"] = None
+            # No per-ship nulling of the size tags any more. It existed because
+            # _layout_to_slots INVENTED minSize == maxSize == scu from the box
+            # it found in each volume, and those echoes had to be undone here.
+            # The converted grids carry a real null, so build_slots hands over
+            # None and there is nothing to undo. Game-file grids keep their
+            # real MinSize/MaxSize, as they always did.
             out.append(g)
         return out
 
@@ -3854,7 +4021,7 @@ class CargoApp(SCWindow):
                                                     d["press_scene"].y(), y),
             "plane_y": y,
             "ctx": PlacementContext(self._grids_world(), others,
-                                    union=self._has_layout),
+                                    union=self._union_grids),
             "result": None,
         })
         group.setOpacity(0.3)
@@ -3873,16 +4040,18 @@ class CargoApp(SCWindow):
         cz = d["centre0"][1] + cur[1] - d["press_world"][1]
         w, h, l = d["dims"]
         if d.get("item"):
-            # Items always drop; a broken rule is a warning, shown amber.
-            pos, warns = d["ctx"].snap_item((w, h, l, d["size"]),
-                                            (cx - w / 2.0, cz - l / 2.0))
-            reason = "; ".join(warns) if warns else OK
-            d["result"] = (pos, True, reason)
-            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, True,
-                                      warn=bool(warns))
+            # Items are solid (J, 2026-10-03): overlap / outside / too tall
+            # refuse the drop; only floating is still an amber warning.
+            pos, valid, reason = d["ctx"].place_item(
+                (w, h, l, d["size"]), (cx - w / 2.0, cz - l / 2.0),
+                name_of=self._obstacle_name)
+            d["result"] = (pos, valid, reason)
+            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid,
+                                      warn=valid and reason != OK)
             self._status_lbl.setText(
-                (_("Drop here") if not warns
-                 else "⚠ " + _("Drops anyway: ") + _(reason))
+                (_("Drop here") if valid and reason == OK
+                 else "⚠ " + _("Drops with a warning: ") + _(reason) if valid
+                 else _("Can't drop: ") + _(reason))
                 + "  ·  R / right-click rotate  ·  Esc cancel")
             return
         pos, valid, reason = d["ctx"].snap((w, h, l, d["size"]),
@@ -3977,7 +4146,7 @@ class CargoApp(SCWindow):
             _("Moved {n} SCU box  ·  Ctrl+Z to undo").format(n=old[6]))
 
     def _apply_item_move(self, items, index, pos, dims, reason=OK) -> None:
-        """Commit an item move (always allowed): undo entry, paint follows."""
+        """Commit a legal item move: undo entry, paint follows."""
         old = items[index]
         self._push_undo()
         new_items = move_box(items, index, pos, dims)
@@ -4043,6 +4212,12 @@ class CargoApp(SCWindow):
         if mode == self._mode:
             self._refresh_mode_ui()
             return
+        # Asked BEFORE the mode flips: _hand_placed only counts hand-placed
+        # containers while the mode is still Manual.
+        if mode != "manual" and not self._confirm_reorganise(_("Switching to Auto")):
+            self._refresh_mode_ui()
+            self._status_lbl.setText(_("Stayed in Manual  ·  nothing was moved"))
+            return
         self._mode = mode
         if mode == "manual":
             # What is on screen becomes the arrangement you edit.
@@ -4060,6 +4235,20 @@ class CargoApp(SCWindow):
     def _on_count_edited(self, _v=None) -> None:
         """A typed count means "pack this for me": switch to Auto."""
         if self._syncing or self._mode != "manual":
+            return
+        if not self._confirm_reorganise(_("Typing a count")):
+            # Put the spinboxes back; _update_fill (connected after this) then
+            # sees no change and leaves the hand arrangement alone.
+            self._syncing = True
+            try:
+                for sz in CONTAINER_SIZES:
+                    sb = self._spinboxes[sz]
+                    sb.blockSignals(True)
+                    sb.setValue(self._counts.get(sz, 0))
+                    sb.blockSignals(False)
+            finally:
+                self._syncing = False
+            self._status_lbl.setText(_("Count not changed  \u00b7  nothing was moved"))
             return
         self._mode = "auto"
         self._set_place_size(None)
@@ -4176,13 +4365,15 @@ class CargoApp(SCWindow):
         # Items are in the way of (and a magnet for) containers and items alike.
         ctx = PlacementContext(grids, list(self._renderer._manual_boxes)
                                + list(self._renderer._items),
-                               union=self._has_layout)
+                               union=self._union_grids)
         if item is not None:
-            # An item always lands; what it breaks comes back as the reason.
+            # Items are solid (J, 2026-10-03): a cell shared with any box, a
+            # column off the grid or a top through the ceiling is a refusal.
             stack_y = over_box[1] + over_box[4] if over_box is not None else None
-            pos, warns = ctx.snap_item((w, h, l, item), (cx - w / 2.0, cz - l / 2.0),
-                                       y=stack_y)
-            return pos, (w, h, l), True, "; ".join(warns) if warns else OK
+            pos, valid, reason = ctx.place_item((w, h, l, item),
+                                                (cx - w / 2.0, cz - l / 2.0),
+                                                y=stack_y, name_of=self._obstacle_name)
+            return pos, (w, h, l), valid, reason
         pos, valid, reason = ctx.snap((w, h, l, self._place_size),
                                       (cx - w / 2.0, cz - l / 2.0))
         return pos, (w, h, l), valid, reason
@@ -4301,11 +4492,12 @@ class CargoApp(SCWindow):
         pos, (w, h, l), valid, reason = t
         if self._place_item is not None:
             name = self._item_def(self._place_item)["name"]
-            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, True,
-                                      warn=reason != OK)
+            self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid,
+                                      warn=valid and reason != OK)
             self._status_lbl.setText(
-                (_("Click to place {name}").format(name=name) if reason == OK
-                 else "⚠ " + _("Places anyway: ") + _(reason))
+                (_("Click to place {name}").format(name=name) if valid and reason == OK
+                 else "⚠ " + _("Places with a warning: ") + _(reason) if valid
+                 else _("Can't place {name}: ").format(name=name) + _(reason))
                 + "  ·  R rotate  ·  Esc done")
             return
         self._renderer.show_ghost(pos[0], pos[1], pos[2], w, h, l, valid)
@@ -4346,6 +4538,9 @@ class CargoApp(SCWindow):
         pos, (w, h, l), valid, reason = t
         if self._place_item is not None:
             key = self._place_item
+            if not valid:
+                self._status_lbl.setText(self._item_refusal(key, (w, h, l), reason))
+                return True
             self._push_undo()
             if self._item_def(key).get("category") == "crate":
                 key = self._new_crate(key)
@@ -4355,7 +4550,8 @@ class CargoApp(SCWindow):
             name = self._item_def(key)["name"]
             self._after_manual_edit(
                 (_("Placed {name}").format(name=name) if reason == OK
-                 else "⚠ " + _("Placed {name}: ").format(name=name) + _(reason))
+                 else "⚠ " + _("Placed {name}, with a warning: ").format(name=name)
+                 + _(reason))
                 + ("  ·  " + _("hidden boxes under it shown") if shown else "")
                 + "  ·  Ctrl+Z to undo")
             return True
@@ -4533,7 +4729,7 @@ class CargoApp(SCWindow):
         for _pass in range(2):
             self._renderer.render(
                 self._slots, self._bounds, self._slot_assignment,
-                self._has_layout, self._current_ship,
+                self._union_grids, self._current_ship,
                 lambda text: self._grid_info_lbl.setText(text),
                 view_width=vw, view_height=vh,
             )
@@ -4642,9 +4838,33 @@ class CargoApp(SCWindow):
 
         self._update_assignment()
         self._render_grid()
+        self._report_packing_shortfall()
+
+    def _report_packing_shortfall(self) -> int:
+        """Say so when the packer could not fit every counted container
+        around the hand-placed items. Returns how many were left out.
+
+        Only meaningful while the packer draws the hold (no hand arrangement);
+        a hand arrangement draws exactly its own boxes.
+        """
+        if self._renderer._manual_boxes is not None or not self._renderer._items:
+            return 0
+        drawn: dict[int, int] = {}
+        for b in self._renderer._last_boxes:
+            drawn[b[6]] = drawn.get(b[6], 0) + 1
+        short = {sz: self._get_count(sz) - drawn.get(sz, 0) for sz in CONTAINER_SIZES}
+        short = {sz: n for sz, n in short.items() if n > 0}
+        if not short:
+            return 0
+        n = sum(short.values())
+        scu = sum(sz * k for sz, k in short.items())
+        self._status_lbl.setText(
+            "\u26a0 " + _("{n} container(s), {scu} SCU, do not fit around the placed "
+                          "items and are not drawn").format(n=n, scu=scu))
+        return n
 
     def _refresh_capacity(self) -> None:
-        cap = self._current_ship.get("capacity", 0) if self._current_ship else 0
+        cap =self._current_ship.get("capacity", 0) if self._current_ship else 0
         used = sum(self._get_count(s) * s for s in CONTAINER_SIZES)
         pct = min(used / cap, 1.0) if cap > 0 else 0.0
 
@@ -4661,39 +4881,11 @@ class CargoApp(SCWindow):
             self._cont_labels[size].setText(f"= {n * size:>5,}")
 
     def _update_assignment(self) -> None:
-        if self._has_layout:
-            counts = dict(self._counts)
-            remaining = dict(counts)
-            self._slot_assignment = [{} for _ in self._slots]
-
-            for i, slot in enumerate(self._slots):
-                sz = slot.get("placed_size", 0)
-                if sz and sz > 0 and sz in remaining and remaining[sz] > 0:
-                    self._slot_assignment[i] = {sz: 1}
-                    remaining[sz] -= 1
-
-            for i, slot in enumerate(self._slots):
-                if self._slot_assignment[i]:
-                    continue
-                slot_vol = slot.get("placed_size", 0)
-                if slot_vol <= 0:
-                    continue
-                fill = {}
-                vol_left = slot_vol
-                for sz in sorted(remaining.keys(), reverse=True):
-                    if sz > vol_left or remaining[sz] <= 0:
-                        continue
-                    n = min(remaining[sz], vol_left // sz)
-                    if n > 0:
-                        fill[sz] = n
-                        remaining[sz] -= n
-                        vol_left -= n * sz
-                    if vol_left <= 0:
-                        break
-                if fill:
-                    self._slot_assignment[i] = fill
-        else:
-            self._slot_assignment = assign_slots_from_counts(self._slots, self._counts)
+        # One assigner for every ship. The branch that used to live here filled
+        # one-container slots by their `placed_size`, a field only
+        # _layout_to_slots produced; with one grid format there are no such
+        # slots, and the hand-solved positions arrive as _manual_boxes instead.
+        self._slot_assignment = assign_slots_from_counts(self._slots, self._counts)
 
     # -- Cargo plan save / load -----------------------------------------------
 
@@ -4826,15 +5018,149 @@ class CargoApp(SCWindow):
         if boxes is not None:
             self._counts = {s: self._get_count(s) for s in CONTAINER_SIZES}
             self._renderer._manual_boxes = boxes
-        self._renderer._items = (self._items_from_payload(payload.get("items"))
-                                 + self._crates_from_payload(payload.get("crates")))
+        saved_items = (self._items_from_payload(payload.get("items"))
+                       + self._crates_from_payload(payload.get("crates")))
+        # Containers first, alone, so the plan's containers land exactly where
+        # they always did; then each saved item is admitted only if it is
+        # solid against them and the items already admitted (J, 2026-10-03:
+        # "Refuse item phasing"). Admitted items never overlap the packed
+        # containers, so re-packing with them as obstacles reproduces the same
+        # containers.
+        self._renderer._items = []
+        # The containers-only render prunes paint on boxes it does not draw
+        # (render() drops stale assignment keys), which would strip every
+        # item's commodity; keep the plan's paint and give it back to the
+        # items that are admitted.
+        saved_paint = dict(self._renderer._assignments)
         self._update_fill()
+        containers = (list(self._renderer._manual_boxes)
+                      if self._renderer._manual_boxes is not None
+                      else list(self._renderer._last_boxes))
+        self._renderer._items, refused = self._admit_loaded_items(saved_items, containers)
+        for b in self._renderer._items:
+            k = (b[0], b[1], b[2], b[6])
+            if k in saved_paint:
+                self._renderer._assignments[k] = saved_paint[k]
+        self._render_grid()
         self._freeze_if_manual()
         self._update_assignment_summary()
+        if refused:
+            self._report_refused_items(refused)
 
-    def _optimize(self) -> None:
+    def _admit_loaded_items(self, saved: list[tuple],
+                            containers: list[tuple]) -> tuple[list[tuple], list[tuple]]:
+        """Split a saved plan's items into (admitted, refused) under the solid
+        rules: an item that overlaps a container or an earlier item, leaves
+        the grid or pokes through the ceiling is refused, with its reason.
+        Floating stays a warning, as everywhere else. In plan order, so the
+        first of two overlapping items is the one that stays."""
+        grids = self._grids_world()
+        admitted: list[tuple] = []
+        refused: list[tuple] = []
+        for box in saved:
+            ctx = PlacementContext(grids, containers + admitted,
+                                   union=self._union_grids)
+            why = ctx.item_blockers(box[:3], box[3:6], name_of=self._obstacle_name)
+            if why:
+                refused.append((box, why[0]))
+                no = crate_no(box[6])
+                if no is not None:
+                    # Its number stays used (numbers never go back), but it is
+                    # not a live crate: no tab, and the notice names its contents.
+                    st = self._crates.pop(no, None)
+                    refused[-1] = (box, why[0], len((st or {}).get("contents") or []))
+            else:
+                admitted.append(box)
+        return admitted, refused
+
+    def _report_refused_items(self, refused: list[tuple]) -> None:
+        """Nothing a plan carried may vanish silently: list it, grouped."""
+        groups: dict[tuple[str, str], int] = {}
+        for entry in refused:
+            box, why = entry[0], entry[1]
+            name = self._item_def(box[6])["name"]
+            if len(entry) > 2 and entry[2]:
+                name += " " + _("(holding {n} item(s))").format(n=entry[2])
+            groups[(name, why)] = groups.get((name, why), 0) + 1
+        lines = [(f"{name} x{n}" if n > 1 else name) + " - " + _(why)
+                 for (name, why), n in groups.items()]
+        head = (_("1 item not loaded") if len(refused) == 1
+                else _("{n} items not loaded").format(n=len(refused)))
+        text = head + ": " + "; ".join(lines)
+        self._load_notice = text
+        self._status_lbl.setText("⚠ " + text)
+        self._status_lbl.setToolTip(head + ":\n" + "\n".join(lines))
+        self._show_notice(_("Some items were not loaded"),
+                          head + ":\n\n" + "\n".join(lines)
+                          + "\n\n" + _("Items are solid: they cannot pass through "
+                                       "containers, crates or each other, or leave "
+                                       "the cargo grid."))
+
+    def _show_notice(self, title: str, text: str) -> None:
+        """Non-modal, so loading never blocks on it; tests replace this."""
+        box = QMessageBox(QMessageBox.Warning, title, text, QMessageBox.Ok, self)
+        box.setModal(False)
+        box.setAttribute(Qt.WA_DeleteOnClose)
+        box.show()
+
+    def _hand_placed(self) -> tuple[int, int]:
+        """(containers placed by hand, items + crates) currently in the hold."""
+        boxes = (self._renderer._manual_boxes or []) if self._mode == "manual" else []
+        return len(boxes), len(self._renderer._items)
+
+    def _ask_reorganise(self, text: str) -> bool:
+        """The modal question itself; tests replace this."""
+        box = QMessageBox(QMessageBox.Warning, _("Reorganise the hold?"), text,
+                          QMessageBox.Yes | QMessageBox.Cancel, self)
+        box.setDefaultButton(QMessageBox.Cancel)
+        box.button(QMessageBox.Yes).setText(_("Reorganise"))
+        return box.exec() == QMessageBox.Yes
+
+    def _confirm_reorganise(self, action: str, undoable: bool = False) -> bool:
+        """J, 2026-10-03: "If there are manually placed objects and the user
+        hits optimize it should pop up a warning asking 'are you sure' before
+        reorganizing existing objects and then adding additional objects".
+        True = go ahead (also when there is nothing placed to disturb)."""
+        n_boxes, n_items = self._hand_placed()
+        if not n_boxes and not n_items:
+            return True
+        parts = []
+        if n_boxes:
+            parts.append(_("{n} container(s) you placed will be rearranged").format(n=n_boxes))
+        if n_items:
+            parts.append(_("{n} item(s)/crate(s) stay where they are and containers "
+                           "are packed around them").format(n=n_items))
+        text = (_("{action} reorganises the hold, then adds more containers.").format(
+                    action=action)
+                + "\n\n" + "\n".join("\u2022 " + p for p in parts)
+                + "\n\n" + (_("Are you sure?  (Ctrl+Z undoes it.)") if undoable
+                            else _("Are you sure?")))
+        return self._ask_reorganise(text)
+
+    def _optimize(self, confirm: bool = True) -> None:
         if not self._current_ship or not self._slots:
             return
+        undo = None
+        if confirm:
+            if not self._confirm_reorganise(_("Optimize"), undoable=True):
+                self._status_lbl.setText(_("Optimize cancelled  \u00b7  nothing was moved"))
+                return
+            if any(self._hand_placed()):
+                # Taken now and put back afterwards: _drop_manual_layout below
+                # clears the undo stack, and the dialog promised Ctrl+Z.
+                self._push_undo()
+                undo = self._move_undo.pop()
+        try:
+            if self._renderer._items:
+                self._optimize_around_items()
+            else:
+                self._optimize_empty_hold()
+        finally:
+            if undo is not None:
+                self._move_undo.append(undo)
+
+    def _optimize_empty_hold(self) -> None:
+        """The original Optimize: a reference loadout, else greedy."""
         ship_name = self._current_ship.get("name", "")
         ref = _find_reference_loadout(ship_name)
         result = ref if ref is not None else greedy_optimize_3d(self._slots)
@@ -4851,26 +5177,103 @@ class CargoApp(SCWindow):
         self._update_fill()
         self._freeze_if_manual()
 
+    def _optimize_around_items(self) -> None:
+        """Optimize with items in the hold: every slot is filled with what
+        really fits around them (packing.fill_slot_around), largest first.
+
+        The reference loadouts and greedy_optimize_3d both assume an EMPTY
+        hold, so they are not used here: their counts would promise space an
+        item is standing in, and assign_slots_from_counts would then hand a
+        slot containers that cannot go anywhere. The per-slot assignment is
+        used as-is instead of being re-derived from the totals, for the same
+        reason. Capacity lost to items is the honest result.
+        """
+        x_min, z_min = self._bounds[0], self._bounds[1]
+        items = list(self._renderer._items)
+        per_slot = []
+        for slot in self._slots:
+            blocked = slot_blocked_cells(slot["x"] - x_min, slot.get("y0", 0),
+                                         slot["z"] - z_min, slot, items)
+            per_slot.append(fill_slot_around(slot, blocked))
+        totals = {sz: sum(a.get(sz, 0) for a in per_slot) for sz in CONTAINER_SIZES}
+        if self._drag:
+            self._renderer.clear_ghost()
+            self._drag = None
+        self._renderer._manual_boxes = None
+        self._syncing = True
+        try:
+            for sz in CONTAINER_SIZES:
+                sb = self._spinboxes[sz]
+                sb.blockSignals(True)
+                sb.setMaximum(max(sb.maximum(), totals[sz]))
+                sb.setValue(totals[sz])
+                sb.blockSignals(False)
+        finally:
+            self._syncing = False
+        self._counts = dict(totals)
+        self._slot_assignment = per_slot
+        self._refresh_capacity()
+        self._render_grid()
+        short = self._report_packing_shortfall()
+        self._freeze_if_manual()
+        if not short:
+            self._status_lbl.setText(
+                _("Optimized around {n} item(s): {scu} SCU of containers  \u00b7  "
+                  "Ctrl+Z to undo").format(
+                    n=len(items), scu=sum(sz * k for sz, k in totals.items())))
+
     def _reset_containers(self) -> None:
         self._drop_manual_layout()
         for s in CONTAINER_SIZES:
             self._spinboxes[s].blockSignals(True)
             self._spinboxes[s].setValue(0)
             self._spinboxes[s].blockSignals(False)
-        if self._has_layout and self._current_ship:
-            layout_key = self._current_ship["name"].lower()
-            layout = SHIP_LAYOUTS.get(layout_key)
-            if layout:
-                containers = layout.get("containers", {})
-                for size_str, count in containers.items():
-                    sz = int(size_str)
-                    if sz in self._spinboxes:
-                        self._spinboxes[sz].blockSignals(True)
-                        self._spinboxes[sz].setValue(int(count))
-                        self._spinboxes[sz].blockSignals(False)
+        if self._apply_arrangement():
+            return
         self._slot_assignment = []
         self._update_fill()
         self._freeze_if_manual()
+
+    def _apply_arrangement(self) -> bool:
+        """Put the ship's hand-solved packing on screen. True if it had one.
+
+        ⛔ THE ORDER HERE IS THE WHOLE POINT, and getting it wrong is what the
+        old two-format path did. _update_fill re-derives each spinbox's maximum
+        as min(physical, remaining_SCU // size) and clamps the value into it -
+        and it computes `used` ONCE, before the loop, so a hold whose boxes
+        total more than its stated capacity gets clamped size by size against a
+        figure that never comes down. Measured on the Freelancer, whose layout
+        placed 68 SCU into a 66 SCU ship: 1 SCU -> 0, 2 SCU 9 -> 8, 4 SCU
+        4 -> 3, 32 SCU 1 -> 0. Its hold drew **28 of 66 SCU** and had done for
+        as long as the layout existed.
+        _sync_counts_from_boxes instead RAISES each maximum to what is actually
+        placed, sets self._counts so _update_fill's "counts changed, drop the
+        hand arrangement" check cannot fire on our own write, and calls
+        _refresh_capacity rather than _update_fill - so nothing clamps.
+        """
+        ship = self._current_ship
+        boxes = arrangement_to_boxes(ship, self._bounds) if ship else None
+        if not boxes:
+            return False
+        dropped = 0
+        if self._renderer._items:
+            # A hand-solved hold assumes it is empty; boxes an item is in the
+            # way of are left out rather than drawn through it.
+            ctx = PlacementContext(self._grids_world(), list(self._renderer._items))
+            kept = [b for b in boxes if not ctx.occ.is_blocked(*b[:6])]
+            dropped = len(boxes) - len(kept)
+            boxes = kept
+        self._slot_assignment = []
+        self._renderer._manual_boxes = boxes
+        self._sync_counts_from_boxes()
+        self._update_assignment_summary()
+        self._render_grid()
+        self._freeze_if_manual()
+        if dropped:
+            self._status_lbl.setText(
+                "\u26a0 " + _("{n} container(s) of the ship's layout left out: placed "
+                              "items are in the way").format(n=dropped))
+        return True
 
     def _clear_containers(self) -> None:
         self._drop_manual_layout()

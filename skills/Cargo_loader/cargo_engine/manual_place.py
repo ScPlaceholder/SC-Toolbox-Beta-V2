@@ -28,6 +28,21 @@ Items (snap_item) keep rule 1 and rule 2, replace rule 3 with a bound onto the
 UNION of the grid floors (_bound_item — an item may lie across a seam between
 two grids, which a container may not), and turn rules 4-7 into warnings. The
 comment above _bound_item is the argument for that split.
+
+⛔ 2026-10-03, J reversed half of that for items: "make sure that the ship
+items category honor the actual cargo grid and don't stack through existing
+items or exceed the maximum size of the cargo grid ... if someone puts a 32
+scu crate in there the ship items should treat that like a physical honest
+and not phase through it". So an item is now SOLID: place_item refuses
+(item_blockers) an item that shares a cell with any container, crate or other
+item, that leaves the grids, or that pokes out of the top. Only "floating or
+overhanging" is still a warning, because the item rest rule (_item_rest) is
+deliberately a rough one and J did not ask for it. item_warnings is kept,
+unchanged, for what is ALREADY in the hold (a saved plan from before this, or
+containers Optimize packed around items) — that is shown amber, never moved.
+Capacity is not a separate number: with no interpenetration and no leaving the
+grid, the free cells ARE the limit, and item_fits_anywhere answers "is there
+room for one more anywhere" so a refusal can say the hold is full.
 """
 
 from __future__ import annotations
@@ -53,6 +68,18 @@ W_OUTSIDE = "outside the cargo grids"
 W_TOO_TALL = "sticks out of the top of the grid"
 W_OVERLAP = "overlaps another box"
 W_FLOATING = "floating or overhanging"
+
+# Item refusals (2026-10-03: items are solid). {what} names the obstacle.
+R_ITEM_OVERLAP = "no room: overlaps {what}"
+R_ITEM_OUTSIDE = "no room: sticks out of the cargo grid"
+R_ITEM_TOO_TALL = "no room: sticks out of the top of the grid"
+R_ITEM_FULL = "hold is full: no free space left for another {name} ({n} placed)"
+
+
+def default_box_name(box: tuple) -> str:
+    """How a refusal names an obstacle when the caller has no better name."""
+    return ("another item" if is_item(box)
+            else "the {n} SCU container".format(n=box[6]))
 
 
 def is_item(box: tuple) -> bool:
@@ -501,6 +528,25 @@ class PlacementContext:
         x, y, z = pos
         w, h, l = dims
         out: list[str] = []
+        where = self._item_where(pos, dims)
+        if where:
+            out.append(where)
+        me = (x, y, z, w, h, l)
+        if any(i != skip and _aabb_overlap(me, b) for i, b in enumerate(self.placed)):
+            out.append(W_OVERLAP)
+        if not self._supported(x, y, z, w, l, self._item_floor(x, z, w, l)):
+            out.append(W_FLOATING)
+        return out
+
+    def _item_where(self, pos: tuple, dims: tuple) -> str | None:
+        """W_OUTSIDE / W_TOO_TALL / None: the item against the grids alone.
+
+        Shared by item_warnings (amber, for what is already placed) and
+        item_blockers (a refusal, for a new placement), so the warning and the
+        wall can never disagree about where the grid is.
+        """
+        x, y, z = pos
+        w, h, l = dims
         # grids: every column of the footprint under some grid, and the item
         # between that grid's floor and ceiling
         where = None
@@ -521,14 +567,7 @@ class PlacementContext:
                         break
             if where == W_OUTSIDE:
                 break
-        if where:
-            out.append(where)
-        me = (x, y, z, w, h, l)
-        if any(i != skip and _aabb_overlap(me, b) for i, b in enumerate(self.placed)):
-            out.append(W_OVERLAP)
-        if not self._supported(x, y, z, w, l, self._item_floor(x, z, w, l)):
-            out.append(W_FLOATING)
-        return out
+        return where
 
     def snap_item(self, box: tuple, target: tuple,
                   y: int | None = None) -> tuple[tuple[int, int, int], list[str]]:
@@ -560,6 +599,94 @@ class PlacementContext:
             y = self._item_rest(x, z, w, l, self._item_floor(x, z, w, l))
         pos = (x, int(y), z)
         return pos, self.item_warnings(pos, (w, h, l))
+
+    # -- items are solid (J, 2026-10-03) ---------------------------------------
+    #
+    # "don't stack through existing items or exceed the maximum size of the
+    # cargo grid. Like we don't need 86 ore pods inside a ship that can only
+    # fit 3 and if someone puts a 32 scu crate in there the ship items should
+    # treat that like a physical honest and not phase through it".
+    #
+    # ★ The three hard rules are exactly the three that make an item a body:
+    #   it may not leave the grid floor, may not poke out of the ceiling, and
+    #   may not share a cell with anything (container, personal crate, item).
+    #   With those, capacity needs no counter of its own — "3 ore pods fit" is
+    #   simply what is left when the third one has taken its cells, and it
+    #   holds for every path that adds an item, because every such path asks
+    #   this one predicate.
+    # ⚠ Floating/overhang stays a WARNING. _item_rest rests an item on what is
+    #   under its middle cells, a rough rule by design (2026-09-26); making
+    #   overhang a wall would refuse a gun laid across two pods, which is
+    #   physically fine. J asked for solidity and bounds, not a support model.
+    # ⚠ The bound (_bound_item) still pins an oversized item into the bay it
+    #   was aimed at; it is the refusal below that stops it being placed, so
+    #   the ghost still appears where the player pointed — red, with a reason.
+
+    def item_blockers(self, pos: tuple, dims: tuple, *, skip: int | None = None,
+                      name_of=None) -> list[str]:
+        """Why an item may NOT go here (empty = it may). Hard rules only.
+
+        name_of(box) -> str names an obstacle for the overlap reason; the
+        default says "the 32 SCU container" / "another item".
+        """
+        x, y, z = pos
+        w, h, l = dims
+        out: list[str] = []
+        where = self._item_where(pos, dims)
+        if where == W_OUTSIDE:
+            out.append(R_ITEM_OUTSIDE)
+        elif where == W_TOO_TALL:
+            out.append(R_ITEM_TOO_TALL)
+        me = (x, y, z, w, h, l)
+        hits = [b for i, b in enumerate(self.placed)
+                if i != skip and _aabb_overlap(me, b)]
+        if hits:
+            # Name the biggest thing in the way: "overlaps the 32 SCU
+            # container" is the sentence the player can act on.
+            hit = max(hits, key=lambda b: (b[3] * b[4] * b[5], b[:3]))
+            out.append(R_ITEM_OVERLAP.format(what=(name_of or default_box_name)(hit)))
+        return out
+
+    def place_item(self, box: tuple, target: tuple, y: int | None = None,
+                   name_of=None) -> tuple[tuple[int, int, int], bool, str]:
+        """snap_item, then the solid rules: ((x, y, z), valid, reason).
+
+        reason is the first refusal when not valid; when valid it is OK or the
+        soft warnings ("floating or overhanging") joined, shown amber.
+        """
+        pos, _warns = self.snap_item(box, target, y=y)
+        dims = (box[0], box[1], box[2])
+        blockers = self.item_blockers(pos, dims, name_of=name_of)
+        if blockers:
+            return pos, False, blockers[0]
+        soft = [wn for wn in self.item_warnings(pos, dims)
+                if wn not in (W_OUTSIDE, W_TOO_TALL, W_OVERLAP)]
+        return pos, True, "; ".join(soft) if soft else OK
+
+    def item_fits_anywhere(self, dims: tuple) -> bool:
+        """Is there ANY cell-aligned spot, in either yaw, where an item of
+        *dims* passes item_blockers? This is the capacity question — "the
+        hold has no room for a fourth ore pod" — asked of the real free cells.
+
+        Candidate heights are the floor under the footprint and the top of
+        every box that footprint overlaps: the only surfaces an item can rest
+        on. Cost is anchors x boxes, so the UI asks it only when a placement
+        has already been refused, never per mouse move.
+        """
+        w, h, l = dims
+        if not self.grids:
+            return False
+        for fw, fl in dict.fromkeys(((w, l), (l, w))):
+            for x, z in self._anchors(fw, fl):
+                ys = {self._item_floor(x, z, fw, fl)}
+                for (bx, by, bz, bw, bh, bl, _s) in self.placed:
+                    if bx < x + fw and x < bx + bw and bz < z + fl and z < bz + bl:
+                        ys.add(by + bh)
+                for y in sorted(ys):
+                    if (not self.occ.is_blocked(x, y, z, fw, h, fl)
+                            and self._item_where((x, y, z), (fw, h, fl)) is None):
+                        return True
+        return False
 
 
 def snap_position(box: tuple, target: tuple, grids: list[dict],

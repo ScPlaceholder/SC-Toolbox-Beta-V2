@@ -30,7 +30,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from cargo_engine import item_catalog  # noqa: E402
 from cargo_engine.manual_place import (  # noqa: E402
     PlacementContext, R_OVERLAP, R_TOO_TALL, W_OVERLAP, W_FLOATING, W_OUTSIDE,
-    W_TOO_TALL,
+    W_TOO_TALL, R_ITEM_OVERLAP, R_ITEM_OUTSIDE, R_ITEM_TOO_TALL, OK,
 )
 
 SHIP = {
@@ -396,7 +396,9 @@ def test_rotate_item_with_r(win):
     assert item[3:6] == (4, 1, 1)
 
 
-def test_overlapping_item_still_places_amber(win):
+def test_overlapping_item_is_refused_and_names_the_box(win):
+    """2026-10-03, J reversed the 09-26 rule: items are solid. This test used
+    to be test_overlapping_item_still_places_amber and asserted the opposite."""
     win._renderer._manual_boxes = [(2, 0, 0, 2, 2, 2, 8)]
     win._sync_counts_from_boxes()
     win._render_grid()
@@ -404,17 +406,32 @@ def test_overlapping_item_still_places_amber(win):
     p = _vp(win, 2.5, 0, 3)          # a 1x1x4 gun whose far end runs into the 8 SCU box
     _send(win._view, QEvent.MouseMove, p, Qt.NoButton, Qt.NoButton)
     ghost = win._renderer._ghost
-    assert ghost.ghost_valid and ghost.ghost_warn
+    assert not ghost.ghost_valid                        # red, not amber
+    assert "overlaps the 8 SCU container" in win._status_lbl.text()
     _click(win, p)
+    assert win._renderer._items == []
+    assert "no room: overlaps the 8 SCU container" in win._status_lbl.text()
+    assert "room elsewhere" in win._status_lbl.text()
+    assert _counts(win) == {8: 1}                       # the container is untouched
+    assert not win._move_undo                           # a refusal is not an edit
+
+
+def test_an_overlap_already_in_the_hold_is_flagged_amber(win):
+    """The amber flag is kept as a last line of defence for an overlap that is
+    already in the hold state. No user path produces one any more (Load Plan
+    refuses phasing items since 2026-10-03, see the old-plan tests below), so
+    this sets the state directly to keep the flag/pen rendering covered."""
+    win._renderer._manual_boxes = [(2, 0, 0, 2, 2, 2, 8)]
+    win._sync_counts_from_boxes()
     item = (2, 0, 1, 1, 1, 4, LONG)
+    win._renderer._items = [item]
+    win._render_grid()
     assert win._renderer._items == [item]
     assert win._renderer._item_flags[item] == [W_OVERLAP]
     g = _group(win, item)
     assert g.warnings == [W_OVERLAP]
     assert g.item_pen.color().name() == "#ffb000"
-    assert "overlaps another box" in win._status_lbl.text()
     assert "flagged" in win._items_summary_lbl.toolTip()
-    assert _counts(win) == {8: 1}                       # the container is untouched
 
 
 def test_item_flags_floating_and_outside():
@@ -505,7 +522,11 @@ def test_containers_still_refused_over_items(win):
     assert not ok and why == R_OVERLAP
 
 
-def test_items_do_not_touch_counts_or_optimize(win):
+def test_items_do_not_touch_counts_or_optimize(win, monkeypatch):
+    """Optimize leaves the item where it is, and (2026-10-03) packs the
+    containers AROUND it: before, this test passed with the packer filling
+    the pod's cell with containers."""
+    monkeypatch.setattr(win, "_ask_reorganise", lambda text: True)
     win._renderer._items = [(0, 0, 0, 2, 2, 2, POD)]
     win._render_grid()
     win._optimize()
@@ -515,6 +536,8 @@ def test_items_do_not_touch_counts_or_optimize(win):
     assert all(not isinstance(b[6], str) for b in win._renderer._last_boxes)
     placed = sum(b[6] for b in win._renderer._last_boxes)
     assert sum(s * n for s, n in _counts(win).items()) == placed
+    assert placed == 96 - 8                              # all of the hold but the pod
+    assert _no_two_overlap(win._renderer._last_boxes + win._renderer._items)
     assert win._items_summary_lbl.toolTip().startswith("Items: 1")
 
 
@@ -536,11 +559,13 @@ def test_brush_paints_an_item(win):
 # only ever iterates range(sw - cw + 1), so a CONTAINER could never leave.
 # snap_item had no equivalent line, and the pointer that feeds it is unbounded.
 #
-# The bound is on the REGION only. Overlap, floating and too-tall stay amber
-# warnings, per J the same day: items are sized roughly and a mismatch with the
-# bay is "user error not engine error". The tests below assert both halves —
-# making the soft rules hard would fail test_overlapping_item_still_places_amber
-# above and test_item_above_the_ceiling_stays_a_warning below.
+# The tests in this block are about snap_item, the BOUND: where an item lands.
+# ⛔ 2026-10-03 J made items solid, so whether it may STAY there is now
+# place_item's job (overlap / outside / too tall refuse; floating still warns).
+# snap_item keeps reporting raw warnings, which is why the bound tests below
+# still read W_OUTSIDE / W_TOO_TALL; where a docstring used to say "stays a
+# warning", the test now also asserts place_item refuses. See the "items are
+# solid" block at the end of this file.
 
 BOUND_GRIDS = [{"x": 0, "y0": 0, "z": 0, "w": 6, "h": 2, "l": 8}]
 
@@ -592,6 +617,9 @@ def test_oversized_item_pins_to_the_grid_and_still_warns():
     assert pos[0] == 0                                    # pinned, overflow on +X
     assert 0 <= pos[2] and pos[2] + 1 <= 2                # the axis that fits, inside
     assert warns == [W_OUTSIDE]
+    # 2026-10-03: and since items are solid, it may not be placed there.
+    pos2, valid, reason = ctx.place_item((4, 1, 1, LONG), (9.0, 9.0))
+    assert pos2 == pos and not valid and reason == R_ITEM_OUTSIDE
 
 
 def test_no_grid_data_is_not_a_zero_sized_grid():
@@ -667,15 +695,18 @@ def test_half_cell_grid_origin_bounds_to_the_cells_it_covers():
         assert warns == []
 
 
-def test_item_above_the_ceiling_stays_a_warning():
-    """The vertical rule is deliberately still soft. Y comes from the stack
-    underneath or the box the player clicked, never from the mouse, so it is
-    already bounded by what is below it; clamping it would drop items into the
-    box they were stacked on."""
+def test_item_above_the_ceiling_is_not_clamped_but_is_refused():
+    """The bound still never clamps Y. Y comes from the stack underneath or the
+    box the player clicked, never from the mouse; clamping it would drop items
+    into the box they were stacked on. (Was ..._stays_a_warning.) Since
+    2026-10-03 the overshoot is a refusal: an item may not poke through the
+    ceiling."""
     ctx = PlacementContext(BOUND_GRIDS, [])
     pos, warns = ctx.snap_item((1, 1, 1, LONG), (0.0, 0.0), y=9)
     assert pos == (0, 9, 0)
     assert W_TOO_TALL in warns
+    pos2, valid, reason = ctx.place_item((1, 1, 1, LONG), (0.0, 0.0), y=9)
+    assert pos2 == (0, 9, 0) and not valid and reason == R_ITEM_TOO_TALL
 
 
 def test_click_off_the_bay_lands_the_item_on_it(win):
@@ -707,3 +738,399 @@ def test_dragging_an_item_off_the_bay_keeps_it_on(win):
     QtWidgets.QApplication.processEvents()
     (item,) = win._renderer._items
     assert _footprint_inside(item[:3], item[3:6], win._grids_world())
+
+
+# ── items are solid (J, 2026-10-03) ──────────────────────────────────────────
+#
+# "make sure that the ship items category honor the actual cargo grid and
+# don't stack through existing items or exceed the maximum size of the cargo
+# grid. Like we don't need 86 ore pods inside a ship that can only fit 3 and if
+# someone puts a 32 scu crate in their the ship items should treat that like a
+# physical honest and not phase through it"
+#
+# This reverses the 2026-09-26 rule for items (overlap / outside / too tall
+# were amber warnings). Floating / overhang is still a warning.
+
+from cargo_engine import crate_items  # noqa: E402
+
+SOLID_GRIDS = [{"x": 0, "y0": 0, "z": 0, "w": 6, "h": 2, "l": 8}]
+C32 = (0, 0, 0, 2, 2, 8, 32)          # a 32 SCU container yawed along Z: x 0..2
+CRATE4 = crate_items.CRATE_CLASSES[3]  # the 4 SCU Stor*All
+
+
+def _solid(placed, grids=SOLID_GRIDS):
+    # No flush magnet: these engine tests aim at exact cells.
+    return PlacementContext(grids, placed, flush_threshold=0.0)
+
+
+def _no_two_overlap(boxes):
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            if (a[0] < b[0] + b[3] and b[0] < a[0] + a[3]
+                    and a[1] < b[1] + b[4] and b[1] < a[1] + a[4]
+                    and a[2] < b[2] + b[5] and b[2] < a[2] + a[5]):
+                return False
+    return True
+
+
+def test_item_may_not_phase_through_a_32_scu_container():
+    ctx = _solid([C32])
+    # A 3x1x1 rests on the floor (its middle cell, x=2, is clear of the
+    # container) and its first cell, x=1, is inside the container.
+    pos, valid, reason = ctx.place_item((3, 1, 1, LONG), (1.0, 0.0))
+    assert pos == (1, 0, 0)
+    assert not valid
+    assert reason == R_ITEM_OVERLAP.format(what="the 32 SCU container")
+    # One cell over, flush against it, is fine.
+    pos, valid, reason = ctx.place_item((3, 1, 1, LONG), (2.0, 0.0))
+    assert pos == (2, 0, 0) and valid and reason == OK
+
+
+def test_item_may_not_stack_through_another_item():
+    pod = (2, 0, 3, 2, 2, 2, POD)
+    ctx = _solid([pod])
+    # A 1x1x4 gun along Z: its middle (z 1, 2) is on the floor, its far end
+    # (z 3) runs into the pod.
+    pos, valid, reason = ctx.place_item((1, 1, 4, LONG), (2.0, 0.0),
+                                        name_of=lambda b: "the MISC Ore Pod")
+    assert pos == (2, 0, 0)
+    assert not valid and reason == R_ITEM_OVERLAP.format(what="the MISC Ore Pod")
+    # and the default name, with no caller-supplied namer
+    assert (ctx.place_item((1, 1, 4, LONG), (2.0, 0.0))[2]
+            == R_ITEM_OVERLAP.format(what="another item"))
+
+
+def test_item_may_not_poke_through_the_ceiling_when_stacked():
+    pod = (0, 0, 0, 2, 2, 2, POD)
+    ctx = _solid([pod])                          # the hold is 2 cells tall
+    pos, valid, reason = ctx.place_item((2, 2, 2, POD), (0.0, 0.0))
+    assert pos == (0, 2, 0)                      # rests on the pod...
+    assert not valid and reason == R_ITEM_TOO_TALL   # ...and would stick out
+    # In a 4-tall hold the same stack is honest and allowed.
+    tall = [dict(SOLID_GRIDS[0], h=4)]
+    pos, valid, reason = _solid([pod], tall).place_item((2, 2, 2, POD), (0.0, 0.0))
+    assert pos == (0, 2, 0) and valid and reason == OK
+
+
+def test_86_ore_pods_in_a_hold_that_fits_3():
+    """The literal case J named. A 6x2x2 hold takes exactly three 2x2x2 pods;
+    every further aim, on or off the grid, is refused, and the hold reports
+    that nothing of that size fits anywhere."""
+    hold = [{"x": 0, "y0": 0, "z": 0, "w": 6, "h": 2, "l": 2}]
+    placed = []
+    for aim in ((0.0, 0.0), (2.0, 0.0), (4.0, 0.0)):
+        ctx = PlacementContext(hold, placed)
+        assert ctx.item_fits_anywhere((2, 2, 2))
+        pos, valid, reason = ctx.place_item((2, 2, 2, POD), aim)
+        assert valid, (aim, reason)
+        placed.append((*pos, 2, 2, 2, POD))
+    attempts = [((i * 7) % 17 * 0.5 - 2.0, (i * 3) % 7 * 0.5 - 1.0) for i in range(86)]
+    for aim in attempts:
+        ctx = PlacementContext(hold, placed)
+        pos, valid, reason = ctx.place_item((2, 2, 2, POD), aim)
+        if valid:
+            placed.append((*pos, 2, 2, 2, POD))
+    assert len(placed) == 3
+    assert _no_two_overlap(placed)
+    ctx = PlacementContext(hold, placed)
+    assert not ctx.item_fits_anywhere((2, 2, 2))
+    assert not ctx.item_fits_anywhere((1, 1, 1))     # 24 of 24 cells used
+
+
+def test_floating_is_still_only_a_warning():
+    """J asked for solidity and bounds, not a support model: a gun resting on a
+    pod with its far end overhanging places, amber."""
+    tall = [dict(SOLID_GRIDS[0], h=4)]
+    pod = (0, 0, 0, 2, 2, 2, POD)
+    pos, valid, reason = _solid([pod], tall).place_item((1, 1, 4, LONG), (1.0, 0.0))
+    assert pos == (1, 2, 0)
+    assert valid and reason == W_FLOATING
+
+
+def test_fits_anywhere_considers_the_yawed_footprint():
+    strip = [{"x": 0, "y0": 0, "z": 0, "w": 4, "h": 1, "l": 1}]
+    ctx = PlacementContext(strip, [])
+    assert not ctx.place_item((1, 1, 4, LONG), (0.0, 0.0))[1]   # as aimed: no
+    assert ctx.item_fits_anywhere((1, 1, 4))                     # rotated: yes
+    blocked = PlacementContext(strip, [(0, 0, 0, 1, 1, 1, POD)])
+    assert not blocked.item_fits_anywhere((1, 1, 4))
+
+
+def test_clicking_86_times_places_only_what_physically_fits(win):
+    """Through the real click path. The 6x2x8 test hold takes twelve 2x2x2
+    pods; 86 clicks all over it, including on top of pods, never put more
+    than twelve in, never interpenetrate, and the refusal says the hold is
+    full rather than silently doing nothing."""
+    _arm(win, POD)
+    pts = [(x + 0.5, z + 0.5) for x in range(6) for z in range(8)]
+    for i in range(86):
+        x, z = pts[(i * 5) % len(pts)]
+        _click(win, _vp(win, x, 0, z))
+    items = win._renderer._items
+    # Scattered clicks fragment the floor (9 fit, measured), never exceed 12.
+    assert 0 < len(items) <= 12
+    assert _no_two_overlap(items)
+    ctx = PlacementContext(win._grids_world(), [])
+    assert all(ctx.item_blockers(b[:3], b[3:6]) == [] for b in items)
+    # Now pack it properly at the twelve pod centres, then click 86 more times.
+    win._clear_items()
+    for x in (1, 3, 5):
+        for z in (1, 3, 5, 7):
+            _click(win, _vp(win, x, 0, z))
+    items = win._renderer._items
+    assert len(items) == 12
+    assert _no_two_overlap(items)
+    for i in range(86):
+        x, z = pts[(i * 5) % len(pts)]
+        _click(win, _vp(win, x, 2, z))              # on top of a pod each time
+    assert len(win._renderer._items) == 12
+    assert len(win._renderer._items) == 12
+    status = win._status_lbl.text()
+    assert "hold is full" in status and "MISC Ore Pod" in status and "(12 placed)" in status
+
+
+def test_item_click_into_a_32_scu_container_is_refused(win):
+    win._renderer._manual_boxes = [C32]
+    win._sync_counts_from_boxes()
+    win._render_grid()
+    _arm(win, LONG)
+    QTest.keyClick(win._view, Qt.Key_R)              # 1x1x4 -> 4x1x1, across X
+    p = _vp(win, 3.0, 0, 4.5)                         # footprint x 1..5: x=1 is inside
+    t = win._place_target(win._view.mapToScene(p))
+    assert t is not None
+    pos, dims, valid, reason = t
+    assert dims == (4, 1, 1) and pos == (1, 0, 4)
+    assert not valid and reason == R_ITEM_OVERLAP.format(what="the 32 SCU container")
+    _click(win, p)
+    assert win._renderer._items == []
+    assert "overlaps the 32 SCU container" in win._status_lbl.text()
+    assert win._renderer._manual_boxes == [C32]       # the container did not move
+
+
+def test_dragging_an_item_into_a_box_is_refused_and_it_stays(win):
+    win._renderer._manual_boxes = [(0, 0, 0, 2, 2, 2, 8)]
+    win._sync_counts_from_boxes()
+    start = (3, 0, 5, 2, 2, 2, POD)
+    win._renderer._items = [start]
+    win._render_grid()
+    view, L, NB = win._view, Qt.LeftButton, Qt.NoButton
+    grab = _vp(win, 4, 2, 6)
+    _send(view, QEvent.MouseButtonPress, grab, L, L)
+    _send(view, QEvent.MouseMove, grab + QPoint(3, 3), NB, L)
+    tgt = _vp(win, 1.0, 2, 1.0)                       # straight onto the 8 SCU box
+    _send(view, QEvent.MouseMove, tgt, NB, L)
+    QtWidgets.QApplication.processEvents()
+    pos, valid, reason = win._drag["result"]
+    assert not valid and reason.startswith("no room")
+    assert not win._renderer._ghost.ghost_valid
+    _send(view, QEvent.MouseButtonRelease, tgt, L, NB)
+    QTest.qWait(30)
+    QtWidgets.QApplication.processEvents()
+    assert win._renderer._items == [start]
+    assert win._status_lbl.text().startswith("Move cancelled: no room")
+
+
+def test_personal_crate_and_item_block_each_other(win):
+    win._brush_tabs.setCurrentIndex(1)
+    win._crate_btns[CRATE4].click()
+    _click(win, _vp(win, 1, 0, 1))
+    (crate,) = win._renderer._items
+    assert crate[3:6] == (2, 1, 2)
+    assert win._obstacle_name(crate) == "Crate 1 (4 SCU)"
+    # the crate refuses an item laid through it, and names itself
+    ctx = PlacementContext(win._grids_world(), list(win._renderer._items),
+                           flush_threshold=0.0)
+    pos, valid, reason = ctx.place_item((4, 1, 1, LONG),
+                                        (float(crate[0] + 1), float(crate[2])),
+                                        name_of=win._obstacle_name)
+    assert not valid and reason == R_ITEM_OVERLAP.format(what="Crate 1 (4 SCU)")
+    # an ore pod on top of the 1-tall crate would poke through the 2-tall hold
+    _arm(win, POD)
+    _click(win, _vp(win, crate[0] + 1, 1, crate[2] + 1))
+    assert len(win._renderer._items) == 1
+    assert "Can't place" in win._status_lbl.text()
+    # a second crate stacks on it honestly (1 + 1 = 2), and takes number 2:
+    # the refused attempts above did not use a crate number up
+    win._brush_tabs.setCurrentIndex(1)
+    win._crate_btns[CRATE4].click()
+    _click(win, _vp(win, crate[0] + 1, 1, crate[2] + 1))
+    assert len(win._renderer._items) == 2
+    assert win._renderer._items[-1][6] == CRATE4 + "#2"
+    assert win._renderer._items[-1][1] == 1
+
+
+# ── objects are objects: Optimize / Auto ask first, and pack around items ────
+#
+# J, 2026-10-03: "should treat objects as objects. If there are manually placed
+# objects and the user hits optimize it should pop up a warning asking 'are you
+# sure' before reorganizing existing objects and then adding additional
+# objects". conftest.py makes any prompt a test did not answer FAIL, so the
+# tests that do not expect one prove it does not appear.
+
+
+def _asker(answer):
+    asked = []
+
+    def ask(text):
+        asked.append(text)
+        return answer
+    return ask, asked
+
+
+def _hand_box(win, size=16):
+    win._place_btns[size].click()
+    _click(win, _vp(win, 3, 0, 4))
+    win._place_btns[size].click()                  # toggle placing off
+    assert len(win._renderer._manual_boxes) == 1
+    return list(win._renderer._manual_boxes)
+
+
+def test_optimize_on_an_empty_hold_does_not_ask(win):
+    win._optimize()                                # a prompt would fail here
+    assert win._renderer._last_boxes
+
+
+def test_optimize_asks_and_cancel_moves_nothing(win, monkeypatch):
+    before = _hand_box(win)
+    ask, asked = _asker(False)
+    monkeypatch.setattr(win, "_ask_reorganise", ask)
+    win._optimize()
+    assert len(asked) == 1
+    assert "1 container(s) you placed will be rearranged" in asked[0]
+    assert win._renderer._manual_boxes == before
+    assert _counts(win) == {16: 1}
+    assert "cancelled" in win._status_lbl.text()
+
+
+def test_optimize_asks_then_reorganises_and_undo_brings_it_back(win, monkeypatch):
+    before = _hand_box(win)
+    ask, asked = _asker(True)
+    monkeypatch.setattr(win, "_ask_reorganise", ask)
+    win._optimize()
+    assert len(asked) == 1 and "Ctrl+Z" in asked[0]
+    assert sum(b[6] for b in win._renderer._last_boxes) == 96
+    win._undo_move()
+    assert win._renderer._manual_boxes == before
+
+
+def test_optimize_with_an_item_names_it_in_the_question(win, monkeypatch):
+    win._renderer._items = [(0, 0, 0, 2, 2, 2, POD)]
+    win._render_grid()
+    ask, asked = _asker(False)
+    monkeypatch.setattr(win, "_ask_reorganise", ask)
+    win._optimize()
+    assert "1 item(s)/crate(s) stay where they are" in asked[0]
+    assert win._renderer._last_boxes == []         # cancelled: nothing packed
+
+
+def test_switching_to_auto_asks_and_cancel_stays_manual(win, monkeypatch):
+    before = _hand_box(win)
+    ask, asked = _asker(False)
+    monkeypatch.setattr(win, "_ask_reorganise", ask)
+    win._mode_btns["auto"].click()
+    assert len(asked) == 1
+    assert win._mode == "manual" and win._mode_btns["manual"].isChecked()
+    assert win._renderer._manual_boxes == before
+
+
+def test_typing_a_count_asks_and_cancel_puts_it_back(win, monkeypatch):
+    before = _hand_box(win)
+    ask, asked = _asker(False)
+    monkeypatch.setattr(win, "_ask_reorganise", ask)
+    win._spinboxes[8].setValue(3)
+    assert len(asked) == 1
+    assert win._spinboxes[8].value() == 0 and win._spinboxes[16].value() == 1
+    assert win._mode == "manual"
+    assert win._renderer._manual_boxes == before
+
+
+def test_auto_counts_that_do_not_fit_around_an_item_are_reported(win, monkeypatch):
+    monkeypatch.setattr(win, "_ask_reorganise", lambda text: True)
+    win._renderer._items = [(0, 0, 0, 2, 2, 2, POD)]
+    win._set_mode("auto")
+    win._spinboxes[32].setValue(3)                 # 3 x 32 = the whole empty hold
+    drawn = win._renderer._last_boxes
+    assert len(drawn) == 2                         # one has nowhere to go...
+    assert _no_two_overlap(list(drawn) + win._renderer._items)
+    assert "1 container(s), 32 SCU, do not fit" in win._status_lbl.text()   # ...and says so
+
+
+def test_a_ship_layout_is_not_drawn_through_an_item(win):
+    win._current_ship["arrangement"] = [
+        {"pos": [0, 0, 0], "dims": [2, 2, 2], "scu": 8},
+        {"pos": [2, 0, 0], "dims": [2, 2, 2], "scu": 8},
+    ]
+    win._renderer._items = [(0, 0, 0, 2, 2, 2, POD)]
+    assert win._apply_arrangement()
+    assert win._renderer._manual_boxes == [(2, 0, 0, 2, 2, 2, 8)]
+    assert "1 container(s) of the ship's layout left out" in win._status_lbl.text()
+
+
+# ── old plans: phasing items are refused on load, and listed ─────────────────
+#
+# J, 2026-10-03: "Refuse item phasing". A plan saved before items were solid
+# can carry items inside containers or each other; they are not loaded, and a
+# notice says exactly which and why, so nothing disappears silently.
+
+def _reload(win, payload):
+    win._pending_loadout = json.loads(json.dumps(payload))
+    win._load_ship(payload["ship"])
+
+
+def test_old_plan_refuses_phasing_items_and_lists_them(win):
+    box8 = (0, 0, 0, 2, 2, 2, 8)
+    win._renderer._manual_boxes = [box8]
+    win._sync_counts_from_boxes()
+    good = (2, 0, 0, 2, 2, 2, POD)
+    floating = (0, 1, 4, 1, 1, 4, LONG)            # overhangs: still allowed
+    win._renderer._items = [(0, 0, 0, 2, 2, 2, POD)] * 3 + [good, floating,
+                                                             (9, 0, 0, 1, 1, 1, LONG)]
+    payload = win._loadout_payload()
+    _reload(win, payload)
+    assert win._renderer._manual_boxes == [box8]               # containers as saved
+    assert sorted(win._renderer._items) == sorted([good, floating])
+    assert win._renderer._item_flags[floating] == [W_FLOATING]  # amber, not refused
+    status = win._status_lbl.text()
+    assert "4 items not loaded" in status
+    assert "MISC Ore Pod x3 - no room: overlaps the 8 SCU container" in status
+    assert "Long Gun - no room: sticks out of the cargo grid" in status
+    ((title, text),) = win._notices
+    assert "MISC Ore Pod x3" in text and "Long Gun" in text
+
+
+def test_two_saved_items_in_one_place_keep_the_first(win):
+    a = (0, 0, 0, 2, 2, 2, POD)
+    b = (1, 0, 1, 2, 2, 2, POD)
+    win._renderer._items = [a, b]
+    _reload(win, win._loadout_payload())
+    assert win._renderer._items == [a]
+    assert "1 item not loaded: MISC Ore Pod - no room: overlaps the MISC Ore Pod" \
+        in win._status_lbl.text()
+
+
+def test_a_clean_plan_loads_without_a_notice(win):
+    win._renderer._items = [(0, 0, 0, 2, 2, 2, POD), (2, 0, 0, 2, 2, 2, POD)]
+    _reload(win, win._loadout_payload())
+    assert len(win._renderer._items) == 2
+    assert not getattr(win, "_notices", [])
+
+
+def test_a_refused_crate_is_named_with_its_contents_and_gets_no_tab(win):
+    win._brush_tabs.setCurrentIndex(1)
+    win._crate_btns[CRATE4].click()
+    _click(win, _vp(win, 1, 0, 1))
+    (crate,) = win._renderer._items
+    no = int(crate[6].rsplit("#", 1)[1])
+    win._crates[no]["contents"] = [{"key": "k", "name": "Medpen", "qty": 2,
+                                    "vol_u": 1000, "kind": "", "uuid": ""}]
+    win._crate_btns[CRATE4].click()
+    payload = win._loadout_payload()
+    # The old plan: an 8 SCU container saved in the very cells the crate is in.
+    payload["counts"]["8"] = 1
+    payload["boxes"] = [{"scu": 8, "pos": [crate[0], 0, crate[2]], "dims": [2, 2, 2]}]
+    _reload(win, payload)
+    assert win._renderer._items == []
+    assert "Crate 1 (4 SCU) (holding 1 item(s)) - no room: overlaps the 8 SCU container" \
+        in win._status_lbl.text()
+    assert no not in win._live_crates()
+    assert no not in win._crates          # not left registered as a dead crate

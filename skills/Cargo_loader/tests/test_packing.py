@@ -230,3 +230,66 @@ class TestRendering:
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])
+
+
+# ── hand-placed items are obstacles to the packer (J, 2026-10-03) ────────────
+# "should treat objects as objects": Optimize / Auto must never pack a
+# container through an item that is already in the hold.
+
+from cargo_engine.packing import slot_blocked_cells, fill_slot_around  # noqa: E402
+
+
+def _cells(boxes):
+    out = set()
+    for (x, y, z, w, h, l, *_r) in boxes:
+        for dx in range(w):
+            for dy in range(h):
+                for dz in range(l):
+                    out.add((x + dx, y + dy, z + dz))
+    return out
+
+
+class TestPackingAroundItems:
+    SLOT = {"x": 0, "y0": 0, "z": 0, "w": 6, "h": 2, "l": 8, "capacity": 96,
+            "maxSize": None, "minSize": None}
+
+    def test_no_blocked_cells_is_the_old_packer(self):
+        for asgn in ({32: 3}, {16: 2, 8: 4, 1: 9}, {24: 1, 4: 5, 2: 7}):
+            assert (place_containers_3d(self.SLOT, asgn)
+                    == place_containers_3d(self.SLOT, asgn, set())
+                    == place_containers_3d(self.SLOT, asgn, None))
+
+    def test_containers_never_take_a_blocked_cell(self):
+        pod = (0, 0, 0, 2, 2, 2)
+        blocked = slot_blocked_cells(0, 0, 0, self.SLOT, [pod])
+        assert len(blocked) == 8
+        out = place_containers_3d(self.SLOT, {32: 3}, blocked)
+        assert not (_cells(out) & blocked)
+        assert len(out) == 2            # the third 32 SCU has nowhere to go
+        out = place_containers_3d(self.SLOT, {1: 96}, blocked)
+        assert len(out) == 88 and not (_cells(out) & blocked)
+
+    def test_blocked_cells_on_a_half_cell_slot(self):
+        """A layout slot can sit on a half cell (Idris x = 29.5); an item on
+        whole cells covers BOTH local cells it straddles."""
+        slot = {"w": 2, "h": 1, "l": 1}
+        assert slot_blocked_cells(29.5, 0, 0, slot, [(30, 0, 0, 1, 1, 1)]) == {
+            (0, 0, 0), (1, 0, 0)}
+        assert slot_blocked_cells(29.5, 0, 0, slot, [(32, 0, 0, 1, 1, 1)]) == set()
+
+    def test_fill_around_counts_only_what_really_fits(self):
+        empty = fill_slot_around(self.SLOT)
+        assert sum(s * n for s, n in empty.items()) == 96
+        blocked = slot_blocked_cells(0, 0, 0, self.SLOT, [(0, 0, 0, 2, 2, 2)])
+        got = fill_slot_around(self.SLOT, blocked)
+        assert sum(s * n for s, n in got.items()) == 88
+        # and packing those counts around the pod really places every one
+        out = place_containers_3d(self.SLOT, got, blocked)
+        assert sorted(b[6] for b in out) == sorted(
+            s for s, n in got.items() for _ in range(n))
+        assert not (_cells(out) & blocked)
+
+    def test_fill_around_honours_size_rules(self):
+        slot = dict(self.SLOT, maxSize=8, minSize=2)
+        got = fill_slot_around(slot)
+        assert got and max(got) <= 8 and min(got) >= 2
