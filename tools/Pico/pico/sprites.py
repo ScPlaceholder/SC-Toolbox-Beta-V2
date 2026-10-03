@@ -46,8 +46,13 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              # actually out for it, checked on every frame of the loop
              "weapon_draw_focused+wrench", "scan_ping_default_held+binoculars_salute",   # J 07:03/07:09: salute pose, binoculars at the END of the raised flipper (held frames only)
             
-             "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "scan_ping_default+camera_out"),
-    "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused"),
+             "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "scan_ping_default+camera_out",
+             # J 2026-10-03 13:13: toy ships "during any idle animation even in mid combat". A toy, not a gag:
+             # in the plain pools, no RARE roll and no shared cooldown. Pinned to a flipper TIP on the two
+             # poses where that flipper is out -- J ruled out reload and proud ("he's not holding it").
+             "ship_claim_star_grab+ship_gladius", "scan_ping_default_held+ship_gladius_l"),
+    "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused",
+              "ship_claim_star_grab+ship_gladius"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
               "ship_claim_star_grab+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!" (GAG_SEQS)
@@ -89,6 +94,10 @@ GAG_SEQS: Mapping[str, list] = {
                                      ("ship_claim_star_release+huckaby", 0)],
     "proud_happy_grab+whale_hold": [("proud_happy_grab+whale_hold", 0), ("proud_happy_held+whale_hold", 4.0),
                                     ("proud_happy_release+whale_hold", 0)],
+    # the toy Gladius: picks it up, admires it with the star eyes, puts it down
+    "ship_claim_star_grab+ship_gladius": [("ship_claim_star_grab+ship_gladius", 0),
+                                          ("ship_claim_star_held+ship_gladius", 3.0),
+                                          ("ship_claim_star_release+ship_gladius", 0)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -873,6 +882,22 @@ def selftest() -> int:
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
+        # the toy Gladius (J 2026-10-03): any idle, even in combat, so a plain pool entry -- never gated by the gag
+        # roll or the shared cooldown -- and it is a whole pick-up / admire / put-down sequence
+        sg = "ship_claim_star_grab+ship_gladius"
+        ck("the toy ship is in the calm AND alert pools, and is not a rare gag",
+           sg in MOOD_LOOPS["calm"] and sg in MOOD_LOOPS["alert"] and sg not in RARE_LOOPS)
+        cs = LoopChooser(Catalog.scan(d), rng=random.Random(5)); cs.on_mood("alert")
+        if sg in cs.catalog.loops and "scan_ping_default_held+ship_gladius_l" in cs.catalog.loops:
+            cs.current = sg; cs._gag(at=900.0)
+            cs.on_loop_end(at=900.2)
+            ck("the ship is picked up once, then held", cs.current == "ship_claim_star_held+ship_gladius")
+            cs.on_loop_end(at=903.5)
+            ck("then put down", cs.current == "ship_claim_star_release+ship_gladius")
+            cs.on_loop_end(at=903.8)
+            ck("then back to his mood, even mid-combat", not cs.in_seq and cs.current in MOOD_LOOPS["alert"])
+        else:
+            ck("the toy ship loops resolve (needs out/snap_props)", False)
         # signs: a qualifying event can raise one, and the cooldown stops a second straight after
         (Path(d) / (SIGN_LOOP + ".gif")).write_bytes(b"GIF89a")   # the plain loop the signs snap onto
         cs = LoopChooser(Catalog.scan(d), rng=random.Random(0)); cs.on_mood("calm")
