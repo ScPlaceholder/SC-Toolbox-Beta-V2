@@ -51,7 +51,9 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              # in the plain pools, no RARE roll and no shared cooldown. Held aloft at the END of the raised
              # flipper on the two poses that raise one -- J ruled out reload and proud ("he's not holding it"),
              # and grab/release are left out because the flipper is down there and the ship would float.
-             "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan"),
+             "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan",
+             # J 2026-10-03 15:22: the Banu skin's merchant stall ("I'M THE REAL BMM"), Banu only (BRAND_ONLY)
+             "idle_shuffle_default+bmm_table"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused",
               "ship_claim_star_held+ship_gladius_claim"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
@@ -71,7 +73,18 @@ RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star_grab+huckaby": 0.15,
     "weapon_reload_happy_grab+chrisroberts_hold": 0.15,
     "proud_happy_grab+whale_hold": 0.15,
+    "idle_shuffle_default+bmm_table": 0.15,
 }
+# Gags that belong to ONE outfit: shown only when the loop folder is that brand's (pico_anim_sequences_<brand>).
+BRAND_ONLY: Mapping[str, str] = {
+    "idle_shuffle_default+bmm_table": "banu",
+}
+
+
+def brand_allows(name: str, root: Path) -> bool:
+    """False when this loop is another outfit's gag. Drake's base folder has no brand suffix, so it gets none."""
+    brand = BRAND_ONLY.get(name)
+    return brand is None or Path(root).name.endswith("_" + brand)
 # J 2026-10-01 21:47: "maybe once an hour at the most for the puppet and the action figure". One SHARED
 # cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
 GAG_COOLDOWN_S = 3600.0
@@ -445,7 +458,8 @@ class LoopChooser:
                 catalog.loops[n] = catalog.loops[base]
         catalog.check(moods)
         self.catalog = catalog
-        self.pools = {m: tuple(n for n in pool if n in catalog.loops) for m, pool in moods.items()}
+        self.pools = {m: tuple(n for n in pool if n in catalog.loops and brand_allows(n, catalog.root))
+                      for m, pool in moods.items()}
         self.rng = rng or random.Random()
         self.mood: Optional[str] = None
         self.current: Optional[str] = None
@@ -879,6 +893,14 @@ def selftest() -> int:
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
+        # the Banu stall gag shows up on the Banu outfit only, and is a rare gag like the others
+        bmm = "idle_shuffle_default+bmm_table"
+        ck("the BMM stall is a rare gag in calm", bmm in MOOD_LOOPS["calm"] and bmm in RARE_LOOPS)
+        ck("the BMM stall is Banu only",
+           brand_allows(bmm, Path("x/pico_anim_sequences_banu")) and not brand_allows(bmm, Path("x/pico_anim_sequences"))
+           and not brand_allows(bmm, Path("x/pico_anim_sequences_drake")))
+        cdr = LoopChooser(Catalog.scan(d), rng=random.Random(9))
+        ck("Drake's chooser never draws the BMM stall", bmm not in cdr.pools["calm"])
         # the toy Gladius (J 2026-10-03): any idle, even in combat, so a plain pool entry -- never gated by the gag
         # roll or the shared cooldown -- and only on HELD frames, where the raised flipper is out to hold it
         sc, ss = "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan"
