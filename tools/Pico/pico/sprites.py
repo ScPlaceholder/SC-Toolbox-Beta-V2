@@ -165,9 +165,64 @@ HOTDOG_BY_KIND: Mapping[str, int] = {"": 1, "breakfast": 2, "chili": 3, "cruiser
 _HOTDOG = re.compile(r"food_hotdog_\d+(?:_([a-z]+))?_[a-z]$")
 
 
+# J 2026-10-03 10:28, "Did you wire in all the foodstuffs": the 43 other foods J had Picofied, keyed by the
+# game's entity name (from Data.p4k, the same Food_<kind>_<nn>_<variant>_a shape the log hands us). Held in
+# the same hands-together pose as the hot dogs. A food with no entry here still falls back to a hot dog.
+FOOD_HOLD = "weapon_reload_happy_held"
+FOOD_BY_ENTITY: Mapping[str, str] = {
+    "food_bar_com_01_a": "cal-o-meal-chocolate-deluxe-protein-bar",
+    "food_bar_com_01_lunes_a": "cal-o-meal-lunes-protein-bar",
+    "food_bar_com_01_vanilla_a": "cal-o-meal-vanilla-protein-bar",
+    "food_bar_onemeal_01_a": "onemeal-nutrition-bar-roast-chicken",
+    "food_bar_onemeal_01_salmon_a": "onemeal-nutrition-bar-spicy-salmon",
+    "food_bar_onemeal_01_steak_a": "onemeal-nutrition-bar-grilled-steak",
+    "food_bar_onemeal_01_tofu_a": "onemeal-nutrition-bar-fried-tofu",
+    "food_bar_snaggle_01_a": "snaggle-stick-original",
+    "food_bar_snaggle_01_newaustin_a": "snaggle-stick-new-austin-bold",
+    "food_biscuit_1_a": "ringaling",
+    "food_box_noodle_01_a": "shoyu-lapsha",
+    "food_burger_wham_01_a": "whamburger",
+    "food_burrito_01_a": "dak-galbi-chicken-burrito",
+    "food_icecream_eff_01_a": "ermer-family-farms-chibanzoo-ice-cream",
+    "food_icecream_eff_01_choc_a": "ermer-family-farms-chocolate-ice-cream",
+    "food_icecream_eff_01_coffee_a": "ermer-family-farms-coffee-ice-cream",
+    "food_icecream_eff_01_fatfree_a": "ermer-family-farms-fat-free-ice-cream",
+    "food_icecream_eff_01_lunes_a": "ermer-family-farms-lunes-ice-cream",
+    "food_pickle_01": "pickle",
+    "food_pizza_slice_01_pepperoni_a": "pepperoni-pizza-slice",
+    "food_sachet_readymeal_01_beef_a": "readymeal-beef-chunks",
+    "food_sachet_readymeal_01_burrito_a": "readymeal-bean-and-rice-burrito",
+    "food_sachet_readymeal_01_meatball_a": "readymeal-meatball-marinara",
+    "food_sachet_readymeal_01_noodles_a": "readymeal-chicken-patty-and-noodles",
+    "food_sachet_readymeal_01_vegetarian_a": "readymeal-vegetarian",
+    "food_sachet_uee_01_formula_a": "special-operation-formula-combat-ration",
+    "food_skewered_rat_1_a": "aloprat-skewer",
+    "food_tin_bogo_01_a": "bo-go-angeli-original",
+    "food_tin_bogo_01_crawdads_a": "bo-go-crawdad",
+    "food_tin_bogo_01_hotsweet_a": "bo-go-hot-and-sweet",
+    "food_tin_mre_01_a": "ma-s-ready-to-eat-beef-home-stew",
+    "food_tin_mre_01_chicken_a": "ma-s-ready-to-eat-chicken-home-stew",
+    "food_tin_mre_01_fish_a": "ma-s-ready-to-eat-fish-home-stew",
+    "food_tin_mre_01_noodle_a": "ma-s-ready-to-eat-noodle-red",
+    "food_tin_mre_01_vegetable_a": "ma-s-ready-to-eat-vegetable-soup",
+    "food_tin_noodle_1_a": "carafi-noodles",
+    "food_tin_omni_01_a": "boumbo-stew-omni-pack",
+    "food_tin_omni_01_stirfry_a": "stir-fry-vegetables-and-beef-omni-pack",
+    "food_tin_omni_01_vegan_a": "vegan-delight-omni-pack",
+    "food_tin_uee_01_a": "spiced-protein-stew-combat-ration",
+    "food_tin_uee_01_chili_a": "chili-mac-combat-ration",
+    "food_tin_uee_01_paneer_a": "sag-paneer-combat-ration",
+    "food_vent_slug": "vent-slug",
+}
+
+
 def food_variant(item: str) -> Optional[str]:
-    """The hot dog that matches this in-game food item, or None (not a hot dog / unknown kind)."""
-    m = _HOTDOG.match((item or "").lower())
+    """The prop that matches this in-game food item: its own Picofied food, the matching hot dog, or None
+    (unknown food)."""
+    low = (item or "").lower()
+    if low in FOOD_BY_ENTITY:
+        return FOOD_HOLD + "+" + FOOD_BY_ENTITY[low]
+    m = _HOTDOG.match(low)
     if not m:
         return None
     n = HOTDOG_BY_KIND.get(m.group(1) or "")
@@ -346,7 +401,8 @@ class LoopChooser:
         self.snap_props = _snap_props()
         names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
                  | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq}
-                 | {n for v in HAND_VARIANTS.values() for n in v})
+                 | {n for v in HAND_VARIANTS.values() for n in v}
+                 | {FOOD_HOLD + SNAP_SEP + pid for pid in FOOD_BY_ENTITY.values()})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -652,6 +708,11 @@ def selftest() -> int:
            and food_variant("Food_hotdog_01_a") == "weapon_reload_happy_held+hotdog_1"
            and food_variant("Food_hotdog_01_yakisoba_a") == "weapon_reload_happy_held+hotdog_8")
         ck("a burrito is not a hot dog", food_variant("Food_burrito_01_beef_a") is None)
+        ck("a Picofied food holds its own prop, not a hot dog",
+           food_variant("Food_tin_bogo_01_a") == FOOD_HOLD + "+bo-go-angeli-original"
+           and food_variant("FOOD_SKEWERED_RAT_1_A") == FOOD_HOLD + "+aloprat-skewer")
+        ck("every Picofied food is in the snap manifest",
+           not _snap_props() or all(v in _snap_props() for v in FOOD_BY_ENTITY.values()))
         LM = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[banu_melee_01_77, banu_melee_01, 77] "
               "Status[x] Port[%s] Elapsed[0]")             # the real shape: uid, then the item name
         ht.feed_line(LM % "utility_attach_2")
