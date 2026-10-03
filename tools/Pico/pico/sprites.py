@@ -108,6 +108,10 @@ GAG_SEQS: Mapping[str, list] = {
                                      ("ship_claim_star_release+huckaby", 0)],
     "proud_happy_grab+whale_hold": [("proud_happy_grab+whale_hold", 0), ("proud_happy_held+whale_hold", 4.0),
                                     ("proud_happy_release+whale_hold", 0)],
+    # the Banu merchant behind his stall, then hawking with both flippers (J 15:4x: "the animation where he also
+    # waves around both his hands"). idle_dance keeps his feet planted and shares shuffle's chest, so the table,
+    # anchored there, stays on the same spot of floor across both steps.
+    "idle_shuffle_default+bmm_table": [("idle_shuffle_default+bmm_table", 3.0), ("idle_dance_happy+bmm_table", 4.0)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
@@ -899,6 +903,8 @@ def selftest() -> int:
         ck("the BMM stall is Banu only",
            brand_allows(bmm, Path("x/pico_anim_sequences_banu")) and not brand_allows(bmm, Path("x/pico_anim_sequences"))
            and not brand_allows(bmm, Path("x/pico_anim_sequences_drake")))
+        ck("the BMM merchant hawks with both flippers after idling",
+           [st[0] for st in GAG_SEQS.get(bmm, [])] == [bmm, "idle_dance_happy+bmm_table"])
         cdr = LoopChooser(Catalog.scan(d), rng=random.Random(9))
         ck("Drake's chooser never draws the BMM stall", bmm not in cdr.pools["calm"])
         # the toy Gladius (J 2026-10-03): any idle, even in combat, so a plain pool entry -- never gated by the gag
