@@ -75,6 +75,14 @@ RARE_LOOPS: Mapping[str, float] = {
     "proud_happy_grab+whale_hold": 0.15,
     "idle_shuffle_default+bmm_table": 0.15,
 }
+# Toy-ship poses (J 2026-10-03, "a toy of every ship"): when the pool draws a ship pose, ANY ship in the snap manifest
+# held in that pose (ship_<name>_<suffix>) can be swapped in, so the whole fleet is reachable from two pool entries.
+TOY_POSES: Mapping[str, str] = {
+    "ship_claim_star_held": "_claim",
+    "scan_ping_default_held": "_scan",
+}
+
+
 # Gags that belong to ONE outfit: shown only when the loop folder is that brand's (pico_anim_sequences_<brand>).
 BRAND_ONLY: Mapping[str, str] = {
     "idle_shuffle_default+bmm_table": "banu",
@@ -455,7 +463,9 @@ class LoopChooser:
                  | {base + SNAP_SEP + pid for base, pids in PROP_IDLES.items() for pid in pids}
                  | {FOOD_HOLD + SNAP_SEP + pid for pid in FOOD_BY_ENTITY.values()}
                  | {FOOD_HOLD + SNAP_SEP + "%s_eat_%d" % (pid, i) for pid in FOOD_BY_ENTITY.values()
-                    for i in range(1, EAT_STAGES + 1)})
+                    for i in range(1, EAT_STAGES + 1)}
+                 | {base + SNAP_SEP + pid for base, suf in TOY_POSES.items() for pid in self.snap_props
+                    if pid.startswith("ship_") and pid.endswith(suf)})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -532,6 +542,12 @@ class LoopChooser:
             options = [pick + SNAP_SEP + pid for pid in PROP_IDLES[pick] if pick + SNAP_SEP + pid in self.catalog.loops]
             if options:
                 return self.rng.choice(options)
+        base, prop = split_snap(pick)
+        if prop and prop.startswith("ship_") and base in TOY_POSES:   # any ship of the fleet, not always the Gladius
+            ships = [n for n in self.catalog.loops if split_snap(n)[0] == base
+                     and (split_snap(n)[1] or "").startswith("ship_") and n.endswith(TOY_POSES[base])]
+            if ships:
+                return self.rng.choice(sorted(ships))
         p = RARE_LOOPS.get(pick)
         if p is not None:                                          # a gag prop: only sometimes
             now = time.time() if at is None else at
@@ -907,6 +923,20 @@ def selftest() -> int:
                and cw._bite(HAND_MAX_S["food"] - 0.1) == wrapped + "_eat_%d" % EAT_STAGES)
         else:
             ck("the opened stages of a wrapped food resolve (needs out/snap_props)", False)
+        # the toy pose draws a random ship from the whole fleet, in the right pose
+        ct = LoopChooser(Catalog.scan(d), rng=random.Random(11))
+        fleet = [n for n in ct.catalog.loops if n.startswith("ship_claim_star_held+ship_")]
+        if len(fleet) > 5:
+            got = set()
+            for _ in range(400):
+                ct.current = None
+                n = ct._pick("calm")
+                if split_snap(n)[0] in TOY_POSES and (split_snap(n)[1] or "").startswith("ship_"):
+                    got.add(n)
+            ck("toy poses draw many different ships from the fleet (%d seen)" % len(got),
+               len(got) >= 10 and all(n.endswith(TOY_POSES[split_snap(n)[0]]) for n in got))
+        else:
+            ck("the toy fleet resolves (needs out/snap_props with ship_* props)", False)
         # the Banu stall gag shows up on the Banu outfit only, and is a rare gag like the others
         bmm = "idle_shuffle_default+bmm_table"
         ck("the BMM stall is a rare gag in calm", bmm in MOOD_LOOPS["calm"] and bmm in RARE_LOOPS)
