@@ -367,6 +367,26 @@ class Catalog:
 
 SNAP_SEP = "+"
 
+# J 2026-10-03 11:53: "add a bunch of the props for those animations to keep them interesting and diverse like
+# the average user won't notice us reusing the same animation for different props if we cycle them correctly
+# with other animations". Each idle keeps ONE slot in its pool; when the pool draws it, PROP_IDLE_P of the time
+# it comes out holding a random prop that suits the pose. Listing every combo as its own pool entry would have
+# made props ~80% of all calm picks and drowned the plain loops.
+PROP_IDLE_P = 0.7
+PROP_IDLES: Mapping[str, tuple[str, ...]] = {
+    # flippers near the chest: things held up in front
+    "idle_preen_default": ("drink", "camera", "binoculars", "med_kit", "console", "tool_02", "tool_03",
+                           "tool_06", "tool_19", "tool_21", "tool_25", "tool_26", "tool_29", "tool_30",
+                           "tool_36", "tool_50"),
+    # one flipper raised: handled tools at the tip
+    "idle_peek_default": ("flashlight", "datapad", "walkie", "wrench", "tool_04", "tool_05", "tool_08",
+                          "tool_10", "tool_12", "tool_14", "tool_35", "tool_38", "tool_47", "binoculars",
+                          "scanner"),
+    # J: "Tap foot would work for a small prop"
+    "idle_tap_foot_default": ("drink", "walkie", "datapad", "console", "tool_03", "tool_06", "tool_29",
+                              "tool_30", "tool_47", "tool_50"),
+}
+
 # SIGNS (J's 25 on pico_signs_transparent.png): held up in the ship-claim pose as snap props. pico/signs.py
 # decides WHETHER and WHICH (event-driven, 8 min cooldown, mood veto, no repeat of the last 6, 35% roll).
 SIGN_LOOP = "ship_claim_star"
@@ -409,6 +429,7 @@ class LoopChooser:
         names = ({n for p in moods.values() for n in p} | set(EVENT_LOOPS.values()) | set(HAND_LOOPS.values())
                  | set(_sign_names()) | {st[0] for seq in GAG_SEQS.values() for st in seq}
                  | {n for v in HAND_VARIANTS.values() for n in v}
+                 | {base + SNAP_SEP + pid for base, pids in PROP_IDLES.items() for pid in pids}
                  | {FOOD_HOLD + SNAP_SEP + pid for pid in FOOD_BY_ENTITY.values()}
                  | {FOOD_HOLD + SNAP_SEP + "%s_eat_%d" % (pid, i) for pid in FOOD_BY_ENTITY.values()
                     for i in range(1, EAT_STAGES + 1)})
@@ -478,9 +499,15 @@ class LoopChooser:
 
     def _pick(self, mood: str, at: Optional[float] = None) -> str:
         pool = self.pools[mood]
-        if len(pool) > 1 and self.current in pool:
-            pool = tuple(n for n in pool if n != self.current)   # never the same loop twice in a row
+        cur_base = split_snap(self.current)[0] if self.current else None
+        if len(pool) > 1 and cur_base is not None:
+            # never the same loop twice in a row -- nor the same idle again with a different prop
+            pool = tuple(n for n in pool if split_snap(n)[0] != cur_base) or pool
         pick = self.rng.choice(pool)
+        if pick in PROP_IDLES and self.rng.random() < PROP_IDLE_P:
+            options = [pick + SNAP_SEP + pid for pid in PROP_IDLES[pick] if pick + SNAP_SEP + pid in self.catalog.loops]
+            if options:
+                return self.rng.choice(options)
         p = RARE_LOOPS.get(pick)
         if p is not None:                                          # a gag prop: only sometimes
             now = time.time() if at is None else at
@@ -880,6 +907,22 @@ def selftest() -> int:
     if real.is_dir():
         missing = Catalog.scan(real).check()
         ck("real Drake folder covers every mood (missing: %s)" % (missing or "none"), True)
+        cp = LoopChooser(Catalog.scan(real), rng=random.Random(11))
+        ck("every prop-idle prop is in the snap manifest",
+           not cp.snap_props or all(pid in cp.snap_props for pids in PROP_IDLES.values() for pid in pids))
+        picks, repeats = [], 0
+        for _ in range(3000):
+            prev = cp.current
+            cp.current = cp._pick("calm")
+            if prev and split_snap(prev)[0] == split_snap(cp.current)[0]:
+                repeats += 1
+            picks.append(cp.current)
+        propped = [n for n in picks if split_snap(n)[0] in PROP_IDLES and split_snap(n)[1]]
+        kinds = {n for n in propped}
+        ck("prop idles turn up, in many kinds, but stay a minority of calm (%d of %d, %d kinds)"
+           % (len(propped), len(picks), len(kinds)),
+           len(kinds) >= 20 and 0.05 < len(propped) / len(picks) < 0.35)
+        ck("the same idle never plays twice in a row, even with a different prop (%d)" % repeats, repeats == 0)
         cr = LoopChooser(Catalog.scan(real), rng=random.Random(5))
         skewer = FOOD_HOLD + SNAP_SEP + "aloprat-skewer"
         if skewer + "_eat_1" in cr.catalog.loops:
