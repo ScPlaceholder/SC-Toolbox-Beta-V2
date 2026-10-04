@@ -28,6 +28,23 @@ from .labels import career_color, draw_label, recency_color
 _DRILL_OUT_ZOOM = 0.45     # zoom out below this -> galaxy
 _DRILL_IN_ZOOM = 7.0       # zoom in above this over a planet -> planet globe
 _LABEL_REVEAL_ZOOM = 1.5   # moon/station labels start filling in past this zoom
+# Where a search lands on a body this scene is the deepest home of (a Lagrange
+# station, a gateway, an asteroid base): as close as the wheel gets by hand,
+# because one more notch past _DRILL_IN_ZOOM opens the nearest planet instead.
+FOCUS_ZOOM = 6.0
+FOCUS_COLOR = "#ffffff"    # the ring round the place a search went to (all scenes)
+
+
+def draw_focus_ring(p: QPainter, sx: float, sy: float, r: float) -> None:
+    """Mark the searched-for place: a bright ring with a soft halo round its icon."""
+    c = QPointF(sx, sy)
+    halo = QColor(FOCUS_COLOR); halo.setAlpha(60)
+    pen = QPen(halo); pen.setWidthF(6.0)
+    p.setPen(pen); p.setBrush(Qt.NoBrush)
+    p.drawEllipse(c, r + 6.0, r + 6.0)
+    pen = QPen(QColor(FOCUS_COLOR)); pen.setWidthF(2.0)
+    p.setPen(pen)
+    p.drawEllipse(c, r + 6.0, r + 6.0)
 
 
 def _stable_hue(name: str) -> int:
@@ -119,6 +136,7 @@ class SystemView(QWidget):
         self._fit = self._compute_fit()
 
         self._hovered: Optional[Body] = None
+        self._focus: Optional[Body] = None   # the place a search went to (see focus_on)
         self._mode: Optional[str] = None
         self._last: Optional[QPointF] = None
         self._moved = 0.0
@@ -161,6 +179,7 @@ class SystemView(QWidget):
         self._draw_star(p, cx, cy, scale, occupied)   # every system has a star (synthesised if no body data)
         self._draw_extra_stars(p, cx, cy, scale, occupied)   # binary companions
         self._draw_bodies(p, cx, cy, scale, occupied)
+        self._draw_focus(p, cx, cy, scale, occupied)
         self._draw_overlay(p, cx, cy, scale)
         self._draw_trade_route(p, cx, cy, scale)
         self._draw_gateway_jumps(p, cx, cy, scale)
@@ -187,6 +206,34 @@ class SystemView(QWidget):
         self._cam.zoom = zoom
         self._hovered = body
         self.update()
+
+    def focus_on(self, body, zoom: float = FOCUS_ZOOM) -> None:
+        """Go all the way to *body* (search): centre it at the close zoom and mark
+        it with the focus ring and its name, which stay until the scene is left.
+        Unlike hover, the mark survives the mouse moving. Camera state is the same
+        state the wheel and drag use, so they carry on from here as usual."""
+        self.center_on(body, zoom=zoom)
+        self._focus = body
+        self.update()
+
+    def focused(self):
+        """The body a search went to in this scene, or None."""
+        return self._focus
+
+    def _draw_focus(self, p: QPainter, cx, cy, scale, occupied) -> None:
+        b = self._focus
+        if b is None:
+            return
+        sx, sy, _ = self._cam.project(b.x, b.y, b.z, cx, cy, scale)
+        r = self._icon_radius(b)
+        draw_focus_ring(p, sx, sy, r)
+        if b.kind == "star":
+            return                           # the star draws its own name plate
+        if b not in self._planets and b not in self._moons \
+                and b not in self._stations and b not in self._markers:
+            # A kind this scene does not label (asteroid base, nav point, ...).
+            self._put_label(p, sx, sy, r + 6.0, b.name, None, QColor(P.fg_bright),
+                            occupied, force=True)
 
     def frame_trade_route(self) -> bool:
         """Frame the camera so the whole in-system trade route fits on screen.
@@ -423,7 +470,7 @@ class SystemView(QWidget):
 
         def prio(it):
             b = it[0]
-            if b is self._hovered:
+            if b is self._hovered or b is self._focus:
                 return 0
             if b.kind == "planet":
                 return 1
@@ -431,13 +478,14 @@ class SystemView(QWidget):
                 return 2
             return 3
         for (b, sx, sy, _d) in sorted(items, key=prio):
-            if b.kind == "jumppoint" and b is not self._hovered:
+            marked = b is self._hovered or b is self._focus
+            if b.kind == "jumppoint" and not marked:
                 continue                     # the 'Jump to X' chip already labels it
-            must = b.kind == "planet" or b is self._hovered
+            must = b.kind == "planet" or marked
             if not (must or reveal):
                 continue
             sub = "PLANET" if b.kind == "planet" else None
-            color = QColor(P.fg_bright) if (b.kind == "planet" or b is self._hovered) \
+            color = QColor(P.fg_bright) if (b.kind == "planet" or marked) \
                 else _body_color(b).lighter(125)
             self._put_label(p, sx, sy, self._icon_radius(b), b.name, sub, color,
                             occupied, force=must)

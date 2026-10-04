@@ -20,10 +20,15 @@ from shared.qt.theme import P
 
 from .data import Body, load_bodies, norm_loc
 from .labels import draw_label
-from .system_view import _body_color, draw_terminal_badge
+from .system_view import _body_color, draw_focus_ring, draw_terminal_badge
 
 _DRILL_OUT_ZOOM = 0.62      # zoom out below this -> back to the system
 _LABEL_REVEAL_ZOOM = 1.5    # location labels appear past this zoom
+_ZOOM_MIN, _ZOOM_MAX = 0.45, 5.0   # the wheel's range
+_PITCH_MAX = 1.45                  # the drag's tilt limit
+# Where a search lands on a surface location: the globe fills the view, the
+# location is dead centre, and its neighbours are spread far enough to read.
+FOCUS_ZOOM = 3.0
 
 
 class PlanetView(QWidget):
@@ -59,6 +64,7 @@ class PlanetView(QWidget):
         self._pitch = 0.3
         self._zoom = 1.0
         self._hovered: Optional[Body] = None
+        self._focus: Optional[Body] = None   # the place a search went to (see focus_on)
         self._last: Optional[QPointF] = None
         self._dragging = False
         self._moved = 0.0
@@ -68,6 +74,40 @@ class PlanetView(QWidget):
 
     def _radius(self, w: int, h: int) -> float:
         return min(w, h) * 0.32 * self._zoom
+
+    def focus_on(self, body, zoom: float = FOCUS_ZOOM) -> bool:
+        """Go all the way to *body*, one of this globe's surface locations (search).
+
+        Spins the globe so the location faces the viewer at the centre of the
+        view, zooms in on it, and marks it with the focus ring and its name; the
+        mark stays until the scene is left (hover does not clear it). Yaw, pitch
+        and zoom are the same state drag and wheel use and are kept inside their
+        limits, so both carry on from here as usual. Returns False, changing
+        nothing, when *body* is not on this globe."""
+        for b, (x, y, z) in zip(self._locs, self._dirs):
+            if b is body:
+                break
+        else:
+            return False
+        # _rot() sends (x, y, z) to (0, 0, 1) - straight at the viewer - for:
+        self._yaw = math.atan2(-x, z)
+        self._pitch = max(-_PITCH_MAX, min(_PITCH_MAX, math.atan2(y, math.hypot(x, z))))
+        self._zoom = max(_ZOOM_MIN, min(_ZOOM_MAX, zoom))
+        self._focus = body
+        self.update()
+        return True
+
+    def focused(self):
+        """The surface location a search went to on this globe, or None."""
+        return self._focus
+
+    def facing(self, body) -> Optional[Tuple[float, float, float]]:
+        """Where *body* sits on the unit globe as currently turned: ``(x, y, z)``
+        with x right, y up, z toward the viewer (``(0, 0, 1)`` = dead centre)."""
+        for b, d in zip(self._locs, self._dirs):
+            if b is body:
+                return self._rot(d)
+        return None
 
     def _rot(self, v: Tuple[float, float, float]) -> Tuple[float, float, float]:
         x, y, z = v
@@ -159,11 +199,18 @@ class PlanetView(QWidget):
                 c2 = QColor(col); c2.setAlpha(55)
                 p.setPen(Qt.NoPen); p.setBrush(c2)
                 p.drawEllipse(QPointF(px, py), pin_r * 0.6, pin_r * 0.6)
-        # Labels: hovered always; the rest fill in as space allows (collision-avoided).
+        for (b, px, py) in front:
+            if b is self._focus:
+                draw_focus_ring(p, px, py, pin_r)
+        # Labels: hovered and searched-for always; the rest fill in as space allows
+        # (collision-avoided).
         reveal = self._zoom >= _LABEL_REVEAL_ZOOM
         occupied: List[QRectF] = []
-        for (b, px, py) in sorted(front, key=lambda t: 0 if t[0] is self._hovered else 1):
-            hov = b is self._hovered
+
+        def marked(b) -> bool:
+            return b is self._hovered or b is self._focus
+        for (b, px, py) in sorted(front, key=lambda t: 0 if marked(t[0]) else 1):
+            hov = marked(b)
             if not (reveal or hov):
                 continue
             draw_label(p, px, py, pin_r, b.name,
@@ -175,7 +222,11 @@ class PlanetView(QWidget):
                    f"drag to spin · wheel zoom (out: system) · right-click: lore · "
                    f"{len(self._locs)} surface locations")
         ft = QFont(); ft.setPointSizeF(13); ft.setBold(True); p.setFont(ft)
-        p.setPen(QColor(P.tool_trade)); p.drawText(14, 28, self._planet_name.upper())
+        title = self._planet_name.upper()
+        p.setPen(QColor(P.tool_trade)); p.drawText(14, 28, title)
+        if self._focus is not None:              # what the search went to, by name
+            x = 14 + p.fontMetrics().horizontalAdvance(title + "  ")
+            p.setPen(QColor(P.fg_bright)); p.drawText(x, 28, "> " + self._focus.name)
 
     # ── interaction ────────────────────────────────────────────────────────────
     def _hit(self, pt: QPointF, cx, cy, R) -> Optional[Body]:
@@ -203,7 +254,7 @@ class PlanetView(QWidget):
             dx = pt.x() - self._last.x(); dy = pt.y() - self._last.y(); self._last = pt
             self._moved += abs(dx) + abs(dy)
             self._yaw += dx * 0.01
-            self._pitch = max(-1.45, min(1.45, self._pitch + dy * 0.01))
+            self._pitch = max(-_PITCH_MAX, min(_PITCH_MAX, self._pitch + dy * 0.01))
             self.update()
             return
         w, h = self.width(), self.height()
@@ -237,7 +288,7 @@ class PlanetView(QWidget):
         d = ev.angleDelta().y()
         if not d:
             return
-        self._zoom = max(0.45, min(5.0, self._zoom * (1.0015 ** d)))
+        self._zoom = max(_ZOOM_MIN, min(_ZOOM_MAX, self._zoom * (1.0015 ** d)))
         self.update()
         if d < 0 and self._zoom <= _DRILL_OUT_ZOOM:
             self.drillOut.emit()

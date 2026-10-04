@@ -56,7 +56,7 @@ from PySide6.QtWidgets import (
 )
 
 from shared.qt.theme import P
-from shared.qt.fuzzy_combo import SCFuzzyCombo
+from shared.qt.fuzzy_combo import SCFuzzyCombo, _fuzzy_match
 
 from .data import (Galaxy, HOME_CHOICES, LOC_ALIASES, load_bodies, load_state,
                    norm_loc, save_state)
@@ -80,6 +80,53 @@ ACCENT = P.energy_cyan
 # Trade Hub star map overlay layers (Trade_Hub/starmap/panel.py _OVERLAY_LAYERS).
 _OVERLAY_LAYERS = (("flows", "Trade Flows"), ("top", "Top Routes"), ("activity", "Activity"),
                    ("career", "My Runs"))
+
+
+class PlaceSearch(SCFuzzyCombo):
+    """The map's search box: Enter goes to the place that was TYPED.
+
+    The shared combo's Enter takes the first row of its suggestion list, and the
+    list is fuzzy: "Area 18" is not a substring of the data's "Area18", so its
+    first row was "ArcCorp Mining Area 141", and a name matching nothing took
+    the first row left over from an earlier keystroke. Now that a search goes
+    all the way in, that would land deep inside the wrong place. So Enter here:
+
+    1. goes to the place the text names (*exact*: a system, or a location by
+       its name with case, spaces and punctuation ignored);
+    2. else, as before, to the first place whose name contains the text;
+    3. else to the one place the text fuzzily matches, when there is only one;
+    4. else nowhere: *unsure* is told, and the suggestions stay up to pick from.
+
+    Clicking a suggestion is unchanged."""
+
+    def __init__(self, exact: Callable[[str], str], unsure: Callable[[str, int], None],
+                 **kw) -> None:
+        self._exact = exact
+        self._unsure = unsure
+        super().__init__(**kw)
+
+    def _on_enter(self) -> None:
+        text = self._input.text().strip()
+        if not text:
+            return
+        name = self._exact(text)
+        if not name:
+            tl = text.lower()
+            name = next((i for i in self._all_items if tl in i.lower()), "")
+        if not name:
+            fuzzy = [i for i in self._all_items if _fuzzy_match(text, i)]
+            if len(fuzzy) != 1:
+                self._show_list(text)             # the real candidates, never a stale list
+                if not fuzzy:
+                    self._list.hide()
+                self._unsure(text, len(fuzzy))
+                return
+            name = fuzzy[0]
+        self._input.blockSignals(True)
+        self._input.setText(name)
+        self._input.blockSignals(False)
+        self._list.hide()
+        self.item_selected.emit(name)
 
 
 def _btn_ss() -> str:
@@ -300,8 +347,9 @@ class StarmapPanel(QWidget):
                               "market": self._btn_market,
                               "commodities": self._btn_comm}
 
-        self._search = SCFuzzyCombo(placeholder="Search system or location...",
-                                    items=self._all_place_names())
+        self._search = PlaceSearch(self._exact_place, self._search_unsure,
+                                   placeholder="Search system or location...",
+                                   items=self._all_place_names())
         self._search.item_selected.connect(self.goto)
 
         lay.addWidget(self._btn_home)
@@ -445,10 +493,7 @@ class StarmapPanel(QWidget):
         return "shopping list %s" % ("shown" if self._btn_grocery.isChecked() else "hidden")
 
     def cmd_goto(self, name: str) -> str:
-        before = self._crumb.text()
-        self.goto(name)
-        after = self._crumb.text()
-        if after != before or (self._galaxy is not None and self._galaxy._selected):
+        if self.goto(name):
             return "going to %s" % name
         return "not found: %s" % name
 
@@ -853,28 +898,141 @@ class StarmapPanel(QWidget):
                 names.add(b.name)
         return sorted(names)
 
-    def goto(self, name: str) -> None:
-        """Snap the map to a system or location by name (search bar, voice)."""
-        name = (name or "").strip()
-        if not name or self._galaxy is None:
-            return
+    def _current_system(self) -> str:
+        """Code of the system the scene on screen belongs to ("" in the galaxy)."""
+        if len(self._nav) <= 1:
+            return ""
+        view = self._nav[-1][1]
+        return str(getattr(view, "_code", "") or getattr(view, "_system", "") or "").upper()
+
+    def _exact_place(self, text: str) -> str:
+        """The name of the place *text* names outright (no substring guess), or ""."""
+        hit = self._resolve_place((text or "").strip(), loose=False)
+        if hit is None:
+            return ""
+        code, body = hit
+        if body is not None:
+            return body.name
+        s = self._galaxy_data.get(code) if self._galaxy_data is not None else None
+        return s.name if s is not None else code
+
+    def _search_unsure(self, text: str, candidates: int) -> None:
+        """Enter in the search box on text that names no one place: say so, go nowhere."""
+        if candidates:
+            self.voice_status("%d places partly match '%s': pick one from the list"
+                              % (candidates, text))
+        else:
+            self.voice_status("no place matches '%s'" % text)
+
+    def _resolve_place(self, name: str, loose: bool = True):
+        """Which place *name* means: ``(system_code, body_or_None)``, or None.
+
+        A system's name or code wins outright (so "Terra" is the system, not its
+        planet). Then a location, by its exact name; then by its name with spaces
+        and punctuation ignored ("area 18" is the data's "Area18"); then (unless
+        *loose* is off), as before, the first location whose name merely contains
+        the text. A name that exists in more than one system (each end of a jump
+        has a "Pyro Gateway") means the one in the system on screen; from the
+        galaxy, the first in the data's order (Stanton, Pyro, Nyx, ...)."""
         nl = name.lower()
         if self._galaxy_data is not None:
             for s in self._galaxy_data.systems:
                 if s.name.lower() == nl or s.code.lower() == nl:
-                    self._go_galaxy()
-                    self._galaxy.center_on(s.code)
-                    return
-        for match in (lambda b: b.name.lower() == nl, lambda b: nl in b.name.lower()):
-            for code, blist in self._bodies.items():
-                for b in blist:
+                    return s.code, None
+        here = self._current_system()
+        codes = sorted(self._bodies, key=lambda c: c != here)   # stable: here first
+        nn = norm_loc(name)
+        nn = LOC_ALIASES.get(nn, nn)
+        matches = [lambda b: b.name.lower() == nl]
+        if nn:
+            matches.append(lambda b: norm_loc(b.name) == nn)
+        if loose:
+            matches.append(lambda b: nl in b.name.lower())
+        for match in matches:
+            for code in codes:
+                for b in self._bodies[code]:
                     if match(b):
-                        self._go_galaxy()
-                        self._enter_system(code)
-                        view = self._nav[-1][1]
-                        if hasattr(view, "center_on"):
-                            view.center_on(b)
-                        return
+                        return code, b
+        return None
+
+    def goto(self, name: str) -> bool:
+        """Take the map ALL THE WAY to a system or location by name.
+
+        This is the search box, the command bar ("go to X", and the mirror of
+        "navigate to X") and the Assistant's ``map_goto``. It only moves the
+        map: nothing here reaches the in-game route code.
+
+        A system is entered, as a double-click on it does. A location ends on
+        the deepest scene that draws it (see :meth:`_zoom_to_body`), with every
+        scene on the way pushed on the nav stack exactly as walking there by
+        hand pushes them, so Back, Home and the wheel behave the same after.
+        Like every other move on this map it is instant; nothing animates.
+
+        Returns False, leaving the map untouched, when *name* matches nothing."""
+        name = (name or "").strip()
+        if not name or self._galaxy is None:
+            return False
+        hit = self._resolve_place(name)
+        if hit is None:
+            return False
+        code, body = hit
+        self._go_galaxy()
+        gal = self._galaxy_code(code)
+        if gal:
+            self._galaxy.center_on(gal)       # so Back to the galaxy lands on this system
+        self._enter_system(gal or code)
+        if body is not None:
+            self._zoom_to_body(code, body)
+        return True
+
+    def _galaxy_code(self, code: str) -> str:
+        if self._galaxy_data is None:
+            return ""
+        for s in self._galaxy_data.systems:
+            if s.code.upper() == code.upper():
+                return s.code
+        return ""
+
+    def _zoom_to_body(self, code: str, b) -> None:
+        """From the freshly entered system scene, go on down to body *b*.
+
+        The map is four scenes deep: galaxy > system > planet & moons > globe.
+        * a planet or moon          -> its own globe;
+        * a place on a planet or moon (landing zone, outpost, station in its
+          orbit) -> that body's globe, turned so the place faces the viewer,
+          zoomed in on it and ringed. The globe is the deepest scene there is:
+          a place is a pin on it, there is no scene of the place itself;
+        * anything else (the star, a Lagrange station, a gateway, a jump point,
+          an asteroid base) lives in the system scene -> centred there at the
+          close zoom and ringed."""
+        sysview = self._nav[-1][1]
+        if not isinstance(sysview, SystemView):
+            return                                # the system scene failed to build
+        by_name: Dict[str, object] = {}
+        for x in self._bodies.get(code, []):
+            by_name.setdefault(x.name, x)
+        globe = pin = None
+        if b.kind in ("planet", "moon"):
+            globe = b
+        elif b.kind in ("outpost", "landing", "station"):
+            par = by_name.get(b.parent)
+            if par is not None and par.kind in ("planet", "moon"):
+                globe, pin = par, b
+        if globe is None or by_name.get(globe.name) is not globe:
+            if b.kind == "star" and not (b.x or b.y or b.z):
+                return                            # the primary star IS the system scene
+            sysview.focus_on(b)
+            return
+        planet = globe if globe.kind == "planet" else by_name.get(globe.parent)
+        if planet is not None and planet.kind == "planet":
+            sysview.center_on(planet, zoom=3.0)   # where a wheel drill-in leaves it
+            self._enter_neighborhood(code, planet.name)
+        else:
+            sysview.center_on(globe, zoom=3.0)    # a moon with no planet scene above it
+        self._enter_globe(code, globe.name)
+        view = self._nav[-1][1]
+        if pin is not None and isinstance(view, PlanetView):
+            view.focus_on(pin)
 
     def _sys_code(self, sysname: str) -> str:
         if not sysname:

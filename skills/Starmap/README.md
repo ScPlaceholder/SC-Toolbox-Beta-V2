@@ -4,6 +4,32 @@ Galaxy, system and planet map for the SC Toolbox, with UEX commodity and
 item prices, the shared shopping list, lore cards and a command bar.
 Built by Red (Kimi) for J, 2026-09-23. Default hotkey: Ctrl+5 (was Shift+9, which earlier releases gave Mining Signals).
 
+## Search goes all the way in
+
+Typing a place in the search box takes the map all the way to it (J,
+2026-10-04), through `StarmapPanel.goto`. The map is four scenes deep: galaxy >
+system > planet & moons > globe.
+
+- A **system** is entered (what double-clicking it does).
+- A **planet or moon** ends on its own globe.
+- A **place on a planet or moon** (landing zone, outpost, station in its orbit)
+  ends on that body's globe, turned so the place faces you at the centre,
+  zoomed in, ringed and named. The globe is the deepest scene there is: a place
+  is a pin on it.
+- **Anything else** (a Lagrange station, a gateway, a jump point, an asteroid
+  base) lives in the system scene: centred there at the close zoom, ringed.
+
+Nothing animates, like every other move on this map. The scenes on the way are
+pushed on the nav stack as if walked by hand, so Back, Home and the wheel work
+as usual. A name found in two systems (each end of a jump has a "Pyro Gateway")
+means the one in the system on screen, else the first in the data's order.
+"area 18" finds the data's "Area18". Enter on text that names no one place goes
+nowhere and says so on the status line (`PlaceSearch` in `panel.py`).
+
+The same code moves the map for "go to X" and "navigate to X" in the command
+bar, the Assistant's `map_goto`, and the Trade Hub's buy / sell pickers. It
+never reaches the in-game route code; only "navigate to" / "set route to" do.
+
 ## Shopping list
 
 The **Shopping List** button docks the toolbox's one shopping list
