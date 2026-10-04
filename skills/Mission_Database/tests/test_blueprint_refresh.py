@@ -245,7 +245,16 @@ def window_env(env, monkeypatch):
         def __getattr__(self, name):
             return lambda *a, **k: None
 
+    class _NoSync:
+        """Keeps the test away from the real game logs and scan state."""
+        def __init__(self, *a, **k):
+            pass
+
+        def __getattr__(self, name):
+            return lambda *a, **k: None
+
     monkeypatch.setattr(ui_app, "InventoryService", _NoInventory)
+    monkeypatch.setattr(ui_app, "OwnedBlueprintSync", _NoSync)
     env.app, env.ui_app = app, ui_app
     env.windows = []
 
@@ -337,3 +346,75 @@ def test_refresh_while_offline_keeps_the_data_and_the_cache(window_env):
     assert os.path.exists(e.cache.default_cache_path())
     assert w._data.is_data_loaded() and w._data.contracts
     assert not w._status_label.text().startswith("Error")
+
+
+def test_owned_blueprints_fill_in_without_any_click(env, monkeypatch, tmp_path):
+    """Opening the window is enough, whichever tab is opened first.
+
+    The scan used to live inside the Owned Blueprints page and to start only
+    from the "crafting data loaded" callback.  Open Fabricator first and that
+    callback had already fired by the time the Owned page existed, so nothing
+    was scanned until "Scan Game Log" was clicked.
+    """
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtCore import QEvent
+    app = QApplication.instance() or QApplication([])
+    import ui.app as ui_app
+    from services import inventory, sc_log_scanner
+    from ui import owned_sync
+
+    ver = env.fake.live
+    live_dir = tmp_path / "StarCitizen" / "LIVE"
+    live_dir.mkdir(parents=True)
+    line = ('<2026-10-04T18:29:21.297Z> [Notice] <SHUDEvent_OnNotification> Added '
+            'notification "Received Blueprint: Gun ' + ver + ': " [79] to queue. New queue '
+            'size: 3, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] '
+            '[Team_CoreGameplayFeatures][Missions][Comms]\r\n')
+    (live_dir / "Game.log").write_bytes(
+        b"<2026-10-04T16:36:49.990Z> Log started on Sun Oct  4 16:36:49 2026\r\n"
+        + line.encode())
+
+    dialogs = []
+    monkeypatch.setattr(QMessageBox, "exec", lambda *a, **k: dialogs.append(a))
+    inv_path = str(tmp_path / "inventory.json")
+    monkeypatch.setattr(ui_app, "InventoryService",
+                        lambda: inventory.InventoryService(path=inv_path))
+
+    def make_sync(parent, data, inv, on_changed=None):
+        scanner = sc_log_scanner.IncrementalLogScanner(
+            state_path=str(tmp_path / "state.json"),
+            folder_resolver=lambda: str(live_dir), backlog_pause=0)
+        # One poll at start and no second one inside this test: what is
+        # asserted below can only come from the window's own wiring.
+        return owned_sync.OwnedBlueprintSync(
+            parent, data, inv, on_changed=on_changed, scanner=scanner,
+            interval_ms=600_000)
+
+    monkeypatch.setattr(ui_app, "OwnedBlueprintSync", make_sync)
+
+    w = ui_app.MissionDBApp(0, 0, 1000, 700, 1.0, os.devnull)
+    try:
+        assert _wait(lambda: _settled(w), app=app)
+        # The logs have been read although no blueprint tab was ever opened...
+        assert _wait(lambda: w._owned_sync._scanner.names() == {"Gun " + ver}, app=app)
+        assert w._inventory.owned_count() == 0      # ...no blueprint data yet
+
+        w._switch_page("fabricator")                # the order that used to break it
+        assert _wait(lambda: w._data.crafting_loaded
+                     and w._inventory.owned_count() == 1, app=app, timeout=5)
+
+        w._switch_page("owned")
+        page = w._owned_page
+        assert len(page._grid_items) == 1
+        assert page._grid_items[0]["tag"] == "BP_" + ver
+        assert "found in logs" in page.status_text()
+        assert not dialogs
+    finally:
+        _wait(lambda: _settled(w) or not w._data.is_data_loading(), app=app, timeout=5)
+        w.close()
+        stopped = (w._owned_sync._stop.is_set()
+                   and not w._owned_sync._timer.isActive())
+        w.deleteLater()
+        app.sendPostedEvents(None, QEvent.DeferredDelete)
+        app.processEvents()
+    assert stopped, "closing the window stops the polling"

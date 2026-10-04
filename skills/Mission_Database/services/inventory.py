@@ -2,6 +2,16 @@
 
 Data stored at ~/.sctoolbox/mission_db/inventory.json (survives app updates).
 Supports a folder/subfolder tree for organizing owned blueprints.
+
+WHO MAY CHANGE WHAT.  Two things write here: the player (the Owned button in
+a blueprint's detail window, "Remove from owned", "Clear All") and the game
+log scan (``add_from_scan``).  The player is authoritative:
+
+* the scan only ever ADDS, and never touches the folder of a blueprint that
+  is already owned;
+* a blueprint the player removed by hand is remembered in ``removed`` and the
+  scan leaves it alone, until the player marks it owned again or asks for
+  removed blueprints to be restored.
 """
 
 from __future__ import annotations
@@ -10,6 +20,7 @@ import json
 import logging
 import os
 import threading
+import time
 
 log = logging.getLogger(__name__)
 
@@ -51,23 +62,36 @@ class InventoryService:
     """Thread-safe store of owned blueprint data + folder tree, persisted as JSON."""
 
     def __init__(self, path: str | None = None) -> None:
+        # An explicit path (tests, tools) is used as given: it is never
+        # filled from the legacy file and never redirected to the default.
+        # Before this, InventoryService(path=...) read the legacy inventory
+        # in the install folder and then SAVED it over the player's real one.
+        self._explicit = path is not None
         self._path = path or _NEW_INV_PATH
         self._lock = threading.Lock()
         self._owned: dict[str, dict] = {}
         self._folders: dict[str, dict] = {}
+        self._removed: set[str] = set()
         self._load()
 
     # ── Load / save / migration ───────────────────────────────────────────
 
     def _load(self) -> None:
         data = self._try_read(self._path)
+        migrated = False
 
-        # Migration: if new path empty, try old path
-        if data is None:
+        if data is None and os.path.exists(self._path):
+            # Present but unreadable.  Keep it under another name rather than
+            # let the next save overwrite the only copy, and do NOT fall back
+            # to the legacy file: that one is months old.
+            self._set_aside_corrupt()
+        elif data is None and not self._explicit:
+            # Migration: no inventory yet, try the pre-update location
             old_data = self._try_read(_OLD_INV_PATH)
             if old_data is not None:
                 log.info("Migrating inventory from legacy path: %s", _OLD_INV_PATH)
                 data = old_data
+                migrated = True
 
         if data is None:
             self._owned = {}
@@ -76,6 +100,7 @@ class InventoryService:
 
         self._owned = data.get("owned", {})
         version = data.get("version", 1)
+        self._removed = {str(k) for k in data.get("removed") or []} - set(self._owned)
 
         if version < 2 or "folders" not in data:
             # v1 → v2: put all blueprints in root
@@ -102,9 +127,8 @@ class InventoryService:
             log.info("Assigning %d orphaned blueprints to root", len(orphans))
             self._folders[_ROOT]["blueprints"].extend(sorted(orphans))
 
-        # Save to new location (persists migration + orphan fixes)
-        if version < 2 or self._path != _NEW_INV_PATH:
-            self._path = _NEW_INV_PATH
+        # Persist a migration (legacy location, or the v1 layout)
+        if version < 2 or migrated:
             self._save_snapshot()
 
         log.debug("Inventory loaded: %d blueprints, %d folders",
@@ -121,27 +145,42 @@ class InventoryService:
             log.warning("Inventory file corrupted: %s", path)
             return None
 
-    def _save_snapshot(self) -> None:
-        """Write current state to disk (called with lock NOT held)."""
-        os.makedirs(os.path.dirname(self._path), exist_ok=True)
-        payload = {
+    def _set_aside_corrupt(self) -> None:
+        keep = f"{self._path}.unreadable-{time.strftime('%Y%m%d-%H%M%S')}"
+        try:
+            os.replace(self._path, keep)
+            log.warning("Inventory was unreadable; kept as %s", keep)
+        except OSError as e:
+            log.warning("Could not set aside unreadable inventory: %s", e)
+
+    def _write(self, payload: dict) -> None:
+        """Write to a temp file, then swap it in.
+
+        ``open(path, "w")`` empties the file first, so a crash (or a full
+        disk) half-way through the write left an inventory that would not
+        parse.  ``os.replace`` is all-or-nothing.
+        """
+        os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
+        tmp = self._path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp, self._path)
+
+    def _payload(self) -> dict:
+        return {
             "version": 2,
             "owned": self._owned,
             "folders": self._folders,
+            "removed": sorted(self._removed),
         }
-        with open(self._path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+
+    def _save_snapshot(self) -> None:
+        """Write current state to disk (called with lock NOT held)."""
+        self._write(self._payload())
 
     def _save(self) -> None:
-        """Snapshot under lock, then write."""
-        # Caller must hold self._lock — we copy and release before I/O
-        owned_copy = dict(self._owned)
-        folders_copy = json.loads(json.dumps(self._folders))
-        # Release lock before I/O by using the copies
-        payload = {"version": 2, "owned": owned_copy, "folders": folders_copy}
-        os.makedirs(os.path.dirname(self._path), exist_ok=True)
-        with open(self._path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+        """Write current state to disk (caller holds self._lock)."""
+        self._write(self._payload())
 
     # ── Blueprint CRUD ────────────────────────────────────────────────────
 
@@ -157,25 +196,77 @@ class InventoryService:
         with self._lock:
             return len(self._owned)
 
+    def _place(self, bp_id: str, folder: str = _ROOT) -> None:
+        """Put bp_id in ``folder`` unless some folder already holds it (lock held)."""
+        found = any(bp_id in f.get("blueprints", [])
+                    for f in self._folders.values())
+        if not found:
+            target = folder if folder in self._folders else _ROOT
+            self._folders[target].setdefault("blueprints", []).append(bp_id)
+
     def add(self, bp_id: str, bp_dict: dict, folder: str = _ROOT) -> None:
+        """The PLAYER marks a blueprint owned (also undoes a hand removal)."""
         with self._lock:
             self._owned[bp_id] = bp_dict
-            # Add to folder if not already referenced anywhere
-            found = any(bp_id in f.get("blueprints", [])
-                        for f in self._folders.values())
-            if not found:
-                target = folder if folder in self._folders else _ROOT
-                self._folders[target].setdefault("blueprints", []).append(bp_id)
+            self._removed.discard(bp_id)
+            self._place(bp_id, folder)
             self._save()
 
     def remove(self, bp_id: str) -> None:
+        """The PLAYER removes a blueprint.  Remembered, so that the game log
+        scan does not put it straight back."""
         with self._lock:
+            if bp_id in self._owned:
+                self._removed.add(bp_id)
             self._owned.pop(bp_id, None)
             for fdata in self._folders.values():
                 bps = fdata.get("blueprints", [])
                 if bp_id in bps:
                     bps.remove(bp_id)
             self._save()
+
+    def remove_all(self) -> int:
+        """The PLAYER clears the list ("Clear All").  One write, folders kept."""
+        with self._lock:
+            n = len(self._owned)
+            self._removed.update(self._owned)
+            self._owned = {}
+            for fdata in self._folders.values():
+                fdata["blueprints"] = []
+            self._save()
+            return n
+
+    def add_from_scan(self, items, restore_removed: bool = False
+                      ) -> tuple[list[str], list[str]]:
+        """The GAME LOG SCAN reports blueprints the player received.
+
+        ``items`` is an iterable of ``(bp_id, bp_dict)``.  Only adds: a
+        blueprint already owned is left exactly as it is (its stored data and
+        its folder), and one the player removed by hand is skipped unless
+        ``restore_removed``.  Returns ``(added_ids, held_back_ids)``.  One
+        write for the whole batch, and none at all if nothing changed.
+        """
+        added: list[str] = []
+        held_back: list[str] = []
+        with self._lock:
+            for bp_id, bp_dict in items:
+                if not bp_id or bp_id in self._owned:
+                    continue
+                if bp_id in self._removed and not restore_removed:
+                    held_back.append(bp_id)
+                    continue
+                self._removed.discard(bp_id)
+                self._owned[bp_id] = bp_dict
+                self._place(bp_id)
+                added.append(bp_id)
+            if added:
+                self._save()
+        return added, held_back
+
+    def removed_ids(self) -> set[str]:
+        """Blueprints the player removed by hand (the scan will not re-add them)."""
+        with self._lock:
+            return set(self._removed)
 
     def get_all(self) -> list[dict]:
         with self._lock:

@@ -1,10 +1,15 @@
-"""Owned Blueprints page — folder-based organization with breadcrumb nav."""
+"""Owned Blueprints page — folder-based organization with breadcrumb nav.
+
+The list fills itself: ``ui.owned_sync.OwnedBlueprintSync`` (owned by the
+window, not by this page) reads the game logs in the background and marks
+received blueprints as owned.  This page only shows the result and one line
+of status.  "Scan Game Log" is a manual fallback, not a required step.
+"""
 from __future__ import annotations
 
 import logging
-import threading
 
-from PySide6.QtCore import Qt, QTimer, QObject, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
     QFileDialog, QMessageBox, QInputDialog, QMenu,
@@ -28,29 +33,23 @@ _FOLDER_BP_COUNT = "_folder_bp_count"
 _FOLDER_SUB_COUNT = "_folder_sub_count"
 
 
-class _ScanSignals(QObject):
-    done = Signal(object, bool)
-    live_name = Signal(str)
-
-
 class OwnedBlueprintsPage(QWidget):
     """Grid of owned blueprints organized into folders with breadcrumb nav."""
 
-    def __init__(self, parent, data_mgr, inventory, on_open_detail=None):
+    def __init__(self, parent, data_mgr, inventory, on_open_detail=None,
+                 sync=None):
         super().__init__(parent)
         self._data = data_mgr
         self._inventory = inventory
         self._on_open_detail = on_open_detail
+        self._sync = sync
         self._current_folder: str = "/"
         self._grid_items: list[dict] = []
-        self._auto_scanned = False
-        self._scan_in_progress = False
-        self._scan_signals = _ScanSignals(self)
-        self._scan_signals.done.connect(self._on_scan_done)
-        self._scan_signals.live_name.connect(self._on_live_blueprint)
-        self._watcher = None
-        self._watcher_folder = None
         self._build()
+        if sync is not None:
+            sync.status_changed.connect(self._status_label.setText)
+            sync.manual_done.connect(self._on_manual_scan_done)
+            self._status_label.setText(sync.status_text())
 
     def _build(self):
         root = QVBoxLayout(self)
@@ -86,7 +85,10 @@ class OwnedBlueprintsPage(QWidget):
         scan_btn = QPushButton("\U0001f504 Scan Game Log")
         scan_btn.setCursor(Qt.PointingHandCursor)
         scan_btn.setStyleSheet(tool_btn_qss)
-        scan_btn.clicked.connect(lambda: self.scan_game_log(show_message=True))
+        scan_btn.setToolTip(
+            "Blueprints you receive are added by themselves.\n"
+            "This reads every game log again, in case one was missed.")
+        scan_btn.clicked.connect(self.scan_game_log)
         hl.addWidget(scan_btn)
 
         folder_btn = QPushButton("\U0001f4c2 SC Folder")
@@ -145,6 +147,15 @@ class OwnedBlueprintsPage(QWidget):
         cr_lay.addWidget(self._count_label)
         root.addWidget(crumb_row)
 
+        # ── Scan status (one plain line; never a dialog) ──
+        self._status_label = QLabel("")
+        self._status_label.setWordWrap(True)
+        self._status_label.setStyleSheet(
+            f"font-family: Consolas; font-size: 8pt; color: {P.fg_dim};"
+            f" background: {P.bg_primary}; padding: 2px 12px 4px 12px;"
+        )
+        root.addWidget(self._status_label)
+
         # ── Grid ──
         self._grid = VirtualScrollGrid(
             card_width=300, row_height=120,
@@ -180,15 +191,10 @@ class OwnedBlueprintsPage(QWidget):
     def refresh(self):
         self._apply_filter()
 
-    def maybe_auto_scan(self):
-        if self._auto_scanned:
-            return
-        if not getattr(self._data, "crafting_loaded", False):
-            return
-        self._auto_scanned = True
-        QTimer.singleShot(0, lambda: self.scan_game_log(show_message=False))
+    def status_text(self) -> str:
+        return self._status_label.text()
 
-    # ── SC folder + log scan ──
+    # ── SC folder + manual scan (fallbacks; nothing here is required) ──
 
     def _pick_sc_folder(self):
         current = sc_log_scanner.get_sc_folder() or "C:/"
@@ -202,163 +208,53 @@ class OwnedBlueprintsPage(QWidget):
             sc_log_scanner.set_sc_folder(folder)
         except Exception:
             log.exception("[OwnedBP] set_sc_folder failed")
-        QTimer.singleShot(0, lambda: self.scan_game_log(show_message=True))
+        if self._sync is not None:
+            self._sync.folder_changed()
 
-    def scan_game_log(self, show_message: bool = False) -> None:
-        if self._inventory is None or self._scan_in_progress:
-            return
+    def scan_game_log(self, *_args) -> None:
+        """Read every game log again.  The result arrives in the status line."""
+        if self._sync is not None:
+            self._sync.rescan()
 
-        sc_folder = sc_log_scanner.get_sc_folder()
-        if not sc_folder:
-            if show_message:
-                self._show_info(
-                    "Star Citizen folder not found",
-                    "Could not auto-detect your Star Citizen install.\n"
-                    "Click the SC Folder button to pick the channel folder "
-                    "(e.g. ...\\StarCitizen\\LIVE) manually.",
-                )
-            return
-
-        if not getattr(self._data, "crafting_loaded", False) or not self._data.crafting_blueprints:
-            if show_message:
-                self._show_info(
-                    "Crafting data not loaded",
-                    "Open the Fabricator tab first so crafting blueprint data "
-                    "can be fetched, then run the scan again.",
-                )
-            return
-
-        self._scan_in_progress = True
-
-        def _worker():
-            try:
-                names = sc_log_scanner.scan_blueprint_names(sc_folder)
-            except Exception:
-                log.exception("[OwnedBP] scan worker failed")
-                names = set()
-            try:
-                self._scan_signals.done.emit(names, show_message)
-            except Exception:
-                log.exception("[OwnedBP] scan signal emit failed")
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    # ── Live log watcher ──
-
-    def _ensure_watcher(self, sc_folder: str):
-        if not sc_folder:
-            return
-        if self._watcher is not None and self._watcher_folder == sc_folder:
-            return
-        if self._watcher is not None:
-            try:
-                self._watcher.stop()
-            except Exception:
-                log.exception("[OwnedBP] watcher stop failed")
-            self._watcher = None
-
-        def _on_line_name(name: str):
-            try:
-                self._scan_signals.live_name.emit(name)
-            except Exception:
-                log.exception("[OwnedBP] live signal emit failed")
-
+    def _on_manual_scan_done(self, info: dict) -> None:
         try:
-            self._watcher = sc_log_scanner.BlueprintLogWatcher(sc_folder, _on_line_name)
-            self._watcher.start()
-            self._watcher_folder = sc_folder
-            log.info("[OwnedBP] live log watcher started: %s", sc_folder)
-        except Exception:
-            log.exception("[OwnedBP] failed to start log watcher")
-            self._watcher = None
-
-    def stop_watcher(self):
-        if self._watcher is not None:
-            try:
-                self._watcher.stop()
-            except Exception:
-                log.exception("[OwnedBP] watcher stop failed")
-            self._watcher = None
-            self._watcher_folder = None
-
-    def _on_live_blueprint(self, name: str):
-        if not name or self._inventory is None:
-            return
-        if not getattr(self._data, "crafting_loaded", False) or not self._data.crafting_blueprints:
-            return
-        try:
-            matches = sc_log_scanner.match_blueprints(
-                [name], self._data.crafting_blueprints, data_mgr=self._data)
-        except Exception:
-            log.exception("[OwnedBP] live match failed")
-            return
-        added = 0
-        for bp in matches:
-            try:
-                bp_id = blueprint_key(bp)
-                if bp_id and not self._inventory.is_owned(bp_id):
-                    self._inventory.add(bp_id, bp)
-                    added += 1
-            except Exception:
-                log.exception("[OwnedBP] live inventory add failed")
-        if added > 0:
-            log.info("[OwnedBP] live scan added %d blueprint(s) for '%s'", added, name)
-            try:
-                self.refresh()
-            except Exception:
-                log.exception("[OwnedBP] live refresh failed")
-
-    def _on_scan_done(self, names, show_message: bool):
-        self._scan_in_progress = False
-        try:
-            sc_folder = sc_log_scanner.get_sc_folder() or ""
-            if sc_folder:
-                self._ensure_watcher(sc_folder)
-
-            if not names:
-                if show_message:
-                    self._show_info(
-                        "No blueprints in log",
-                        f"Scanned logs under:\n{sc_folder}\n\n"
-                        "No 'Received Blueprint' entries were found.",
-                    )
+            self.refresh()
+            if not info.get("folder"):
+                return                  # the status line already says so
+            if not info.get("crafting_loaded"):
+                self._status_label.setText(
+                    f"Scan finished: {info.get('names', 0)} blueprint name(s) in "
+                    "your game logs. They will be added as soon as the "
+                    "blueprint data has loaded.")
                 return
-
-            try:
-                matches = sc_log_scanner.match_blueprints(
-                    names, self._data.crafting_blueprints, data_mgr=self._data)
-            except Exception:
-                log.exception("[OwnedBP] match_blueprints failed")
-                matches = []
-
-            added = 0
-            for bp in matches:
-                try:
-                    bp_id = blueprint_key(bp)
-                    if bp_id and not self._inventory.is_owned(bp_id):
-                        self._inventory.add(bp_id, bp)
-                        added += 1
-                except Exception:
-                    log.exception("[OwnedBP] inventory add failed")
-
-            try:
+            held = int(info.get("held_back") or 0)
+            added = int(info.get("added") or 0)
+            if held and self._ask_restore(held):
+                added += self._sync.restore_removed()
                 self.refresh()
-            except Exception:
-                log.exception("[OwnedBP] refresh failed")
-
-            if show_message:
-                unmatched = len(names) - len(matches)
-                msg = (
-                    f"Folder: {sc_folder}\n\n"
-                    f"Found {len(names)} unique blueprint name(s) in logs.\n"
-                    f"Matched to {len(matches)} fabricator blueprint(s).\n"
-                    f"Newly marked as owned: {added}\n"
-                )
-                if unmatched > 0:
-                    msg += f"Unmatched names (not in current crafting data): {unmatched}"
-                QTimer.singleShot(0, lambda: self._show_info("Game Log Scan", msg))
+            self._status_label.setText(
+                f"Scan finished: {info.get('names', 0)} blueprint name(s) in your "
+                f"game logs, {added} newly added.  " + self._sync.status_text())
         except Exception:
-            log.exception("[OwnedBP] _on_scan_done failed")
+            log.exception("[OwnedBP] manual scan report failed")
+
+    def _ask_restore(self, count: int) -> bool:
+        """Only after a click on Scan Game Log, and only if the logs show
+        blueprints the player removed by hand."""
+        msg = QMessageBox(self.window())
+        msg.setWindowTitle("Restore removed blueprints?")
+        msg.setText(
+            f"Your game logs show {count} blueprint(s) that you removed from "
+            "this list by hand.\n\nPut them back?")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        msg.setStyleSheet(
+            f"QMessageBox {{ background: {P.bg_primary}; color: {P.fg}; font-family: Consolas; }}"
+            f"QLabel {{ color: {P.fg}; }}"
+            f"QPushButton {{ background: {P.bg_card}; color: {P.fg};"
+            f" border: 1px solid {P.border}; padding: 4px 10px; }}"
+        )
+        return msg.exec() == QMessageBox.Yes
 
     # ── Grid contents ──
 
@@ -599,7 +495,10 @@ class OwnedBlueprintsPage(QWidget):
             return
         msg = QMessageBox(self.window())
         msg.setWindowTitle("Clear Owned Blueprints")
-        msg.setText("Remove ALL owned blueprints from your inventory?")
+        msg.setText(
+            "Remove ALL owned blueprints from your inventory?\n\n"
+            "They will stay removed: blueprints found in your game logs are "
+            "not added back by themselves. Scan Game Log offers to restore them.")
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         msg.setStyleSheet(
@@ -609,8 +508,7 @@ class OwnedBlueprintsPage(QWidget):
         )
         if msg.exec() != QMessageBox.Yes:
             return
-        for bp_id in list(self._inventory.owned_ids()):
-            self._inventory.remove(bp_id)
+        self._inventory.remove_all()
         self.refresh()
 
     def _show_info(self, title: str, text: str):

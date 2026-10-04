@@ -25,6 +25,7 @@ from ui.pages.missions import MissionsPage
 from ui.pages.fabricator import FabricatorPage
 from ui.pages.resources import ResourcesPage
 from ui.pages.owned_blueprints import OwnedBlueprintsPage
+from ui.owned_sync import OwnedBlueprintSync
 from ui.modals.keybind_dialog import show_keybind_dialog
 
 log = logging.getLogger(__name__)
@@ -76,6 +77,16 @@ class MissionDBApp(SCWindow):
 
         self._build_ui()
         self._start_ipc()
+
+        # Owned blueprints fill themselves from the game logs.  Owned by the
+        # WINDOW and started here, not by the Owned Blueprints page: that page
+        # is only built when its tab is first opened, and blueprints received
+        # before then (or with the window hidden) must not be missed.
+        self._owned_sync = OwnedBlueprintSync(
+            self, self._data, self._inventory,
+            on_changed=self._on_inventory_changed)
+        self._owned_sync.start()
+
         self._data.load(on_done=lambda: self._sig_data_loaded.fire.emit())
 
     def _build_ui(self):
@@ -254,7 +265,8 @@ class MissionDBApp(SCWindow):
             if self._owned_page is None:
                 self._owned_page = OwnedBlueprintsPage(
                     self._stack, self._data, self._inventory,
-                    on_open_detail=self._open_blueprint_detail)
+                    on_open_detail=self._open_blueprint_detail,
+                    sync=self._owned_sync)
                 self._owned_idx = self._stack.addWidget(self._owned_page)
             self._stack.setCurrentIndex(self._owned_idx)
             self._owned_page.refresh()
@@ -365,8 +377,10 @@ class MissionDBApp(SCWindow):
             self._status_label.setText(self._data.notice or _("Ready"))
         if self._fabricator:
             self._fabricator.on_filter_change()
+        # Names already read from the game logs can be matched now, whichever
+        # tab asked for the blueprint data (it used to depend on the order).
+        self._owned_sync.on_crafting_changed()
         if self._owned_page is not None:
-            self._owned_page.maybe_auto_scan()
             self._owned_page.refresh()
 
     def _on_mining_loaded(self):
@@ -578,9 +592,8 @@ class MissionDBApp(SCWindow):
     def closeEvent(self, event) -> None:
         if hasattr(self, '_ipc'):
             self._ipc.stop()
-        if self._owned_page is not None:
-            try:
-                self._owned_page.stop_watcher()
-            except Exception:
-                log.exception("failed to stop owned-blueprints watcher")
+        try:
+            self._owned_sync.stop()
+        except Exception:
+            log.exception("failed to stop owned-blueprints sync")
         super().closeEvent(event)
