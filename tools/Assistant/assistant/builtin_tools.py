@@ -9,8 +9,12 @@ Two kinds of tools:
     These change what is on the user's screen, so the agent asks first.
   * starmap_command: relays a spoken map command to the Star Map, which has
     no microphone of its own (voice-to-text lives here). Not confirm-gated:
-    it was a direct voice command when the map had its own ears, and asking
-    "say yes or no" before every "zoom in" would make it unusable.
+    it only changes what the map window shows, and asking "say yes or no"
+    before every "zoom in" would make it unusable.
+  * set_route / plot_route_in_game: set a route in Star Citizen. The code is
+    here (assistant/set_route/), so it works with the Star Map closed.
+    set_route only looks the destination up. plot_route_in_game takes the
+    mouse and keyboard, so it is confirm-gated AND needs the In-Game switch.
 
 Descriptions are written for a small local model: each says WHEN to use
 the tool in the user's own words, and what comes back.
@@ -23,6 +27,7 @@ from __future__ import annotations
 import logging
 
 from . import headless, ipc_bus, starmap_bridge
+from .set_route import service as route_service
 from shared.scunpacked import ATTRIBUTION as _SCUNPACKED_ATTRIBUTION
 from .tools import ToolContext, ToolError, ToolRegistry, tool
 
@@ -35,8 +40,9 @@ def build_default_registry() -> ToolRegistry:
               _missions_for_blueprint, _where_to_mine, _search_missions,
               _blueprint_recipe, _identify_signal, _mining_loadout_stats,
               _cargo_layout, _jump_route, _current_loadout, _playtime_summary,
-              _best_ship_weapons, _starmap_command,
-              _show_route_popup, _open_trade_hub, _launch_tool):
+              _best_ship_weapons, _starmap_command, _set_route,
+              _show_route_popup, _open_trade_hub, _launch_tool,
+              _plot_route_in_game):
         reg.register(t)
     return reg
 
@@ -303,25 +309,153 @@ def _playtime_summary(ctx: ToolContext) -> dict:
 @tool(
     name="starmap_command",
     description=(
-        "Tell the open Star Map to do something: 'navigate to Area 18', 'set route "
-        "to Port Tressler', 'route to Pyro', 'clear route', 'zoom in', 'zoom out', "
+        "Tell the open Star Map window to change its view: 'route to Pyro' (draw a "
+        "jump route between systems), 'clear route', 'zoom in', 'zoom out', "
         "'back to galaxy', 'take me home', 'open the shopping list'. Pass the "
-        "command in the user's own words. Use jump_route instead when the user "
-        "only asks how many jumps or which systems lie between two systems."),
+        "command in the user's own words. Use set_route instead for 'navigate "
+        "to Area 18' / 'set route to Port Tressler' (a route in the game). Use "
+        "jump_route when the user only asks how many jumps or which systems lie "
+        "between two systems."),
     params={"command": {"type": "string",
-                        "description": "The map command as spoken, e.g. navigate to Area 18"}},
+                        "description": "The map command as spoken, e.g. zoom in"}},
     required=["command"],
 )
 def _starmap_command(ctx: ToolContext, command: str) -> dict:
     """Relay one command to the Star Map and report what it answered.
 
-    The map's later narration (the in-game route macro says each step) is
-    spoken through ctx.speak, i.e. by the Assistant's own mouth: its ears
-    know to ignore that voice, and would hear a second one as the user."""
+    Anything the map says later is spoken through ctx.speak, i.e. by the
+    Assistant's own mouth: its ears know to ignore that voice, and would
+    hear a second one as the user."""
     command = (command or "").strip()
     if not command:
         raise ToolError("no map command was given")
     return starmap_bridge.send_command(command, on_say=ctx.speak)
+
+
+# ── set route (in game; the Assistant's own, no Star Map needed) ─────────
+
+IN_GAME_OFF = ("In-game plotting is off. Turn on In-Game in this window "
+               "or in the Star Map, then ask again.")
+_default_route_service = None
+
+
+def _routes(ctx: ToolContext):
+    """The RouteService: the host's (ctx.extra["set_route"], which tests use to
+    hand in fakes for the engine and the input layer) or one per process."""
+    global _default_route_service
+    svc = (ctx.extra or {}).get("set_route")
+    if svc is not None:
+        return svc
+    if _default_route_service is None:
+        _default_route_service = route_service.RouteService()
+    return _default_route_service
+
+
+def _spoken_problem(problem: str, dest: str) -> str:
+    """A RouteService status text as a sentence for the pilot."""
+    if problem == route_service.in_game_off(dest):
+        return IN_GAME_OFF
+    if problem == route_service.NEEDS_PYNPUT:
+        return "I can't set routes in the game on this machine: the pynput package is not installed."
+    if problem == route_service.BUSY:
+        return "I'm already setting a route. Give me a moment."
+    if problem == route_service.SETTER_UNAVAILABLE:
+        return "I can't set routes in the game: the route setter could not be loaded."
+    return problem
+
+
+@tool(
+    name="set_route",
+    description=(
+        "Look up a destination for a route in the game: 'navigate to Area 18', "
+        "'set route to Port Tressler', 'set a course to Lorville', 'plot a course "
+        "to Everus Harbor', 'route to Area 18'. Works with the Star Map closed. "
+        "This does NOT touch the game: it returns the matched destination, a "
+        "'which one?' list, or 'unknown'. When the result has confirm_plot, "
+        "call plot_route_in_game with that destination to actually set it."),
+    params={"destination": {"type": "string",
+                            "description": "The destination as spoken, e.g. Area 18"}},
+    required=["destination"],
+)
+def _set_route(ctx: ToolContext, destination: str) -> dict:
+    """Resolve a destination. Sends nothing to the game.
+
+    Three outcomes that end here (which one? / unknown / cannot plot, with the
+    reason) and one that goes on: ``confirm_plot``, on which the agent asks
+    the pilot before plot_route_in_game runs."""
+    destination = (destination or "").strip()
+    if not destination:
+        raise ToolError("no destination was given")
+    svc = _routes(ctx)
+    res = svc.resolve(destination)
+    if res.error:
+        raise ToolError("I can't look up destinations: the destination list could not be loaded")
+    if res.alternatives:
+        options = ", ".join(res.alternatives[:3])
+        return {"asked": destination, "alternatives": res.alternatives[:6],
+                "reply": route_service.character_line("which", "Which one? " + options,
+                                                      options=options)}
+    if res.unknown:
+        return {"asked": destination, "unknown": True,
+                "reply": route_service.character_line(
+                    "unknown", "Unknown destination: %s" % destination, name=destination)}
+    dest = res.destination
+    out = {"asked": destination, "destination": dest, "in_game": svc.in_game(),
+           "star_map_followed": bool(starmap_bridge.mirror(dest))}
+    problem = svc.why_not(dest)
+    if problem:
+        out["reply"] = "%s. %s" % (dest.title(), _spoken_problem(problem, dest))
+        return out
+    out["confirm_plot"] = True
+    out["reply"] = dest.title() + "."
+    return out
+
+
+@tool(
+    name="plot_route_in_game",
+    description=(
+        "Set the route to a destination inside Star Citizen: opens the in-game "
+        "star map, searches the destination and presses Set Route, using the "
+        "mouse and keyboard. Only after set_route returned that destination "
+        "with confirm_plot, and only when the user asked for a route."),
+    params={"destination": {"type": "string",
+                            "description": "The destination exactly as set_route returned it"}},
+    required=["destination"],
+    confirm=True,
+    action="set the route to {destination} in the game",
+)
+def _plot_route_in_game(ctx: ToolContext, destination: str) -> dict:
+    """Run the in-game macro. The only tool that sends input to the game.
+
+    Three things stand in front of it: the agent's yes/no (confirm=True), the
+    In-Game switch (checked inside RouteService.plot, not here), and the
+    destination having to be one the list knows exactly, so a model cannot
+    have an arbitrary string typed into the game."""
+    destination = (destination or "").strip()
+    svc = _routes(ctx)
+    if not svc.known(destination):
+        res = svc.resolve(destination)
+        if not res.destination:
+            raise ToolError("%r is not a destination I know; nothing was sent to the game"
+                            % destination)
+        destination = res.destination
+
+    def status(msg: str) -> None:
+        ctx.status(msg)
+        ctx.speak(msg)
+
+    def done(msg: str) -> None:
+        ctx.status(msg)
+        ctx.speak(msg[len("error:"):].strip() if msg.startswith("error:") else msg)
+
+    started, message = svc.plot(destination, status_cb=status, done_cb=done)
+    if not started:
+        return {"destination": destination, "started": False,
+                "reply": _spoken_problem(message, destination)}
+    ctx.status(message)
+    return {"destination": destination, "started": True,
+            "reply": route_service.character_line("navigate", "Navigate to %s" % destination,
+                                                  dest=destination)}
 
 
 # ── actions (ask first) ───────────────────────────────────────────────────

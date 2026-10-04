@@ -44,12 +44,12 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# (tests/conftest.py puts the Assistant's package and the toolbox root on sys.path)
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32",
                                 reason="Win32 clipboard API; nothing to test elsewhere")
 
-from starmap.set_route.route_setter import _set_clipboard   # noqa: E402
+from assistant.set_route.route_setter import _set_clipboard   # noqa: E402
 
 
 def _read_clipboard() -> str:

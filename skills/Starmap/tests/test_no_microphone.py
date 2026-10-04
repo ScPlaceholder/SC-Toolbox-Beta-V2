@@ -186,7 +186,8 @@ def test_the_star_map_has_no_mic_controls(panel):
     texts = [b.text() for b in panel.findChildren(QtWidgets.QPushButton)]
     for gone in ("Always on", "Push-to-talk", "Set Mic Keybind", "Voice Replies", "Ears"):
         assert gone not in texts, f"the Star Map still has a {gone!r} control"
-    assert "Calibrate Star Map" in texts          # the route-setter calibration stays
+    # the route-setter calibration moved to the Assistant with set route (2026-10-04)
+    assert "Calibrate Star Map" not in texts
 
 
 def test_no_star_map_module_can_capture_audio():
@@ -266,7 +267,9 @@ def test_the_map_never_speaks_its_lines_go_to_the_assistant(panel, audio, monkey
     class _Engine:
         def find_destination(self, name):
             return "Area 18", []
-    monkeypatch.setattr(panel, "_engine", lambda: _Engine())
+    # set route is the Assistant's code now; the panel reaches it through set_route_link
+    from assistant.set_route.service import RouteService
+    monkeypatch.setattr(panel, "_route_svc", RouteService(engine_factory=_Engine))
     panel._btn_game.setChecked(False)
     path = _reply_path("say")
     open(path, "w").close()

@@ -380,6 +380,13 @@ class EverythingFinderWindow(SCWindow):
             panel = self.select_tab(TAB_MAP)
             if panel is not None and hasattr(panel, "handle_map_command"):
                 panel.handle_map_command(cmd)
+        elif action == "map_goto":
+            # The Assistant set a route itself and asks an open map to show the
+            # place. Only a Star Map tab that already exists follows along: a
+            # route being set is no reason to build the map or switch tabs.
+            panel = self._inner.get(TAB_MAP)
+            if panel is not None and hasattr(panel, "_on_ipc"):
+                panel._on_ipc(cmd)
 
     def closeEvent(self, event) -> None:
         if self._ipc is not None:

@@ -70,6 +70,7 @@ from .location_dialog import LocationDialog
 from .lore import LoreBubble, LoreFetcher
 from .ui import make_close_button
 from .commands import CommandRouter, safe_reply_file
+from . import set_route_link
 from .command_bar import CommandBar
 from .commodities_view import CommoditiesView
 from .market_view import MarketView
@@ -131,8 +132,7 @@ class StarmapPanel(QWidget):
         self._shop_stops: List[dict] = []     # the shopping route on the map, in visit order
         self._shopping_host: Optional[Callable[[], None]] = None   # see set_shopping_host()
         self._ipc = None
-        self._dest_engine = None
-        self._setter_obj = None
+        self._route_svc = None          # the Assistant's RouteService (set_route_link)
         self._voicebar = None          # the CommandBar (name kept: voice_status() feeds it)
         self._router = None
         self._said = None              # lines "spoken" while a command runs (see speak())
@@ -249,18 +249,20 @@ class StarmapPanel(QWidget):
         self._btn_route.setStyleSheet(_btn_ss())
         self._btn_route.setToolTip("Plot a jump route: click a start system, then a destination")
         self._btn_route.clicked.connect(self._route_clicked)
-        self._btn_route.setContextMenuPolicy(Qt.CustomContextMenu)
-        self._btn_route.customContextMenuRequested.connect(self._route_menu)
 
         self._btn_game = QPushButton("In-Game")
         self._btn_game.setCursor(Qt.PointingHandCursor)
         self._btn_game.setCheckable(True)
         self._btn_game.setStyleSheet(_btn_ss())
         self._btn_game.setToolTip("Also plot 'navigate to ...' routes inside Star Citizen "
-                                  "(right-click Route to calibrate)")
-        self._btn_game.toggled.connect(lambda _on: self._save_soon())
+                                  "(calibrate it with Calibrate Route in the Assistant). "
+                                  "The same switch as In-Game in the Assistant.")
+        self._btn_game.toggled.connect(self._game_toggled)
         try:
-            self._btn_game.setChecked(bool(load_state().get("game_route")))
+            # The switch itself is the Assistant's (set_route/gate.py): one file both
+            # windows read. The map's old saved "game_route" only counts until the
+            # switch has been set there once.
+            self._btn_game.setChecked(self._in_game(bool(load_state().get("game_route"))))
         except (AttributeError, TypeError, RuntimeError) as e:
             # load_state() already absorbs a missing or unparseable file and returns {}, so what is left is a state
             # file holding a JSON list instead of an object (AttributeError on .get) or a dead C++ object behind the
@@ -1104,6 +1106,12 @@ class StarmapPanel(QWidget):
             app.quit()
         elif kind == "map_command":
             self.handle_map_command(cmd)
+        elif kind == "map_goto":
+            # The Assistant set a route itself (set route is its code now) and asks
+            # the map only to show the place. No reply, nothing sent to the game.
+            name = str(cmd.get("name") or "").strip()
+            if name:
+                self._mirror(name)
 
     # ── persistence ───────────────────────────────────────────────────────
     def _save_soon(self) -> None:
@@ -1449,36 +1457,70 @@ class StarmapPanel(QWidget):
             return
         self.tradeHubRequested.emit()
 
-    # ── repurposed set_route_ai: spoken destinations + in-game plotting ───
-    def _engine(self):
-        """Lazy DestinationPhoneticEngine (set_route_ai port)."""
-        if self._dest_engine is None:
-            try:
-                from .set_route.destination_engine import DestinationPhoneticEngine
-                self._dest_engine = DestinationPhoneticEngine()
-            except Exception:
-                self._dest_engine = None
-        return self._dest_engine
+    # ── set route: the AI Assistant's code, reached through set_route_link ──
+    def _set_route_service(self):
+        """The Assistant's RouteService, or None (logged) when it cannot be loaded.
 
-    def _setter(self):
-        if self._setter_obj is None:
+        Set route is not the map's code any more (J, 2026-10-04): destination
+        matching, the in-game macro and the In-Game switch live in
+        tools/Assistant/assistant/set_route/ and this is the one way in."""
+        if self._route_svc is None:
             try:
-                from .set_route.route_setter import InGameRouteSetter
-                self._setter_obj = InGameRouteSetter()
-            except Exception:
-                self._setter_obj = None
-        return self._setter_obj
+                self._route_svc = set_route_link.service()
+            except set_route_link.SetRouteUnavailable as e:
+                log.warning("Starmap: %s", e)
+                self._route_unavailable = str(e)
+                return None
+        return self._route_svc
+
+    def _in_game(self, legacy: Optional[bool] = None) -> bool:
+        """The In-Game switch as saved (the Assistant's file); off when unreachable."""
+        try:
+            return bool(set_route_link.gate().in_game_enabled(legacy=legacy))
+        except set_route_link.SetRouteUnavailable as e:
+            log.warning("Starmap: In-Game stays off: %s", e)
+            return False
+
+    def _game_toggled(self, on: bool) -> None:
+        """The pilot clicked In-Game: save it where the route code reads it."""
+        try:
+            if not set_route_link.gate().set_in_game(bool(on)):
+                self.voice_status("could not save the In-Game switch")
+        except set_route_link.SetRouteUnavailable as e:
+            self.voice_status(str(e))
+        self._save_soon()
+
+    def _sync_game_button(self) -> None:
+        """Show the saved switch. The Assistant's window can flip it too, and the
+        saved value, not this button, is what decides whether the game is touched."""
+        on = self._in_game()
+        if self._btn_game.isChecked() != on:
+            self._btn_game.blockSignals(True)
+            self._btn_game.setChecked(on)
+            self._btn_game.blockSignals(False)
+
+    def _mirror(self, dest: str) -> None:
+        """Show *dest* on our own map when it matches a known place."""
+        try:
+            self.goto(dest.title())
+        except (RuntimeError, AttributeError, TypeError, KeyError, ValueError) as e:
+            log.warning("Starmap: could not show %r on the panel's own map (%s: %s)",
+                        dest, type(e).__name__, e, exc_info=True)
 
     def cmd_set_route(self, name: str) -> str:
-        """'set route to X' / 'navigate to X' — resolve X with the ported
-        set_route phonetic engine, mirror it on the map, speak the
-        confirmation ("Navigate to X"), and (when In-Game is toggled on)
-        drive the in-game starmap macro like the Wingman skill did,
-        narrating each step and the result."""
-        engine = self._engine()
-        if engine is None:
-            return "destination engine unavailable"
-        dest, alts = engine.find_destination(name)
+        """'set route to X' / 'navigate to X', typed into the command bar: resolve
+        X, mirror it on the map, give the confirmation line ("Navigate to X"), and
+        (when In-Game is on) run the in-game starmap macro, narrating each step.
+
+        All of it but the mirror is the Assistant's RouteService. Its plot()
+        reads the In-Game switch itself; this method does not get a say."""
+        svc = self._set_route_service()
+        if svc is None:
+            return getattr(self, "_route_unavailable", "") or "set route unavailable"
+        res = svc.resolve(name)
+        if res.error:
+            return res.error
+        alts, dest = res.alternatives, res.destination
         if alts:
             self.speak(self._cline("which", "Which one? " + ", ".join(alts[:3]), options=", ".join(alts[:3])))
             return "which one? " + ", ".join(alts[:6])
@@ -1497,35 +1539,15 @@ class StarmapPanel(QWidget):
             log.warning("Starmap: could not mirror %r on the panel's own map (%s: %s); the spoken confirmation and "
                         "the in-game plot go ahead anyway", dest, type(e).__name__, e, exc_info=True)
         self.speak(self._cline("navigate", "Navigate to %s" % dest, dest=dest))
-        if getattr(self, "_btn_game", None) is not None and self._btn_game.isChecked():
-            setter = self._setter()
-            if setter is None:
-                return "route setter unavailable"
-            if not setter.available():
-                return "in-game plotting needs pynput (pip install pynput)"
-            if setter.busy():
-                return "already setting a route"
-            setter.set_route(dest, status_cb=self._route_status,
-                             done_cb=self._route_done)
-            return "setting route to %s in game" % dest
-        return "route to %s (toggle 'In-Game' on to plot it in the game)" % dest
+        self._sync_game_button()
+        _started, message = svc.plot(dest, status_cb=self._route_status,
+                                     done_cb=self._route_done)
+        return message
 
-    def _route_menu(self, pos) -> None:
-        menu = QMenu(self)
-        menu.addAction("Calibrate in-game route setter...", self._calibrate)
-        menu.exec(self._btn_route.mapToGlobal(pos))
-
-    def _calibrate(self) -> None:
-        try:
-            from .set_route.route_setter import RouteCalibrationDialog
-        except Exception as exc:
-            self.voice_status("calibration unavailable: %s" % exc)
-            return
-        dlg = RouteCalibrationDialog(self)
-        if dlg.exec() and dlg.result_ready:
-            self.voice_status("route setter calibrated")
-        else:
-            self.voice_status("calibration cancelled")
+    # Calibration of the in-game route setter is NOT here (J, 2026-10-04): the Route
+    # button's right-click "Calibrate in-game route setter..." and the command bar's
+    # "Calibrate Star Map" both went to the AI Assistant's window ("Calibrate
+    # Route"), with the code they calibrate. The map keeps no way to open it.
 
 class HomePicker(QDialog):
     """First-launch / change-home chooser over the five eligible home systems."""

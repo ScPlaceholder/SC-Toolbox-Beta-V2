@@ -39,6 +39,7 @@ from shared.qt.title_bar import SCTitleBar
 
 from .agent import AssistantAgent
 from .config import LLMConfig
+from .set_route import gate as route_gate
 from .tools import ToolContext
 from .voice import EarsController, Mouth
 from .voice_input import InputBinding, KeyCaptureDialog
@@ -246,6 +247,35 @@ class AssistantWindow(SCWindow):
         row.addStretch(1)
         self.content_layout.addLayout(row)
 
+        # ── set route: the In-Game switch and its calibration ────────────
+        # Setting a route in the game is this tool's own code now
+        # (assistant/set_route/), so the switch that allows it and the
+        # calibration it needs are here too, and work with the Star Map closed.
+        # The Star Map's In-Game button is the same switch (one saved file).
+        route_row = QHBoxLayout()
+        route_row.setContentsMargins(10, 0, 10, 2)
+        route_row.setSpacing(8)
+        self._btn_game = QPushButton("In-Game")
+        self._btn_game.setCheckable(True)
+        self._btn_game.setStyleSheet(_btn_ss())
+        self._btn_game.setToolTip(
+            "On: 'navigate to Area 18' may set the route inside Star Citizen (it asks "
+            "first, then uses the mouse and keyboard).\n"
+            "Off: nothing is ever sent to the game.")
+        self._btn_game.setChecked(route_gate.in_game_enabled())
+        self._btn_game.toggled.connect(self._on_in_game_toggled)
+        route_row.addWidget(self._btn_game)
+        self._btn_calibrate = QPushButton("Calibrate Route")
+        self._btn_calibrate.setStyleSheet(_btn_ss())
+        self._btn_calibrate.setToolTip(
+            "3-click calibration of the in-game route setter: where the game's star map "
+            "has its search bar, its first result and its centre.\n"
+            "Open Star Citizen first. This was Calibrate Star Map in the Star Map tool.")
+        self._btn_calibrate.clicked.connect(self._calibrate_route)
+        route_row.addWidget(self._btn_calibrate)
+        route_row.addStretch(1)
+        self.content_layout.addLayout(route_row)
+
         # shown while no mic key is set (and after a refused one), so the
         # user sees why holding a key does nothing
         self._lbl_mic = QLabel("")
@@ -427,6 +457,45 @@ class AssistantWindow(SCWindow):
         self._lbl_reply.setText("AI: " + reply)
         self._lbl_reply.setToolTip(reply)
         self._set_status("ready")
+        self._sync_in_game()
+
+    # ── set route: the In-Game switch and calibration ────────────────────
+    def _on_in_game_toggled(self, on: bool) -> None:
+        """Save the switch where the route code reads it (set_route/gate.py)."""
+        if not route_gate.set_in_game(bool(on)):
+            self._set_status("could not save the In-Game switch")
+            self._sync_in_game()
+            return
+        self._set_status("in-game route plotting on" if on
+                         else "in-game route plotting off: nothing is sent to the game")
+
+    def _sync_in_game(self) -> None:
+        """Show the saved switch; the Star Map's In-Game button writes it too."""
+        on = route_gate.in_game_enabled()
+        if self._btn_game.isChecked() != on:
+            self._btn_game.blockSignals(True)
+            self._btn_game.setChecked(on)
+            self._btn_game.blockSignals(False)
+
+    def _calibrate_route(self) -> None:
+        """The in-game macro's 3-click calibration. This is the only button that
+        opens it: the Star Map's "Calibrate Star Map" moved here (J, 2026-10-04).
+
+        It needs the game's own star map on screen (the pilot clicks its search
+        bar, a result and its centre) and pynput to see those clicks. It needs
+        nothing from the toolbox's Star Map tool. The positions are saved where
+        they always were (tools/set_route_ai/data/mouse_calibration.json, shared
+        with the WingmanAI skill), so an existing calibration keeps working."""
+        try:
+            from .set_route.route_setter import RouteCalibrationDialog
+        except ImportError as exc:
+            self._set_status("calibration unavailable: %s" % exc)
+            return
+        dlg = RouteCalibrationDialog(self)
+        if dlg.exec() and dlg.result_ready:
+            self._set_status("route setter calibrated")
+        else:
+            self._set_status("calibration cancelled")
 
     def _on_failed(self, err: str) -> None:
         self._lbl_reply.setText("AI: error — " + err)

@@ -8,7 +8,8 @@ Every button label, menu entry and mouse gesture named below was read out of
 the source, not a commit message:
   panel.py            Home / Route / In-Game / Shopping List / Market / Commodities,
                       "< Back", the "   >   " breadcrumb, the context menus
-  command_bar.py      the command box, Calibrate Star Map, the status line
+  command_bar.py      the command box, the status line (Calibrate moved to the
+                      Assistant's window with set route, 2026-10-04)
                       (the mic controls moved to the Assistant, 2026-10-04)
   shared/shopping/panel.py   Item | Commodity, Add, x, Clear list, Plan route,
                       Show on Star Map (the one list all three tools share)
@@ -168,10 +169,12 @@ punched into Star Citizen's own map for you &mdash; it opens the map, types
 the destination and sets it.</p>
 <p><span style="{_YLW}">It has to be calibrated first</span>, because it works
 by clicking your screen and every screen is different.
-<b>Right-click Route</b> and choose
-<b>Calibrate in-game route setter&hellip;</b>, or press
-<b>Calibrate Star Map</b> on the command bar. It walks you through three clicks
-and remembers them.</p>
+Open the <b>Toolbox Assistant</b> and press <b>Calibrate Route</b>. It walks
+you through three clicks in the game and remembers them. (The button used to
+be here, as <b>Calibrate Star Map</b>; it moved to the Assistant together with
+the route setter it calibrates.)</p>
+<p style="{_DIM}"><b>In-Game</b> here and <b>In-Game</b> in the Assistant are
+one switch.</p>
 <p style="{_DIM}">Until it is calibrated, In-Game has nothing to aim at.
 Plotting on this map, on its own, needs no calibration at all.</p>
 """)
@@ -260,8 +263,10 @@ are set in the Assistant's window.</p>
 <p style="{_DIM}">Opening the Star Map never opens the mic. It used to: the
 map had its own ears, and a saved "Always on" armed them every time the map
 was opened.</p>
-<p>Said with nothing in front, the Assistant sends the map: <em>navigate to
-&hellip;</em>, <em>set route to &hellip;</em>, <em>route to &hellip;</em>,
+<p><em>Navigate to &hellip;</em> and <em>set route to &hellip;</em> are the
+Assistant's own: it sets that route in the game itself, asks you first, and
+does not need this map open. Said with nothing in front, the Assistant sends
+the map: <em>route to &lt;system&gt;</em>,
 <em>clear route</em>, <em>zoom in / out</em>, <em>back to galaxy</em>,
 <em>take me home</em> and <em>open the shopping list</em>. For anything else,
 start with <b>star map</b>: <em>star map, show Hurston</em>, <em>star map,
@@ -277,7 +282,7 @@ was told, what it did, or that it did not understand.</p>
 {_h4("Commands and the game together", _C_GROC)}
 <p>With <b>In-Game</b> on, <em>navigate to &hellip;</em> sets the route in
 Star Citizen too &mdash; see the <b>Jump Routes</b> tab, and calibrate it
-first.</p>
+first (in the Assistant's window).</p>
 """)
 
 _TABS = [

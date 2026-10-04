@@ -281,9 +281,26 @@ class AssistantAgent:
         # ... and so is what the Star Map answered: "Which one? Area 18, Area 04" must
         # reach the pilot as the map said it, not as a model's paraphrase of it.
         if (self.effective_mode == "router+llm" and not tool.confirm
-                and tool.name != "starmap_command"
+                and tool.name not in ("starmap_command", "set_route")
                 and not (isinstance(result, dict) and result.get("error"))):
             reply = self._phrase(question, tool.name, result, draft, rec)
+        # A destination was found and can be plotted: ask before the game is
+        # touched. Setting a route takes the mouse and keyboard, so it gets the
+        # same yes/no every other action gets. This is the only way the router
+        # reaches plot_route_in_game.
+        plot = self.registry.get("plot_route_in_game")
+        if (tool.name == "set_route" and plot is not None and isinstance(result, dict)
+                and result.get("confirm_plot") and result.get("destination")):
+            call_id = self._new_call_id()
+            plot_args = {"destination": result["destination"]}
+            reply = reply.rstrip() + " Want me to set that route in the game? Say yes or no."
+            self._messages.append({"role": "assistant", "content": reply, "tool_calls": [
+                {"id": call_id, "name": plot.name, "arguments": plot_args}]})
+            self._pending_confirm = {"tool": plot, "args": plot_args, "call_id": call_id,
+                                     "by": "router"}
+            self._trim()
+            self.on_speak(reply)
+            return reply
         routes = result.get("routes") if isinstance(result, dict) else None
         pin = self.registry.get("show_route_popup")
         if tool.name == "find_trade_routes" and routes and pin is not None:

@@ -160,6 +160,30 @@ def test_last_tab_is_remembered_for_next_open(window, tmp_path):
     assert w._saved_tab() == wmod.TAB_MAP
 
 
+def test_a_route_set_by_the_assistant_is_shown_on_an_open_map_tab_and_builds_nothing(window):
+    """IPC map_goto: the Assistant set an in-game route itself (set route is its
+    code since 2026-10-04) and asks an open map to show the place. A Star Map tab
+    that exists gets it; one that was never opened is not built, and the pilot's
+    current tab is left alone either way."""
+    w, c, wmod = window
+    w.show()
+    _pump(10)
+    w._handle_command({"type": "map_goto", "name": "area18"})
+    _pump()
+    assert c.calls == {wmod.TAB_TRADE: 1}, "a route being set built the Star Map tab"
+    assert w.tabs.current_key() == wmod.TAB_TRADE
+
+    got = []
+
+    class _Map:
+        def _on_ipc(self, cmd):
+            got.append(cmd)
+    w._inner[wmod.TAB_MAP] = _Map()
+    w._handle_command({"type": "map_goto", "name": "area18"})
+    assert got == [{"type": "map_goto", "name": "area18"}]
+    assert w.tabs.current_key() == wmod.TAB_TRADE, "the map tab stole the window"
+
+
 # ── the real tools, in a clean interpreter ───────────────────────────────────
 
 _PROBE = textwrap.dedent(r'''

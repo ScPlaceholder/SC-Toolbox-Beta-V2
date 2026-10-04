@@ -21,10 +21,6 @@ from assistant import answers, starmap_bridge as sb
 # ── which utterances are for the map ─────────────────────────────────────────
 
 @pytest.mark.parametrize("said, command", [
-    ("Navigate to Area 18.", "navigate to area 18"),
-    ("Set route to Port Tressler", "set route to port tressler"),
-    ("set the route to Port Tressler", "set the route to port tressler"),
-    ("plot a course to Everus Harbor", "plot a course to everus harbor"),
     ("Route to Pyro", "route to pyro"),
     ("Clear route.", "clear route"),
     ("clear the route", "clear the route"),
@@ -56,6 +52,12 @@ def test_map_commands_are_recognised(said, command):
     "go home and sleep",
     "zoom in on the profit margins",
     "take me home to Orison please",
+    # A route IN THE GAME is the Assistant's own since 2026-10-04 (set_route/), so
+    # the map is not asked: these must work with the Star Map closed.
+    "Navigate to Area 18.",
+    "Set route to Port Tressler",
+    "set the route to Port Tressler",
+    "plot a course to Everus Harbor",
 ])
 def test_everything_else_is_left_to_the_assistant(said):
     assert sb.command_text(said) == ""
@@ -193,8 +195,8 @@ def test_the_router_sends_map_phrases_to_the_map_and_nothing_else():
     from assistant.builtin_tools import build_default_registry
     from assistant.router import Router
     r = Router(build_default_registry(), catalog=_NoCatalog())
-    d = r.decide("Navigate to Area 18")
-    assert (d.kind, d.tool, d.args) == ("call", "starmap_command", {"command": "navigate to area 18"})
+    d = r.decide("Clear route")
+    assert (d.kind, d.tool, d.args) == ("call", "starmap_command", {"command": "clear route"})
     d = r.decide("star map, zoom in", pending={"tool": "ship_info", "args": {}, "missing": "ship"})
     assert d.tool == "starmap_command" and d.args == {"command": "zoom in"}
 

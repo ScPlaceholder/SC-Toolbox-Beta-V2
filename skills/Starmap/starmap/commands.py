@@ -97,13 +97,14 @@ class CommandRouter(QObject):
     # ── built-ins ──────────────────────────────────────────────────────────
     def _register_builtin(self) -> None:
         p = self._panel
-        # set_route_ai port: registered FIRST so "set route to X" wins over
-        # the plain "route to X" map-routing command below.
+        # Set route (the AI Assistant's code, reached through the panel):
+        # registered FIRST so "set route to X" wins over the plain "route to X"
+        # map-routing command below. These two are what the command bar still
+        # does with it; said aloud, the Assistant handles them itself.
         self.register(r"\bset\s+(?:the\s+)?route\s+to\s+(.+)",
                       lambda m: p.cmd_set_route(m.group(1)), "set route to <destination>")
-        # Destination -> full in-game route via the set_route port:
-        # "navigate to Area 18" mirrors the map, confirms and walks the
-        # in-game macro when In-Game is toggled on.
+        # Destination -> full in-game route: "navigate to Area 18" mirrors the
+        # map, confirms and walks the in-game macro when In-Game is toggled on.
         self.register(r"\b(?:navigate\s+to|set\s+course\s+to|plot\s+(?:a\s+)?course\s+to)\s+(.+)$",
                       lambda m: p.cmd_set_route(m.group(1)),
                       "navigate to <destination> (plots it in game)")

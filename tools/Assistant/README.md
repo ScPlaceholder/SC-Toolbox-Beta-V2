@@ -6,8 +6,9 @@ ask the user first.
 
 **This is the toolbox's one microphone.** The Star Map used to have its own
 voice ears; since 2026-10-04 it has none, and what is said for the map
-("navigate to Area 18", "zoom in", "star map, show Hurston") is relayed to it
-from here. See "Star Map commands" below.
+("zoom in", "route to Pyro", "star map, show Hurston") is relayed to it
+from here. See "Star Map commands" below. Setting a route in the game
+("navigate to Area 18") is this tool's own: see "Set route".
 
 ## Plug in an LLM
 
@@ -100,6 +101,8 @@ Workers never write the tools' caches or settings, and run with
 | `current_loadout()` | Battle Buddy (Game.log, read-only) | |
 | `playtime_summary()` | PlayTime | |
 | `starmap_command(command)` | Star Map window (or the Everything Finder's Star Map tab) | |
+| `set_route(destination)` | `assistant/set_route/` (here; no other tool needed). Looks the destination up, touches nothing | |
+| `plot_route_in_game(destination)` | `assistant/set_route/` in-game macro: mouse and keyboard in Star Citizen | yes, and In-Game must be on |
 | `show_route_popup(route, ship?, show_on_map?)` | Trade Hub window | yes |
 | `open_trade_hub()` | Trade Hub window | yes |
 | `launch_tool(name)` | launcher `launch_skill`, else a direct spawn | yes |
@@ -114,9 +117,9 @@ DPS / optimal ship builds are not wired yet.
 Voice-to-text lives here and nowhere else. A map phrase is recognised by rule
 (`starmap_bridge.command_text`), before any intent scoring:
 
-* said plainly: *navigate to / set route to / set course to / plot a course to
-  <destination>*, *route to <system>*, *clear route*, *zoom in / out*, *back to
-  galaxy*, *take me home*, *open the shopping list*;
+* said plainly: *route to <system>* (a jump route drawn on the map), *clear
+  route*, *zoom in / out*, *back to galaxy*, *take me home*, *open the
+  shopping list*;
 * anything else the map understands, with **star map** in front: *star map,
   show Hurston*, *star map, commodities*, *star map, help*.
 
@@ -125,10 +128,45 @@ Map if it is running, else to the Everything Finder (which opens its Star Map
 tab), waits up to 6 s for the map's answer in a temp reply file, and says it.
 The map never speaks itself: its ears-era TTS is gone, because a second voice
 would come back through this window's open mic as the user's next utterance.
-Later narration from the in-game route macro arrives through the same file and
-is spoken here too. It is not confirm-gated (it was a direct voice command
-when the map had its own ears). If no Star Map is open, it says so; it does
-not open one.
+It is not confirm-gated: it only changes what the map window shows. If no
+Star Map is open, it says so; it does not open one.
+
+## Set route (in the game)
+
+*Navigate to / set route to / set course to / plot a course to <destination>*
+and *route to <a place that is not a star system>* set a route inside Star
+Citizen. The code is here, `assistant/set_route/` (moved from the Star Map on
+2026-10-04), and it is the only copy: the Star Map's typed "navigate to ..."
+and its In-Game button call it through `starmap/set_route_link.py`. It works
+with the Star Map closed. With "star map," in front it is still handled here.
+
+What happens, in order:
+
+1. `set_route` resolves the destination (J's phonetic engine and destination
+   list). An unknown or ambiguous name is said and nothing else happens.
+2. If the **In-Game** switch is off, it says so and stops. Nothing is asked.
+3. Otherwise it asks: "Area18. Want me to set that route in the game? Say yes
+   or no." Nothing has been sent to the game yet.
+4. On yes, `plot_route_in_game` runs the macro (F2, clicks, a clipboard paste,
+   R x6, F2) and narrates its steps. The switch is read again at this point,
+   inside `RouteService.plot`, which is the only caller of the macro.
+
+**In-Game** and **Calibrate Route** are buttons in this window. In-Game is one
+saved switch (`~/.sctoolbox/set_route/settings.json`) shared with the Star
+Map's In-Game button; until it is first set here, the Star Map's old saved
+choice is used. Calibrate Route is the 3-click calibration that used to be the
+Star Map's "Calibrate Star Map"; it is only here now. It writes the same file
+as before (`tools/set_route_ai/data/mouse_calibration.json`, shared with the
+WingmanAI skill), so an existing calibration keeps working.
+
+What it needs: pynput, the Windows clipboard, Star Citizen in the foreground
+with its star map on F2, and calibrated click positions. It does not check
+that the game has focus: the keys and clicks go to whatever window is in
+front. It needs nothing from a running Star Map. If an open Star Map exists it
+is sent `{"type": "map_goto", "name": ...}` so its view follows; that is all.
+
+The macro has never been run end to end in the game from here. The tests run
+the real macro on a fake `pynput` and a fake clipboard.
 
 *Stop listening* / *ears off* closes an always-open mic (drops to
 push-to-talk). That was a Star Map command; the mic is this window's now.

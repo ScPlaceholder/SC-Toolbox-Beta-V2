@@ -570,6 +570,8 @@ _LABEL = {
     "open_trade_hub": "opening Trade Hub",
     "launch_tool": "opening a tool",
     "starmap_command": "a Star Map command",
+    "set_route": "setting a route in the game",
+    "plot_route_in_game": "setting the route in the game",
 }
 
 # words in a follow-up answer that pick one of the offered options
@@ -963,12 +965,26 @@ class Router:
         # fixed phrase, not an intent to score: the map's own command router decides
         # what it means. Checked first so an open question from the turn before
         # ("Which ship?") cannot swallow it.
+        #
+        # A route IN THE GAME is looked at first and is the Assistant's own
+        # (set_route/): "navigate to Area 18" must work with the Star Map closed,
+        # so it is never relayed, with or without "star map," in front. What is
+        # left for the map is what the map draws: "route to <system>", zoom, back.
+        cmd = ""
         if self._has("starmap_command"):
             from .starmap_bridge import command_text
             cmd = command_text(text)
-            if cmd:
-                return Decision("call", tool="starmap_command", args={"command": cmd},
-                                reason="star map command")
+        if self._has("set_route"):
+            from .set_route.phrases import destination
+            # the catalogue is only opened for a bare "route to X" (is X a system?)
+            dest = destination(text, lambda: (getattr(self.catalog, "alias", None) or {})
+                               .get("system") or ())
+            if dest:
+                return Decision("call", tool="set_route", args={"destination": dest},
+                                reason="set route")
+        if cmd:
+            return Decision("call", tool="starmap_command", args={"command": cmd},
+                            reason="star map command")
         spans = self.catalog.find(text)
         scores = self.score(text, spans)
         ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))

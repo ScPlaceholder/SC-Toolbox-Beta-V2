@@ -7,7 +7,10 @@ Everything Finder - armed the mic. J asked for voice-to-text to live in ONE
 place, here. Three jobs follow from that, and this module is all three:
 
 1. :func:`command_text` - decide whether something the pilot said is meant for
-   the map ("navigate to Area 18", "zoom in", "star map, show Hurston").
+   the map ("zoom in", "route to Pyro", "star map, show Hurston"). Setting a
+   route IN GAME ("navigate to Area 18", "set route to ...") is not the map's
+   any more: assistant/set_route/ does that here, with the map closed, and
+   :func:`mirror` only asks an open map to show the place.
 2. :func:`send_command` - relay it to whichever process is showing a Star Map
    (the standalone tool, else the Everything Finder), wait for its answer, and
    keep listening for the in-game route macro's later narration. The map does
@@ -60,9 +63,11 @@ _EXPLICIT = re.compile(r"^(?:please )?(?:on |tell |ask )?(?:the )?(?:star ?map)\
 
 #: Said with nothing in front. Each is anchored to the START of the utterance:
 #: "what is the best trade route to Pyro" must not become "route to Pyro".
+#: "navigate to / set route to / set course to / plot a course to X" are NOT
+#: here: the Assistant sets that route itself (set_route/phrases.py). What is
+#: left is what the map draws on its own view: "route to <system>" is a jump
+#: route across the galaxy map, "clear route" removes it.
 _DIRECT = [re.compile(p) for p in (
-    r"^(?:please )?(?:set (?:the |a )?route to|navigate to|set (?:a )?course to|"
-    r"plot (?:a )?course to) \S.*$",
     r"^(?:please )?route to \S.*$",
     r"^(?:please )?clear (?:the )?route$",
     r"^(?:please )?zoom (?:in|out)$",
@@ -217,6 +222,24 @@ def send_command(text: str, bus=None, on_say: Optional[Callable[[str], None]] = 
         else:
             _remove(path)
     return result
+
+
+def mirror(destination: str, bus=None) -> bool:
+    """Ask an open Star Map to show *destination* on its own view. Best effort.
+
+    The Assistant sets the in-game route itself; this only keeps an open map
+    following along, as it did when the map ran the command. Nothing is
+    started, nothing is waited for, and there is no reply. False when no Star
+    Map is open or the message could not be sent."""
+    if bus is None:
+        from . import ipc_bus as bus
+    destination = (destination or "").strip()
+    if not destination:
+        return False
+    for sid, _label in TARGETS:
+        if bus.is_running(sid):
+            return bool(bus.send(sid, {"type": "map_goto", "name": destination}))
+    return False
 
 
 # ── 3. the one-time move of the Star Map's mic settings ──────────────────────

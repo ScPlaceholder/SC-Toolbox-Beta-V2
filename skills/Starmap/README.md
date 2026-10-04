@@ -27,23 +27,32 @@ for voice-to-text to live in one place: the **AI Assistant** (`tools/Assistant`)
   action - "navigate to Area 18", "route to Pyro", "clear route", "zoom in",
   "take me home", "open the shopping list", "help".
 - **Command bar** (`starmap/command_bar.py`): type a command and press Enter;
-  also holds Calibrate Star Map and the status line.
+  also holds the status line. (Calibrate moved to the Assistant, see below.)
 - **From the Assistant**: what the Assistant hears for the map arrives as the
   IPC command `{"type": "map_command", "text": ..., "id": ..., "reply_file": ...}`
   (`StarmapPanel.handle_map_command`). The map answers into the reply file and
   the Assistant says the answer; the map itself never speaks, because a second
   voice would be heard by the Assistant's open mic as the pilot. Inside the
   Everything Finder the window forwards the same command to its Star Map tab.
-- **Destinations** (`starmap/set_route/destination_engine.py`): the WingmanAI
-  set_route phonetic engine. Reads `tools/set_route_ai/data/` when that
-  folder exists (shared learning with the Wingman skill), else the
-  bundled copy in `starmap/data/set_route/`.
+- **Set route is not the map's code** (2026-10-04). Destination matching, the
+  in-game macro, its calibration and the In-Game switch live in
+  `tools/Assistant/assistant/set_route/`, so the Assistant sets a route with
+  the map closed. The map reaches that one copy through
+  `starmap/set_route_link.py` for the two things it kept: the typed
+  "navigate to ..." command and the In-Game button (the same saved switch as
+  the Assistant's). Said aloud, "navigate to ..." is handled by the Assistant
+  and never relayed here; the Assistant only sends `{"type": "map_goto",
+  "name": ...}` so an open map shows the place.
 - The old mic settings ("ears" and "voice" in
   `~/.sctoolbox/starmap/starmap_state.json`) are no longer written by the map
   and are left in place; the Assistant reads them once to carry them over.
   The former ears code is in `tools/Assistant/assistant/starmap_ears/`.
 
-## In-game route macro (`starmap/set_route/route_setter.py`)
+## In-game route macro (`tools/Assistant/assistant/set_route/route_setter.py`)
+
+Calibration (three clicks on the game's own star map) is opened from the
+Assistant's window, **Calibrate Route**. The Star Map has no Calibrate button
+and no right-click "Calibrate in-game route setter..." any more.
 
 With **In-Game** toggled on, "navigate to <destination>" plots the route
 in Star Citizen itself: F2, click the map, search, paste the destination,

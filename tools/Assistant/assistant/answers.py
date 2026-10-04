@@ -281,6 +281,14 @@ def _starmap(a, r):
     return out if out.endswith(("?", "!")) else out + "."
 
 
+def _route_said(a, r):
+    """set_route / plot_route_in_game: the tool's own line, as it worded it."""
+    reply = str(r.get("reply") or "").strip()
+    if not reply:
+        return "Done."
+    return reply if reply.endswith(("?", "!", ".")) else reply + "."
+
+
 def _opened(a, r):
     return f"Opened {r.get('launched') or 'Trade Hub'}."
 
@@ -295,6 +303,7 @@ _FORMATTERS = {
     "best_ship_weapons": _weapons, "show_route_popup": _pin,
     "open_trade_hub": _opened, "launch_tool": _opened,
     "starmap_command": _starmap,
+    "set_route": _route_said, "plot_route_in_game": _route_said,
 }
 
 

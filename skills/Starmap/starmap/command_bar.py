@@ -5,10 +5,14 @@ Assistant (J, 2026-10-04); what the Assistant hears for the map arrives here
 as text and runs through the same :class:`~.commands.CommandRouter` as a line
 typed into this bar.
 
-  * command box        - type what you would say: "navigate to Area 18",
-                         "zoom in", "clear route", "help"
-  * Calibrate Star Map - the set_route 3-click in-game calibration
-  * status line        - what the map was told and what it did
+  * command box - type what you would say: "navigate to Area 18", "zoom in",
+                  "clear route", "help"
+  * status line - what the map was told and what it did
+
+There is no Calibrate button here any more (J, 2026-10-04: "Why not move the
+calibrate button as well?"). Calibration belongs to the in-game route setter,
+which is the AI Assistant's code now, so its button is in the Assistant's
+window ("Calibrate Route"), next to the In-Game switch.
 
 Until 2026-10-04 this file was voice_control.py and carried the mic controls
 (push-to-talk / always on, mic keybind, voice replies). Those are the
@@ -18,8 +22,7 @@ Everything Finder.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QWidget
 
 from shared.qt.theme import P
 
@@ -29,18 +32,8 @@ PLACEHOLDER = ("Type a command: navigate to Area 18, zoom in, clear route, help"
                "   -   or say it to the Assistant")
 
 
-def _btn_ss() -> str:
-    return (
-        f"QPushButton {{ background: {P.bg_card}; color: {P.fg}; "
-        f"border: 1px solid {P.border}; padding: 4px 12px; "
-        f"font-family: Consolas; font-size: 9pt; }} "
-        f"QPushButton:hover {{ color: {P.fg_bright}; border-color: {ACCENT}; }} "
-        f"QPushButton:disabled {{ color: {P.fg_disabled}; border-color: {P.border}; }}"
-    )
-
-
 class CommandBar(QWidget):
-    """Typed commands + calibration + the status line. No microphone."""
+    """Typed commands + the status line. No microphone, no calibration."""
 
     def __init__(self, panel) -> None:
         super().__init__(panel)
@@ -63,14 +56,6 @@ class CommandBar(QWidget):
             f"QLineEdit:focus {{ border-color: {ACCENT}; }}")
         self._input.returnPressed.connect(self._submit)
         lay.addWidget(self._input, 2)
-
-        self._btn_calibrate = QPushButton("Calibrate Star Map")
-        self._btn_calibrate.setCursor(Qt.PointingHandCursor)
-        self._btn_calibrate.setStyleSheet(_btn_ss())
-        self._btn_calibrate.setToolTip(
-            "3-click calibration of the in-game route setter (opens the game starmap steps)")
-        self._btn_calibrate.clicked.connect(panel._calibrate)
-        lay.addWidget(self._btn_calibrate)
 
         self._status = QLabel("")
         self._status.setStyleSheet(
