@@ -15,6 +15,12 @@ configuration as a JSON file with this schema (see
         "gadget": "<name>"
     }
 
+A turret may also carry an optional ``"crafted"`` object (a crafted laser:
+the material qualities the user entered, plus the power factor they gave), and
+the file an optional ``"crafted_combine"`` rule. Both are read here and applied
+through ``shared.mining_crafting`` - the same function Mining Loadout uses - so
+the two tools show the same laser power. Files without them load as before.
+
 Users can point each slot in the Mining Signals "Mining Ships" tab at
 a saved file of this format (its own live config, or an exported
 copy), and the selected ship's loadout feeds the breakability
@@ -93,6 +99,7 @@ class TurretSnapshot:
     """One turret's selected laser + module names (strings, from disk)."""
     laser: str
     modules: List[str] = field(default_factory=list)
+    crafted: Optional[dict] = None        # optional crafted-laser inputs, as on disk
 
 
 @dataclass
@@ -103,6 +110,7 @@ class LoadoutSnapshot:
     gadget: str
     source_path: str                      # absolute path of the file
     version: int = 1
+    crafted_combine: str = ""             # "" = file does not say (use the default)
 
 
 def load_loadout_file(path: str) -> Optional[LoadoutSnapshot]:
@@ -146,7 +154,7 @@ def load_loadout_file(path: str) -> Optional[LoadoutSnapshot]:
             laser = str(td.get("laser", "")).strip()
             mods_raw = td.get("modules", [])
             mods = [str(m).strip() for m in mods_raw if m] if isinstance(mods_raw, list) else []
-            turrets.append(TurretSnapshot(laser=laser, modules=mods))
+            turrets.append(TurretSnapshot(laser=laser, modules=mods, crafted=_crafted_of(td)))
     elif isinstance(loadout_raw, dict):
         # v2 format: "loadout" is {turret_0: {laser, modules}, ...}
         keys = sorted(
@@ -160,7 +168,7 @@ def load_loadout_file(path: str) -> Optional[LoadoutSnapshot]:
             laser = str(td.get("laser", "")).strip()
             mods_raw = td.get("modules", [])
             mods = [str(m).strip() for m in mods_raw if m] if isinstance(mods_raw, list) else []
-            turrets.append(TurretSnapshot(laser=laser, modules=mods))
+            turrets.append(TurretSnapshot(laser=laser, modules=mods, crafted=_crafted_of(td)))
     else:
         log.warning("loadout_loader: %s: no 'turrets' or 'loadout' key found", path)
         return None
@@ -175,7 +183,43 @@ def load_loadout_file(path: str) -> Optional[LoadoutSnapshot]:
         gadget=str(raw.get("gadget", "")).strip(),
         source_path=os.path.abspath(path),
         version=int(raw.get("version", 1)) if isinstance(raw.get("version"), int) else 1,
+        crafted_combine=(
+            raw["crafted_combine"] if isinstance(raw.get("crafted_combine"), str) else ""
+        ),
     )
+
+
+def _crafted_of(td: dict) -> Optional[dict]:
+    """The turret's optional "crafted" object, or None (absent / not an object)."""
+    crafted = td.get("crafted")
+    return crafted if isinstance(crafted, dict) else None
+
+
+def _crafting():
+    """``shared.mining_crafting`` (the crafted-laser maths both tools share), or None."""
+    try:
+        from shared import mining_crafting
+        return mining_crafting
+    except ImportError as exc:
+        log.warning("loadout_loader: shared.mining_crafting unavailable (%s); "
+                    "crafted lasers are treated as stock", exc)
+        return None
+
+
+def crafted_power_factors(snap: "LoadoutSnapshot", index: Any = None) -> List[float]:
+    """Per-turret laser power factor for a snapshot (1.0 = not crafted).
+
+    ``index`` is the blueprint index; None means "load it from the cache".
+    """
+    mc = _crafting()
+    if mc is None or not snap:
+        return [1.0] * (len(snap.turrets) if snap else 0)
+    if index is None:
+        index = mc.load_index()
+    return [
+        mc.resolve_power_factor(t.laser, t.crafted, snap.crafted_combine or None, index)
+        for t in snap.turrets
+    ]
 
 
 def describe_snapshot(snap: LoadoutSnapshot) -> str:
@@ -316,8 +360,13 @@ def _compute_turret_stats(
     laser: Any,
     mods: List[Any],
     gadget: Any | None,
+    power_factor: float = 1.0,
 ) -> TurretStats:
     """Compute per-turret stats with passive-only and with-active splits.
+
+    ``power_factor`` is the crafted-laser factor (1.0 for a stock laser). It
+    scales the laser's own power before the module multiplier, exactly as
+    Mining Loadout's ``calc_stats`` does.
 
     Module power/resistance contributions are computed twice:
     - passive_only: only modules where item_type != "Active"
@@ -337,7 +386,10 @@ def _compute_turret_stats(
             if pct is not None:
                 pwr_delta += (pct - 100.0) / 100.0
         pwr_mult = 1.0 + pwr_delta
-        return (laser.min_power or 0.0) * pwr_mult, (laser.max_power or 0.0) * pwr_mult
+        return (
+            (laser.min_power or 0.0) * power_factor * pwr_mult,
+            (laser.max_power or 0.0) * power_factor * pwr_mult,
+        )
 
     def _calc_resistance(mod_list: List[Any]) -> float:
         res_values: List[float] = []
@@ -420,6 +472,8 @@ def snapshot_to_laser_configs(
     # Resolve the gadget once — it applies per turret.
     gadget_item = gadgets_by_name.get(snap.gadget) if snap.gadget else None
 
+    factors = crafted_power_factors(snap)
+
     configs: List[LaserConfig] = []
     for idx, turret in enumerate(snap.turrets):
         laser_item = lasers_by_name.get(turret.laser)
@@ -438,7 +492,9 @@ def snapshot_to_laser_configs(
         # Gadget is NOT passed to turret stats — gadget application is
         # handled by the breakability layer (compute_with_gadgets) so
         # gadgets can be toggled on/off independently.
-        stats = _compute_turret_stats(laser_item, mod_items, gadget=None)
+        stats = _compute_turret_stats(
+            laser_item, mod_items, gadget=None, power_factor=factors[idx],
+        )
 
         turret_label = _ml_turret_label(snap.ship, idx)
         name = f"{turret_label}: {laser_item.name}"

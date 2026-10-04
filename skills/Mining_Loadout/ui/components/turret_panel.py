@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from shared.qt.theme import P
 from shared.qt.dropdown import SCComboBox
 from models.items import MAX_MODULE_SLOTS, NONE_LASER, NONE_MODULE
+from ui.components.crafted_controls import CraftedControls
 
 
 def build_turret_panel(
@@ -20,6 +21,7 @@ def build_turret_panel(
     on_laser_info,
     on_module_info,
     num_module_slots: int = MAX_MODULE_SLOTS,
+    craft_index=None,
 ) -> dict:
     """Build a single turret panel widget.
 
@@ -28,6 +30,7 @@ def build_turret_panel(
         'laser_combo': SCComboBox,
         'module_combos': list[SCComboBox],
         'module_slot_containers': list[QWidget],
+        'crafted': CraftedControls (hidden when there is no blueprint data),
     """
     outer = QFrame()
     outer.setStyleSheet(f"""
@@ -103,6 +106,11 @@ def build_turret_panel(
     li.mousePressEvent = lambda _, ti=turret_index: on_laser_info(ti)
     content_lay.addWidget(li)
 
+    # Crafted laser: tick box + material qualities (from the blueprint data)
+    crafted = CraftedControls(craft_index)
+    crafted.changed.connect(on_changed)
+    content_lay.addWidget(crafted)
+
     # Module slots
     module_combos = []
     module_slot_containers = []
@@ -151,4 +159,5 @@ def build_turret_panel(
         "laser_combo": laser_combo,
         "module_combos": module_combos,
         "module_slot_containers": module_slot_containers,
+        "crafted": crafted,
     }

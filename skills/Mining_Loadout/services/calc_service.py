@@ -30,8 +30,14 @@ def calc_stats(
     laser_items: List[Optional[LaserItem]],
     module_items: List[List[Optional[ModuleItem]]],
     gadget_item: Optional[GadgetItem],
+    power_factors: Optional[List[float]] = None,
 ) -> Dict[str, float]:
     """Calculate combined loadout stats using multiplicative stacking.
+
+    power_factors: optional per-turret factor for a CRAFTED laser (see
+    ``shared.mining_crafting``). It scales that laser's own min/max mining power
+    BEFORE the module multiplier. Extraction power is left alone: the game data
+    does not say whether crafting quality touches the extraction beam.
 
     Power: module deltas are additive within a turret, then applied to laser power.
     E.g. Focus III (95 = -5%) + Surge (150 = +50%) -> +45% (not +42.5%).
@@ -59,8 +65,9 @@ def calc_stats(
         )
         pwr_mult = 1.0 + pwr_delta
         ext_mult = 1.0 + ext_delta
-        min_pwr += laser.min_power * pwr_mult
-        max_pwr += laser.max_power * pwr_mult
+        craft = power_factors[i] if power_factors and i < len(power_factors) else 1.0
+        min_pwr += laser.min_power * craft * pwr_mult
+        max_pwr += laser.max_power * craft * pwr_mult
         ext_pwr += (laser.ext_power if laser.ext_power is not None else 0.0) * ext_mult
 
     # Range from first equipped laser

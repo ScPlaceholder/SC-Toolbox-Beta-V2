@@ -29,6 +29,7 @@ class _DataSignals(QObject):
 from shared.qt.theme import P, apply_theme
 from shared.qt.base_window import SCWindow
 from shared.qt.dropdown import SCComboBox
+from shared import mining_crafting
 
 from models.items import (
     GadgetItem, LaserItem, ModuleItem,
@@ -102,6 +103,15 @@ class MiningLoadoutWindow(SCWindow):
         self.ship_name = "MOLE"
         self._turret_laser_selections: List[str] = []
         self._turret_module_selections: List[List[str]] = []
+
+        # Crafted lasers. The blueprint index is {} when the Craft Database's
+        # data is not on this PC, and then the feature is simply not offered.
+        self._craft_index: Dict[str, dict] = self._load_craft_index()
+        # Per turret: the material qualities when its laser is crafted, else None.
+        self._turret_crafted: List[Optional[Dict[str, int]]] = []
+        self._crafted_combine: str = mining_crafting.DEFAULT_COMBINE
+        self._crafted_controls: List[Any] = []
+        self._combine_combo: Optional[SCComboBox] = None
 
         # UI references (set during _build_ui)
         self._turret_area: Optional[QHBoxLayout] = None
@@ -272,6 +282,9 @@ class MiningLoadoutWindow(SCWindow):
         inv_lay.addWidget(ginfo)
         inv_lay.addStretch(1)
 
+        if self._craft_index:
+            self._build_combine_selector(inv_lay)
+
         center_lay.addWidget(inv_frame)
 
         body_lay.addWidget(center, 1)
@@ -337,10 +350,17 @@ class MiningLoadoutWindow(SCWindow):
         self._laser_combos.clear()
         self._module_combos.clear()
         self._module_slot_containers.clear()
+        self._crafted_controls.clear()
 
         cfg = SHIPS[self.ship_name]
         n = cfg.turrets
         stock = cfg.stock_laser
+
+        while len(self._turret_crafted) < n:
+            self._turret_crafted.append(None)
+        self._turret_crafted = self._turret_crafted[:n]
+        if reset_to_stock:
+            self._turret_crafted = [None] * n
 
         # Ensure selections exist
         while len(self._turret_laser_selections) < n:
@@ -367,7 +387,9 @@ class MiningLoadoutWindow(SCWindow):
                 on_changed=self._on_loadout_changed,
                 on_laser_info=lambda ti: self._pin_item("laser", ti),
                 on_module_info=lambda ti, sl: self._pin_item("module", ti, sl),
+                craft_index=self._craft_index,
             )
+            self._crafted_controls.append(refs["crafted"])
             self._turret_area.addWidget(refs["widget"])
             self._laser_combos.append(refs["laser_combo"])
             self._module_combos.append(refs["module_combos"])
@@ -402,7 +424,14 @@ class MiningLoadoutWindow(SCWindow):
                 else:
                     stock_idx = combo.findText(stock) if stock else 0
                     combo.setCurrentIndex(max(0, stock_idx))
+                    # The saved laser is not on offer, so its crafted data is not either.
+                    if i < len(self._turret_crafted):
+                        self._turret_crafted[i] = None
                 combo.blockSignals(False)
+                if i < len(self._crafted_controls):
+                    ctrl = self._crafted_controls[i]
+                    ctrl.set_laser(combo.currentText())
+                    ctrl.set_state(self._turret_crafted[i] if i < len(self._turret_crafted) else None)
 
             if i < len(self._module_combos):
                 for j, mc in enumerate(self._module_combos[i]):
@@ -446,6 +475,103 @@ class MiningLoadoutWindow(SCWindow):
                 for j, mc in enumerate(self._module_combos[i]):
                     if i < len(self._turret_module_selections) and j < len(self._turret_module_selections[i]):
                         self._turret_module_selections[i][j] = mc.currentText()
+            # Crafted state follows the controls only once the laser lists are real;
+            # before that the combo holds a placeholder and would wipe a loaded file.
+            if self._data_loaded and i < len(self._crafted_controls) and i < len(self._turret_crafted):
+                ctrl = self._crafted_controls[i]
+                ctrl.set_laser(self._turret_laser_selections[i])   # a new laser clears the tick
+                self._turret_crafted[i] = ctrl.state()
+
+    # ── Crafted lasers ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _load_craft_index() -> Dict[str, dict]:
+        try:
+            return mining_crafting.load_index()
+        except Exception:  # broad catch intentional: optional data must never block the tool
+            log.warning("Crafted-laser data unavailable:\n%s", traceback.format_exc())
+            return {}
+
+    def _build_combine_selector(self, lay: QHBoxLayout) -> None:
+        """One loadout-wide choice of how the crafted parts combine (unverified in game)."""
+        names = {
+            mining_crafting.COMBINE_MULTIPLY: _("Multiplied"),
+            mining_crafting.COMBINE_AVERAGE: _("Averaged"),
+        }
+        lbl = QLabel(_("CRAFTED PARTS COMBINE:"))
+        lbl.setStyleSheet(f"""
+            font-family: Consolas;
+            font-size: 7pt;
+            color: {P.fg_dim};
+            background: transparent;
+        """)
+        combo = SCComboBox()
+        for rule in mining_crafting.COMBINE_RULES:
+            combo.addItem(names[rule], rule)
+        tip = (
+            _("A crafted mining laser has more than one part that changes Laser Power.") + "\n"
+            + _("The game data does not say how the parts combine, and it has not been measured in game.") + "\n"
+            + _("Multiplied: the part bonuses multiply together. Averaged: the mean of the part bonuses.") + "\n"
+            + _("Current guess:") + " " + names[mining_crafting.DEFAULT_COMBINE] + ". "
+            + _("Extraction power is not changed.")
+        )
+        lbl.setToolTip(tip)
+        combo.setToolTip(tip)
+        combo.currentIndexChanged.connect(self._on_combine_changed)
+        lay.addWidget(lbl)
+        lay.addWidget(combo)
+        self._combine_combo = combo
+        self._show_combine()
+
+    def _show_combine(self) -> None:
+        """Reflect ``self._crafted_combine`` in the selector without re-triggering it."""
+        if self._combine_combo is None:
+            return
+        idx = self._combine_combo.findData(self._crafted_combine)
+        self._combine_combo.blockSignals(True)
+        self._combine_combo.setCurrentIndex(max(0, idx))
+        self._combine_combo.blockSignals(False)
+
+    def _on_combine_changed(self, _idx: int = 0) -> None:
+        if self._combine_combo is None:
+            return
+        self._crafted_combine = mining_crafting.normalize_combine(self._combine_combo.currentData())
+        self._on_loadout_changed()
+
+    def _crafted_factor(self, i: int) -> Optional[float]:
+        """Laser power factor of turret ``i``; None when its laser is not crafted."""
+        qualities = self._turret_crafted[i] if i < len(self._turret_crafted) else None
+        lname = self._turret_laser_selections[i] if i < len(self._turret_laser_selections) else ""
+        if qualities is None or not mining_crafting.is_craftable(lname, self._craft_index):
+            return None
+        return mining_crafting.power_factor(lname, qualities, self._crafted_combine, self._craft_index)
+
+    def _crafted_entries(self, n: int) -> List[Optional[Dict[str, Any]]]:
+        """Per-turret "crafted" objects for a file (None = not crafted)."""
+        out: List[Optional[Dict[str, Any]]] = []
+        for i in range(n):
+            entry = None
+            if self._crafted_factor(i) is not None:
+                entry = mining_crafting.crafted_entry(
+                    self._turret_laser_selections[i], self._turret_crafted[i],
+                    self._crafted_combine, self._craft_index,
+                )
+            out.append(entry)
+        return out
+
+    def _apply_crafted_from_file(self, turret_dicts: List[Any], combine: Any) -> None:
+        """Take crafted inputs from a loaded file (missing keys = not crafted)."""
+        self._turret_crafted = []
+        for td in turret_dicts:
+            crafted = mining_crafting.clean_crafted(
+                td.get(mining_crafting.FIELD_CRAFTED) if isinstance(td, dict) else None
+            )
+            self._turret_crafted.append(
+                dict(crafted[mining_crafting.FIELD_QUALITIES]) if crafted is not None else None
+            )
+        if combine in mining_crafting.COMBINE_RULES:
+            self._crafted_combine = combine
+        self._show_combine()
 
     def _update_module_slot_states(self) -> None:
         try:
@@ -501,7 +627,14 @@ class MiningLoadoutWindow(SCWindow):
         gname = self._gadget_combo.currentText() if self._gadget_combo else ""
         gadget = self._get_gadget(gname)
 
-        stats = calc_stats(self.ship_name, laser_items, module_items, gadget)
+        factors = [self._crafted_factor(i) for i in range(n)]
+        for i, ctrl in enumerate(self._crafted_controls):
+            ctrl.set_result(factors[i] if i < n else None)
+
+        stats = calc_stats(
+            self.ship_name, laser_items, module_items, gadget,
+            power_factors=[1.0 if f is None else f for f in factors],
+        )
         price = calc_loadout_price(self.ship_name, laser_items, module_items, gadget)
 
         for key, lbl in self._stat_labels.items():
@@ -617,6 +750,7 @@ class MiningLoadoutWindow(SCWindow):
             if i < len(self._turret_module_selections):
                 for j in range(MAX_MODULE_SLOTS):
                     self._turret_module_selections[i][j] = NONE_MODULE
+        self._turret_crafted = [None] * cfg.turrets
         if self._gadget_combo:
             self._gadget_combo.blockSignals(True)
             self._gadget_combo.setCurrentIndex(0)
@@ -634,7 +768,9 @@ class MiningLoadoutWindow(SCWindow):
             lname = self._turret_laser_selections[i] if i < len(self._turret_laser_selections) else NONE_LASER
             mods = self._turret_module_selections[i] if i < len(self._turret_module_selections) else [NONE_MODULE] * MAX_MODULE_SLOTS
             mod_str = "  |  ".join(str(m) for m in mods)
-            lines.append(f"{cfg.turret_names[i]}: {lname}  |  {mod_str}")
+            factor = self._crafted_factor(i)
+            craft_str = f"  |  crafted, laser power {(factor - 1.0) * 100.0:+.1f}%" if factor is not None else ""
+            lines.append(f"{cfg.turret_names[i]}: {lname}  |  {mod_str}{craft_str}")
         gname = self._gadget_combo.currentText() if self._gadget_combo else NONE_GADGET
         lines.append(f"Gadget: {gname}")
         lines.append("")
@@ -818,6 +954,10 @@ class MiningLoadoutWindow(SCWindow):
                 mods = td.get("modules", [NONE_MODULE] * MAX_MODULE_SLOTS)
                 for j in range(MAX_MODULE_SLOTS):
                     self._turret_module_selections[i][j] = mods[j] if j < len(mods) else NONE_MODULE
+        self._apply_crafted_from_file(
+            [loadout.get(f"turret_{i}") for i in range(n)],
+            cfg.get(mining_crafting.FIELD_COMBINE),
+        )
 
     def _save_config(self) -> None:
         cfg = SHIPS.get(self.ship_name)
@@ -835,7 +975,12 @@ class MiningLoadoutWindow(SCWindow):
             ]
             turret_modules.append(mods)
         gname = self._gadget_combo.currentText() if self._gadget_combo else NONE_GADGET
-        save_config(self.ship_name, "", turret_lasers, turret_modules, gname)
+        crafted = self._crafted_entries(n)
+        save_config(
+            self.ship_name, "", turret_lasers, turret_modules, gname,
+            turret_crafted=crafted if any(crafted) else None,
+            crafted_combine=self._crafted_combine if any(crafted) else None,
+        )
 
     # ── Save / Load loadout files ─────────────────────────────────────────────
 
@@ -863,12 +1008,7 @@ class MiningLoadoutWindow(SCWindow):
             ]
             turrets.append({"laser": lname, "modules": mods})
         gname = self._gadget_combo.currentText() if self._gadget_combo else NONE_GADGET
-        data = {
-            "version": 1,
-            "ship": self.ship_name,
-            "turrets": turrets,
-            "gadget": gname,
-        }
+        data = self._loadout_file_data(turrets, gname)
         try:
             with open(path, "w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=2)
@@ -879,6 +1019,24 @@ class MiningLoadoutWindow(SCWindow):
             log.error("Save loadout failed:\n%s", traceback.format_exc())
             if self._status_label:
                 self._status_label.setText("  Save failed.")
+
+    def _loadout_file_data(self, turrets: List[Dict[str, Any]], gadget: str) -> Dict[str, Any]:
+        """The exported loadout file. Crafted keys appear only for a crafted laser,
+        so a loadout without one is the same file it always was (still version 1:
+        the keys are optional and older readers never look at them)."""
+        crafted = self._crafted_entries(len(turrets))
+        for td, entry in zip(turrets, crafted):
+            if entry:
+                td[mining_crafting.FIELD_CRAFTED] = entry
+        data: Dict[str, Any] = {
+            "version": 1,
+            "ship": self.ship_name,
+            "turrets": turrets,
+            "gadget": gadget,
+        }
+        if any(crafted):
+            data[mining_crafting.FIELD_COMBINE] = self._crafted_combine
+        return data
 
     def _load_loadout(self) -> None:
         default_dir = os.path.join(os.path.expanduser("~"), "Documents", "SC Loadouts")
@@ -891,6 +1049,9 @@ class MiningLoadoutWindow(SCWindow):
         )
         if not path:
             return
+        self._load_loadout_path(path)
+
+    def _load_loadout_path(self, path: str) -> None:
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -921,6 +1082,10 @@ class MiningLoadoutWindow(SCWindow):
             mods = td.get("modules", [NONE_MODULE] * MAX_MODULE_SLOTS)
             for j in range(MAX_MODULE_SLOTS):
                 self._turret_module_selections[i][j] = mods[j] if j < len(mods) else NONE_MODULE
+        self._apply_crafted_from_file(
+            [turrets[i] if i < len(turrets) else None for i in range(n)],
+            data.get(mining_crafting.FIELD_COMBINE),
+        )
 
         gadget = data.get("gadget", NONE_GADGET)
 
