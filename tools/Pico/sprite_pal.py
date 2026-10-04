@@ -305,7 +305,11 @@ class Customise(QDialog):
 
 class Pal(QWidget):
     def __init__(self, chooser: sprites.LoopChooser, source=None, tail=None, demo=False, pinned=None):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        # NoDropShadowWindowHint: his window is transparent and much wider than he is (MARGIN), and without
+        # it Windows draws a shadow round that empty rectangle. J 2026-10-04: "why is pico pals have a
+        # giant square".
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
+                         | Qt.NoDropShadowWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.chooser, self.source, self.tail = chooser, source, tail
         self.demo, self.pinned = demo, pinned
@@ -538,6 +542,32 @@ class Pal(QWidget):
         save_settings(d)
 
 
+def no_window_frame(widget) -> None:
+    """Windows 11 outlines every top-level window and rounds its corners, even a frameless transparent one,
+    which shows as a faint box around Pico's (mostly empty) window. Ask DWM for no border colour and square
+    corners. Best effort: older Windows has neither attribute and just returns an error code."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        hwnd = int(widget.winId())
+        for attr, value in ((34, 0xFFFFFFFE),      # DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE
+                            (33, 1)):              # DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_DONOTROUND
+            v = ctypes.c_uint(value)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), attr, ctypes.byref(v),
+                                                       ctypes.sizeof(v))
+    except Exception:                               # noqa: BLE001 - cosmetic; Pico still runs
+        pass
+
+
+def pico_on_a_screen(screens, top_left: QPoint, size: QSize) -> bool:
+    """True when PICO HIMSELF would be on a screen with the window at top_left. He is drawn in the middle of
+    a window 2.5x his width, so the window's corner can be on screen while he is past the edge (J 2026-10-04:
+    "also the pico is off screen"). The old check asked about the corner."""
+    centre = QPoint(top_left.x() + size.width() // 2, top_left.y() + size.height() // 2)
+    return any(s.availableGeometry().contains(centre) for s in screens)
+
+
 def main(argv=None, on_ready=None) -> int:
     """Run Pico. on_ready(app, pal), if given, is called once the window exists and before the event
     loop starts: pico_pals_app.py (the launcher's tile) uses it to answer show / hide / quit."""
@@ -578,10 +608,13 @@ def main(argv=None, on_ready=None) -> int:
             pal.play(pal.chooser.catalog.loops[pal.chooser.current])
     scr = app.primaryScreen().availableGeometry()
     pos = QPoint(int(saved.get("x", scr.right() - 320)), int(saved.get("y", scr.bottom() - HEIGHT - 60)))
-    if not any(s.availableGeometry().contains(pos) for s in app.screens()):
-        pos = QPoint(scr.right() - 320, scr.bottom() - HEIGHT - 60)   # saved spot is off every screen now
+    if not pico_on_a_screen(app.screens(), pos, pal.sizeHint()):
+        # the saved spot would put him off every screen: bottom right of the main one, HIM not his window
+        sh = pal.sizeHint()
+        pos = QPoint(scr.right() - 200 - sh.width() // 2, scr.bottom() - sh.height() - 60)
     pal.move(pos)
     pal.show()
+    no_window_frame(pal)
     QTimer.singleShot(300, pal.customise)     # first launch, every app start (J, PICO_CONTRACT.md)
     if on_ready is not None:
         on_ready(app, pal)

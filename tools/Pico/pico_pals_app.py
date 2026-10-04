@@ -87,6 +87,10 @@ def _fail(code: int, message: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     pal_args, cmd_file = split_launcher_argv(argv)
+    # The launcher starts every tool with its UI scale in QT_SCALE_FACTOR. Pico has his own size setting and
+    # saves his position in unscaled pixels, so the scale both enlarged him and multiplied his saved spot
+    # off the edge of the screen (J 2026-10-04, ui_scale 1.5). Qt reads it when the application is created.
+    os.environ.pop("QT_SCALE_FACTOR", None)
 
     if HERE not in sys.path:
         sys.path.insert(0, HERE)
