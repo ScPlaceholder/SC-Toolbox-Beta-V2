@@ -594,6 +594,17 @@ def _epoch_of(ts: Any) -> Optional[float]:
     return ts.timestamp()
 
 
+# The client writes this line on its own, over and over, whenever a ship has no route loaded. Upstream
+# reads it as `qt_error` (a failed jump) worth 0.35 irritation each time. Measured on J's logs (see
+# sprites.EVENT_LOOPS): 352 of these against 21 real arrivals, median gap 17.8s. On 2026-10-04 six of
+# them in two and a half minutes took Pico from happy to irritation 1.00 while J simply sat in a ship
+# ("Why is the pico mad when I'm in a ship?"). The mood source therefore does not feed it to the
+# affect model. A real failed jump, the HUD's "Quantum Travel: ... obstructed", is a different line
+# and is not filtered here. (Upstream's parser emits no event for that line today, checked against a
+# real one from J's logs, so at present nothing about quantum travel moves his mood.)
+ROUTE_NOISE = "Failed to get starmap route data"
+
+
 class MoodSource:
     """Game.log lines in, `MoodReading` out. The state machine layer C owes layer B.
 
@@ -705,6 +716,9 @@ class MoodSource:
             ts = _epoch_of(getattr(event, "timestamp", None))
             if ts is not None:
                 self.last_event_at = ts
+        if getattr(self, "_route_noise", False) and event.event_type == "qt_error":
+            self.noise_ignored = getattr(self, "noise_ignored", 0) + 1
+            return                    # seen and counted, but it is not something that happened to him
         if self.affect.feed(event.event_type, dict(getattr(event, "data", None) or {})):
             self.events_moved += 1
 
@@ -757,7 +771,11 @@ class MoodSource:
         """
         self.lines_seen += 1
         self.last_line_at = self._now()
-        self.parser.on_raw_line(line.rstrip("\n"))
+        self._route_noise = ROUTE_NOISE in line
+        try:
+            self.parser.on_raw_line(line.rstrip("\n"))
+        finally:
+            self._route_noise = False
 
     def feed_lines(self, lines: Iterable[str]) -> int:
         n = 0
