@@ -6,6 +6,9 @@
     py -3.13 sprite_pal.py --mood happy            # pin one mood (art review)
     py -3.13 sprite_pal.py --loops <folder>        # another outfit's loops (e.g. Origin)
 
+From the toolbox launcher he is the "Pico Pals" tile, which runs pico_pals_app.py: the launcher passes
+window geometry and a command file, which this CLI rejects, so that file adapts them and calls main().
+
 Moods pick his looping idle; Game.log EVENTS (docking, quantum, injury, contract complete...) play a
 one-shot gesture from sprites.EVENT_LOOPS, then he goes back to his mood. Drawing a weapon in game
 (slot 1, slot 2, multitool) makes him hold the matching prop until you holster (sprites.HAND_LOOPS).
@@ -535,7 +538,9 @@ class Pal(QWidget):
         save_settings(d)
 
 
-def main(argv=None) -> int:
+def main(argv=None, on_ready=None) -> int:
+    """Run Pico. on_ready(app, pal), if given, is called once the window exists and before the event
+    loop starts: pico_pals_app.py (the launcher's tile) uses it to answer show / hide / quit."""
     ap = argparse.ArgumentParser(description="Pico on the desktop")
     ap.add_argument("--log", type=Path)
     ap.add_argument("--loops", type=Path, default=sprites.DEFAULT_DIR)
@@ -578,6 +583,8 @@ def main(argv=None) -> int:
     pal.move(pos)
     pal.show()
     QTimer.singleShot(300, pal.customise)     # first launch, every app start (J, PICO_CONTRACT.md)
+    if on_ready is not None:
+        on_ready(app, pal)
     return app.exec()
 
 

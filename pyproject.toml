@@ -4,7 +4,7 @@ version = "2.4.0"
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
-testpaths = ["shared/tests", "core/tests", "tools/SuitMk2/tests", "tools/Pico/pico/tests"]
+testpaths = ["shared/tests", "core/tests", "tools/SuitMk2/tests", "tools/Pico/pico/tests", "tools/Pico/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

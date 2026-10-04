@@ -1,0 +1,10 @@
+{
+  "id": "pico",
+  "name": "Pico Pals",
+  "icon": "🐧",
+  "color": "#ff9ecf",
+  "folder": "Pico",
+  "script": "pico_pals_app.py",
+  "hotkey": "<ctrl>+7",
+  "settings_key": "hotkey_pico"
+}
