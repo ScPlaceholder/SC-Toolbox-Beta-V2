@@ -219,11 +219,20 @@ class SCToolboxApp:
         (SkillConfig.hidden) and whether or not the user disabled it: the
         hotkey, the IPC commands (launch_skill / toggle_skill / stop_skill)
         and the Assistant all reach a tool through this registration.
+
+        The one exception is a tool that is a tab of another tool's window
+        (SkillConfig.tab_of): it gets no process of its own, because its
+        host's process is the one that runs it. See _process_for.
         """
+        by_id = {s.id: s for s in self._skills}
         for skill in self._skills:
             script_path = resolve_script_path(skill, _skill_dir)
             available = script_path is not None
             self._availability[skill.id] = available
+
+            host = by_id.get(skill.tab_of) if skill.tab_of else None
+            if host is not None and resolve_script_path(host, _skill_dir) is not None:
+                continue        # a tab: its host's process is the one that runs it
 
             if available and self._python:
                 folder = resolve_skill_path(skill, _skill_dir)
@@ -262,6 +271,13 @@ class SCToolboxApp:
                 # press (at the cost of one cold-spawn worth of latency
                 # ≈700 ms — acceptable, no multi-press confusion).
                 skill_env = dict(lang_env)
+                # A window with tabs is told which of them the user switched
+                # off in Settings (Enabled / Disabled), so a disabled tool
+                # does not come back as a tab of another one. "" = unset.
+                tabs = [skill.id] + [s.id for s in self._skills if s.tab_of == skill.id]
+                if len(tabs) > 1:
+                    skill_env["SC_TOOLBOX_TABS_OFF"] = ",".join(
+                        t for t in tabs if t in self._settings.disabled_skills)
 
                 self._pm.register(
                     skill_id=skill.id,
@@ -285,7 +301,9 @@ class SCToolboxApp:
                 continue
             if skill.id in self._settings.disabled_skills:
                 continue
-            mp = self._pm.get(skill.id)
+            # A tab's process is its host's (SuitMk2 asks for the preload,
+            # the Toolbox Assistant window it is a tab of is what starts).
+            _pid, mp, _tab = self._process_for(skill.id)
             if not mp or mp.running:
                 continue
             try:
@@ -363,12 +381,32 @@ class SCToolboxApp:
 
     # ── Skill toggle ─────────────────────────────────────────────────────
 
-    def _toggle_skill(self, skill_id: str) -> None:
+    def _process_for(self, skill_id: str):
+        """(process id, managed process, tab) for a skill id.
+
+        Normally the skill's own process and no tab. A tool that is a tab of
+        another tool's window (SkillConfig.tab_of) resolves to its HOST's
+        process and its own id as the tab; the host itself resolves to its
+        own process and its own id as the tab. So Ctrl+2 (SuitMk2) and
+        Ctrl+3 (Toolbox Assistant) reach one window, each on its own tab.
+        """
+        by_id = {s.id: s for s in self._skills}
+        skill = by_id.get(skill_id)
+        if skill is not None and skill.tab_of and self._pm.get(skill.tab_of):
+            return skill.tab_of, self._pm.get(skill.tab_of), skill_id
         mp = self._pm.get(skill_id)
+        hosts_tabs = any(s.tab_of == skill_id and not self._pm.get(s.id) for s in self._skills)
+        return skill_id, mp, (skill_id if hosts_tabs else None)
+
+    def _toggle_skill(self, skill_id: str) -> None:
+        pid, mp, tab = self._process_for(skill_id)
         if not mp:
             return
-        mp.toggle()
-        self._window.update_tile(skill_id, mp.running, mp.visible)
+        if tab:
+            mp.toggle_tab(tab)
+        else:
+            mp.toggle()
+        self._window.update_tile(pid, mp.running, mp.visible)
         self._auto_hide_check()
 
     def _sync_autohide_timer(self) -> None:
@@ -720,15 +758,18 @@ class SCToolboxApp:
             if sid:
                 self._toggle_skill(sid)
         elif t == "launch_skill":
-            sid = cmd.get("skill_id", "")
-            mp = self._pm.get(sid)
+            sid, mp, tab = self._process_for(cmd.get("skill_id", ""))
             if mp:
-                mp.show()
+                if tab:
+                    mp.show_tab(tab)
+                else:
+                    mp.show()
                 self._window.update_tile(sid, mp.running, mp.visible)
                 self._auto_hide_check()
         elif t == "stop_skill":
-            sid = cmd.get("skill_id", "")
-            mp = self._pm.get(sid)
+            # For a tab this stops the window it is a tab of: there is no
+            # process for the tab alone.
+            sid, mp, _tab = self._process_for(cmd.get("skill_id", ""))
             if mp:
                 mp.stop()
                 self._window.update_tile(sid, mp.running, mp.visible)

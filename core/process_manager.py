@@ -78,6 +78,7 @@ class ManagedProcess:
         self._log_file: Any | None = None
         self._stopping = False
         self._visible = False
+        self._tab: str | None = None   # last tab asked for (tools whose window has tabs)
         self._last_start: float = 0.0  # monotonic timestamp of last start
         self._START_COOLDOWN: float = PROCESS_START_COOLDOWN
         self._MAX_COOLDOWN: float = PROCESS_MAX_COOLDOWN
@@ -316,6 +317,44 @@ class ManagedProcess:
             else:
                 self._send_unlocked({"type": "show"})
                 self._visible = True
+
+    # ── Tabs ─────────────────────────────────────────────────────────────
+    # A tool whose window has tabs (the Toolbox Assistant: Assistant + SuitMk2)
+    # is one process reached by several hotkeys, one per tab. The command is
+    # the ordinary "show" with the tab's key added; a tool without tabs never
+    # gets one. The launcher cannot see a tab clicked inside the window, so
+    # ``_tab`` is the last tab IT asked for: after such a click, the hotkey of
+    # the tab now in front costs one extra press before it hides the window.
+
+    def show_tab(self, tab: str) -> None:
+        """show(), on one tab. Starts the process if needed, and the tab
+        request waits in the command file until the tool reads it."""
+        with self._lock:
+            if not self.running and not self._start_unlocked():
+                return
+            self._send_unlocked({"type": "show", "tab": tab})
+            self._visible = True
+            self._tab = tab
+
+    def toggle_tab(self, tab: str) -> None:
+        """toggle(), per tab: hide only when the window is showing THIS tab;
+        otherwise show the window on it."""
+        with self._lock:
+            if not self.running:
+                # If we had a process that died unexpectedly, record the crash
+                if self._proc is not None and self._proc.poll() is not None:
+                    self._record_crash()
+                if self._start_unlocked():
+                    self._send_unlocked({"type": "show", "tab": tab})
+                    self._tab = tab
+                return
+            if self._visible and self._tab == tab:
+                self._send_unlocked({"type": "hide"})
+                self._visible = False
+            else:
+                self._send_unlocked({"type": "show", "tab": tab})
+                self._visible = True
+                self._tab = tab
 
     def start_with_env(
         self,

@@ -7,5 +7,7 @@
   "script": "suitmk2_companion_app.py",
   "hotkey": "<ctrl>+2",
   "settings_key": "hotkey_suitmk2",
-  "preload": true
+  "preload": true,
+  "hidden": true,
+  "tab_of": "assistant"
 }

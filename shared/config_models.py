@@ -99,6 +99,13 @@ class SkillConfig:
     # LauncherSettings.disabled_skills, which is the user switching a tool
     # off: no tile AND no hotkey AND no preload.
     hidden: bool = False
+    # Set to another tool's id when this tool is one TAB of that tool's window
+    # (SuitMk2 is a tab of the Toolbox Assistant). The launcher then starts no
+    # process for it: its hotkey, and any IPC that names it, open the host's
+    # window on this tool's tab ({"type": "show", "tab": <this id>}). Normally
+    # paired with ``hidden`` so the launcher shows one tile for the window.
+    # Ignored when the host is not installed: the tool then runs on its own.
+    tab_of: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillConfig:
@@ -114,6 +121,7 @@ class SkillConfig:
             custom_args=list(data.get("custom_args", [])),
             preload=bool(data.get("preload", False)),
             hidden=bool(data.get("hidden", False)),
+            tab_of=str(data.get("tab_of", "") or ""),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -133,6 +141,8 @@ class SkillConfig:
             d["preload"] = True
         if self.hidden:
             d["hidden"] = True
+        if self.tab_of:
+            d["tab_of"] = self.tab_of
         return d
 
 

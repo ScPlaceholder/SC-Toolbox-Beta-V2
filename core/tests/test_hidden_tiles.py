@@ -40,7 +40,11 @@ HIDDEN = {"market": "Item Finder", "trade": "Trade Hub", "starmap": "Starmap", "
 # Tiles that were on J's screenshot and must still be there.  "missions" is Mission/Craft DB: a
 # different tool from Craft Database, and deliberately left alone.
 STILL_TILES = {"dps", "cargo", "missions", "mining", "everything_finder", "battle_buddy",
-               "mouse_blocker", "dev_history", "mining_signals", "playtime", "suitmk2", "assistant"}
+               "mouse_blocker", "dev_history", "mining_signals", "playtime", "assistant"}
+# Hidden for a different reason, later the same day: SuitMk2 became a tab of the Toolbox Assistant window
+# (SkillConfig.tab_of).  It has no tile AND no process of its own, so the rules below that say "hidden
+# changes nothing but the tile" are not about it; core/tests/test_tab_tools.py is.
+TAB_TOOLS = {"suitmk2"}
 
 
 def _skill(sid: str, **kw) -> SkillConfig:
@@ -101,7 +105,7 @@ def test_the_four_are_declared_hidden_and_still_registered():
         assert sid in by_id, f"{name} ({sid}) is no longer returned by the registry: hidden is not removed"
         assert by_id[sid].hidden is True, f"{name} ({sid}) is not declared hidden"
         assert resolve_script_path(by_id[sid], REPO), f"{name} ({sid}) has no entry script on disk"
-    assert {sid for sid, s in by_id.items() if s.hidden} == set(HIDDEN), "something else became hidden"
+    assert {sid for sid, s in by_id.items() if s.hidden} == set(HIDDEN) | TAB_TOOLS, "something else became hidden"
 
 
 def test_mission_craft_db_is_not_the_craft_database_and_keeps_its_tile():
@@ -118,7 +122,7 @@ def test_the_launcher_grid_has_no_tile_for_the_four_and_one_for_everything_else(
     assert set(HIDDEN) <= set(out["registry"]), "the probe's registry lost a hidden tool"
     assert not set(HIDDEN) & set(tile_ids), f"hidden tools still have tiles: {set(HIDDEN) & set(tile_ids)}"
     assert STILL_TILES <= set(tile_ids), f"tiles that must stay are gone: {STILL_TILES - set(tile_ids)}"
-    assert set(tile_ids) == set(out["registry"]) - set(HIDDEN), "a tool with no tile that is not hidden"
+    assert set(tile_ids) == set(out["registry"]) - set(HIDDEN) - TAB_TOOLS, "a tool with no tile that is not hidden"
 
 
 def test_the_grid_closes_up_with_no_hole_where_a_hidden_tile_was():

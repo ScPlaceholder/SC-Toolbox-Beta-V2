@@ -557,6 +557,15 @@ def _launch_tool(ctx: ToolContext, name: str) -> dict:
         return {"launched": label, "skill_id": sid, "via": "already running",
                 "note": "that is me, already open"}
 
+    # A tool that is another tab of the window I am in (SuitMk2, in the
+    # Toolbox Assistant window): bring its tab forward. Starting it would
+    # be a second copy of a tool that is already running beside me.
+    from . import hub
+    if sid in hub.hosted_tabs():
+        hub.show_tab(sid)
+        return {"launched": label, "skill_id": sid, "via": "already running",
+                "note": "it is a tab of this window; switching to it hands it the microphone"}
+
     if ipc_bus.is_running(sid):
         ipc_bus.send(sid, {"type": "show"})
         return {"launched": label, "skill_id": sid, "via": "already running"}

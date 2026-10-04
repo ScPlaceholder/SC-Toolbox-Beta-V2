@@ -1,10 +1,10 @@
 {
   "id": "assistant",
-  "name": "Toolbox Assistant",
+  "name": "Toolbox Assistant / AI Crew",
   "icon": "\ud83e\udd16",
   "color": "#66ddff",
   "folder": "Assistant",
-  "script": "assistant_app.py",
+  "script": "toolbox_assistant_app.py",
   "hotkey": "<ctrl>+3",
   "settings_key": "hotkey_assistant"
 }
