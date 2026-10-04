@@ -6,5 +6,6 @@
   "folder": "Starmap",
   "script": "starmap_app.py",
   "hotkey": "<ctrl>+5",
-  "settings_key": "hotkey_starmap"
+  "settings_key": "hotkey_starmap",
+  "hidden": true
 }

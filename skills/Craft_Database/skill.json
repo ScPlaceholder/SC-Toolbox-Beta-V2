@@ -6,5 +6,6 @@
     "folder": "Craft_Database",
     "script": "craft_db_app.py",
     "hotkey": "<shift>+7",
-    "settings_key": "hotkey_craft_db"
+    "settings_key": "hotkey_craft_db",
+    "hidden": true
 }

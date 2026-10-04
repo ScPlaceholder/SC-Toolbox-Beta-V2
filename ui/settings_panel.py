@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QSpinBox, QSlider,
 )
 
+from core.skill_registry import tile_skills
 from shared.config_models import SkillConfig
 from shared.i18n import _ as _t
 from shared.qt import screen_fit
@@ -230,6 +231,7 @@ class SettingsPopup(QWidget):
         grid_rows: int,
         grid_cols: int,
         grid_layout: Dict[str, str],
+        show_hidden_tiles: Optional[List[str]] = None,
         current_language: str = "en",
         available_languages: Optional[List[str]] = None,
         on_apply: Optional[Callable[[dict], None]] = None,
@@ -268,6 +270,11 @@ class SettingsPopup(QWidget):
         self._skill_hotkeys: Dict[str, str] = {s.id: s.hotkey for s in skills}
         self._disabled: set[str] = set(disabled_skills)
         self._keybinds_disabled: set[str] = set(keybinds_disabled)
+        # Tools that have a launcher tile. A tool declared hidden has none, so
+        # it is not offered for a grid cell (it would be a cell that stays
+        # empty), but it keeps its row on the Tools tab: its hotkey still works
+        # and has to stay editable.
+        self._tile_ids: set[str] = {s.id for s in tile_skills(skills, show_hidden_tiles or [])}
         self._grid_rows = grid_rows
         self._grid_cols = grid_cols
         self._grid_layout: Dict[str, str] = dict(grid_layout)
@@ -567,6 +574,8 @@ class SettingsPopup(QWidget):
         # Skill rows
         for skill in self._skills:
             label = f"{skill.icon} {skill.name}"
+            if skill.id not in self._tile_ids:
+                label += " " + _t("(no tile)")
             enabled = skill.id not in self._disabled
             self._make_tool_row(c_lay, skill.id, label, self._skill_hotkeys.get(skill.id, skill.hotkey), show_toggle=True, enabled=enabled)
 
@@ -1021,7 +1030,8 @@ class SettingsPopup(QWidget):
         # Build skill choices: "(Empty)" + each skill
         skill_choices = [("", _t("(Empty)"))]
         for s in self._skills:
-            skill_choices.append((s.id, f"{s.icon} {s.name}"))
+            if s.id in self._tile_ids:
+                skill_choices.append((s.id, f"{s.icon} {s.name}"))
 
         for r in range(rows):
             for c in range(cols):

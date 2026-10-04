@@ -141,6 +141,85 @@ class SCToolboxApp:
             lang_env["QT_SCALE_FACTOR"] = ""
         if self._settings.hide_on_tool_active:
             lang_env["SC_TOOLBOX_EXIT_ON_CLOSE"] = "1"
+        self._register_skills(lang_env)
+
+        # ── Build UI ──
+        self._geometry = geometry
+        self._window = LauncherWindow(
+            geometry=geometry,
+            skills=self._skills,
+            availability=self._availability,
+            launcher_hotkey=self._launcher_hotkey,
+            python_info=self._python_info,
+            on_toggle_skill=self._toggle_skill,
+            on_apply_settings=self._apply_settings,
+            on_shutdown=self._shutdown,
+            current_language=self._settings.language,
+            available_languages=i18n.available_languages(_skill_dir),
+            disabled_skills=self._settings.disabled_skills,
+            keybinds_disabled=self._settings.keybinds_disabled,
+            show_hidden_tiles=self._settings.show_hidden_tiles,
+            grid_rows=self._settings.grid_rows,
+            grid_cols=self._settings.grid_cols,
+            grid_layout=self._settings.grid_layout,
+            scroll_on_hover=self._settings.scroll_on_hover,
+            ui_scale=self._settings.ui_scale,
+            hide_on_tool_active=self._settings.hide_on_tool_active,
+            on_restart=self._relaunch,
+        )
+
+        # ── Thread-safe dispatch queue ──
+        # pynput hotkey callbacks and IPC watcher run on background threads.
+        # QTimer.singleShot(0, fn) from a non-GUI thread is unreliable in PySide6.
+        # Instead, callbacks enqueue work and a main-thread timer drains the queue.
+        self._dispatch_queue: queue.Queue = queue.Queue()
+        self._queue_timer = QTimer()
+        self._queue_timer.setInterval(50)  # 50ms poll — responsive enough for hotkeys
+        self._queue_timer.timeout.connect(self._drain_queue)
+        self._queue_timer.start()
+
+        # ── Hotkeys ──
+        self._hotkey_listener = None
+        self._hotkey_conflicts: list = []
+        self._start_hotkeys()
+
+        # ── Auto-check for updates (2s after launch) ──
+        QTimer.singleShot(2000, self._window.check_for_updates_at_startup)
+
+        # ── Skill crash monitor ──
+        # Tracks the last PID for which we already showed a crash dialog so
+        # we don't spam the user if the poll fires multiple times before the
+        # process is restarted.
+        self._last_crash_pid: Dict[str, int] = {}
+        self._health_timer = QTimer()
+        self._health_timer.setInterval(5000)  # check every 5 s
+        self._health_timer.timeout.connect(self._check_skill_health)
+        self._health_timer.start()
+
+        # ── Auto-hide state ──
+        self._autohide_timer: Optional[QTimer] = None
+        self._autohide_stashed = False
+        self._autohide_pos = self._window.pos()
+        self._sync_autohide_timer()
+
+        # ── IPC command watcher ──
+        self._start_cmd_watcher()
+
+        # ── Pre-spawn skills marked preload=true ──
+        # Spawned hidden (SC_TOOLBOX_PRELOAD=1 in their env) so the
+        # expensive Qt cold start happens once now, in the background.
+        # Every subsequent hotkey/tile press is just an IPC show.
+        # Deferred ~250 ms so the launcher window paints first.
+        QTimer.singleShot(250, self._preload_skills)
+
+    def _register_skills(self, lang_env: Dict[str, str]) -> None:
+        """Work out which skills are installed and register each one's process.
+
+        Every discovered skill is registered, whether or not it has a tile
+        (SkillConfig.hidden) and whether or not the user disabled it: the
+        hotkey, the IPC commands (launch_skill / toggle_skill / stop_skill)
+        and the Assistant all reach a tool through this registration.
+        """
         for skill in self._skills:
             script_path = resolve_script_path(skill, _skill_dir)
             available = script_path is not None
@@ -198,74 +277,6 @@ class SCToolboxApp:
                 mp = self._pm.get(skill.id)
                 if mp:
                     mp.set_on_exit(lambda: self._enqueue(self._auto_hide_check))
-
-        # ── Build UI ──
-        self._geometry = geometry
-        self._window = LauncherWindow(
-            geometry=geometry,
-            skills=self._skills,
-            availability=self._availability,
-            launcher_hotkey=self._launcher_hotkey,
-            python_info=self._python_info,
-            on_toggle_skill=self._toggle_skill,
-            on_apply_settings=self._apply_settings,
-            on_shutdown=self._shutdown,
-            current_language=self._settings.language,
-            available_languages=i18n.available_languages(_skill_dir),
-            disabled_skills=self._settings.disabled_skills,
-            keybinds_disabled=self._settings.keybinds_disabled,
-            grid_rows=self._settings.grid_rows,
-            grid_cols=self._settings.grid_cols,
-            grid_layout=self._settings.grid_layout,
-            scroll_on_hover=self._settings.scroll_on_hover,
-            ui_scale=self._settings.ui_scale,
-            hide_on_tool_active=self._settings.hide_on_tool_active,
-            on_restart=self._relaunch,
-        )
-
-        # ── Thread-safe dispatch queue ──
-        # pynput hotkey callbacks and IPC watcher run on background threads.
-        # QTimer.singleShot(0, fn) from a non-GUI thread is unreliable in PySide6.
-        # Instead, callbacks enqueue work and a main-thread timer drains the queue.
-        self._dispatch_queue: queue.Queue = queue.Queue()
-        self._queue_timer = QTimer()
-        self._queue_timer.setInterval(50)  # 50ms poll — responsive enough for hotkeys
-        self._queue_timer.timeout.connect(self._drain_queue)
-        self._queue_timer.start()
-
-        # ── Hotkeys ──
-        self._hotkey_listener = None
-        self._hotkey_conflicts: list = []
-        self._start_hotkeys()
-
-        # ── Auto-check for updates (2s after launch) ──
-        QTimer.singleShot(2000, self._window.check_for_updates_at_startup)
-
-        # ── Skill crash monitor ──
-        # Tracks the last PID for which we already showed a crash dialog so
-        # we don't spam the user if the poll fires multiple times before the
-        # process is restarted.
-        self._last_crash_pid: Dict[str, int] = {}
-        self._health_timer = QTimer()
-        self._health_timer.setInterval(5000)  # check every 5 s
-        self._health_timer.timeout.connect(self._check_skill_health)
-        self._health_timer.start()
-
-        # ── Auto-hide state ──
-        self._autohide_timer: Optional[QTimer] = None
-        self._autohide_stashed = False
-        self._autohide_pos = self._window.pos()
-        self._sync_autohide_timer()
-
-        # ── IPC command watcher ──
-        self._start_cmd_watcher()
-
-        # ── Pre-spawn skills marked preload=true ──
-        # Spawned hidden (SC_TOOLBOX_PRELOAD=1 in their env) so the
-        # expensive Qt cold start happens once now, in the background.
-        # Every subsequent hotkey/tile press is just an IPC show.
-        # Deferred ~250 ms so the launcher window paints first.
-        QTimer.singleShot(250, self._preload_skills)
 
     def _preload_skills(self) -> None:
         """Spawn preload-marked skills in hidden state for instant later show."""
@@ -471,6 +482,9 @@ class SCToolboxApp:
         if self._launcher_hotkey and "launcher" not in kb_disabled:
             claim(self._launcher_hotkey, "the launcher",
                   lambda: self._enqueue(self._window.toggle_visibility))
+        # Every discovered skill, INCLUDING the ones with no tile
+        # (SkillConfig.hidden): hiding a tile must not silently take away a
+        # shortcut. Only the user's own switches turn a hotkey off.
         for skill in self._skills:
             if skill.id in disabled:
                 continue
@@ -596,6 +610,7 @@ class SCToolboxApp:
             available_languages=i18n.available_languages(_skill_dir),
             disabled_skills=self._settings.disabled_skills,
             keybinds_disabled=self._settings.keybinds_disabled,
+            show_hidden_tiles=self._settings.show_hidden_tiles,
             grid_rows=self._settings.grid_rows,
             grid_cols=self._settings.grid_cols,
             grid_layout=self._settings.grid_layout,

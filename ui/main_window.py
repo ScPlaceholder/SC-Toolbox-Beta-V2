@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QSizePolicy, QPushButton, QGraphicsOpacityEffect,
 )
 
+from core.skill_registry import tile_skills
 from shared.config_models import SkillConfig, WindowGeometry
 from shared.i18n import _ as _t
 from shared.qt.theme import P
@@ -353,6 +354,7 @@ class LauncherWindow(SCWindow):
         available_languages: Optional[List[str]] = None,
         disabled_skills: Optional[List[str]] = None,
         keybinds_disabled: Optional[List[str]] = None,
+        show_hidden_tiles: Optional[List[str]] = None,
         grid_rows: int = 3,
         grid_cols: int = 2,
         grid_layout: Optional[Dict[str, str]] = None,
@@ -379,6 +381,7 @@ class LauncherWindow(SCWindow):
         self._available_languages = available_languages or ["en"]
         self._disabled_skills = disabled_skills or []
         self._keybinds_disabled = keybinds_disabled or []
+        self._show_hidden_tiles = show_hidden_tiles or []
         self._grid_rows = grid_rows
         self._grid_cols = grid_cols
         self._grid_layout = grid_layout or {}
@@ -574,8 +577,10 @@ class LauncherWindow(SCWindow):
         self.content_layout.addWidget(sep)
 
         # ── Tile grid ──
-        # Filter out disabled skills
-        enabled_skills = [s for s in skills if s.id not in self._disabled_skills]
+        # Tiles: not the tools declared hidden (SkillConfig.hidden, unless the
+        # user asked for the tile back) and not the ones the user disabled.
+        enabled_skills = [s for s in tile_skills(skills, self._show_hidden_tiles)
+                          if s.id not in self._disabled_skills]
         self._tiles_container = tiles_container = QWidget(self)
         tiles_container.setStyleSheet(f"background-color: {P.bg_primary};")
         tiles_layout = QVBoxLayout(tiles_container)
@@ -735,6 +740,7 @@ class LauncherWindow(SCWindow):
             launcher_hotkey=self._launcher_hotkey,
             disabled_skills=self._disabled_skills,
             keybinds_disabled=self._keybinds_disabled,
+            show_hidden_tiles=self._show_hidden_tiles,
             grid_rows=self._grid_rows,
             grid_cols=self._grid_cols,
             grid_layout=self._grid_layout,

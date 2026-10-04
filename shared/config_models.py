@@ -89,6 +89,16 @@ class SkillConfig:
     # startup (kept hidden) so the first hotkey activation is just an
     # IPC show — sub-100ms instead of the 1-2s subprocess cold start.
     preload: bool = False
+    # If True, the launcher draws no tile for this tool. NOTHING else changes:
+    # it is still discovered, registered with the process manager, bound to
+    # its hotkey, listed in Settings and openable over IPC ("launch_skill"),
+    # by the Assistant and by any tool that embeds it. Used for tools that
+    # are reached through another tool (Item Finder, Trade Hub and Star Map
+    # are tabs of the Everything Finder). The user can bring a tile back with
+    # LauncherSettings.show_hidden_tiles. Not to be confused with
+    # LauncherSettings.disabled_skills, which is the user switching a tool
+    # off: no tile AND no hotkey AND no preload.
+    hidden: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillConfig:
@@ -103,6 +113,7 @@ class SkillConfig:
             settings_key=str(data.get("settings_key", "")),
             custom_args=list(data.get("custom_args", [])),
             preload=bool(data.get("preload", False)),
+            hidden=bool(data.get("hidden", False)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -120,6 +131,8 @@ class SkillConfig:
             d["custom_args"] = self.custom_args
         if self.preload:
             d["preload"] = True
+        if self.hidden:
+            d["hidden"] = True
         return d
 
 
@@ -137,6 +150,7 @@ class LauncherSettings:
     hide_on_tool_active: bool = False  # auto-hide launcher when any tool is open
     disabled_skills: list[str] = field(default_factory=lambda: ["craft_db"])
     keybinds_disabled: list[str] = field(default_factory=list)  # ids ("launcher" or skill_id) whose hotkey is off
+    show_hidden_tiles: list[str] = field(default_factory=list)  # ids of SkillConfig.hidden tools the user wants a tile for anyway
     grid_layout: dict[str, str] = field(default_factory=dict)  # "row,col" -> skill_id
     skill_hotkeys: dict[str, str] = field(default_factory=dict)
     skill_windows: dict[str, WindowGeometry] = field(default_factory=dict)
@@ -154,6 +168,7 @@ class LauncherSettings:
         hide_on_tool_active = bool(data.get("hide_on_tool_active", False))
         disabled_skills = list(data.get("disabled_skills", ["craft_db"]))
         keybinds_disabled = list(data.get("keybinds_disabled", []))
+        show_hidden_tiles = [str(s) for s in data.get("show_hidden_tiles", []) or []]
         grid_layout = dict(data.get("grid_layout", {}))
 
         skill_hotkeys: dict[str, str] = {}
@@ -176,6 +191,7 @@ class LauncherSettings:
             hide_on_tool_active=hide_on_tool_active,
             disabled_skills=disabled_skills,
             keybinds_disabled=keybinds_disabled,
+            show_hidden_tiles=show_hidden_tiles,
             grid_layout=grid_layout,
             skill_hotkeys=skill_hotkeys,
             skill_windows=skill_windows,
@@ -195,6 +211,7 @@ class LauncherSettings:
         out["hide_on_tool_active"] = self.hide_on_tool_active
         out["disabled_skills"] = self.disabled_skills
         out["keybinds_disabled"] = self.keybinds_disabled
+        out["show_hidden_tiles"] = self.show_hidden_tiles
         out["grid_layout"] = self.grid_layout
         for sid, hk in self.skill_hotkeys.items():
             # Reconstruct the settings_key — convention is ``hotkey_{id}``

@@ -47,6 +47,7 @@ _BUILTIN_SKILLS: list[dict] = [
         "color": "#aa66ff", "folder": "Market_Finder",
         "script": "uex_item_browser.py", "hotkey": "<shift>+5",
         "settings_key": "hotkey_market",
+        "hidden": True,     # a tab of the Everything Finder; see SkillConfig.hidden
     },
     {
         "id": "trade", "name": N_("Trade Hub"), "icon": "\U0001f4b0",
@@ -54,11 +55,14 @@ _BUILTIN_SKILLS: list[dict] = [
         "script": "trade_hub_app.py", "hotkey": "<shift>+6",
         "settings_key": "hotkey_trade",
         "custom_args": ["300", "500"],
+        "hidden": True,     # a tab of the Everything Finder
     },
     {
         # Item Finder + Trade Hub + Star Map as three lazy tabs, with a shared
         # shopping list (added 2026-10-03). The two entries above stay: both
-        # tools still launch on their own exactly as before.
+        # tools still launch on their own exactly as before (hotkey, Assistant,
+        # IPC). Since 2026-10-04 they and the Star Map are "hidden": no launcher
+        # tile of their own, because this tile is where they are opened from.
         "id": "everything_finder", "name": N_("Everything Finder"), "icon": "\U0001f50e",
         "color": "#55ddaa", "folder": "Everything_Finder",
         "script": "everything_finder_app.py", "hotkey": "<ctrl>+6",
@@ -69,6 +73,7 @@ _BUILTIN_SKILLS: list[dict] = [
         "color": "#44ccbb", "folder": "Craft_Database",
         "script": "craft_db_app.py", "hotkey": "<shift>+7",
         "settings_key": "hotkey_craft_db",
+        "hidden": True,     # mirrors skills/Craft_Database/skill.json, which wins when present
     },
     {
         "id": "battle_buddy", "name": N_("Battle Buddy"), "icon": "\U0001f396",
@@ -165,6 +170,19 @@ def discover_skills(base_dir: str) -> list[SkillConfig]:
 
     log.info("skill_registry: %d skill(s) registered", len(result))
     return result
+
+
+def tile_skills(skills: list[SkillConfig], show_hidden: list[str] | tuple = ()) -> list[SkillConfig]:
+    """The skills that get a tile in the launcher grid, in registry order.
+
+    A skill declared ``hidden`` (see SkillConfig.hidden) is left out unless
+    its id is in *show_hidden* (LauncherSettings.show_hidden_tiles, the
+    user's override). This is the ONLY thing ``hidden`` changes: every other
+    consumer (process registration, hotkeys, preload, Settings, the
+    Assistant, IPC) keeps iterating the full list from discover_skills().
+    """
+    shown = set(show_hidden or ())
+    return [s for s in skills if not s.hidden or s.id in shown]
 
 
 def resolve_skill_path(skill: SkillConfig, base_dir: str) -> str | None:
