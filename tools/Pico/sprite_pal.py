@@ -31,7 +31,7 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QMovie, QPainter, QPixmap, QRadialGradient
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
                                QLabel, QMenu, QSlider, QVBoxLayout, QWidget)
@@ -451,6 +451,22 @@ class Pal(QWidget):
         ox = self.pic.x() + (self.pic.width() - mw) // 2
         oy = self.pic.y() + (self.pic.height() - self.height_px) // 2
         return QRect(ox, oy, mw, self.height_px)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        QTimer.singleShot(0, self.refresh_frame)      # hidden and shown again by the launcher's tile
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() == QEvent.WindowStateChange and not self.isMinimized():
+            QTimer.singleShot(0, self.refresh_frame)  # back from a minimise
+
+    def refresh_frame(self):
+        """Windows forgets the no-outline request when the window is minimised and restored, or hidden and
+        shown, and paints a pale rounded panel behind him (J 2026-10-04: "When you minimise the pico and
+        bring him back up he has the square around him again"). Ask again, then repaint."""
+        no_window_frame(self)
+        self.update()
 
     def resizeEvent(self, e):
         self.aura_layer.setGeometry(self.rect())
