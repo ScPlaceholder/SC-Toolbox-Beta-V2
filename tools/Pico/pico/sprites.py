@@ -53,14 +53,20 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
              # and grab/release are left out because the flipper is down there and the ship would float.
              "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan",
              # J 2026-10-03 15:22: the Banu skin's merchant stall ("I'M THE REAL BMM"), Banu only (BRAND_ONLY)
-             "idle_shuffle_default+bmm_table"),
+             "idle_shuffle_default+bmm_table",
+             # J 2026-10-04 17:35: "the gags should also happen when he's happy" (he saw one gag all day).
+             # Every gag is now in BOTH the calm and the happy pool; before, the stall was calm-only and
+             # the other three happy-only, and he is calm most of a session.
+             "ship_claim_star_grab+huckaby", "weapon_reload_happy_grab+chrisroberts_hold",
+             "proud_happy_grab+whale_hold"),
     "alert": ("radar_contact_surprised", "determined_focused", "weapon_draw_focused",
               "ship_claim_star_held+ship_gladius_claim"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
               "ship_claim_star_grab+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!" (GAG_SEQS)
               "weapon_reload_happy_grab+chrisroberts_hold",    # the Chris Roberts action figure (GAG_SEQS)
-              "proud_happy_grab+whale_hold"),   # the Chairman's Club WHALE certificate (GAG_SEQS)
+              "proud_happy_grab+whale_hold",    # the Chairman's Club WHALE certificate (GAG_SEQS)
+              "idle_shuffle_default+bmm_table"),   # the Banu stall, Banu only (BRAND_ONLY); J 2026-10-04
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
@@ -95,7 +101,8 @@ def brand_allows(name: str, root: Path) -> bool:
     return brand is None or Path(root).name.endswith("_" + brand)
 # J 2026-10-01 21:47: "maybe once an hour at the most for the puppet and the action figure". One SHARED
 # cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
-GAG_COOLDOWN_S = 3600.0
+# J 2026-10-04 17:35, after seeing one gag in a day of play: "Yeah let's do that" to about four an hour.
+GAG_COOLDOWN_S = 900.0
 
 # A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
 # repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
@@ -1104,7 +1111,8 @@ def selftest() -> int:
             fair = 1.0 / len(cg.pools[mood])
             ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
                0 < share < fair * 0.5)
-        # the hourly cap: once a gag has played, none plays again within GAG_COOLDOWN_S
+        # the cap: once a gag has played, none plays again within GAG_COOLDOWN_S. J asked for an hour on
+        # 2026-10-01 and for about four an hour on 2026-10-04; the 900 below is his number, written out.
         ch = LoopChooser(Catalog.scan(d), rng=random.Random(5))
         gags = set(RARE_LOOPS)
         mood = next((m for m, pool in ch.pools.items() if gags & set(pool)), None)
@@ -1113,11 +1121,11 @@ def selftest() -> int:
             for _ in range(5000):                       # picks every 10 s for ~14 hours
                 ch.current = None
                 if ch._pick(mood, at=t) in gags:
-                    if first is not None and t - first < 3600.0:   # J's hour, not the constant under test
+                    if first is not None and t - first < 900.0:    # J's quarter hour, not the constant under test
                         first = -1.0; break
                     first = t
                 t += 10.0
-            ck("no two gags within an hour", first is not None and first >= 0)
+            ck("no two gags within a quarter of an hour", first is not None and first >= 0)
         # the Customise settings: gags off means never a gag; signs off means never a sign
         cp = LoopChooser(Catalog.scan(d), rng=random.Random(11))
         cp.apply_prefs({"gags": False})
@@ -1241,6 +1249,22 @@ def selftest() -> int:
         ch = LoopChooser(Catalog.scan(d), rng=random.Random(3)); ch.on_mood("calm")
         ch.held = "weapon_reload_happy_held+hotdog_1"
         ck("no idle sign while he is holding something", ch.maybe_idle_sign(at=5e7) is None)
+        # gags are in the calm pool since 2026-10-04: over a few calm hours some play, and each ends in a rest
+        lasts = {seq[-1][0] for seq in GAG_SEQS.values()}
+        played, after_gag = 0, []
+        for seed in range(4):
+            cgq = LoopChooser(Catalog.scan(d), rng=random.Random(40 + seed)); cgq.on_mood("calm")
+            cgq.apply_prefs({"signs": False})
+            clkg = [0.0]; cgq.clock = lambda: clkg[0]
+            rows_g = simulate(cgq, clkg, 2 * 3600.0, mood="calm")
+            for (t, name, _r, _h), nxt in zip(rows_g[:-1], rows_g[1:]):
+                if name in RARE_LOOPS and nxt[1] != name:
+                    played += 1
+                if name in lasts and nxt[1] != name:
+                    after_gag.append(nxt[2])
+        ck("calm hours: gags play without any happy mood (%d in 8 h)" % played, played >= 4)
+        ck("after a gag is put away he rests (%d of %d)" % (sum(after_gag), len(after_gag)),
+           bool(after_gag) and all(after_gag))
         after = [nxt[2] for (t, name, _r, _h), nxt in zip(rows_i[:-1], rows_i[1:])
                  if "_release+sign_" in (name or "") and nxt[1] != name]
         ck("after a sign is lowered he rests (%d of %d)" % (sum(after), len(after)), bool(after) and all(after))
@@ -1254,7 +1278,8 @@ def selftest() -> int:
         # ---- RESTS (J 2026-10-04). Everything below runs on a fake clock. ----
         clk = [1000.0]
         cr = LoopChooser(Catalog.scan(d), rng=random.Random(21), clock=lambda: clk[0])
-        cr.apply_prefs({"signs": False})          # these checks are about idles; a sign is a 4 s held sequence
+        cr.apply_prefs({"signs": False, "gags": False})   # these checks are about idles; a sign or a gag is a held
+                                                           # sequence of several loops (gags are in calm since 10-04)
         rows = simulate(cr, clk, 2 * 3600.0)
         runs = _runs(rows)
         rest_share = sum(1 for r in rows if r[2]) / float(len(rows))
