@@ -57,3 +57,27 @@ def test_the_adapter_drops_the_launchers_ui_scale(monkeypatch):
     monkeypatch.setattr(pico_pals_app, "toolbox_game_log", lambda: None)
     assert pico_pals_app.main(["--demo"]) == 0
     assert seen["scale"] is None
+
+
+AREA = QRect(0, 0, 3840, 2112)       # the main screen minus a taskbar
+
+
+def test_no_saved_spot_starts_him_in_the_middle_of_the_main_screen():
+    pos = sprite_pal.start_position(MAIN, AREA, {}, WINDOW)
+    centre = QPoint(pos.x() + WINDOW.width() // 2, pos.y() + WINDOW.height() // 2)
+    assert abs(centre.x() - AREA.center().x()) <= 1 and abs(centre.y() - AREA.center().y()) <= 1
+
+
+def test_a_saved_spot_that_keeps_him_on_screen_is_kept():
+    assert sprite_pal.start_position(MAIN, AREA, {"x": 500, "y": 700}, WINDOW) == QPoint(500, 700)
+
+
+def test_a_saved_spot_that_puts_him_off_screen_goes_back_to_the_middle():
+    pos = sprite_pal.start_position(MAIN, AREA, {"x": 3359, "y": 1601}, WINDOW)
+    assert sprite_pal.pico_on_a_screen(MAIN, pos, WINDOW)
+    assert abs(pos.x() + WINDOW.width() // 2 - AREA.center().x()) <= 1
+
+
+def test_a_corrupt_saved_spot_does_not_stop_him_starting():
+    pos = sprite_pal.start_position(MAIN, AREA, {"x": "left", "y": None}, WINDOW)
+    assert sprite_pal.pico_on_a_screen(MAIN, pos, WINDOW)

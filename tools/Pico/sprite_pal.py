@@ -568,6 +568,21 @@ def pico_on_a_screen(screens, top_left: QPoint, size: QSize) -> bool:
     return any(s.availableGeometry().contains(centre) for s in screens)
 
 
+def start_position(screens, main_area: QRect, saved: dict, size: QSize) -> QPoint:
+    """Where his window goes at start-up. The spot he was last dragged to, if he would be on a screen
+    there; otherwise the MIDDLE of the main screen (J 2026-10-04: "spawn pico in the middle of the screen
+    and allow the user to drag him around"). The middle means him, so the window is centred on it."""
+    if "x" in saved and "y" in saved:
+        try:
+            pos = QPoint(int(saved["x"]), int(saved["y"]))
+        except (TypeError, ValueError):
+            pos = None
+        if pos is not None and pico_on_a_screen(screens, pos, size):
+            return pos
+    c = main_area.center()
+    return QPoint(c.x() - size.width() // 2, c.y() - size.height() // 2)
+
+
 def main(argv=None, on_ready=None) -> int:
     """Run Pico. on_ready(app, pal), if given, is called once the window exists and before the event
     loop starts: pico_pals_app.py (the launcher's tile) uses it to answer show / hide / quit."""
@@ -607,11 +622,7 @@ def main(argv=None, on_ready=None) -> int:
         if pal.chooser.current:                     # re-play so the first loop is the remembered size
             pal.play(pal.chooser.catalog.loops[pal.chooser.current])
     scr = app.primaryScreen().availableGeometry()
-    pos = QPoint(int(saved.get("x", scr.right() - 320)), int(saved.get("y", scr.bottom() - HEIGHT - 60)))
-    if not pico_on_a_screen(app.screens(), pos, pal.sizeHint()):
-        # the saved spot would put him off every screen: bottom right of the main one, HIM not his window
-        sh = pal.sizeHint()
-        pos = QPoint(scr.right() - 200 - sh.width() // 2, scr.bottom() - sh.height() - 60)
+    pos = start_position(app.screens(), scr, saved, pal.sizeHint())
     pal.move(pos)
     pal.show()
     no_window_frame(pal)
