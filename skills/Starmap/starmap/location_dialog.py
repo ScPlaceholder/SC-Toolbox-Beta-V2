@@ -140,8 +140,18 @@ class LocationDialog(QDialog):
     def __init__(self, location: str, system: str,
                  items_provider: Callable[[], List[dict]],
                  on_popout: Callable[[dict], None],
-                 parent: Optional[QWidget] = None) -> None:
+                 parent: Optional[QWidget] = None,
+                 on_trade_routes: Optional[Callable[[], None]] = None,
+                 on_commodity_routes: Optional[Callable[[str], None]] = None,
+                 on_commodity_route: Optional[Callable[[str, str, str], None]] = None) -> None:
+        # The three on_* hooks are the Trade Hub star map's terminal-panel links
+        # (Trade_Hub/starmap/terminal_panel.py "Plot Route" + the commodity page's
+        # routes buttons), ported 2026-10-03 for the Everything Finder. They are
+        # only wired when a host hands the panel a live Trade Hub; standalone, they
+        # stay None and the dialog looks exactly as before.
         super().__init__(parent)
+        self._on_commodity_routes = on_commodity_routes
+        self._on_commodity_route = on_commodity_route
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setModal(False)
@@ -164,6 +174,19 @@ class LocationDialog(QDialog):
             f"background: transparent;")
         head.addWidget(title)
         head.addStretch(1)
+        self._btn_trade_routes = None
+        if on_trade_routes is not None:
+            btn = QPushButton("Trade routes from here")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setToolTip("Open the Trade Hub routes table filtered to routes that start here")
+            btn.setStyleSheet(
+                f"QPushButton {{ background: {P.bg_primary}; color: {P.tool_trade}; "
+                f"border: 1px solid {P.tool_trade}; border-radius: 4px; padding: 3px 10px; "
+                f"font-family: Consolas; font-size: 9pt; }} "
+                f"QPushButton:hover {{ background: {P.tool_trade}; color: #1a1400; }}")
+            btn.clicked.connect(lambda: (self.close(), on_trade_routes()))
+            head.addWidget(btn)
+            self._btn_trade_routes = btn
         head.addWidget(make_close_button(self.close))
         root.addLayout(head)
 
@@ -201,7 +224,10 @@ class LocationDialog(QDialog):
 
     def _open_commodity(self, name: str) -> None:
         from .commodity_view import CommodityView
-        view = CommodityView(name, parent=self)
+        view = CommodityView(name, on_routes=self._on_commodity_routes,
+                             on_route=(None if self._on_commodity_route is None else
+                                       (lambda dloc, dsys, n=name: self._on_commodity_route(n, dloc, dsys))),
+                             parent=self)
         self._commodity_view = view     # keep a ref (non-modal)
         view.show()
 

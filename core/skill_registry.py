@@ -56,6 +56,15 @@ _BUILTIN_SKILLS: list[dict] = [
         "custom_args": ["300", "500"],
     },
     {
+        # Item Finder + Trade Hub + Star Map as three lazy tabs, with a shared
+        # shopping list (added 2026-10-03). The two entries above stay: both
+        # tools still launch on their own exactly as before.
+        "id": "everything_finder", "name": N_("Everything Finder"), "icon": "\U0001f50e",
+        "color": "#55ddaa", "folder": "Everything_Finder",
+        "script": "everything_finder_app.py", "hotkey": "<ctrl>+6",
+        "settings_key": "hotkey_everything_finder",
+    },
+    {
         "id": "craft_db", "name": N_("Craft Database"), "icon": "\U0001f3ed",
         "color": "#44ccbb", "folder": "Craft_Database",
         "script": "craft_db_app.py", "hotkey": "<shift>+7",

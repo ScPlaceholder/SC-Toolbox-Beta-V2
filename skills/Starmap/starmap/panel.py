@@ -12,6 +12,20 @@ route" draws the multi-stop jump route on the galaxy view.
 
 Everything is defensive: if data/scene construction fails the panel
 shows an inline message instead of dying.
+
+Everything Finder port (2026-10-03) - the Trade Hub star map's features that
+this panel lacked, so the one Star Map carries the union of all three copies:
+
+  * trade OVERLAYS (Trade Flows / Top Routes / Activity / My Runs), from
+    Trade_Hub/starmap/panel.py + trade_overlay.py. Hidden until a host calls
+    :meth:`set_routes_provider`, because this tool has no route engine.
+  * :meth:`show_route` - draw one calculated Trade Hub route (buy -> sell, with
+    the jump gateways injected so each endpoint system draws its own leg).
+  * Trade Hub link-through (:meth:`set_trade_hub`): "Trade routes from here" on
+    a location card, and the commodity page's routes buttons, filter the live
+    Trade Hub's routes table exactly as the Trade Hub star map does.
+  * the location card's Items tab refills when the items index lands (from the
+    Item Finder star map), instead of staying on "no item data".
 """
 from __future__ import annotations
 
@@ -20,7 +34,9 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
-from PySide6.QtCore import Qt, QTimer
+import threading
+
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication, QDialog, QGridLayout, QHBoxLayout, QLabel, QMenu, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget,
@@ -52,6 +68,10 @@ from .market_view import MarketView
 
 ACCENT = P.energy_cyan
 
+# Trade Hub star map overlay layers (Trade_Hub/starmap/panel.py _OVERLAY_LAYERS).
+_OVERLAY_LAYERS = (("flows", "Trade Flows"), ("top", "Top Routes"), ("activity", "Activity"),
+                   ("career", "My Runs"))
+
 
 def _btn_ss() -> str:
     return (
@@ -66,9 +86,29 @@ def _btn_ss() -> str:
 class StarmapPanel(QWidget):
     """Star map + location browser + grocery list + voice ears."""
 
+    _overlay_ready = Signal(object)        # worker thread -> UI: a freshly-built TradeOverlay
+    # Asks the host to bring its Trade Hub forward (the Everything Finder switches tab).
+    tradeHubRequested = Signal()
+
     def __init__(self, parent: Optional[QWidget] = None,
                  cmd_file: str = "") -> None:
         super().__init__(parent)
+        # Trade Hub star map state (ported). All inert until a host attaches routes.
+        self._overlay = None
+        self._overlay_flags = {"flows": False, "top": False, "activity": False, "career": False}
+        try:
+            self._overlay_flags.update({k: bool(v) for k, v in
+                                        (load_state().get("overlay_flags") or {}).items()
+                                        if k in self._overlay_flags})
+        except (AttributeError, TypeError):
+            pass
+        self._overlay_ready.connect(self._apply_overlay)
+        self._routes_provider: Optional[Callable[[], list]] = None
+        self._career_provider: Optional[Callable[[], object]] = None
+        self._trade_hub = None
+        self._trade_route_pts: list = []
+        self._overlay_sidebar: Optional[QWidget] = None
+        self._ov_buttons: Dict[str, QPushButton] = {}
         self._lore_bubble: Optional[LoreBubble] = None
         self._lore_fetcher = LoreFetcher()
         self._lore_fetcher.done.connect(self._on_lore_done)
@@ -157,6 +197,9 @@ class StarmapPanel(QWidget):
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(0)
+        self._overlay_sidebar = self._build_overlay_sidebar()
+        self._overlay_sidebar.setVisible(False)       # shown by set_routes_provider()
+        body.addWidget(self._overlay_sidebar)
         body.addWidget(self._stack, 1)
         body.addWidget(self._grocery)
         body.addWidget(self._market)
@@ -485,7 +528,13 @@ class StarmapPanel(QWidget):
         view.bodyActivated.connect(self._on_body_activated)
         view.loreRequested.connect(self._show_lore)
         self._apply_shop_route(view, code)
+        if not self._shop_stops and self._trade_route_pts and hasattr(view, "set_trade_route"):
+            view.set_trade_route(self._route_pts_for(code.upper()))
+        if hasattr(view, "set_overlay"):
+            view.set_overlay(self._overlay, self._overlay_flags)
         self._push(f"{name.upper()} system", view)
+        if not self._shop_stops and self._trade_route_pts:
+            self._frame_route_in(view, code.upper())   # show/fit an active Trade Hub leg here
 
     def _enter_neighborhood(self, code: str, planet_name: str) -> None:
         try:
@@ -636,6 +685,15 @@ class StarmapPanel(QWidget):
             if hasattr(w, "_terminals"):
                 w._terminals = names
                 w.update()
+        # An open location card rendered "no item data" while the index was
+        # still building: give its Items tab a second chance (Item Finder port).
+        dlg = getattr(self, "_location_dlg", None)
+        items_dlg = getattr(dlg, "_items_dlg", None) if dlg is not None else None
+        if items_dlg is not None and hasattr(items_dlg, "refill"):
+            try:
+                items_dlg.refill()
+            except RuntimeError:
+                pass                      # the card was closed and its C++ side is gone
         src = {"live": "UEX live", "cache": "UEX cache",
                "offline": "offline"}.get(source, "")
         n_items, n_places = index_counts(self._items_index)
@@ -648,21 +706,39 @@ class StarmapPanel(QWidget):
     def _terminal_names(self) -> set:
         """Normalised names of every UEX terminal known to the items index,
         so map bodies that host one get a terminal badge + click (UEX names
-        diverge from map body names, hence the alias pass)."""
+        diverge from map body names, hence the alias pass).
+
+        With a routes provider attached (ported from the Trade Hub star map),
+        every commodity buy / sell location of those routes counts too."""
         names = set()
         for (_sys_n, term_n) in (self._items_index or {}).keys():
             if term_n:
                 names.add(LOC_ALIASES.get(term_n, term_n))
+        for r in self._routes():
+            for loc in (getattr(r, "buy_location", ""), getattr(r, "sell_location", "")):
+                if loc:
+                    n = norm_loc(loc)
+                    names.add(LOC_ALIASES.get(n, n))
         return names
 
     def _open_location(self, location: str, system: str) -> None:
         """Double-click a terminal body: combined commodities + items card."""
         self.ensure_index()
+        hub = self._trade_hub
         dlg = LocationDialog(
             location, system,
             items_provider=lambda loc=location, sys=system: self._rows_for(loc, sys),
             on_popout=self._popout_item,
-            parent=self)
+            parent=self,
+            on_trade_routes=(None if hub is None else
+                             (lambda loc=location, sys=system: self._plot_trade_routes(loc, sys))),
+            on_commodity_routes=(None if hub is None else
+                                 (lambda n, loc=location, sys=system:
+                                  self._apply_trade_filters(buy_loc=loc, buy_sys=sys, commodity=n))),
+            on_commodity_route=(None if hub is None else
+                                (lambda n, dloc, dsys, loc=location, sys=system:
+                                 self._apply_trade_filters(buy_loc=loc, buy_sys=sys, commodity=n,
+                                                           sell_loc=dloc, sell_sys=dsys))))
         self._location_dlg = dlg          # keep a reference (non-modal)
         dlg.show()
         # Centre over the map so it doesn't hug the screen corner.
@@ -923,6 +999,9 @@ class StarmapPanel(QWidget):
         if self._shop_stops:
             self.clear_shopping_route()
             return
+        if self._trade_route_pts:
+            self.clear_trade_route()
+            return
         if g.route_active:
             g.clear_route()
             self._btn_route.setText("Route")
@@ -1063,6 +1142,7 @@ class StarmapPanel(QWidget):
         if hasattr(self, "_btn_game"):
             st["game_route"] = self._btn_game.isChecked()
         st["voice"] = {"replies": bool(getattr(self, "_voice_replies", True))}
+        st["overlay_flags"] = dict(self._overlay_flags)
         if hasattr(self, "_ears"):
             b = self._ears.binding()
             st["ears"] = {
@@ -1122,6 +1202,291 @@ class StarmapPanel(QWidget):
                             "reading the command file", type(e).__name__, e, exc_info=True)
         self.save_state()
 
+
+    # ══ Trade Hub star map features (ported 2026-10-03 for the Everything Finder) ══
+    # Source: Trade_Hub/starmap/panel.py. Kept behaviourally identical; the only
+    # change is how the routes arrive - through a provider callable instead of a
+    # hard reference to the Trade Hub window - so the standalone tool, which has
+    # no route engine, is untouched until a host attaches one.
+
+    def set_routes_provider(self, provider: Optional[Callable[[], list]],
+                            career_provider: Optional[Callable[[], object]] = None) -> None:
+        """Attach the Trade Hub's routes (and optionally its career ledger).
+
+        Shows the OVERLAYS sidebar and rebuilds the overlay; passing None hides
+        it again. Call :meth:`on_routes_loaded` whenever the routes change."""
+        self._routes_provider = provider
+        self._career_provider = career_provider
+        if self._overlay_sidebar is not None:
+            self._overlay_sidebar.setVisible(provider is not None)
+        if provider is None:
+            self._overlay = None
+            self._push_overlay()
+        else:
+            self.on_routes_loaded()
+
+    def set_trade_hub(self, hub) -> None:
+        """Attach a live Trade Hub window: link-through to its routes table, and
+        snap the map when its buy / sell location pickers change (as the Trade
+        Hub star map does). Also attaches its routes as the overlay source."""
+        self._trade_hub = hub
+        for attr in ("_buy_loc", "_sell_loc"):
+            combo = getattr(hub, attr, None)
+            sig = getattr(combo, "item_selected", None)
+            if sig is not None:
+                try:
+                    sig.connect(self.goto)
+                except (RuntimeError, TypeError):
+                    pass
+        self.set_routes_provider(
+            lambda h=hub: list(getattr(h, "_all_routes", None) or []),
+            career_provider=lambda h=hub: getattr(h, "_career", None))
+
+    def _routes(self) -> list:
+        prov = self._routes_provider
+        if prov is None:
+            return []
+        try:
+            return list(prov() or [])
+        except Exception:          # a host's provider must never break the map
+            log.warning("Starmap: the routes provider raised; treating it as no routes", exc_info=True)
+            return []
+
+    def on_routes_loaded(self) -> None:
+        """Route data (re)loaded - refresh terminal badges and rebuild the overlay."""
+        names = self._terminal_names()
+        for _lbl, w in self._nav:
+            if hasattr(w, "_terminals"):
+                w._terminals = names
+                w.update()
+        self._rebuild_overlay()
+
+    def _build_overlay_sidebar(self) -> QWidget:
+        w = QWidget()
+        w.setFixedWidth(120)
+        w.setStyleSheet(f"background: {P.bg_secondary};")
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(8, 10, 8, 10)
+        lay.setSpacing(7)
+        hdr = QLabel("OVERLAYS")
+        hdr.setStyleSheet(
+            f"color: {P.fg_dim}; font-family: Consolas; font-size: 8pt; font-weight: bold;")
+        lay.addWidget(hdr)
+        self._ov_buttons = {}
+        for key, label in _OVERLAY_LAYERS:
+            b = QPushButton(label)
+            b.setCheckable(True)
+            b.setChecked(self._overlay_flags.get(key, False))
+            b.setCursor(Qt.PointingHandCursor)
+            b.setStyleSheet(self._toggle_ss())
+            b.toggled.connect(lambda on, k=key: self._toggle_overlay(k, on))
+            lay.addWidget(b)
+            self._ov_buttons[key] = b
+        lay.addStretch(1)
+        note = QLabel("community-reported\ntrade data")
+        note.setWordWrap(True)
+        note.setStyleSheet(f"color: {P.fg_disabled}; font-size: 7pt;")
+        lay.addWidget(note)
+        return w
+
+    @staticmethod
+    def _toggle_ss() -> str:
+        return (
+            f"QPushButton {{ background: {P.bg_card}; color: {P.fg_dim}; "
+            f"border: 1px solid {P.border}; border-radius: 5px; padding: 7px 6px; "
+            f"font-family: Consolas; font-size: 8.5pt; text-align: left; }} "
+            f"QPushButton:hover {{ color: {P.fg_bright}; }} "
+            f"QPushButton:checked {{ background: {P.tool_trade}; color: #1a1400; "
+            f"border-color: {P.tool_trade}; font-weight: bold; }}"
+        )
+
+    def _toggle_overlay(self, key: str, on: bool) -> None:
+        self._overlay_flags[key] = bool(on)
+        self._push_overlay()
+        self._save_soon()
+
+    def _push_overlay(self) -> None:
+        for _lbl, w in self._nav:
+            if hasattr(w, "set_overlay"):
+                w.set_overlay(self._overlay, self._overlay_flags)
+
+    def _rebuild_overlay(self) -> None:
+        """Recompute the overlay off-thread (it reads UEX prices for recency)."""
+        if self._routes_provider is None:
+            return
+        routes = self._routes()
+        career = None
+        if self._career_provider is not None:
+            try:
+                career = self._career_provider()
+            except Exception:
+                career = None
+
+        def work(routes=routes, career=career) -> None:
+            try:
+                from .trade_overlay import TradeOverlay, terminal_recency
+                cmap = career.map_data(self._sys_code) if career else None
+                ov = TradeOverlay(routes, self._sys_code, terminal_recency(), career=cmap)
+            except Exception:
+                log.warning("Starmap: the trade overlay did not build; overlays stay as they were",
+                            exc_info=True)
+                ov = None
+            self._overlay_ready.emit(ov)
+        threading.Thread(target=work, daemon=True, name="TradeOverlayBuild").start()
+
+    def _apply_overlay(self, ov) -> None:
+        if ov is None:
+            return
+        self._overlay = ov
+        self._push_overlay()
+
+    # trade-route overlay (mirror a calculated Trade Hub route)
+    def show_route(self, waypoints) -> None:
+        """Draw one calculated route. ``waypoints = [(location, system, role), ...]``
+        with role "buy" / "sell". Deferred one tick: this is often called from
+        inside a click handler, and navigating scenes there tears widgets down
+        mid-event."""
+        QTimer.singleShot(0, lambda wp=list(waypoints): self._show_route_now(wp))
+
+    def _show_route_now(self, waypoints) -> None:
+        """Intra-system: a buy->sell line in that system. Cross-system: the galaxy
+        jump path PLUS a leg inside EACH endpoint system (buy->jump-gateway in the
+        origin, jump-gateway->sell in the destination)."""
+        if self._shop_stops:
+            self.clear_shopping_route()
+        pts = []
+        for loc, sysname, role in waypoints:
+            code = self._sys_code(sysname)
+            body = self._find_body(code, loc)
+            if body is not None:
+                pts.append((code, loc, body.x, body.y, body.z, role))
+            else:
+                pts.append((code, loc, None, None, None, role))
+        uniq = list(dict.fromkeys(c for (c, _n, x, _y, _z, _r) in pts if c and x is not None))
+        unres = [loc for (c, loc, x, _y, _z, _r) in pts if x is None]
+        if unres:
+            log.warning("Starmap route: %d/%d waypoints UNRESOLVED on map: %s",
+                        len(unres), len(pts), " | ".join(unres))
+        if len(uniq) >= 2:
+            pts = self._inject_gateways(pts)
+        self._trade_route_pts = pts
+        self._go_galaxy()
+        if self._galaxy is None or not uniq:
+            return
+        if len(uniq) >= 2:
+            self._galaxy.plot_route(uniq[0], uniq[-1])      # cross-system jump path
+            buy_code = next((c for (c, _n, x, _y, _z, r) in pts
+                             if r == "buy" and x is not None and c in self._bodies), None) or \
+                next((c for (c, _n, x, _y, _z, _r) in pts if x is not None and c in self._bodies), None)
+            if buy_code:
+                self._enter_system(buy_code)                # _enter_system frames its leg
+        elif uniq[0] in self._bodies:
+            self._enter_system(uniq[0])                     # intra-system location line
+        self._btn_route.setText("Clear route")
+
+    def has_trade_route(self) -> bool:
+        return bool(self._trade_route_pts)
+
+    def clear_trade_route(self) -> None:
+        self._trade_route_pts = []
+        if self._galaxy is not None:
+            self._galaxy.clear_route()
+        for _lbl, w in self._nav:
+            if hasattr(w, "set_trade_route"):
+                w.set_trade_route([])
+        self._btn_route.setText("Route")
+
+    def _frame_route_in(self, view, code: str) -> None:
+        if not hasattr(view, "frame_trade_route"):
+            return
+        if view.frame_trade_route():
+            return
+        rpts = self._route_pts_for(code)
+        if len(rpts) == 1 and hasattr(view, "center_on"):
+            body = self._find_body(code, rpts[0][0])
+            if body is not None:
+                view.center_on(body, zoom=2.6)
+
+    def _inject_gateways(self, pts: list) -> list:
+        """Cross-system route: append each endpoint system's jump-gateway toward
+        the OTHER endpoint ('Pyro Gateway' in Stanton <-> 'Stanton Gateway' in Pyro)."""
+        buy = next((p for p in pts if p[5] == "buy" and p[2] is not None), None)
+        sell = next((p for p in pts if p[5] == "sell" and p[2] is not None), None)
+        if not buy or not sell or buy[0] == sell[0]:
+            return pts
+        out = list(pts)
+        for here, other in ((buy[0], sell[0]), (sell[0], buy[0])):
+            gw = self._find_body(here, f"{self._sys_name(other)} Gateway")
+            if gw is not None:
+                out.append((here, gw.name, gw.x, gw.y, gw.z, "jump"))
+        return out
+
+    def _sys_name(self, code: str) -> str:
+        if self._galaxy_data is not None:
+            s = self._galaxy_data.get(code)
+            if s:
+                return s.name
+        return code.title()
+
+    def _route_pts_for(self, code: str) -> list:
+        return [(n, x, y, z, role) for (c, n, x, y, z, role) in self._trade_route_pts
+                if c == code and x is not None]
+
+    def _find_body(self, code: str, loc: str):
+        """Resolve a UEX terminal/location name to a positioned body, in escalating
+        leniency: exact -> normalised-exact (+ alias) -> guarded normalised substring."""
+        bl = self._bodies.get(code, [])
+        if not loc:
+            return None
+        raw = loc.lower()
+        for b in bl:
+            if b.name.lower() == raw:
+                return b
+        n = norm_loc(loc)
+        n = LOC_ALIASES.get(n, n)
+        if not n:
+            return None
+        for b in bl:
+            if norm_loc(b.name) == n:
+                return b
+        cands = []
+        for b in bl:
+            bn = norm_loc(b.name)
+            if bn and len(n) >= 4 and (n in bn or bn in n):
+                cands.append(b)
+        if cands:
+            return max(cands, key=lambda b: len(b.name))
+        return None
+
+    # link-through to the live Trade Hub routes table
+    def _plot_trade_routes(self, location: str, system: str) -> None:
+        """All Trade Hub routes FROM this terminal."""
+        self._apply_trade_filters(buy_loc=location, buy_sys=system)
+
+    def _apply_trade_filters(self, buy_loc: str = "", buy_sys: str = "", commodity: str = "",
+                             sell_loc: str = "", sell_sys: str = "") -> None:
+        QTimer.singleShot(0, lambda: self._apply_trade_filters_now(
+            buy_loc, buy_sys, commodity, sell_loc, sell_sys))
+
+    def _apply_trade_filters_now(self, buy_loc: str, buy_sys: str, commodity: str,
+                                 sell_loc: str, sell_sys: str) -> None:
+        """Apply a CLEAN filter set on the Trade Hub (blanks the filters not
+        passed, like UEX's terminal_origin/commodity URL params) and show ROUTES."""
+        hub = self._trade_hub
+        if hub is None:
+            return
+        try:
+            hub._buy_loc.set_text(buy_loc)
+            hub._buy_sys.set_text(buy_sys)
+            hub._sell_loc.set_text(sell_loc)
+            hub._sell_sys.set_text(sell_sys)
+            hub._commodity_combo.set_text(commodity)
+            hub._set_view_mode("ROUTES")
+            hub._apply_search()
+        except (AttributeError, RuntimeError, TypeError):
+            log.warning("Starmap: could not apply the Trade Hub route filters", exc_info=True)
+            return
+        self.tradeHubRequested.emit()
 
     # ── repurposed set_route_ai: voice destinations + in-game plotting ────
     def _engine(self):

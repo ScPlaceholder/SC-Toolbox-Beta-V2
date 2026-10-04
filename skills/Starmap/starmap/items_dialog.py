@@ -8,11 +8,18 @@ the terminal->items index (which loads off-thread), each row can be
   * dragged                    -> dropped onto the Grocery List bubble
 
 Styling follows Market Finder (tool_market accent), not Trade Hub.
+
+Everything Finder port (2026-10-03): the collapsible per-category grouping and
+the refill-when-the-index-lands behaviour come from the Item Finder star map
+(market_finder/starmap/items_dialog.py), so the one Star Map has both. The
+visibility guard on refill() is dropped here: in this tool the dialog is
+embedded as the LocationDialog "Items" tab, and a tab that is not the current
+one is hidden, so that guard would have stopped it from ever filling.
 """
 from __future__ import annotations
 
 import json
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from PySide6.QtCore import Qt, QMimeData, QPoint, QTimer
 from PySide6.QtGui import QDrag, QPixmap, QPainter, QColor
@@ -25,14 +32,57 @@ from shared.qt.data_table import SC_ITEM_MIME
 
 from .ui import make_close_button
 
-_ROW_CAP = 400     # a hub like Area18 sells thousands; cap keeps the dialog snappy
+_ROW_CAP = 400       # per CATEGORY now; rows are only built when a category is opened
+_AUTO_EXPAND_MAX = 40  # a location with more items than this opens with every category collapsed
+
+
+def _category_of(item: dict) -> str:
+    return str(item.get("category") or item.get("section") or "Other").strip() or "Other"
+
+
+class _CategoryHeader(QWidget):
+    """Clickable category bar: arrow, name, item count, cheapest price. Click toggles its rows."""
+
+    def __init__(self, name: str, count: int, cheapest: float,
+                 on_toggle: Callable[[], None], parent: QWidget) -> None:
+        super().__init__(parent)
+        self._name, self._count, self._on_toggle = name, count, on_toggle
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Click to show / hide this category")
+        self.setStyleSheet(f"background-color: {P.bg_card};")
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(8, 5, 10, 5)
+        lay.setSpacing(8)
+        self._label = QLabel()
+        self._label.setStyleSheet(
+            f"font-family: Consolas; font-size: 9pt; font-weight: bold; "
+            f"color: {P.tool_market}; background: transparent;")
+        lay.addWidget(self._label, 1)
+        if cheapest and cheapest > 0:
+            low = QLabel(f"from {cheapest:,.0f} aUEC")
+            low.setStyleSheet(
+                f"font-family: Consolas; font-size: 8pt; color: {P.fg_dim}; background: transparent;")
+            lay.addWidget(low)
+        self.set_open(False)
+
+    def set_open(self, is_open: bool) -> None:
+        arrow = "▾" if is_open else "▸"
+        self._label.setText(f"{arrow} {self._name}  ({self._count})")
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            QTimer.singleShot(0, self._on_toggle)
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 
 class _ItemRow(QWidget):
     """One item row: name + price, draggable, click -> pop-out."""
 
     def __init__(self, item: dict, price: float,
-                 on_popout: Callable[[dict], None], parent: QWidget) -> None:
+                 on_popout: Callable[[dict], None], parent: QWidget,
+                 show_category: bool = True) -> None:
         super().__init__(parent)
         self._item = item
         self._on_popout = on_popout
@@ -51,7 +101,7 @@ class _ItemRow(QWidget):
         lay.addWidget(name_lbl, 1)
 
         cat = item.get("category") or item.get("section") or ""
-        if cat:
+        if cat and show_category:
             cat_lbl = QLabel(str(cat))
             cat_lbl.setStyleSheet(
                 f"font-family: Consolas; font-size: 7pt; color: {P.fg_dim}; background: transparent;")
@@ -159,14 +209,27 @@ class ItemsDialog(QDialog):
         hint.setStyleSheet(f"color: {P.fg_disabled}; font-size: 8pt;")
         lay.addWidget(hint)
 
-        # Resolve lazily: the index may still be building off-thread.
-        def _fill() -> None:
-            try:
-                rows = rows_provider() or []
-            except Exception:
-                rows = []
-            self._fill_rows(rows, on_popout)
-        QTimer.singleShot(0, _fill)
+        # Resolve lazily: the index may still be building off-thread; the map
+        # panel calls refill() again when the index done signal lands.
+        self._rows_provider = rows_provider
+        self._on_popout_cb = on_popout
+        QTimer.singleShot(0, self.refill)
+
+    def refill(self) -> None:
+        """(Re)resolve rows from the provider.
+
+        Called once right after opening and again when the background items
+        index finishes, so a dialog that rendered "no item data" while the
+        index was still building gets a second chance to fill.
+        """
+        try:
+            rows = self._rows_provider() or []
+        except Exception:
+            rows = []
+        try:
+            self._fill_rows(rows, self._on_popout_cb)
+        except RuntimeError:
+            pass            # C++ dialog already destroyed
 
     def _fill_rows(self, rows: List[dict], on_popout) -> None:
         while self._rows_lay.count():
@@ -177,10 +240,55 @@ class ItemsDialog(QDialog):
         if not total:
             self._status.setText("No item data for this location (offline?)")
             return
-        self._status.setText(f"{min(total, _ROW_CAP)}{'+' if total > _ROW_CAP else ''} items")
-        for i, row in enumerate(rows[:_ROW_CAP]):
-            w = _ItemRow(row.get("item") or {}, row.get("price") or 0, on_popout, self._inner)
-            if i % 2 == 1:
-                w.setStyleSheet(f"background-color: {P.bg_input};")
-            self._rows_lay.addWidget(w)
+
+        # Group by category under a collapsible header per group. Rows arrive
+        # pre-sorted by price, so cheapest-first holds inside each group;
+        # groups sort A-Z with 'Other' last. Small locations (<= _AUTO_EXPAND_MAX
+        # items) start fully expanded; bigger ones start collapsed so the
+        # dialog opens as a tidy category list instead of a 400-row wall.
+        groups: Dict[str, List[dict]] = {}
+        for row in rows:
+            groups.setdefault(_category_of(row.get("item") or {}), []).append(row)
+
+        auto_open = total <= _AUTO_EXPAND_MAX
+        for cat in sorted(groups, key=lambda c: (c == "Other", c.lower())):
+            grows = groups[cat]
+            body = QWidget()
+            body.setStyleSheet(f"background: {P.bg_primary};")
+            body_lay = QVBoxLayout(body)
+            body_lay.setContentsMargins(0, 0, 0, 0)
+            body_lay.setSpacing(0)
+            for i, row in enumerate(grows[:_ROW_CAP]):
+                w = _ItemRow(row.get("item") or {}, row.get("price") or 0,
+                             on_popout, body, show_category=False)
+                if i % 2 == 1:
+                    w.setStyleSheet(f"background-color: {P.bg_input};")
+                body_lay.addWidget(w)
+            count = len(grows)
+            if count > _ROW_CAP:
+                count = f"{_ROW_CAP}+"
+            cheapest = min((r.get("price") or 0) for r in grows
+                           if r.get("price")) or 0
+            pair: dict = {}
+            header = _CategoryHeader(
+                cat, count, cheapest,
+                on_toggle=lambda p=pair: _toggle_category(p),
+                parent=self._inner)
+            pair["h"] = header
+            pair["b"] = body
+            body.setVisible(auto_open)
+            header.set_open(auto_open)
+            self._rows_lay.addWidget(header)
+            self._rows_lay.addWidget(body)
+
+        self._status.setText(f"{total} items · {len(groups)} categories")
         self._rows_lay.addStretch(1)
+
+
+def _toggle_category(pair: dict) -> None:
+    """Collapse / expand one category section and sync the header arrow."""
+    body = pair["b"]
+    header = pair["h"]
+    open_now = not body.isVisible()
+    body.setVisible(open_now)
+    header.set_open(open_now)

@@ -88,6 +88,16 @@ class ItemsIndexLoader(QObject):
 # where a terminal is, most specific first; each becomes an index key
 _PLACE_FIELDS = ("space_station_name", "city_name", "outpost_name", "terminal_name")
 
+# Extra names a TERMINAL RECORD is known by, from the Item Finder star map's
+# _terminal_name_keys (market_finder/starmap/items_index.py). Ported 2026-10-03
+# for the Everything Finder so the one Star Map answers every name either copy
+# answered: a click on a moon or planet body lists what sells on it, and a
+# terminal the map knows by its nickname / display name still resolves.
+# Read from the terminal record ONLY, never from the price row: a price row's
+# "name" is not a place, and indexing an item under its own name would be wrong.
+_TERMINAL_ONLY_FIELDS = ("moon_name", "planet_name", "orbit_name",
+                         "nickname", "displayname", "name", "fullname")
+
 
 def build_index(price_rows: List[dict], terminals: Dict[int, dict],
                 meta: Optional[Dict[int, dict]] = None) -> Dict[IndexKey, List[dict]]:
@@ -113,6 +123,10 @@ def build_index(price_rows: List[dict], terminals: Dict[int, dict],
             places = []
             for fld in _PLACE_FIELDS:
                 v = norm_loc(str(term.get(fld) or r.get(fld) or ""))
+                if v and v not in places:
+                    places.append(v)
+            for fld in _TERMINAL_ONLY_FIELDS:
+                v = norm_loc(str(term.get(fld) or ""))
                 if v and v not in places:
                     places.append(v)
             if not places:
