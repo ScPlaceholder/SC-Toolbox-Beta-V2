@@ -9,9 +9,10 @@
 From the toolbox launcher he is the "Pico Pals" tile, which runs pico_pals_app.py: the launcher passes
 window geometry and a command file, which this CLI rejects, so that file adapts them and calls main().
 
-Moods pick his looping idle; Game.log EVENTS (docking, quantum, injury, contract complete...) play a
-one-shot gesture from sprites.EVENT_LOOPS, then he goes back to his mood. Drawing a weapon in game
-(slot 1, slot 2, multitool) makes him hold the matching prop until you holster (sprites.HAND_LOOPS).
+Moods pick his idle animations; between them he stands still (sprites.REST_S; J 2026-10-04). Game.log
+EVENTS (docking, quantum, injury, contract complete...) play a one-shot gesture from sprites.EVENT_LOOPS
+at once, rest or not, then he goes back to his mood. Drawing a weapon in game (slot 1, slot 2, multitool)
+makes him hold the matching prop until you holster (sprites.HAND_LOOPS), with an idle now and then.
 
 A frameless, transparent, always-on-top window. Drag it with the left button. Right-click Pico for
 Customise / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
@@ -291,11 +292,17 @@ class Customise(QDialog):
             self.often.addItem(label, mins)
         cur = prefs.get("gag_cooldown_min", 60)
         self.often.setCurrentIndex(max(0, self.often.findData(cur)))
+        # J 2026-10-04: he rests between animations. One control for how long (sprites.LIVELINESS).
+        self.lively = QComboBox()
+        for label, key in (("Calm (long rests)", "calm"), ("Normal", "normal"), ("Lively (short rests)", "lively")):
+            self.lively.addItem(label, key)
+        self.lively.setCurrentIndex(max(0, self.lively.findData(prefs.get("liveliness", "normal"))))
         form = QFormLayout(self)
         form.addRow("Outfit", self.outfit)
         form.addRow("Size", self.size)
         form.addRow(self.gags)
         form.addRow("Gags at most", self.often)
+        form.addRow("How lively", self.lively)
         form.addRow(self.signs)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
@@ -393,7 +400,8 @@ class Pal(QWidget):
             why = "event: %s | %s" % (self.event, why)
         self.why.setText(why if len(why) < 90 else why[:87] + "...")
         self.pic.setToolTip(why)
-        let_go = self.chooser.expire()             # a thrown grenade never logs a holster
+        # a thrown grenade never logs a holster; and a rest ends on the clock, not on a frame
+        let_go = self.chooser.on_tick()
         if let_go is not None:
             carry, self.chooser.carry_frame = self.chooser.carry_frame, False
             self.play(let_go, carry=carry)
@@ -428,6 +436,17 @@ class Pal(QWidget):
         sz = m.scaledSize()
         mx = int(sz.width() * MARGIN)
         self.layout().setContentsMargins(mx, int(sz.height() * 0.15), mx, 0)
+        if self.chooser.resting:
+            # J 2026-10-04: "He can [stand] still at times". The chooser asked for a rest: show frame 0 of
+            # this loop (his standing pose, or the held pose with a weapon out) and do not run it. The
+            # chooser's on_tick() ends the rest. Drawn as a still picture, not as a started-then-paused
+            # movie: start() steps straight on to frame 1, which is not the standing pose.
+            self.pic.setPixmap(QPixmap.fromImage(m.currentImage()).scaled(
+                m.scaledSize(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
+            self.adjustSize()
+            self.layout().activate()
+            self.place_prop(0)             # no frame will come to re-place a held prop once the layout settles
+            return
         m.start()
         if at and at < m.frameCount():
             m.jumpToFrame(at)              # same pose, new eyes: no restart
@@ -533,7 +552,7 @@ class Pal(QWidget):
         self.height_px = dlg.size.value()
         root = Path(dlg.outfit.currentData())
         self.remember(outfit=str(root), gags=dlg.gags.isChecked(), signs=dlg.signs.isChecked(),
-                      gag_cooldown_min=dlg.often.currentData())
+                      gag_cooldown_min=dlg.often.currentData(), liveliness=dlg.lively.currentData())
         try:
             self.chooser = sprites.LoopChooser(sprites.Catalog.scan(root))
             self.chooser.apply_prefs(load_settings())

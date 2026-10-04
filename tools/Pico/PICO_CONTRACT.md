@@ -302,6 +302,12 @@ LOOPS with the expression baked into each frame, while the bone rig (A, B, D) st
   shared canvas so Pico does not jump between loops. The `.gif` is the flattened review copy.
 * `MOOD_LOOPS` in `pico/sprites.py` maps each `face.DEFAULT_MOODS` name to a small pool of loops.
   A mood with no loop on disk is refused at load, never substituted at play time.
+* **He rests (J, 2026-10-04: "He can be idle at times", "He also doesn't need to loop an animation
+  8,000 times", "if you pull out a weapon he should still periodically idle").** An animation plays
+  `ACT_PASSES` times, then he stands still for `REST_S` seconds; with a weapon out he holds it still for
+  `HOLD_STILL_S`, puts it away for one idle, and takes it out again. A mood change or a game event ends
+  a rest at once. Standing still is frame 0 of a loop (the same neutral stand in every outfit folder),
+  so it needs no art: `LoopChooser.resting` asks, `sprite_pal.py` draws that one frame.
 * **OPEN for J, my picks:**
   1. UNKNOWN plays `confused`. There is no blank-faced loop, and "I can't tell" is the honest claim.
   2. `sprite_pal` treats a Game.log untouched for 15 min as "game not running" -> UNKNOWN. Without

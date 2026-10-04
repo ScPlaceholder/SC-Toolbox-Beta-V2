@@ -355,10 +355,31 @@ class HandTracker:
 # monitored-space flips) is one thing that happened, not a reason to restart the gesture.
 EVENT_COOLDOWN_S = 45.0
 
-# How long one mood loop keeps repeating before Pico switches to another from the pool, in seconds.
-# Measured 2026-10-01: a loop is ~1.4s (10 frames at 7fps), and rotating on every loop end swapped his
-# idle every 1.4s with no rest - twitchy. J asked "how much time is there between idle animations".
-DWELL_S = (8.0, 14.0)
+# RESTS (J 2026-10-04: "He also doesn't need to do an animation every second. He can be idle at times",
+# "He also doesn't need to loop an animation 8,000 times. He can [stand] still at times", "if you pull out
+# a weapon he should still periodically idle"). Until today one mood loop repeated for a DWELL_S of 8-14 s
+# (six to ten passes of a 1.4 s loop) and the next loop started on the very next frame, so he was never
+# still; and a held weapon looped its held cut until the holster line. Now:
+#   an animation plays ACT_PASSES times (a loop is 0.8-1.4 s), then he STANDS STILL for REST_S seconds,
+#   then another animation. A mood change or a game event cuts a rest short at once.
+#   with a weapon out he holds it still for HOLD_STILL_S, then puts it away, does one idle, takes it out
+#   again and holds it still again. The holster line still ends all of it.
+# "Standing still" needs no new art: frame 0 of every full loop is the same neutral stand (measured on all
+# 19 outfit folders: the nine idle_*_default loops share frame 0 exactly, and a mood loop's frame 0 differs
+# only by its face). The window pauses the loop on that frame (LoopChooser.resting).
+ACT_PASSES = (1, 3)            # how many times one animation plays before he rests
+REST_S = (10.0, 25.0)          # how long he stands still between animations, in seconds
+HOLD_STILL_S = (10.0, 25.0)    # how long a drawn weapon is held still between idle breaks
+# The Customise dialog's "How lively" choice: a multiplier on REST_S and HOLD_STILL_S.
+LIVELINESS: Mapping[str, float] = {"calm": 2.0, "normal": 1.0, "lively": 0.4}
+# The loop whose frame 0 is his standing pose for each mood (the face is baked into the loop, so a hurt
+# Pico rests looking hurt, and UNKNOWN rests confused, never calm). A mood not listed, or whose loop is
+# missing for an outfit, uses the first plain loop of its pool.
+REST_LOOPS: Mapping[str, str] = {
+    "calm": "idle_look_default", "alert": "determined_focused", "hurt": "sad_sad", "happy": "happy_happy",
+    "startled": "startled_surprised", "irritated": "annoyed_angry", UNKNOWN: "confused_confused",
+}
+_CUT = re.compile(r"_(held|grab|release)$")    # a slice of a loop: its frame 0 is not the standing pose
 
 DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
 
@@ -453,7 +474,8 @@ class LoopChooser:
     """Mood in, loop path out. Stays on the current loop until the mood changes or the loop ends."""
 
     def __init__(self, catalog: Catalog, moods: Mapping[str, tuple[str, ...]] = MOOD_LOOPS,
-                 rng: Optional[random.Random] = None):
+                 rng: Optional[random.Random] = None, clock=time.time):
+        self.clock = clock            # injected by tests, so hours of idling run in no time
         # Snapped entries ("loop+prop") exist when their plain loop does and the prop is in the manifest.
         # They map to the PLAIN loop's file; the window draws the prop (prop_for()).
         self.snap_props = _snap_props()
@@ -465,7 +487,11 @@ class LoopChooser:
                  | {FOOD_HOLD + SNAP_SEP + "%s_eat_%d" % (pid, i) for pid in FOOD_BY_ENTITY.values()
                     for i in range(1, EAT_STAGES + 1)}
                  | {base + SNAP_SEP + pid for base, suf in TOY_POSES.items() for pid in self.snap_props
-                    if pid.startswith("ship_") and pid.endswith(suf)})
+                    if pid.startswith("ship_") and pid.endswith(suf)}
+                 # the put-away and take-out cuts of each held item, for an idle break with a weapon out
+                 | {split_snap(n)[0][:-len("_held")] + part + SNAP_SEP + split_snap(n)[1]
+                    for n in HAND_LOOPS.values() for part in ("_grab", "_release")
+                    if split_snap(n)[1] and split_snap(n)[0].endswith("_held")})
         for n in names:
             base, prop = split_snap(n)
             if prop and base in catalog.loops and prop in self.snap_props:
@@ -480,7 +506,13 @@ class LoopChooser:
         self.events = {e: n for e, n in EVENT_LOOPS.items() if n in catalog.loops}
         self.oneshot = False          # an event loop is playing; moods wait until it ends
         self.last_fired: dict[str, float] = {}
-        self.until = 0.0               # the current mood loop repeats until this time
+        self.resting = False          # the window should HOLD frame 0 of the current loop, not play it
+        self.rest_until = 0.0         # ... until this time (on_tick ends it)
+        self.passes_left = 0          # plays of the current animation still to come
+        self.last_act: Optional[str] = None     # the last animation's loop (no prop), for no-repeat
+        self.shown_mood: Optional[str] = None   # the mood whose animation he last played
+        self.rest_scale = 1.0         # LIVELINESS
+        self.break_phase: Optional[str] = None  # weapon out: "away" / "idle" / "back" during an idle break
         self.hand = {k: n for k, n in HAND_LOOPS.items() if n in catalog.loops}
         self.variants = {k: [n for n in v if n in catalog.loops] for k, v in HAND_VARIANTS.items()}
         for k, v in self.variants.items():
@@ -516,6 +548,7 @@ class LoopChooser:
             self.gag_cooldown_s = max(60.0, m * 60)
         except (TypeError, ValueError):
             self.gag_cooldown_s = GAG_COOLDOWN_S
+        self.rest_scale = LIVELINESS.get(str(prefs.get("liveliness", "normal")), 1.0)
 
     def prop_for(self, name: Optional[str] = None) -> Optional[str]:
         """The snap prop to draw over the current (or named) loop, or None."""
@@ -531,9 +564,18 @@ class LoopChooser:
         self.in_seq = True
         self.step_until = at + steps[0][1]
 
-    def _pick(self, mood: str, at: Optional[float] = None) -> str:
+    def _pick(self, mood: str, at: Optional[float] = None, on_break: bool = False) -> str:
         pool = self.pools[mood]
-        cur_base = split_snap(self.current)[0] if self.current else None
+        if on_break and self.held:
+            # an idle between two holds of a weapon: no gag (its steps would run into the hold), and not
+            # the empty-handed version of the pose he has just put the weapon away from
+            stem = _CUT.sub("", split_snap(self.held)[0])
+            pool = tuple(n for n in pool if n not in RARE_LOOPS
+                         and not split_snap(n)[0].startswith(stem)) or pool
+        # what he did last: the loop on screen, or, when that is only the frame he rests on, the
+        # animation before the rest
+        last = self.last_act if (self.resting or self.break_phase) else self.current
+        cur_base = split_snap(last)[0] if last else None
         if len(pool) > 1 and cur_base is not None:
             # never the same loop twice in a row -- nor the same idle again with a different prop
             pool = tuple(n for n in pool if split_snap(n)[0] != cur_base) or pool
@@ -550,17 +592,56 @@ class LoopChooser:
                 return self.rng.choice(sorted(ships))
         p = RARE_LOOPS.get(pick)
         if p is not None:                                          # a gag prop: only sometimes
-            now = time.time() if at is None else at
+            now = self.clock() if at is None else at
             cooled = self.last_gag_at is None or now - self.last_gag_at >= self.gag_cooldown_s
             common = tuple(n for n in pool if n not in RARE_LOOPS)
-            if (not self.gags_on or not cooled or self.rng.random() >= p) and common:
+            if (not self.gags_on or on_break or not cooled or self.rng.random() >= p) and common:
                 pick = self.rng.choice(common)
             else:
                 self.last_gag_at = now
         return pick
 
-    def on_mood(self, mood: Optional[str]) -> Optional[Path]:
-        """Call on every reading. Returns a new loop path when the loop should change, else None."""
+    def _stand(self, mood: str) -> str:
+        """The loop whose frame 0 is his standing pose in this mood."""
+        pref = REST_LOOPS.get(mood)
+        if pref in self.catalog.loops and (pref in self.pools[mood] or not self.pools[mood]):
+            return pref
+        for n in self.pools[mood]:
+            base, prop = split_snap(n)
+            if not prop and not _CUT.search(base):
+                return n
+        return split_snap(self.pools[mood][0])[0] if self.pools[mood] else (self.current or pref)
+
+    def _act(self, mood: str, at: float) -> Path:
+        """Start an animation from the mood's pool. It plays ACT_PASSES times, then he rests."""
+        pick = self._pick(mood, at)
+        self.resting, self.break_phase = False, None
+        self.current = pick
+        self.last_act = split_snap(pick)[0]
+        self.shown_mood = mood
+        self.passes_left = self.rng.randint(*ACT_PASSES)
+        self._gag(at)
+        return self.catalog.loops[self.current]
+
+    def _rest(self, at: float) -> Path:
+        """Stand still: frame 0 of the mood's standing loop, held until rest_until."""
+        self.resting, self.break_phase = True, None
+        self.current = self._stand(self.mood or UNKNOWN)
+        self.rest_until = at + self.rng.uniform(*REST_S) * self.rest_scale
+        return self.catalog.loops[self.current]
+
+    def _settle(self, at: float) -> Path:
+        """An event, an ending or a held item is over. If the mood moved meanwhile he shows the new one;
+        otherwise he just stands still again."""
+        if self.mood is None:
+            self.mood = UNKNOWN
+        if self.mood != self.shown_mood:
+            return self._act(self.mood, at)
+        return self._rest(at)
+
+    def on_mood(self, mood: Optional[str], at: Optional[float] = None) -> Optional[Path]:
+        """Call on every reading. Returns a new loop path when the loop should change, else None.
+        A CHANGE of mood plays that mood's animation at once, even in the middle of a rest."""
         key = mood if mood is not None else UNKNOWN
         if key not in self.pools:
             raise SpriteError("mood %r has no loop pool (known: %s)" % (key, ", ".join(self.pools)))
@@ -570,10 +651,76 @@ class LoopChooser:
         if key == self.mood and self.current is not None:
             return None
         self.mood = key
-        self.current = self._pick(key)
-        self.until = time.time() + self.rng.uniform(*DWELL_S)
-        self._gag(time.time())
+        return self._act(key, self.clock() if at is None else at)
+
+    def on_tick(self, at: Optional[float] = None) -> Optional[Path]:
+        """Call every tick. Time-driven changes: a held item's cap (expire), and the END OF A REST, which
+        nothing else can report because a resting loop is paused and never reaches its last frame."""
+        at = self.clock() if at is None else at
+        path = self.expire(at)
+        if path is not None:
+            return path
+        if self.oneshot or self.in_seq or not self.resting or at < self.rest_until:
+            return None
+        if self.held:
+            return self._break_start(at)
+        return self._act(self.mood or UNKNOWN, at)
+
+    # -- a weapon is out: hold it still, and every so often put it away for one idle -------------------
+    def _cut_of(self, held: str, part: str) -> Optional[str]:
+        """The _grab / _release cut that goes with a _held loop (same prop), if this outfit has it."""
+        base, prop = split_snap(held)
+        if not base.endswith("_held"):
+            return None
+        name = base[:-len("_held")] + part + (SNAP_SEP + prop if prop else "")
+        return name if name in self.catalog.loops else None
+
+    def _hold_still(self, at: float) -> Path:
+        self.break_phase, self.resting = None, True
+        self.current = self.held
+        self.rest_until = at + self.rng.uniform(*HOLD_STILL_S) * self.rest_scale
         return self.catalog.loops[self.current]
+
+    def _break_start(self, at: float) -> Path:
+        away = self._cut_of(self.held, "_release")
+        if away is None:
+            return self._break_idle(at)
+        self.resting, self.break_phase = False, "away"
+        self.current = away
+        return self.catalog.loops[away]
+
+    def _break_idle(self, at: float) -> Path:
+        if self.mood is None:
+            self.mood = UNKNOWN
+        self.break_phase = "idle"
+        pick = self._pick(self.mood, at, on_break=True)
+        self.resting = False
+        self.current = pick
+        self.last_act = split_snap(pick)[0]
+        self.passes_left = self.rng.randint(*ACT_PASSES)
+        return self.catalog.loops[pick]
+
+    def _held_loop_end(self, at: float) -> Path:
+        if self.held_key in HAND_MAX_S:               # bomb, drink, food: seconds long, run by expire()
+            self.current = self.held
+            return self.catalog.loops[self.held]
+        phase = self.break_phase
+        if phase == "away":
+            return self._break_idle(at)
+        if phase == "back":
+            return self._hold_still(at)
+        if phase is None and self.resting:            # a paused loop should not end; if one does, stay put
+            self.current = self.held
+            return self.catalog.loops[self.held]
+        self.passes_left -= 1
+        if self.passes_left > 0:
+            return self.catalog.loops[self.current]
+        if phase == "idle":
+            back = self._cut_of(self.held, "_grab")
+            if back is not None:
+                self.break_phase, self.current = "back", back
+                return self.catalog.loops[back]
+        return self._hold_still(at)
 
     def maybe_sign(self, event_type: str, at: float) -> Optional[Path]:
         """Ask pico/signs.py whether this event earns a sign. Held SIGN_HOLD_S seconds, then back."""
@@ -610,7 +757,7 @@ class LoopChooser:
         A sign, when the picker allows one, replaces the gesture."""
         if self.in_seq or self.held:      # a bomb ending / held item is never cut off by a game event
             return None
-        at = time.time() if at is None else at
+        at = self.clock() if at is None else at
         sign = self.maybe_sign(event_type, at)
         if sign is not None:
             return sign
@@ -621,16 +768,22 @@ class LoopChooser:
             return None
         self.last_fired[event_type] = at
         self.oneshot = True
+        self.resting = False              # an event cuts a rest short: the gesture plays now
         self.current = name
         return self.catalog.loops[name]
 
-    def on_hand(self, change: Optional[tuple[str, Optional[str]]], item: Optional[str] = None) -> Optional[Path]:
-        """A HandTracker change. Draw -> hold that loop until holstered; holster -> back to the mood."""
+    def on_hand(self, change: Optional[tuple[str, Optional[str]]], item: Optional[str] = None,
+                at: Optional[float] = None) -> Optional[Path]:
+        """A HandTracker change. Draw -> hold that item until holstered (with idle breaks, for a weapon);
+        holster -> the item is put away and he is back to his mood."""
         if change is None:
             return None
+        at = self.clock() if at is None else at
         kind, key = change
         if kind == "draw" and key in self.hand:
-            self.held_key, self.held_since = key, time.time()
+            self.held_key, self.held_since = key, at
+            self.resting, self.break_phase = False, None
+            self.passes_left = self.rng.randint(*ACT_PASSES)
             vs = self.variants.get(key)
             exact = food_variant(item) if key == "food" and item else None
             if exact and exact in self.catalog.loops:
@@ -641,15 +794,13 @@ class LoopChooser:
             return self.catalog.loops[self.held]
         if kind == "holster" and self.held:
             self.held = None
-            self.current = self._pick(self.mood or UNKNOWN)
-            self.until = time.time() + self.rng.uniform(*DWELL_S)
-            return self.catalog.loops[self.current]
+            return self._settle(at)
         return None
 
     def expire(self, at: Optional[float] = None) -> Optional[Path]:
         """Time-driven hand changes (a thrown grenade never logs a holster): the bomb's "!" at 4 s,
-        and at its cap a random ending. Call every tick."""
-        at = time.time() if at is None else at
+        and at its cap a random ending. on_tick() calls this every tick."""
+        at = self.clock() if at is None else at
         if not self.held:
             return None
         age = at - self.held_since
@@ -673,7 +824,7 @@ class LoopChooser:
                 self.seq = list(self.rng.choice(self.endings))
                 self.in_seq = True
                 return self._next_step(at)
-            return self.on_hand(("holster", None))
+            return self.on_hand(("holster", None), at=at)
         return None
 
     def _bite(self, age: float) -> Optional[str]:
@@ -697,14 +848,16 @@ class LoopChooser:
             self.in_seq = False
             return None
         name, secs = self.seq.pop(0)
+        self.resting = False
         self.current = name
         self.step_until = at + secs if secs else None
         return self.catalog.loops[name]
 
     def on_loop_end(self, at: Optional[float] = None) -> Path:
-        """The current loop finished. After an event: back to the mood. Otherwise repeat the same
-        loop until its dwell runs out, then rotate to another from the pool."""
-        at = time.time() if at is None else at
+        """The current loop finished one pass. An animation repeats until its ACT_PASSES are used up and
+        then he RESTS (on_tick starts the next one). After an event or an ending he rests too, unless the
+        mood changed while it played. With a weapon out, see _held_loop_end."""
+        at = self.clock() if at is None else at
         was_event, self.oneshot = self.oneshot, False
         if self.in_seq:
             if self.step_until is not None and at < self.step_until:
@@ -713,17 +866,68 @@ class LoopChooser:
             if nxt is not None:
                 return nxt
             was_event = True                                # ending done: back to a fresh mood loop
-        if self.held:                                   # still holding it: keep the held loop
-            self.current = self.held
-            return self.catalog.loops[self.held]
+        if self.held:                                   # still holding it
+            return self._held_loop_end(at)
         if self.mood is None:
             self.mood = UNKNOWN
-        if not was_event and self.current is not None and at < self.until:
+        if self.current is None:
+            return self._act(self.mood, at)
+        if was_event:
+            return self._settle(at)
+        if self.resting:                                # a paused loop should not end; if one does, stay put
             return self.catalog.loops[self.current]
-        self.current = self._pick(self.mood, at)
-        self.until = at + self.rng.uniform(*DWELL_S)
-        self._gag(at)
-        return self.catalog.loops[self.current]
+        self.passes_left -= 1
+        if self.passes_left > 0:
+            return self.catalog.loops[self.current]
+        return self._rest(at)
+
+
+SIM_PASS_S = 1.4     # one pass of a loop, for simulate(); the real loops are 0.8-1.4 s
+
+
+def simulate(c: "LoopChooser", clock: list, seconds: float, mood: Optional[str] = "calm",
+             step: float = 0.1) -> list:
+    """Drive a chooser the way sprite_pal.py does, on a FAKE clock (clock[0], advanced here): a tick every
+    second (on_tick, then on_mood), and a loop end each time a running loop finishes a pass; a resting
+    loop is paused, so it never ends. Returns one row per step: (t, loop name, resting, held loop).
+    No sleeping: an hour of Pico takes a moment. Where the running pass ends and when the next tick is due
+    are kept on the chooser (c.sim), so the simulation can be advanced in several calls."""
+    rows = []
+    end = clock[0] + seconds
+    sim = getattr(c, "sim", None)
+    if sim is None:
+        sim = c.sim = {"ends_at": None if (c.resting or c.current is None) else clock[0] + SIM_PASS_S,
+                       "next_tick": clock[0]}
+
+    def played(path):
+        if path is not None:
+            sim["ends_at"] = None if c.resting else clock[0] + SIM_PASS_S
+
+    while clock[0] < end:
+        t = clock[0]
+        if t >= sim["next_tick"]:
+            sim["next_tick"] += 1.0
+            played(c.on_tick(t))
+            played(c.on_mood(mood, at=t))
+        if sim["ends_at"] is not None and t >= sim["ends_at"]:
+            played(c.on_loop_end(t))
+        rows.append((t, c.current, c.resting, c.held))
+        clock[0] = round(t + step, 6)
+    return rows
+
+
+def _runs(rows) -> list:
+    """Consecutive rows with the same (loop, resting) as [loop, resting, seconds, held]."""
+    out = []
+    for i, (t, name, resting, held) in enumerate(rows):
+        if out and out[-1][0] == name and out[-1][1] == resting:
+            continue
+        if out:
+            out[-1][2] = t - out[-1][2]
+        out.append([name, resting, t, held])
+    if out:
+        out[-1][2] = rows[-1][0] - out[-1][2]
+    return out
 
 
 def selftest() -> int:
@@ -751,10 +955,18 @@ def selftest() -> int:
         ck("same mood again returns None (keeps playing)", c.on_mood(None) is None)
         p = c.on_mood("happy")
         ck("mood change picks from the new pool", p.stem in MOOD_LOOPS["happy"])
-        ck("loop end INSIDE the dwell repeats the same loop", c.on_loop_end(at=c.until - 1).stem == p.stem)
-        q = c.on_loop_end(at=c.until + 1)
-        ck("loop end after the dwell rotates to a different loop",
-           q.stem != p.stem and q.stem in MOOD_LOOPS["happy"])
+        n_pass = c.passes_left
+        for _ in range(n_pass - 1):
+            ck("a loop end with passes left repeats the same loop",
+               c.on_loop_end(at=1.0).stem == p.stem and not c.resting)
+        q = c.on_loop_end(at=2.0)
+        ck("after its last pass (%d of at most %d) he rests on the mood's standing loop" % (n_pass, ACT_PASSES[1]),
+           c.resting and 1 <= n_pass <= ACT_PASSES[1] and q.stem == REST_LOOPS["happy"]
+           and REST_S[0] <= c.rest_until - 2.0 <= REST_S[1])
+        ck("during the rest nothing new starts", c.on_tick(at=c.rest_until - 0.5) is None and c.resting)
+        q = c.on_tick(at=c.rest_until + 0.5)
+        ck("when the rest is over a DIFFERENT loop starts",
+           q is not None and not c.resting and q.stem != p.stem and q.stem in MOOD_LOOPS["happy"])
         try:
             c.on_mood("bogus")
             ck("unknown mood name raises", False)
@@ -983,6 +1195,134 @@ def selftest() -> int:
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
         ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
+        # ---- RESTS (J 2026-10-04). Everything below runs on a fake clock. ----
+        clk = [1000.0]
+        cr = LoopChooser(Catalog.scan(d), rng=random.Random(21), clock=lambda: clk[0])
+        rows = simulate(cr, clk, 2 * 3600.0)
+        runs = _runs(rows)
+        rest_share = sum(1 for r in rows if r[2]) / float(len(rows))
+        acts = [r for r in runs if not r[1]]
+        rests = [r for r in runs if r[1]]
+        ck("two idle hours: he is standing still most of the time (%.0f%%), yet does %d things"
+           % (100 * rest_share, len(acts)), rest_share > 0.7 and len(acts) > 150)
+        longest = max((r[2] for r in acts), default=0.0)
+        ck("no animation repeats past its bound (longest run %.1f s, bound %d passes of %.1f s)"
+           % (longest, ACT_PASSES[1], SIM_PASS_S), longest <= ACT_PASSES[1] * SIM_PASS_S + 0.3)
+        ck("every rest lasts REST_S, about (%.0f-%.0f s seen)" % (min((r[2] for r in rests[:-1]), default=0),
+                                                               max((r[2] for r in rests[:-1]), default=0)),
+           len(rests) > 2 and all(REST_S[0] - 0.2 <= r[2] <= REST_S[1] + 1.2 for r in rests[:-1]))
+        ck("a rest is drawn on the mood's standing loop, with no prop",
+           all(r[0] == REST_LOOPS["calm"] for r in rests))
+        bases = [split_snap(r[0])[0] for r in acts]
+        ck("across rests the same idle still never plays twice in a row",
+           all(a != b for a, b in zip(bases, bases[1:])) and len(set(bases)) >= 6)
+        ck("an animation is always followed by a rest, not by another animation",
+           all(runs[i + 1][1] for i, r in enumerate(runs[:-1]) if not r[1]))
+        # an event, or a new mood, in the middle of a rest plays at once
+        clk = [5000.0]
+        ce = LoopChooser(Catalog.scan(d), rng=random.Random(22), clock=lambda: clk[0])
+        ce.apply_prefs({"signs": False})          # a sign may replace the gesture; this check is about the gesture
+        simulate(ce, clk, 60.0)
+        for _ in range(600):                      # bounded: a broken chooser must fail a check, not hang
+            if ce.resting:
+                break
+            simulate(ce, clk, 1.0)
+        ck("(set-up) he is resting, with rest time left", ce.resting and ce.rest_until > clk[0] + 2)
+        g = ce.on_event("qt_arrived", at=clk[0])
+        ck("an event during a rest plays at once", g is not None and g.stem == "quantum_drop_default"
+           and not ce.resting and ce.oneshot)
+        ck("and when it is over he rests again", ce.on_loop_end(at=clk[0] + 1.4) is not None and ce.resting)
+        g = ce.on_mood("hurt", at=clk[0] + 2)
+        ck("a mood change during a rest plays the new mood at once",
+           g is not None and not ce.resting and ce.current in MOOD_LOOPS["hurt"])
+        ce.sim = None                             # driven by hand above: let the simulation pick him up afresh
+        rows = simulate(ce, clk, 120.0, mood="hurt")
+        ck("a hurt Pico rests on the hurt face, not the calm one",
+           {r[1] for r in rows if r[2]} == {REST_LOOPS["hurt"]})
+        clk = [6000.0]
+        cu = LoopChooser(Catalog.scan(d), rng=random.Random(23), clock=lambda: clk[0])
+        rows = simulate(cu, clk, 120.0, mood=None)
+        ck("UNKNOWN rests confused, never calm", {r[1] for r in rows} == {"confused_confused"}
+           and any(r[2] for r in rows) and any(not r[2] for r in rows))
+        # a weapon out: held still, an idle now and then, back to the weapon, and the holster still works
+        for part in ("_grab", "_release"):
+            (Path(d) / ("weapon_draw_focused" + part + ".gif")).write_bytes(b"GIF89a")
+        for cuts in (True, False):
+            if not cuts:
+                for part in ("_grab", "_release"):
+                    (Path(d) / ("weapon_draw_focused" + part + ".gif")).unlink()
+            tag = "with put-away cuts" if cuts else "outfit without cuts"
+            clk = [9000.0]
+            cw = LoopChooser(Catalog.scan(d), rng=random.Random(24), clock=lambda: clk[0])
+            cw.on_mood("calm", at=clk[0])
+            held = HAND_LOOPS["slot1"]
+            cw.on_hand(("draw", "slot1"), at=clk[0])
+            rows = simulate(cw, clk, 1800.0)
+            runs = _runs(rows)
+            names = [r[0] for r in runs]
+            calm_bases = {split_snap(n)[0] for n in MOOD_LOOPS["calm"]}
+            idles = [i for i, r in enumerate(runs) if split_snap(r[0])[0] in calm_bases and "pistol" not in r[0]]
+            still = sum(r[2] for r in runs if r[0] == held and r[1])
+            ck("weapon out 30 min (%s): he leaves the held pose for %d idles and comes back each time"
+               % (tag, len(idles)),
+               len(idles) >= 40 and cw.held == held and all(r[3] == held for r in rows)
+               and all(held in names[i + 1:i + 3] for i in idles if i < len(names) - 2))
+            ck("weapon out (%s): mostly he holds it still (%.0f%% of the time)" % (tag, 100 * still / 1800.0),
+               still / 1800.0 > 0.6)
+            ck("weapon out (%s): no loop runs past its bound (longest %.1f s)"
+               % (tag, max((r[2] for r in runs if not r[1]), default=0.0)),
+               max((r[2] for r in runs if not r[1]), default=0.0) <= ACT_PASSES[1] * SIM_PASS_S + 0.3)
+            ck("weapon out (%s): the idle is never a gag, nor the empty-handed weapon pose" % tag,
+               not any(n in RARE_LOOPS or split_snap(n)[0] == "weapon_draw_focused" for n in names))
+            rel, grab = "weapon_draw_focused_release+pistol_white", "weapon_draw_focused_grab+pistol_white"
+            if cuts:
+                ck("weapon out: it is put away (release cut) before the idle and taken out (grab cut) after",
+                   all(names[i - 1] == rel and names[i + 1] == grab for i in idles if 0 < i < len(names) - 1))
+            else:
+                ck("an outfit without the cuts still takes its idle breaks", rel not in names and grab not in names)
+            for _ in range(3000):                    # holster in the MIDDLE of an idle break
+                if cw.break_phase == "idle":
+                    break
+                simulate(cw, clk, 0.1)
+            ck("(set-up, %s) he is in the idle part of a break" % tag, cw.break_phase == "idle")
+            back = cw.on_hand(("holster", None), at=clk[0])
+            cw.sim = None
+            ck("holstering (%s, mid-break) puts the prop away for good" % tag,
+               back is not None and cw.held is None and cw.prop_for() is None and cw.break_phase is None)
+            rows = simulate(cw, clk, 300.0)
+            ck("after the holster the weapon never comes back (%s)" % tag,
+               not any("pistol" in (r[1] or "") or r[3] for r in rows))
+        clk = [20000.0]
+        cw = LoopChooser(Catalog.scan(d), rng=random.Random(25), clock=lambda: clk[0])
+        cw.on_mood("calm", at=clk[0]); cw.on_hand(("draw", "slot2"), at=clk[0])
+        for _ in range(600):
+            if cw.resting:
+                break
+            simulate(cw, clk, 0.5)
+        back = cw.on_hand(("holster", None), at=clk[0])
+        ck("holstering while he holds it still puts the prop away",
+           back is not None and cw.held is None and cw.prop_for() is None and cw.resting
+           and cw.current == REST_LOOPS["calm"])
+        clk = [30000.0]
+        cb = LoopChooser(Catalog.scan(d), rng=random.Random(26), clock=lambda: clk[0])
+        cb.on_mood("calm", at=clk[0]); cb.on_hand(("draw", "bomb"), at=clk[0])
+        rows = simulate(cb, clk, 7.5)
+        ck("a bomb gets no idle break: held, then the alert, as before",
+           {r[1] for r in rows} == {HAND_LOOPS["bomb"], BOMB_ALERT_LOOP} and not any(r[2] for r in rows))
+        cp.apply_prefs({"liveliness": "calm"})
+        calm_scale = cp.rest_scale
+        cp.apply_prefs({"liveliness": "lively"})
+        lively_scale = cp.rest_scale
+        cp.apply_prefs({"liveliness": 7})
+        ck("the How-lively setting scales the rests, and a bad value means normal",
+           calm_scale == LIVELINESS["calm"] > 1.0 > LIVELINESS["lively"] == lively_scale and cp.rest_scale == 1.0)
+        clk = [40000.0]
+        cl = LoopChooser(Catalog.scan(d), rng=random.Random(21), clock=lambda: clk[0])
+        cl.apply_prefs({"liveliness": "lively"})
+        rows = simulate(cl, clk, 3600.0)
+        lively_share = sum(1 for r in rows if r[2]) / float(len(rows))
+        ck("lively rests less than normal (%.0f%% of the time vs %.0f%%)" % (100 * lively_share, 100 * rest_share),
+           lively_share < rest_share - 0.1)
         (Path(d) / "confused_confused.gif").unlink()
         try:
             Catalog.scan(d).check()
