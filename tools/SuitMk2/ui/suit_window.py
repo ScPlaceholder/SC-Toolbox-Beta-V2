@@ -98,8 +98,12 @@ class SuitWindow(SCWindow):
         self.speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker)
         for who in ("elah", "montaigne"):
             self.speech.set_level(who, float(self.s.get(f"volume_{who}", 1.5)))
-        if self.s.get("muted"):
-            self.speech.mute(True)
+        # J 2026-10-04: "make sure that suitmk2 only have the AI's talk while it is launched". The launcher
+        # preloads this tool HIDDEN when the launcher itself starts, and closing the window only hides it, so
+        # the companions used to talk for a tool the user had never opened, or had closed. They are now silent
+        # whenever the window is not open; see _apply_voice_gate. The window does not exist yet here, so start
+        # silent and let showEvent open the gate.
+        self.speech.mute(True)
         threading.Thread(target=self.speech.preload, name="suitmk2_voice_preload", daemon=True).start()
 
         tb = SCTitleBar(window=self, title="SUIT MK2", accent_color=ACCENT, hotkey_text=hotkey_text,
@@ -149,7 +153,7 @@ class SuitWindow(SCWindow):
         ctl = QHBoxLayout()
         self._mute = QPushButton("Mute")
         self._mute.setCheckable(True)
-        self._mute.setChecked(self.speech.muted)
+        self._mute.setChecked(bool(self.s.get("muted")))      # his setting, not the window gate
         self._mute.setStyleSheet(_btn_ss(P.red))
         self._mute.toggled.connect(self._toggle_mute)
         ctl.addWidget(self._mute)
@@ -598,8 +602,22 @@ class SuitWindow(SCWindow):
         except Exception as e:
             self.core and self.core._note(f"memory export FAILED: {type(e).__name__}: {e}")
 
+    def _apply_voice_gate(self) -> None:
+        """The companions speak only while this window is open AND the user has not muted them.
+
+        "Open" is isVisible(): a minimised window still counts (he launched it and it is on the taskbar); a
+        hidden one (preloaded by the launcher, closed with X, or toggled off from its tile) does not. The
+        Mute button keeps its own saved value in self.s["muted"] and this never writes it, so closing and
+        reopening the window cannot change what he chose."""
+        self.speech.mute(bool(self.s.get("muted")) or not self.isVisible())
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._apply_voice_gate()
+
     def showEvent(self, event) -> None:
         super().showEvent(event)
+        self._apply_voice_gate()
         if getattr(self, "_notice_pending", False):
             QTimer.singleShot(600, self._maybe_show_notice)
 
@@ -772,8 +790,8 @@ class SuitWindow(SCWindow):
             self._fb_mon[name].start(dlg.result)          # start() stops the previous binding first
 
     def _toggle_mute(self, on: bool) -> None:
-        self.speech.mute(on)
         self.s["muted"] = on
+        self._apply_voice_gate()
         st.save(self.s)
 
     def _set_presence(self, value: str) -> None:
