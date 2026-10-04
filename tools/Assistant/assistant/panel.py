@@ -133,19 +133,26 @@ class _SettingsDialog(QDialog):
         return self.cfg
 
 
-class AssistantWindow(SCWindow):
-    """The assistant HUD."""
+class _AssistantBody:
+    """Everything the assistant HUD is and does, without the window around it.
 
-    # Cross-thread bridges: the agent (and tools) run on a worker thread,
-    # so all GUI mutations go through queued signals.
-    speakRequested = Signal(str)
-    statusRequested = Signal(str)
+    Two classes at the bottom of this file put it on screen: AssistantWindow
+    (its own window, as it has always been) and AssistantPanel (one tab of the
+    Toolbox Assistant window, which also has SuitMk2 as a tab; J 2026-10-04).
+    Both get every method here. They differ in the frame, in whether a window
+    position is saved, and in who owns the microphone.
 
-    def __init__(self, base_dir: str, opacity: float = 0.95,
-                 parent: Optional[QWidget] = None) -> None:
-        super().__init__(title="Toolbox Assistant", width=520, height=340,
-                         min_w=420, min_h=240, opacity=opacity,
-                         accent=P.energy_cyan, parent=parent)
+    The two classes each declare speakRequested / statusRequested themselves:
+    a Qt signal has to be declared on a QObject class, and this one is not.
+    """
+
+    # False while another tab of a shared window is the one listening; see
+    # mic_take / mic_release. Always True for AssistantWindow.
+    _mic_mine = True
+    # True when this body is a whole window, so its position is worth saving.
+    _owns_window = True
+
+    def _build(self, base_dir: str, chrome: bool = True) -> None:
         self._base_dir = base_dir
         self._state = self._load_state()
         self._migration_notes = self._migrate_starmap_voice()
@@ -201,11 +208,12 @@ class AssistantWindow(SCWindow):
             self._penguin = None
 
         # ── chrome ───────────────────────────────────────────────────────
-        tb = SCTitleBar(self, title="TOOLBOX ASSISTANT", icon_text="🤖",
-                        accent_color=P.energy_cyan, show_minimize=True)
-        tb.minimize_clicked.connect(self.showMinimized)
-        tb.close_clicked.connect(self.close)
-        self.content_layout.addWidget(tb)
+        if chrome:                      # as a tab, the window it sits in has the title bar
+            tb = SCTitleBar(self, title="TOOLBOX ASSISTANT", icon_text="🤖",
+                            accent_color=P.energy_cyan, show_minimize=True)
+            tb.minimize_clicked.connect(self.showMinimized)
+            tb.close_clicked.connect(self.close)
+            self.content_layout.addWidget(tb)
 
         row = QHBoxLayout()
         row.setContentsMargins(10, 6, 10, 2)
@@ -344,9 +352,32 @@ class AssistantWindow(SCWindow):
         self.content_layout.addWidget(self._lbl_status)
 
         geom = self._state.get("geom")
-        if geom and len(geom) == 4:
+        if self._owns_window and geom and len(geom) == 4:
             self.setGeometry(*geom)
         self._restore_binding()
+        self._ensure_ears()
+
+    # ── the microphone, when this HUD is one tab of a bigger window ──────
+    # In its own window the assistant always owns its microphone. As a tab it
+    # shares the window with SuitMk2, which has ears of its own, and two tabs
+    # must never listen at once: the same sentence would be answered twice.
+    # The window hands the microphone to the tab that is showing (mic_take)
+    # and takes it from the other (mic_release). Every arm goes through the
+    # hidden Ears button (_ensure_ears checks it, _on_ears_toggled arms), and
+    # mic_release leaves it unchecked, so _on_ears_toggled is the one door:
+    # it refuses while the microphone is not this tab's, and a mode change or
+    # a new mic key cannot open it.
+    def mic_release(self) -> None:
+        """Another tab is listening now: close the mic, stop watching the key."""
+        self._mic_mine = False
+        if self._btn_ears.isChecked():
+            self._btn_ears.setChecked(False)       # -> _on_ears_toggled -> disarm
+        if self._ears.armed() or self._ears.recording():
+            self._ears.disarm()
+
+    def mic_take(self) -> None:
+        """This tab is the one showing: listen again, as the saved settings say."""
+        self._mic_mine = True
         self._ensure_ears()
 
     # ── ears: always on, push-to-talk or always-open mic ─────────────────
@@ -507,7 +538,7 @@ class AssistantWindow(SCWindow):
 
     def _on_ears_toggled(self, on: bool) -> None:
         if on:
-            if not self._ears.arm():
+            if not self._mic_mine or not self._ears.arm():
                 self._btn_ears.setChecked(False)
         else:
             self._ears.disarm()
@@ -592,19 +623,72 @@ class AssistantWindow(SCWindow):
     def _save_state(self) -> None:
         try:
             os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
-            g = self.geometry()
-            self._state["geom"] = [g.x(), g.y(), g.width(), g.height()]
+            if self._owns_window:       # a tab's own rectangle is not a window position
+                g = self.geometry()
+                self._state["geom"] = [g.x(), g.y(), g.width(), g.height()]
             self._state["voice_replies"] = self._btn_replies.isChecked()
             with open(_STATE_PATH, "w", encoding="utf-8") as f:
                 json.dump(self._state, f, indent=2)
         except OSError as exc:
             log.warning("assistant panel: state save failed: %s", exc)
 
-    def closeEvent(self, event) -> None:
+    def _stop_voice(self) -> None:
+        """Save the settings, close the mic and stop talking. Both frames end with this."""
         self._save_state()
         try:
             self._ears.shutdown()
             self._mouth.stop()
         except Exception:
             pass
+
+
+class AssistantWindow(_AssistantBody, SCWindow):
+    """The assistant HUD in its own window (assistant_app.py)."""
+
+    # Cross-thread bridges: the agent (and tools) run on a worker thread,
+    # so all GUI mutations go through queued signals.
+    speakRequested = Signal(str)
+    statusRequested = Signal(str)
+
+    def __init__(self, base_dir: str, opacity: float = 0.95,
+                 parent: Optional[QWidget] = None) -> None:
+        SCWindow.__init__(self, title="Toolbox Assistant", width=520, height=340,
+                          min_w=420, min_h=240, opacity=opacity,
+                          accent=P.energy_cyan, parent=parent)
+        self._build(base_dir)
+
+    def closeEvent(self, event) -> None:
+        self._stop_voice()
         super().closeEvent(event)
+
+
+class AssistantPanel(_AssistantBody, QWidget):
+    """The assistant HUD as one tab of the Toolbox Assistant window
+    (toolbox_assistant_app.py), beside SuitMk2.
+
+    The same HUD and the same agent, with no title bar of its own. ``mic``
+    says whether this tab is the one listening when it is built; the window
+    moves the microphone afterwards with mic_take / mic_release.
+    """
+
+    speakRequested = Signal(str)
+    statusRequested = Signal(str)
+
+    _owns_window = False
+
+    def __init__(self, base_dir: str, parent: Optional[QWidget] = None,
+                 mic: bool = True) -> None:
+        QWidget.__init__(self, parent)
+        self._mic_mine = bool(mic)
+        self.content_layout = QVBoxLayout(self)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+        self._build(base_dir, chrome=False)
+
+    def shutdown(self) -> None:
+        """Launcher quit, or the window closing for good: what AssistantWindow
+        does in closeEvent, plus the worker subprocesses the agent started
+        (assistant_app.py stops those itself after its event loop ends)."""
+        self._stop_voice()
+        from .worker_pool import shutdown_all
+        shutdown_all()

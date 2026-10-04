@@ -78,11 +78,18 @@ API_MODELS = [("Claude Sonnet 5 (recommended)", "claude-sonnet-5"),
               ("Claude Opus 5 (best, costs most)", "claude-opus-5")]
 
 
-class SuitWindow(SCWindow):
-    def __init__(self, geometry, hotkey_text: str = "", cmd_file: Optional[str] = None) -> None:
-        super().__init__(title="SuitMk2", width=geometry.w, height=geometry.h, min_w=420, min_h=360,
-                         opacity=geometry.opacity, accent=ACCENT)
-        self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
+class _SuitBody:
+    """Everything the SuitMk2 dashboard is and does, without the window around it.
+
+    Two classes at the bottom of this file put it on screen: SuitWindow (its own window, as it has always been) and
+    SuitPanel (one tab of the Toolbox Assistant window, J 2026-10-04). Both get every method here; they differ only
+    in the frame, in what "the window is open" means for the voice gate, and in who owns the microphone.
+    """
+
+    # False while another tab of a shared window is the one listening; see mic_take / mic_release.
+    _mic_mine = True
+
+    def _build(self, hotkey_text: str = "", cmd_file: Optional[str] = None, chrome: bool = True) -> None:
         self._standalone = not cmd_file or cmd_file == os.devnull
         self._quitting = False       # see _quit: three wirings onto one method, and it must run once
         self.s = st.load()
@@ -106,11 +113,12 @@ class SuitWindow(SCWindow):
         self.speech.mute(True)
         threading.Thread(target=self.speech.preload, name="suitmk2_voice_preload", daemon=True).start()
 
-        tb = SCTitleBar(window=self, title="SUIT MK2", accent_color=ACCENT, hotkey_text=hotkey_text,
-                        show_minimize=True)
-        tb.minimize_clicked.connect(self.showMinimized)
-        tb.close_clicked.connect(self._on_close)
-        self.content_layout.addWidget(tb)
+        if chrome:                               # as a tab, the window it sits in has the title bar
+            tb = SCTitleBar(window=self, title="SUIT MK2", accent_color=ACCENT, hotkey_text=hotkey_text,
+                            show_minimize=True)
+            tb.minimize_clicked.connect(self.showMinimized)
+            tb.close_clicked.connect(self._on_close)
+            self.content_layout.addWidget(tb)
 
         body = QWidget(self)
         lay = QVBoxLayout(body)
@@ -361,7 +369,7 @@ class SuitWindow(SCWindow):
         if self.s.get("talk_key"):
             self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
         if self.s.get("talk_key") or self.ears.mode() == "always":
-            QTimer.singleShot(1500, self.ears.arm)
+            QTimer.singleShot(1500, self._arm_ears)
         self._show_talk_key()
         # arm() is what reports missing voice libraries, and it only runs once a
         # talk key is set, so check up front as well
@@ -522,7 +530,7 @@ class SuitWindow(SCWindow):
             self.ears.disarm()
             self.ears.set_binding(dlg.result)
             self._show_talk_key()
-            self.ears.arm()
+            self._arm_ears()
 
     def _set_talk_mode(self, _index: int = 0) -> None:
         mode = self._talk_mode.currentData() or "push"
@@ -531,8 +539,31 @@ class SuitWindow(SCWindow):
         self.ears.disarm()
         self.ears.set_mode(mode)
         self._show_talk_key()
-        if mode == "always" or self.s.get("talk_key"):
+        self._arm_ears()
+
+    # -- the microphone ---------------------------------------------------------------------------------------------
+    # In its own window this dashboard always owns its microphone. As a tab of the Toolbox Assistant window it shares
+    # the window with the Assistant, which has ears of its own, and two tabs must never listen at once: the same
+    # sentence would be answered twice. The window hands the microphone to the tab that is showing (mic_take) and
+    # takes it from the other (mic_release). Every place that arms the ears goes through _arm_ears, so a tab that
+    # does not hold the microphone cannot open it by a side door (a new talk key, a mode change, the start-up timer).
+    def _arm_ears(self) -> None:
+        """Arm the ears if this dashboard holds the microphone and there is a way to talk (a key, or always on)."""
+        if not getattr(self, "_mic_mine", True):
+            return
+        if self.s.get("talk_key") or self.ears.mode() == "always":
             self.ears.arm()
+
+    def mic_release(self) -> None:
+        """Another tab is listening now: close the mic and stop watching the talk key."""
+        self._mic_mine = False
+        if self.ears.armed() or self.ears.recording():
+            self.ears.disarm()
+
+    def mic_take(self) -> None:
+        """This tab is the one showing: listen again, the way the saved settings say."""
+        self._mic_mine = True
+        self._arm_ears()
 
     def _show_talk_key(self) -> None:
         """Talk button text + the hint beside it."""
@@ -860,3 +891,46 @@ class SuitWindow(SCWindow):
         finally:
             from PySide6.QtWidgets import QApplication
             QApplication.quit()
+
+
+class SuitWindow(_SuitBody, SCWindow):
+    """SuitMk2 in its own window (suitmk2_companion_app.py)."""
+
+    def __init__(self, geometry, hotkey_text: str = "", cmd_file: Optional[str] = None) -> None:
+        SCWindow.__init__(self, title="SuitMk2", width=geometry.w, height=geometry.h, min_w=420, min_h=360,
+                          opacity=geometry.opacity, accent=ACCENT)
+        self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
+        self._build(hotkey_text, cmd_file)
+
+
+class SuitPanel(_SuitBody, QWidget):
+    """SuitMk2 as one tab of the Toolbox Assistant window (tools/Assistant/toolbox_assistant_app.py).
+
+    The same dashboard and the same companion core, with no title bar of its own. `mic` says whether this tab is the
+    one listening when it is built; the window moves the microphone afterwards with mic_take / mic_release.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None, cmd_file: Optional[str] = None, mic: bool = True) -> None:
+        QWidget.__init__(self, parent)
+        self._mic_mine = bool(mic)
+        self.content_layout = QVBoxLayout(self)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+        self._build("", cmd_file, chrome=False)
+
+    def _apply_voice_gate(self) -> None:
+        """The companions speak only while the WINDOW this tab sits in is open, and the user has not muted them.
+
+        Not this tab's own isVisible(): that goes False whenever the Assistant tab is the one showing, and the rule
+        (J 2026-10-04) is about the tool being open, not about which tab is in front. A hidden window (preloaded by
+        the launcher, closed with X, toggled off) is silent exactly as SuitWindow is."""
+        self.speech.mute(bool(self.s.get("muted")) or not self.window().isVisible())
+
+    def host_visibility_changed(self) -> None:
+        """Called by the window when it is shown or hidden. A tab that is not in front gets no show/hide event of its
+        own when that happens, so the window has to say."""
+        self._apply_voice_gate()
+
+    def shutdown(self) -> None:
+        """Launcher quit, or the window closing for good: the same once-only teardown as SuitWindow."""
+        self._quit()
