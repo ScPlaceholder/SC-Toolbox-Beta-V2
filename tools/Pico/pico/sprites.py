@@ -665,6 +665,9 @@ class LoopChooser:
             return None
         if self.held:
             return self._break_start(at)
+        sign = self.maybe_idle_sign(at)                 # now and then a sign, whatever he is doing
+        if sign is not None:
+            return sign
         return self._act(self.mood or UNKNOWN, at)
 
     # -- a weapon is out: hold it still, and every so often put it away for one idle -------------------
@@ -735,6 +738,30 @@ class LoopChooser:
         d = signs.pick(ev, mood=SIGN_MOOD.get(self.mood or "", self.mood), now_s=at,
                        last_sign_s=self.last_sign_at, recent=self.recent_signs, rng=self.rng)
         self.last_sign = d
+        return self._raise_sign(d, at)
+
+    def maybe_idle_sign(self, at: float) -> Optional[Path]:
+        """A sign with no game event behind it, offered each time a rest ends (J 2026-10-04: "make the signs
+        come up randomly regardless of tasks"). Never while he holds something or is mid-sequence."""
+        if not self.signs_on or self.held or self.in_seq:
+            return None
+        if self.mood in (None, UNKNOWN):                # no readable game log: he only stands confused
+            return None
+        try:
+            from pico import signs
+        except Exception:
+            return None
+        d = signs.pick_idle(mood=SIGN_MOOD.get(self.mood or "", self.mood), now_s=at,
+                            last_sign_s=self.last_sign_at, recent=self.recent_signs, rng=self.rng)
+        self.last_sign = d
+        return self._raise_sign(d, at)
+
+    def _raise_sign(self, d: dict, at: float) -> Optional[Path]:
+        """Start the grab / hold / release sequence for the picker's decision, or None if it said no."""
+        try:
+            from pico import signs
+        except Exception:
+            return None
         if not d.get("show"):
             return None
         name = SIGN_LOOP + SNAP_SEP + "sign_" + d["sign"]
@@ -1192,6 +1219,34 @@ def selftest() -> int:
            and cs.last_sign["why"] == "cooldown")
         ck("a sad Pico holds up no sign", (cs.on_mood("hurt") or True)
            and cs.maybe_sign("contract_complete", at=1e7) is None and cs.last_sign["why"] == "mood_veto")
+        # idle signs (J 2026-10-04): no event needed; offered when a rest ends
+        from pico import signs as _sg
+        ck("a sad Pico holds up no idle sign either",
+           cs.maybe_idle_sign(at=2e7) is None and cs.last_sign["why"] == "mood_veto")
+        ci = LoopChooser(Catalog.scan(d), rng=random.Random(3)); ci.on_mood("calm")
+        clk = [0.0]; ci.clock = lambda: clk[0]
+        rows_i = simulate(ci, clk, 3600.0, mood="calm")
+        sign_starts = [t for (t, name, _r, _h), prev in zip(rows_i[1:], rows_i[:-1])
+                       if "_grab+sign_" in (name or "") and name != prev[1]]
+        ck("with no game event at all, signs still come up over an hour (%d)" % len(sign_starts),
+           3 <= len(sign_starts) <= 20)
+        gaps = [b - a for a, b in zip(sign_starts, sign_starts[1:])]
+        ck("idle signs keep their floor apart (shortest gap %.0fs)" % (min(gaps) if gaps else 0),
+           bool(gaps) and min(gaps) >= _sg.IDLE_COOLDOWN_S)
+        co = LoopChooser(Catalog.scan(d), rng=random.Random(3)); co.on_mood("calm")
+        co.apply_prefs({"signs": False})
+        clk2 = [0.0]; co.clock = lambda: clk2[0]
+        ck("signs switched off: no idle sign in an hour either",
+           not any("+sign_" in (name or "") for _t, name, _r, _h in simulate(co, clk2, 3600.0, mood="calm")))
+        ch = LoopChooser(Catalog.scan(d), rng=random.Random(3)); ch.on_mood("calm")
+        ch.held = "weapon_reload_happy_held+hotdog_1"
+        ck("no idle sign while he is holding something", ch.maybe_idle_sign(at=5e7) is None)
+        after = [nxt[2] for (t, name, _r, _h), nxt in zip(rows_i[:-1], rows_i[1:])
+                 if "_release+sign_" in (name or "") and nxt[1] != name]
+        ck("after a sign is lowered he rests (%d of %d)" % (sum(after), len(after)), bool(after) and all(after))
+        cq = LoopChooser(Catalog.scan(d), rng=random.Random(3))
+        ck("no idle sign while his mood is unknown", cq.maybe_idle_sign(at=9e7) is None
+           and (cq.on_mood(None) or True) and cq.maybe_idle_sign(at=9e7) is None)
         ck("every ending gets picked across seeds (%d of %d)" % (len(picks), len(BOMB_ENDINGS)),
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
@@ -1199,6 +1254,7 @@ def selftest() -> int:
         # ---- RESTS (J 2026-10-04). Everything below runs on a fake clock. ----
         clk = [1000.0]
         cr = LoopChooser(Catalog.scan(d), rng=random.Random(21), clock=lambda: clk[0])
+        cr.apply_prefs({"signs": False})          # these checks are about idles; a sign is a 4 s held sequence
         rows = simulate(cr, clk, 2 * 3600.0)
         runs = _runs(rows)
         rest_share = sum(1 for r in rows if r[2]) / float(len(rows))

@@ -71,6 +71,12 @@ COOLDOWN_S = 8 * 60          #: hard floor between any two signs
 NOVELTY_WINDOW = 6           #: do not repeat a sign shown within the last N
 FIRE_CHANCE = 0.35           #: probability once every other gate has passed
 TAG_BONUS = 2.5              #: weight multiplier per matching tag
+# J 2026-10-04: "Can we make the signs come up randomly regardless of tasks". Until then a sign needed a
+# game event (gate 1 of pick). An IDLE sign needs none: it is offered each time a rest ends. It keeps the
+# mood veto and the no-repeat window, has its own shorter floor, and a low chance per offer so it stays
+# an occasional thing. With rests of 10-20 s that works out to roughly one sign every four to five minutes.
+IDLE_COOLDOWN_S = 3 * 60     #: floor between an idle sign and ANY sign before it
+IDLE_CHANCE = 0.20           #: chance per offer (one offer each time a rest ends)
 
 #: The 25 signs, read off pico_signs_transparent.png. `text` is verbatim from the art — J's
 #: corrections are in it ("IT'S NOT A PROBLEM, IT'S A FLEET!" with no doubled word, "IN SPACE"
@@ -165,6 +171,30 @@ def pick(event, mood=None, now_s=0.0, last_sign_s=None, recent=(), rng=None,
             "tags": list(tags), "matched": sorted(ctx & set(tags)),
             "weight_share": round(
                 (1.0 * (TAG_BONUS ** len(ctx & set(tags)))) / sum(weights), 4)}
+
+
+def pick_idle(mood=None, now_s=0.0, last_sign_s=None, recent=(), rng=None,
+              cooldown_s=IDLE_COOLDOWN_S, novelty=NOVELTY_WINDOW, chance=IDLE_CHANCE):
+    """-> dict, like pick(), for a sign with NO game event behind it. Same gates minus the event claim:
+    mood veto, cooldown, novelty, then the roll. Every sign is equally likely (there is no event to match
+    tags against)."""
+    rng = rng or random.Random()
+    if mood in MOOD_VETO:
+        return {"show": False, "why": "mood_veto",
+                "detail": "mood %r forbids a sign; the mood layer is authoritative" % (mood,)}
+    if last_sign_s is not None and (now_s - last_sign_s) < cooldown_s:
+        return {"show": False, "why": "cooldown",
+                "detail": "%.0fs since last sign, idle floor is %ds" % (now_s - last_sign_s, cooldown_s)}
+    recent = list(recent)[-novelty:] if novelty else []
+    pool = [x for x in SIGNS if x[0] not in recent]
+    if not pool:
+        return {"show": False, "why": "novelty_exhausted",
+                "detail": "every sign appears in the last %d shown" % novelty}
+    if rng.random() >= chance:
+        return {"show": False, "why": "die_roll",
+                "detail": "passed every gate, rolled above %.2f" % chance}
+    sid, text, tags = rng.choice(pool)
+    return {"show": True, "why": "fired_idle", "sign": sid, "text": text, "tags": list(tags), "matched": []}
 
 
 def selftest():
