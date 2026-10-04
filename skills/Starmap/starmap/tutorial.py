@@ -6,13 +6,14 @@ draggable, always-on-top tabbed dialog with corner brackets, opened from a
 
 Every button label, menu entry and mouse gesture named below was read out of
 the source, not a commit message:
-  panel.py            Home / Route / In-Game / Grocery / Market / Commodities,
+  panel.py            Home / Route / In-Game / Shopping List / Market / Commodities,
                       "< Back", the "   >   " breadcrumb, the context menus
   command_bar.py      the command box, Calibrate Star Map, the status line
                       (the mic controls moved to the Assistant, 2026-10-04)
-  grocery.py          X, clear, Plot shopping route
+  shared/shopping/panel.py   Item | Commodity, Add, x, Clear list, Plan route,
+                      Show on Star Map (the one list all three tools share)
   market_view.py      Filter terminals..., Search items everywhere...,
-                      Pop out, + Grocery
+                      Pop out, + Shopping List
   location_dialog.py  the Commodities / Items tabs
   galaxy_view.py etc. drag rotate / wheel zoom / right-drag pan /
                       double-click enter / right-click lore
@@ -94,7 +95,8 @@ loosely, so you do not need the exact spelling, and it takes you there.</p>
 <p>Three buttons on the right of the top bar open and close panels beside the
 map. They stay how you leave them:</p>
 <ul>
-  <li><b>Grocery</b> &mdash; your shopping list</li>
+  <li><b>Shopping List</b> &mdash; your shopping list, the same one Item
+      Finder and the Everything Finder show</li>
   <li><b>Market</b> &mdash; the Item Finder: what a terminal sells, and where
       to find one item anywhere</li>
   <li><b>Commodities</b> &mdash; every commodity and its UEX prices</li>
@@ -192,8 +194,8 @@ and they do different jobs:</p>
       <em>every</em> place in the universe that sells it, with prices.</li>
 </ul>
 <p><b>Double-click a row</b> (or press <b>Pop out</b>) for the full detail
-bubble on that item. <b>+ Grocery</b> puts the selected item on your shopping
-list.</p>
+bubble on that item. <b>+ Shopping List</b> puts the selected item on your
+shopping list.</p>
 
 {_h4("Commodities", _C_MARKET)}
 <p>The <b>Commodities</b> panel lists every commodity in the game &mdash;
@@ -207,31 +209,41 @@ they have anything to draw, so a brand-new install shows none.</p>
 _TAB_GROCERY = _html(f"""
 {_h3("The shopping list", _C_GROC)}
 <p>Planning a kit-up run: collect everything you need to buy, then have the
-map draw the shortest trip that visits all of it.</p>
+route worked out and drawn. There is <b>one</b> shopping list in the toolbox:
+what you add here is on the list in Item Finder and the Everything Finder too,
+and it is still there next time.</p>
 
 {_h4("Getting things onto the list", _C_GROC)}
-<p>Open it with the <b>Grocery</b> button, then either:</p>
+<p>Open it with the <b>Shopping List</b> button, then any of:</p>
 <ul>
+  <li>Pick <b>Item</b> or <b>Commodity</b>, type a name, set a quantity and
+      press <b>Add</b>.</li>
   <li><b>Drag a row</b> from the Market panel, or a popped-out item bubble,
       and drop it on the list. The bubble says
-      <span style="{_DIM}">drag me onto the Grocery List</span>.</li>
-  <li>Press <b>+ Grocery</b> in the Market panel with a row selected.</li>
-  <li>Press <b>&#65291; add to Grocery List</b> on an item's pop-out.</li>
+      <span style="{_DIM}">drag me onto the Shopping List</span>.</li>
+  <li>Press <b>+ Shopping List</b> in the Market panel with a row selected.</li>
+  <li>Press <b>&#65291; add to Shopping List</b> on an item's pop-out.</li>
 </ul>
-<p>The list header counts what is on it, e.g.
-<span style="{_ACC}">GROCERY LIST (6)</span>.</p>
+<p>An item added from a place on the map is <b>pinned</b> to that place
+(<span style="{_ACC}">@ Area 18 x</span> on its row): the route buys it there.
+Click the tag to unpin it and let the planner choose.</p>
 
 {_h4("Taking things off", _C_GROC)}
 <ul>
-  <li><b>X</b> on a row removes that one item.</li>
-  <li><b>clear</b> in the header empties the whole list.</li>
+  <li><b>x</b> on a row removes that one entry.</li>
+  <li><b>Clear list</b> empties the whole list.</li>
 </ul>
 
-{_h4("Plot shopping route", _C_GROC)}
-<p>Press it and the map draws the shortest route through every location on the
-list, <b>in visit order</b>. It follows the list live &mdash; add or remove
-something and the route redraws itself, so you can shuffle the list and watch
-the trip get shorter.</p>
+{_h4("The route", _C_GROC)}
+<p>Routes are worked out by <b>Trade Hub's planner</b> and listed under the
+entries: <b>MIN STOPS</b>, <b>SHORTEST TRIP</b>, <b>BEST PRICE</b>. Choose
+which to see first with <b>Prefer</b>, where you set off from with
+<b>Start</b>, and how many of each entry's cheapest terminals it may choose
+between. Once prices are in, each entry also shows <b>where it is sold</b>,
+cheapest first.</p>
+<p>Press <b>Show on Star Map</b> on a route and the map draws it, <b>in visit
+order</b>. It then follows the list live &mdash; add or remove something and
+the route redraws itself. <b>Clear route</b> takes it off the map.</p>
 """)
 
 _TAB_VOICE = _html(f"""
@@ -273,7 +285,7 @@ _TABS = [
     ("Moving Around", _TAB_MOVING),
     ("Jump Routes", _TAB_ROUTES),
     ("Market & Items", _TAB_MARKET),
-    ("Grocery List", _TAB_GROCERY),
+    ("Shopping List", _TAB_GROCERY),
     ("Voice", _TAB_VOICE),
 ]
 

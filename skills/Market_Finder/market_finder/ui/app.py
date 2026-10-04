@@ -37,7 +37,6 @@ from ..config import (
 )
 from ..service import DataService
 from .detail_panel import DetailPanel
-from .grocery_list import GroceryListBubble
 from .rental_table import RentalTable
 from .ship_table import ShipTable
 from .virtual_table import VirtualTable
@@ -75,7 +74,7 @@ class MarketFinderApp(SCWindow):
         self._search_text: str = ""
         self._bubble: SearchBubble | None = None
         self._detail_bubbles: list[ItemDetailBubble] = []
-        self._grocery_bubble: GroceryListBubble | None = None
+        self._shopping_win = None          # shared.shopping.panel.ShoppingListWindow, on first open
         self._starmap_win = None
         self._starmap_panel = None
         self._cmd_file = cmd_file
@@ -99,9 +98,9 @@ class MarketFinderApp(SCWindow):
     def closeEvent(self, event) -> None:
         if self._ipc_watcher:
             self._ipc_watcher.stop()
-        if self._grocery_bubble is not None:
-            self._grocery_bubble.close()
-            self._grocery_bubble = None
+        if self._shopping_win is not None:
+            self._shopping_win.close()
+            self._shopping_win = None
         if self._starmap_panel is not None:
             self._starmap_panel.shutdown()
             self._starmap_panel = None
@@ -146,8 +145,9 @@ class MarketFinderApp(SCWindow):
         gear_btn.setCursor(Qt.PointingHandCursor)
         gear_btn.mousePressEvent = lambda _: self._toggle_settings()
 
-        grocery_btn = QLabel("\U0001f6d2 Grocery List")
-        grocery_btn.setToolTip(_("Open your grocery list — drag items onto it to add them"))
+        grocery_btn = QLabel("\U0001f6d2 Shopping List")
+        grocery_btn.setToolTip(_("Open the shopping list — drag items onto it to add them. "
+                                 "It is the same list the Star Map and the Everything Finder show."))
         grocery_btn.setStyleSheet(f"""
             font-family: Consolas;
             font-size: 8pt;
@@ -159,7 +159,7 @@ class MarketFinderApp(SCWindow):
             padding: 2px 8px;
         """)
         grocery_btn.setCursor(Qt.PointingHandCursor)
-        grocery_btn.mousePressEvent = lambda _: self._toggle_grocery_list()
+        grocery_btn.mousePressEvent = lambda _: self._toggle_shopping_list()
 
         tutorial_btn = QLabel("? Tutorial")
         tutorial_btn.setStyleSheet(f"""
@@ -360,11 +360,27 @@ class MarketFinderApp(SCWindow):
         from .tutorial import TutorialBubble
         TutorialBubble(self)
 
-    def _toggle_grocery_list(self) -> None:
-        """Open (or hide) the floating Grocery List bubble."""
-        if self._grocery_bubble is None:
-            self._grocery_bubble = GroceryListBubble(self.data, on_plot_route=self._plot_grocery_route, parent=self)
-        bubble = self._grocery_bubble
+    def _shopping_window(self):
+        """The shared shopping list's pop-out (built on first use).
+
+        This replaced Item Finder's own Grocery List bubble on 2026-10-04: one
+        list for Item Finder, the Star Map and the Everything Finder
+        (shared/shopping). Items are priced through THIS window's data service;
+        routes are planned by Trade Hub's basket planner."""
+        if self._shopping_win is None:
+            from shared.shopping import shared_list
+            from shared.shopping.panel import ShoppingListWindow
+            from shared.shopping.source import ShoppingSource
+            self._shopping_win = ShoppingListWindow(
+                shared_list(), ShoppingSource(item_service_getter=lambda: self.data),
+                on_show_on_map=self._show_shopping_plan,
+                on_clear_map=self._clear_shopping_route,
+                accent=P.tool_market, parent=self)
+        return self._shopping_win
+
+    def _toggle_shopping_list(self) -> None:
+        """Open (or hide) the shared Shopping List pop-out."""
+        bubble = self._shopping_window()
         if bubble.isVisible():
             bubble.hide()
         else:
@@ -716,7 +732,7 @@ class MarketFinderApp(SCWindow):
         win.content_layout.addWidget(tb)
         panel = MarketMapPanel(
             self.data,
-            on_add_to_grocery=self._add_to_grocery_from_map,
+            on_add_to_grocery=self._add_to_shopping_from_map,
             parent=win,
         )
         win.content_layout.addWidget(panel, 1)
@@ -731,25 +747,29 @@ class MarketFinderApp(SCWindow):
         self._starmap_win = None
         self._starmap_panel = None
 
-    def _add_to_grocery_from_map(self, item: dict) -> None:
-        """Star Map item pop-out -> Grocery List."""
-        if self._grocery_bubble is None or not self._grocery_bubble.isVisible():
-            self._toggle_grocery_list()
-        if self._grocery_bubble is not None:
-            self._grocery_bubble.add_item(item)
+    def _add_to_shopping_from_map(self, item: dict) -> None:
+        """Star Map item pop-out -> the shared Shopping List."""
+        win = self._shopping_window()
+        if not win.isVisible():
+            self._toggle_shopping_list()
+        win.panel.add_item(item)
 
-    def _plot_grocery_route(self, stops: list, auto: bool = False) -> None:
-        """Grocery List "Plot Route" -> draw it on the Star Map.
+    def _show_shopping_plan(self, plan, auto: bool = False) -> None:
+        """Shopping List "Show on Star Map" -> draw the plan on Item Finder's star map.
 
-        *auto* = the list changed after a route was plotted: update the map
-        only if it is open and still showing a shopping route (never pop the
-        map open, never bring back a route the user cleared); an empty
-        *stops* then clears it.
+        *plan* is a Trade Hub basket plan; its stops are drawn in the planner's
+        order. *auto* = the list changed after a route was drawn: update the
+        map only if it is open and still showing a shopping route (never pop
+        the map open, never bring back a route the user cleared).
         """
+        from shared.shopping import plan_stops_for_map
+        stops = plan_stops_for_map(plan)
         if auto:
             panel = self._starmap_panel
             if panel is not None and panel.has_shopping_route():
                 panel.plot_shopping_route(stops)
+            elif self._shopping_win is not None:
+                self._shopping_win.panel.map_route_cleared()
             return
         if not stops:
             return
@@ -759,6 +779,12 @@ class MarketFinderApp(SCWindow):
             self._starmap_win.raise_()
         if self._starmap_panel is not None:
             self._starmap_panel.plot_shopping_route(stops)
+
+    def _clear_shopping_route(self) -> None:
+        """The list was emptied: take its route off the map, if the map is open."""
+        panel = self._starmap_panel
+        if panel is not None and panel.has_shopping_route():
+            panel.plot_shopping_route([])
 
     def _handle_command(self, cmd: dict) -> None:
         action = cmd.get("type", cmd.get("action", ""))

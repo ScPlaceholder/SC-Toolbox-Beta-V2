@@ -2,8 +2,8 @@
      written 2026-10-03T21:47-0400, parent: session:7bee459a -->
 # Everything Finder
 
-Item Finder, Trade Hub and Star Map in one window, as three tabs, with one
-shared shopping list. Asked for by J on 2026-10-03. Default hotkey: **Ctrl+6**
+Item Finder, Trade Hub and Star Map in one window, as three tabs, with the
+toolbox's one shopping list beside them. Asked for by J on 2026-10-03. Default hotkey: **Ctrl+6**
 (free at the time; Shift+5 / Shift+6 still open Item Finder / Trade Hub on
 their own, unchanged).
 
@@ -22,12 +22,44 @@ what opening that one tool costs.
 
 ## Shopping list
 
-The button beside the tabs pops out a list that takes items AND commodities.
-Routes are planned by **Trade Hub's basket planner** (`basket_engine`), never
-by a copy: items are put into the same terminal index Trade Hub's BASKET view
-builds for commodities, keyed by UEX terminal id. Options: start terminal,
-preferred strategy (MIN STOPS / SHORTEST TRIP / BEST PRICE), terminals per
-entry, auto-calculate. "Show on Star Map" draws a plan in the Star Map tab.
+There is **one** shopping list in the toolbox (`shared/shopping/`), and this
+window, the standalone Item Finder and the standalone Star Map all show it:
+one data model, one widget, one file (`~/.sctoolbox/shopping/shopping_list.json`).
+Add something in any of them and it is on the list in the others; tools that
+are open at the same time pick the change up within a second or two.
+
+The button beside the tabs pops it out. Inside this window the Item Finder
+tab's "Shopping List" button and the Star Map tab's "Shopping List" button
+open the same pop-out rather than a second copy each.
+
+What it does:
+
+* takes items AND commodities, by name with a quantity, or by dragging an
+  item onto it (a row from Item Finder's table, a Star Map item pop-out);
+* an item added from a place on the Star Map is **pinned** to that place
+  (click the tag on its row to unpin);
+* once prices are in, each entry lists where it is sold, cheapest first;
+* routes are planned by **Trade Hub's basket planner** (`basket_engine`),
+  never by a copy: items are put into the same terminal index Trade Hub's
+  BASKET view builds for commodities, keyed by UEX terminal id. Options: start
+  terminal, preferred strategy (MIN STOPS / SHORTEST TRIP / BEST PRICE),
+  terminals per entry, auto-calculate;
+* "Show on Star Map" draws a plan in the Star Map tab, and the drawn route
+  then follows the list as it changes.
+
+It began as this tool's own list (2026-10-03) and became the shared one on
+2026-10-04, when Item Finder's Grocery List bubble and the Star Map's Grocery
+panel were retired into it. The first launch imports the Star Map's old
+`grocery.json` and this tool's old `shopping_list.json` if they exist, and
+leaves both files where they are.
+
+Not carried over from the retired lists: Item Finder's "Shorter trip over
+cheapest price +N%" option. It was a setting of Item Finder's own route
+planner; Trade Hub's planner has SHORTEST TRIP and BEST PRICE as whole
+strategies and nothing in between, and adding that here would be a second
+route planner. The retired planners' code (`market_finder/route_planner.py`,
+`starmap/route_planner.py`) is still on disk because the star maps use its
+`visits()` helper to draw; nothing calls its planning functions any more.
 
 ## Star Map tab and the microphone
 
@@ -41,9 +73,6 @@ names the tool).
 
 ## Not done yet
 
-* **Three lists, not one.** Item Finder's own Grocery List and the Star Map's
-  own Grocery panel still exist inside their tabs and are not merged with the
-  shared list. Nothing is copied between them.
 * **Quantities are informational.** The planner picks where to buy, not how
   much each terminal has; stock (SCU) is not checked against the quantity.
 * **Pickup only.** Trade Hub's planner also has a SELL mode

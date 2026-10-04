@@ -14,8 +14,10 @@
 * Star Map is skills/Starmap's StarmapPanel - the one map, which now carries the
   union of the three star maps' features. When Trade Hub is open too, the map
   is handed Trade Hub's routes (overlays) and a link back to its routes table.
-* The Shopping List button opens the shared pop-out (items + commodities,
-  routes from Trade Hub's basket planner).
+* The Shopping List button opens THE shopping list (shared/shopping): the
+  same list, widget and file that the standalone Item Finder and Star Map
+  show. Inside this window the Item Finder tab's and the Star Map tab's own
+  list buttons open this pop-out too, rather than a second copy each.
 
 Ctrl+Tab / Ctrl+Shift+Tab cycle the tabs.
 """
@@ -180,6 +182,10 @@ class EverythingFinderWindow(SCWindow):
         # button opens the Star Map TAB instead of its own separate map window.
         # (Instance attribute: the standalone Item Finder is untouched.)
         win._toggle_starmap = lambda: self.select_tab(TAB_MAP)
+        # One shopping list: its "Shopping List" button opens the pop-out beside the
+        # tabs, and an item sent from anywhere in the tool lands in that same list.
+        win._toggle_shopping_list = self.toggle_shopping_list
+        win._shopping_window = self._popout_window
         # hide_title: Item Finder's own bar still says "MARKET FINDER"; the tab names it.
         return embed_window(win, self, on_reveal=lambda: self._reveal(TAB_ITEM), hide_title=True)
 
@@ -206,6 +212,10 @@ class EverythingFinderWindow(SCWindow):
         sig = getattr(panel, "tradeHubRequested", None)
         if sig is not None:
             sig.connect(lambda: self.select_tab(TAB_TRADE))
+        # One shopping list: the map's Shopping List button opens the pop-out
+        # instead of docking a second copy of the same list beside the map.
+        if hasattr(panel, "set_shopping_host"):
+            panel.set_shopping_host(self.toggle_shopping_list)
         return panel
 
     def _on_tab_built(self, key: str) -> None:
@@ -245,10 +255,10 @@ class EverythingFinderWindow(SCWindow):
     # shopping list
     def _ensure_shopping(self):
         if self._shopping_list is None:
-            from .shopping_list import ShoppingList
-            self._shopping_list = ShoppingList().load()
+            from shared.shopping import shared_list
+            self._shopping_list = shared_list()
         if self._shopping_source is None:
-            from .shopping_source import ShoppingSource
+            from shared.shopping.source import ShoppingSource
             self._shopping_source = ShoppingSource(
                 item_service_getter=lambda: getattr(self._inner.get(TAB_ITEM), "data", None),
                 routes_getter=lambda: list(getattr(self._inner.get(TAB_TRADE), "_all_routes", None) or []))
@@ -257,34 +267,60 @@ class EverythingFinderWindow(SCWindow):
     def shopping_popout(self):
         return self._popout
 
+    def _popout_window(self):
+        """The shopping list pop-out (built on first use, not shown)."""
+        if self._popout is None:
+            from shared.shopping.panel import ShoppingListWindow
+            lst, src = self._ensure_shopping()
+            self._popout = ShoppingListWindow(lst, src, on_show_on_map=self.show_plan_on_map,
+                                              on_clear_map=self.clear_plan_on_map,
+                                              accent=ACCENT, parent=self)
+            self._popout.destroyed.connect(lambda *_: setattr(self, "_popout", None))
+            self._popout.installEventFilter(self)
+            self._popout.position_beside(self)
+        return self._popout
+
     def toggle_shopping_list(self) -> None:
         if self._popout is not None and self._popout.isVisible():
             self._popout.hide()
             self._btn_shop.setChecked(False)
             return
-        if self._popout is None:
-            from .shopping_popout import ShoppingPopout
-            lst, src = self._ensure_shopping()
-            self._popout = ShoppingPopout(lst, src, on_show_on_map=self.show_plan_on_map, parent=self)
-            self._popout.destroyed.connect(lambda *_: setattr(self, "_popout", None))
-            self._popout.installEventFilter(self)
-            self._popout.position_beside(self)
-        self._popout.show()
-        self._popout.raise_()
+        pop = self._popout_window()
+        pop.show()
+        pop.raise_()
         self._btn_shop.setChecked(True)
 
     def eventFilter(self, obj, event) -> bool:
         from PySide6.QtCore import QEvent
         if obj is self._popout and event.type() == QEvent.Type.Hide:
             self._btn_shop.setChecked(False)
+        elif obj is self._popout and event.type() == QEvent.Type.Show:
+            self._btn_shop.setChecked(True)
         return super().eventFilter(obj, event)
 
-    def show_plan_on_map(self, plan) -> None:
-        """Draw a shopping-list plan on the Star Map tab (opening it if needed)."""
-        from .shopping_list import plan_stops_for_map
+    def show_plan_on_map(self, plan, auto: bool = False) -> None:
+        """Draw a shopping-list plan on the Star Map tab (opening it if needed).
+
+        *auto* = the list changed and the pop-out is redrawing a route it drew
+        before: only if the Star Map tab exists and still shows a shopping
+        route (never switch tabs, never bring back a route the user cleared)."""
+        from shared.shopping import plan_stops_for_map
+        if auto:
+            panel = self._inner.get(TAB_MAP)
+            if panel is not None and panel.has_shopping_route():
+                panel.plot_shopping_route(plan_stops_for_map(plan))
+            elif self._popout is not None:
+                self._popout.panel.map_route_cleared()
+            return
         panel = self.select_tab(TAB_MAP)
         if panel is not None and hasattr(panel, "plot_shopping_route"):
             QTimer.singleShot(0, lambda: panel.plot_shopping_route(plan_stops_for_map(plan)))
+
+    def clear_plan_on_map(self) -> None:
+        """The list was emptied: take its route off the Star Map tab, if it is built."""
+        panel = self._inner.get(TAB_MAP)
+        if panel is not None and hasattr(panel, "clear_shopping_route"):
+            panel.clear_shopping_route()
 
     # persistence of the last tab
     @staticmethod

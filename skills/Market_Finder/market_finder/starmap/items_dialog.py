@@ -5,7 +5,7 @@ the Trade Hub's terminal commodity dialog.  Rows are resolved lazily from
 the terminal->items index (which loads off-thread), each row can be
 
   * clicked / double-clicked  -> pops out a full ItemPopOut detail bubble
-  * dragged                    -> dropped onto the Grocery List bubble
+  * dragged                    -> dropped onto the Shopping List
 
 Styling follows Market Finder (tool_market accent), not Trade Hub.
 """
@@ -80,7 +80,7 @@ class _ItemRow(QWidget):
         self._item = item
         self._on_popout = on_popout
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Click: pop out details · Drag: add to Grocery List")
+        self.setToolTip("Click: pop out details · Drag: add to Shopping List")
         self.setStyleSheet(f"background-color: {P.bg_primary};")
 
         lay = QHBoxLayout(self)
@@ -117,7 +117,7 @@ class _ItemRow(QWidget):
             return
         super().mousePressEvent(event)
 
-    # drag -> grocery list
+    # drag -> shopping list
     def mouseMoveEvent(self, event) -> None:
         if not (event.buttons() & Qt.LeftButton):
             super().mouseMoveEvent(event)
@@ -198,7 +198,7 @@ class ItemsDialog(QDialog):
         self._scroll.setWidget(self._inner)
         lay.addWidget(self._scroll, 1)
 
-        hint = QLabel("Click a row to pop it out · drag a row onto the Grocery List")
+        hint = QLabel("Click a row to pop it out · drag a row onto the Shopping List")
         hint.setStyleSheet(f"color: {P.fg_disabled}; font-size: 8pt;")
         lay.addWidget(hint)
 

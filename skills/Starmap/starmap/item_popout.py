@@ -3,8 +3,8 @@
 Replaces the Market Finder pop-out's dependency on that app's
 ItemDetailBubble with a self-contained card: item name, category, the
 price seen at the terminal it was popped from, its location, a
-drag-me bar carrying the SC_ITEM_MIME payload (drop it on the Grocery
-List) and a one-click "add to Grocery List" button.
+drag-me bar carrying the SC_ITEM_MIME payload (drop it on the Shopping
+List) and a one-click "add to Shopping List" button.
 """
 from __future__ import annotations
 
@@ -26,18 +26,18 @@ ACCENT = P.energy_cyan
 
 
 class _DragBar(QWidget):
-    """Top bar: left-press drags the bubble as a grocery-list payload."""
+    """Top bar: left-press drags the bubble as a shopping-list payload."""
 
     def __init__(self, item: dict, parent: QWidget) -> None:
         super().__init__(parent)
         self._item = item
         self.setCursor(Qt.DragMoveCursor)
-        self.setToolTip("Drag me onto the Grocery List")
+        self.setToolTip("Drag me onto the Shopping List")
         self.setStyleSheet(
             f"background: {P.bg_header}; border-bottom: 1px solid {P.border};")
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 4, 8, 4)
-        lbl = QLabel("⇢  drag me onto the Grocery List")
+        lbl = QLabel("⇢  drag me onto the Shopping List")
         lbl.setStyleSheet(
             f"font-family: Consolas; font-size: 8pt; color: {ACCENT}; background: transparent;")
         lay.addWidget(lbl)
@@ -131,9 +131,9 @@ class ItemPopOut(QDialog):
         _row("SYSTEM", str(item.get("system") or ""))
 
         if on_add_to_grocery is not None:
-            add = QLabel("＋ add to Grocery List")
+            add = QLabel("＋ add to Shopping List")
             add.setCursor(Qt.PointingHandCursor)
-            add.setToolTip("Add this item to the grocery list")
+            add.setToolTip("Add this item to the shopping list")
             add.setStyleSheet(
                 f"font-family: Consolas; font-size: 9pt; font-weight: bold; "
                 f"color: {P.green}; background: transparent; padding-top: 4px;")

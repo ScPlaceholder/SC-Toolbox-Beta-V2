@@ -2,8 +2,8 @@
 
 Combines the Trade Hub star map (galaxy -> system -> planet globe scenes,
 home system, lore bubbles, route plotting) with the Market Finder star
-map (terminal -> items browsing, item pop-outs, grocery list, multi-stop
-shopping routes), and a command router ("navigate to Area 18", "zoom in")
+map (terminal -> items browsing, item pop-outs, multi-stop shopping routes),
+the toolbox's shared shopping list, and a command router ("navigate to Area 18", "zoom in")
 fed by the command bar and by the AI Assistant.
 
 The Star Map has NO microphone (J, 2026-10-04). It used to carry its own
@@ -13,8 +13,15 @@ the mic. Voice-to-text now lives in one place, the Assistant, which relays
 what it hears as an IPC ``map_command`` (:meth:`StarmapPanel.handle_map_command`).
 
 Terminal clicks open the combined :class:`LocationDialog` (commodities
-+ items tabs). The grocery list docks on the right; its "Plot shopping
-route" draws the multi-stop jump route on the galaxy view.
++ items tabs). The shopping list docks on the right; "Show on Star Map" on
+one of its planned routes draws the multi-stop jump route on the galaxy view.
+
+The list is NOT this tool's own any more (J, 2026-10-04). It is the one
+shared list (shared/shopping) that Item Finder and the Everything Finder show
+too, planned by Trade Hub's basket planner. The grocery panel that lived here
+(starmap/grocery.py: its own file, its own stop ordering) is retired; what it
+could do that the others could not - keep an item pinned to the place it was
+added from - is a feature of the shared list now.
 
 Everything is defensive: if data/scene construction fails the panel
 shows an inline message instead of dying.
@@ -60,7 +67,6 @@ from .system_view import SystemView
 from .items_index import ItemsIndexLoader, index_counts, items_at
 from .item_popout import ItemPopOut
 from .location_dialog import LocationDialog
-from .grocery import GroceryPanel
 from .lore import LoreBubble, LoreFetcher
 from .ui import make_close_button
 from .commands import CommandRouter, safe_reply_file
@@ -86,7 +92,7 @@ def _btn_ss() -> str:
 
 
 class StarmapPanel(QWidget):
-    """Star map + location browser + grocery list + command router (no microphone)."""
+    """Star map + location browser + the shared shopping list + command router (no microphone)."""
 
     _overlay_ready = Signal(object)        # worker thread -> UI: a freshly-built TradeOverlay
     # Asks the host to bring its Trade Hub forward (the Everything Finder switches tab).
@@ -122,7 +128,8 @@ class StarmapPanel(QWidget):
         self._location_dlg: Optional[LocationDialog] = None
         self._restored = False
         self._nav: List[Tuple[str, QWidget]] = []
-        self._shop_stops: List[dict] = []     # the grocery route on the map, in visit order
+        self._shop_stops: List[dict] = []     # the shopping route on the map, in visit order
+        self._shopping_host: Optional[Callable[[], None]] = None   # see set_shopping_host()
         self._ipc = None
         self._dest_engine = None
         self._setter_obj = None
@@ -177,11 +184,16 @@ class StarmapPanel(QWidget):
 
         self._stack = QStackedWidget()
         self._stack.addWidget(self._galaxy)
-        # The grocery panel must exist BEFORE _build_controls(): the Grocery button wires to
-        # self._grocery.setVisible there. Built after it, the map died on "no attribute '_grocery'".
-        self._grocery = GroceryPanel()
-        self._grocery.plotRequested.connect(self._plot_grocery_route)
-        self._grocery.changed.connect(self._grocery_changed)
+        # The shopping list must exist BEFORE _build_controls(): the Shopping List button wires
+        # to self._grocery.setVisible there. Built after it, the map died on "no attribute
+        # '_grocery'". (The attribute keeps its old name; it is the shared list's panel now.)
+        from shared.shopping import shared_list
+        from shared.shopping.panel import ShoppingListPanel
+        from shared.shopping.source import ShoppingSource
+        self._grocery = ShoppingListPanel(shared_list(), ShoppingSource(),
+                                          on_show_on_map=self._show_shopping_plan,
+                                          on_clear_map=self.clear_shopping_route,
+                                          accent=ACCENT, show_title=True)
         self._grocery.setVisible(False)
         # Side views, cloned from their origin tools: the Market Finder
         # terminal/items browser and the Trade Hub commodities grid. They
@@ -258,11 +270,12 @@ class StarmapPanel(QWidget):
             log.warning("Starmap: could not restore the In-Game route toggle (%s: %s); it defaults to off",
                         type(e).__name__, e)
 
-        self._btn_grocery = QPushButton("Grocery")
+        self._btn_grocery = QPushButton("Shopping List")
         self._btn_grocery.setCursor(Qt.PointingHandCursor)
         self._btn_grocery.setCheckable(True)
         self._btn_grocery.setStyleSheet(_btn_ss())
-        self._btn_grocery.setToolTip("Show / hide the grocery list")
+        self._btn_grocery.setToolTip("Show / hide the shopping list (shared with Item Finder "
+                                     "and the Everything Finder)")
         self._btn_grocery.toggled.connect(
             lambda on, k="grocery": self._side_toggled(k, on))
 
@@ -425,7 +438,9 @@ class StarmapPanel(QWidget):
 
     def cmd_toggle_grocery(self) -> str:
         self._btn_grocery.setChecked(not self._btn_grocery.isChecked())
-        return "grocery %s" % ("shown" if self._btn_grocery.isChecked() else "hidden")
+        if self._shopping_host is not None:
+            return "shopping list toggled"
+        return "shopping list %s" % ("shown" if self._btn_grocery.isChecked() else "hidden")
 
     def cmd_goto(self, name: str) -> str:
         before = self._crumb.text()
@@ -692,10 +707,10 @@ class StarmapPanel(QWidget):
         return rows
 
     def _popout_item(self, item: dict) -> None:
-        """Pop out a full detail bubble the user can drag onto the grocery list."""
+        """Pop out a full detail bubble the user can drag onto the shopping list."""
         self._popouts = [p for p in self._popouts
                          if p.isVisible()]          # prune closed
-        bub = ItemPopOut(item, on_add_to_grocery=self._grocery.add_item)
+        bub = ItemPopOut(item, on_add_to_grocery=self.add_to_shopping)
         bub.show()
         # Centre on the map window so it does not cover the row that spawned it.
         tl = self.mapToGlobal(self.rect().topLeft())
@@ -704,43 +719,44 @@ class StarmapPanel(QWidget):
         bub.raise_()
         self._popouts.append(bub)
 
-    def _plot_grocery_route(self) -> None:
-        """Grocery List's 'Plot shopping route'.
+    def add_to_shopping(self, item: dict) -> None:
+        """Put an item from the map on the shared shopping list, pinned to the place
+        it was found at (item pop-out button, Market panel "+ Shopping List")."""
+        if self._grocery.add_item(item):
+            self.voice_status(self._grocery.status())
 
-        Every item is pinned to the location it was added from, so the stops
-        are fixed; they are ORDERED for the shortest trip
-        (:func:`.route_planner.order_stops` over
-        :func:`.distances.site_distance`, exact for up to 10 locations) and
-        drawn in that order: the jump route across systems on the galaxy,
-        numbered stops (via the gateways) inside each system.  A route that
-        stays in one system opens straight into that system's view.
-        """
-        from .distances import site_distance
-        from .route_planner import order_stops
+    def set_shopping_host(self, toggle: Optional[Callable[[], None]]) -> None:
+        """Let a host window show the shopping list itself. With a host set, the
+        Shopping List button calls *toggle* instead of docking the panel here (the
+        Everything Finder pops the same list out beside its tabs)."""
+        self._shopping_host = toggle
+        if toggle is not None:
+            self._grocery.setVisible(False)
+
+    def _show_shopping_plan(self, plan, auto: bool = False) -> None:
+        """The shopping list's "Show on Star Map".
+
+        *plan* is one of Trade Hub's basket plans: which terminal to buy each
+        entry at, and in what order. That order is drawn as it is - the jump
+        route across systems on the galaxy, numbered stops (via the gateways)
+        inside each system; a route that stays in one system opens straight
+        into that system's view. Nothing is re-ordered here: the map used to
+        sort a grocery list's stops itself (route_planner.order_stops), which
+        was a second route planner.
+
+        *auto* = the list changed and the panel is redrawing a route it put on
+        the map earlier. If the pilot has since cleared that route, leave the
+        map alone and tell the panel to stop following."""
+        from shared.shopping import plan_stops_for_map
         if self._galaxy is None:
             return
-        stops = []
-        for it in self._grocery.items():
-            system = str(it.get("system") or "").strip()
-            loc = str(it.get("location") or "").strip()
-            if not system:
-                continue
-            stops.append({"item_id": it.get("id"), "name": it.get("name") or "",
-                          "terminal": loc, "terminal_id": 0, "system": system,
-                          "location": loc, "places": [loc] if loc else [],
-                          "price": it.get("price") or 0})
-        if not stops:
-            self.clear_shopping_route()
+        if auto and not self._shop_stops:
+            self._grocery.map_route_cleared()
             return
-        self.plot_shopping_route(order_stops(stops, site_distance))
-
-    def _grocery_changed(self) -> None:
-        """Keep a plotted grocery route in step with the list."""
-        if self._shop_stops:
-            QTimer.singleShot(0, self._plot_grocery_route)
+        self.plot_shopping_route(plan_stops_for_map(plan))
 
     def plot_shopping_route(self, stops: List[dict]) -> None:
-        """Draw an ordered stop list (see :meth:`_plot_grocery_route`)."""
+        """Draw an ordered stop list (see :meth:`_show_shopping_plan`)."""
         if self._galaxy is None:
             return
         self._shop_stops = list(stops or [])
@@ -1010,11 +1026,21 @@ class StarmapPanel(QWidget):
         spoken = msg[len("error:"):].strip() if msg.startswith("error:") else msg
         self.speak(spoken)
 
-    # ── side views (grocery / market finder / commodities) ────────────────
+    # ── side views (shopping list / market finder / commodities) ──────────
     def _side_toggled(self, key: str, on: bool) -> None:
         """At most one side view is visible; a checked button shows its own."""
         panels = getattr(self, "_side_panels", {})
         buttons = getattr(self, "_side_buttons", {})
+        if key == "grocery" and self._shopping_host is not None:
+            # A host (the Everything Finder) shows the one list in its own pop-out:
+            # the button opens that instead of docking a second copy beside the map.
+            btn = buttons.get("grocery")
+            if btn is not None and btn.isChecked():
+                btn.blockSignals(True)
+                btn.setChecked(False)
+                btn.blockSignals(False)
+            self._shopping_host()
+            return
         if on:
             for k, w in panels.items():
                 w.setVisible(k == key)

@@ -1,6 +1,12 @@
 # Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
 # written 2026-10-03T21:47-0400, parent: session:7bee459a
+# Moved with the code from skills/Everything_Finder/tests/ to shared/tests/ on 2026-10-04.
 """The shared shopping list: both kinds addable, one route, Trade Hub's math.
+
+These are the Everything Finder's original tests for the list, which is now the
+toolbox's one list (shared/shopping). What the merge added - pins, the per-entry
+offers, drag and drop, following the map, sharing across tools - is tested in
+test_shopping_one_list.py.
 
 No network: routes, item prices and distances are all supplied by the test.
 """
@@ -8,15 +14,13 @@ import os
 import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
-EF_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 sys.path.insert(0, ROOT)
 import shared.path_setup  # noqa: E402
-shared.path_setup.ensure_path(EF_DIR)
 
 import pytest  # noqa: E402
 
-from everything_finder.shopping_list import (  # noqa: E402
+from shared.shopping.shopping_list import (  # noqa: E402
     Entry, ShoppingList, build_index, plan_routes, plan_stops_for_map, plan_summary,
 )
 
@@ -57,7 +61,7 @@ def test_bad_entries_are_refused(tmp_path):
 # ── planning with Trade Hub's basket planner ─────────────────────────────────
 
 def _route(commodity, tid, tname, loc, price, sys_="Stanton"):
-    from everything_finder.tool_loader import ensure_trade_hub_path
+    from shared.shopping.paths import ensure_trade_hub_path
     ensure_trade_hub_path()
     from trade_hub_data import Route
     return Route(commodity=commodity, buy_terminal=tname, buy_location=loc, buy_system=sys_,
@@ -140,7 +144,7 @@ def test_preferred_strategy_is_listed_first():
 def test_planning_is_delegated_to_trade_hubs_basket_engine(monkeypatch):
     """J's directive: the route math is Trade Hub's. Spy on it and prove the
     shopping list hands it the combined index rather than planning itself."""
-    from everything_finder import shopping_list as sl_mod
+    from shared.shopping import shopping_list as sl_mod
     be = sl_mod._basket_engine()
     seen = {}
     real = be.plan_variants
@@ -193,9 +197,11 @@ def _pump(cond, timeout=5.0):
 def test_popout_adds_items_and_commodities_and_auto_plans(tmp_path):
     QtWidgets = pytest.importorskip("PySide6.QtWidgets")
     QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    from everything_finder.shopping_popout import ShoppingPopout
+    from shared.shopping.panel import ShoppingListWindow
     sl = ShoppingList(path=str(tmp_path / "l.json"))
-    pop = ShoppingPopout(sl, _FakeSource())
+    win = ShoppingListWindow(sl, _FakeSource())
+    pop = win.panel
+    win.show()                 # a panel that is not on screen loads and plans nothing
     assert _pump(lambda: pop._names["item"] and True)
     pop.set_kind("commodity")
     assert _pump(lambda: pop._names["commodity"] and True)
@@ -207,4 +213,5 @@ def test_popout_adds_items_and_commodities_and_auto_plans(tmp_path):
     # auto-calculate is on: the list change schedules a plan without a click
     assert _pump(lambda: bool(pop.plans()), timeout=8.0), pop._status.text()
     assert pop.plans()[0].label == "MIN STOPS"
-    pop.deleteLater()
+    win.hide()
+    win.deleteLater()

@@ -152,12 +152,9 @@ def panel(monkeypatch, tmp_path, audio):
     monkeypatch.setattr(distances, "_CACHE_PATH", str(tmp_path / "distance_cache.json"))
     monkeypatch.setattr(distances, "_cache", {})
     monkeypatch.setattr(lore, "_CACHE_PATH", str(tmp_path / "lore_cache.json"))
-    try:                                        # the list's own store, whichever it is
-        from starmap import grocery
-        monkeypatch.setattr(grocery, "_STORE_DIR", str(tmp_path))
-        monkeypatch.setattr(grocery, "_STORE_PATH", str(tmp_path / "grocery.json"))
-    except (ImportError, AttributeError):
-        pass
+    # the shared shopping list the map docks: this test's own file, never ~/.sctoolbox
+    from shared.shopping import shopping_list as shop_mod
+    monkeypatch.setattr(shop_mod, "_shared", shop_mod.ShoppingList(path=str(tmp_path / "shopping.json")))
 
     p = panel_mod.StarmapPanel()
     assert p._galaxy is not None, "star map failed to build"

@@ -34,19 +34,9 @@ STARMAP_PKG_DIR = os.path.join(SKILLS_DIR, "Starmap", "starmap")
 STARMAP_ALIAS = "ef_starmap"
 
 
-def _ensure_path(path: str) -> None:
-    norm = os.path.normpath(path)
-    if norm not in sys.path:
-        sys.path.append(norm)
-
-
-def ensure_trade_hub_path() -> None:
-    """Make Trade Hub's flat modules importable (trade_hub_data, basket_engine)."""
-    _ensure_path(TRADE_HUB_DIR)
-
-
-def ensure_item_finder_path() -> None:
-    _ensure_path(ITEM_FINDER_DIR)
+# One implementation of "put Trade Hub / Item Finder on sys.path": the shared
+# shopping list needs the same two folders in every tool that hosts it.
+from shared.shopping.paths import ensure_item_finder_path, ensure_trade_hub_path  # noqa: E402,F401
 
 
 def load_item_finder_window(x: int, y: int, w: int, h: int, opacity: float):

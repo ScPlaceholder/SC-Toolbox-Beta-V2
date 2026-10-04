@@ -127,16 +127,18 @@ def panel(monkeypatch, tmp_path):
         raise OSError("network disabled in tests")
     monkeypatch.setattr(urllib.request, "urlopen", _no_network)
 
-    from starmap import data, distances, grocery, lore
+    from starmap import data, distances, lore
     from starmap import panel as panel_mod
+    from shared.shopping import shopping_list as shop_mod
     for mod, attrs in ((data, ("_STATE_DIR",)), (distances, ("_CACHE_DIR",)),
-                       (grocery, ("_STORE_DIR",)), (lore, ("_CACHE_DIR",))):
+                       (lore, ("_CACHE_DIR",))):
         for a in attrs:
             monkeypatch.setattr(mod, a, str(tmp_path))
+    # the shared shopping list: this test's own file, never ~/.sctoolbox
+    monkeypatch.setattr(shop_mod, "_shared", shop_mod.ShoppingList(path=str(tmp_path / "shopping.json")))
     monkeypatch.setattr(data, "_STATE_PATH", str(tmp_path / "starmap_state.json"))
     monkeypatch.setattr(distances, "_CACHE_PATH", str(tmp_path / "distance_cache.json"))
     monkeypatch.setattr(distances, "_cache", {})
-    monkeypatch.setattr(grocery, "_STORE_PATH", str(tmp_path / "grocery.json"))
     monkeypatch.setattr(lore, "_CACHE_PATH", str(tmp_path / "lore_cache.json"))
     p = panel_mod.StarmapPanel()
     assert p._galaxy is not None, "star map failed to build"

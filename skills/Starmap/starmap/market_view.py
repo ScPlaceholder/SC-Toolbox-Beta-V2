@@ -3,7 +3,7 @@
 Copied from the Market Finder tool terminal/items browsing: pick a
 terminal on the left (or search every terminal at once), filter items by
 name and category, see prices, pop an item out for details, or add it
-straight to the grocery list. Data comes from the Starmap terminal to
+straight to the shopping list. Data comes from the Starmap terminal to
 items index — the same UEX items_prices_all payload the Market Finder
 tool joins against the items metadata endpoint.
 """
@@ -117,9 +117,9 @@ class MarketView(QWidget):
         self._btn_popout.setStyleSheet(_btn_ss())
         self._btn_popout.setToolTip("Full item detail bubble (double-click a row)")
         self._btn_popout.clicked.connect(self._popout)
-        self._btn_add = QPushButton("+ Grocery")
+        self._btn_add = QPushButton("+ Shopping List")
         self._btn_add.setStyleSheet(_btn_ss())
-        self._btn_add.setToolTip("Add the selected item to the grocery list")
+        self._btn_add.setToolTip("Add the selected item to the shopping list")
         self._btn_add.clicked.connect(self._add_grocery)
         btns.addWidget(self._btn_popout)
         btns.addWidget(self._btn_add)
@@ -263,8 +263,7 @@ class MarketView(QWidget):
     def _add_grocery(self) -> None:
         item = self._selected_item()
         if item:
-            self._panel._grocery.add_item(item)
-            self._panel.voice_status("added %s to the grocery list" % item.get("name", "item"))
+            self._panel.add_to_shopping(item)
 
     # ── styles ───────────────────────────────────────────────────────────────
     @staticmethod

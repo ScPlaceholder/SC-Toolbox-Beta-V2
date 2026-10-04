@@ -1,9 +1,9 @@
 """Pop-out item bubble for the star map.
 
 Reuses the main window's ItemDetailBubble (full item details + prices) and
-adds the grocery-list affordances the map needs: a "drag me" bar whose
+adds the shopping-list affordances the map needs: a "drag me" bar whose
 drag carries the SC_ITEM_MIME payload (so it can be dropped onto the
-Grocery List bubble) and a one-click "add to grocery list" button.
+Shopping List) and a one-click "add to shopping list" button.
 """
 from __future__ import annotations
 
@@ -21,20 +21,20 @@ from ..ui.widgets import ItemDetailBubble
 
 
 class _DragBar(QWidget):
-    """Bar that starts a grocery-list drag on left-press."""
+    """Bar that starts a shopping-list drag on left-press."""
 
     def __init__(self, item: dict, parent: QWidget) -> None:
         super().__init__(parent)
         self._item = item
         self.setCursor(Qt.DragMoveCursor)
-        self.setToolTip("Drag me onto the Grocery List")
+        self.setToolTip("Drag me onto the Shopping List")
         self.setStyleSheet(f"""
             background: {P.bg_header};
             border-bottom: 1px solid {P.border};
         """)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 3, 8, 3)
-        lbl = QLabel("\U0001f6d2  drag me onto the Grocery List  ⇢")
+        lbl = QLabel("\U0001f6d2  drag me onto the Shopping List  ⇢")
         lbl.setStyleSheet(
             f"font-family: Consolas; font-size: 8pt; color: {P.tool_market}; "
             f"background: transparent;")
@@ -81,12 +81,12 @@ class ItemPopOut(ItemDetailBubble):
 
         self._add_btn: Optional[QLabel] = None
         if on_add_to_grocery is not None:
-            add = QLabel("＋ add to Grocery List")
+            add = QLabel("＋ add to Shopping List")
             add.setCursor(Qt.PointingHandCursor)
             add.setStyleSheet(
                 f"font-family: Consolas; font-size: 8pt; font-weight: bold; "
                 f"color: {P.tool_market}; background: transparent; padding: 3px 8px;")
-            add.setToolTip("Add this item to the grocery list")
+            add.setToolTip("Add this item to the shopping list")
             add.mousePressEvent = lambda _e: self._add()
             self._add_btn = add
             self._content_layout.insertWidget(1, add)

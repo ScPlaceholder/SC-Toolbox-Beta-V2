@@ -1,5 +1,7 @@
 # Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
 # written 2026-10-03T21:47-0400, parent: session:7bee459a
+# Moved from skills/Everything_Finder/everything_finder/shopping_source.py to shared/shopping/ and extended on
+# 2026-10-04, when the three shopping lists became one (subagent of session 47adec0d).
 """Where the shopping list gets its data, preferring what an open tab already has.
 
 * Items: Item Finder's ``DataService``. If the Item Finder tab is open, its
@@ -43,7 +45,7 @@ class ShoppingSource:
             return svc
         with self._lock:
             if self._own_service is None:
-                from .tool_loader import ensure_item_finder_path
+                from .paths import ensure_item_finder_path
                 ensure_item_finder_path()
                 from market_finder.service import DataService
                 self._own_service = DataService()
@@ -101,26 +103,26 @@ class ShoppingSource:
         with self._lock:
             if self._own_routes is not None:
                 return list(self._own_routes)
-        from .tool_loader import ensure_trade_hub_path
+        from .paths import ensure_trade_hub_path
         ensure_trade_hub_path()
         from trade_hub_data import DataFetcher
         try:
             routes = DataFetcher._fetch_api(on_distances_done=lambda _r: None)
         except Exception as exc:
-            log.warning("Everything Finder: Trade Hub route fetch failed: %s", exc)
+            log.warning("shopping list: Trade Hub route fetch failed: %s", exc)
             routes = []
         with self._lock:
             self._own_routes = list(routes)
         return list(routes)
 
     def commodity_names(self) -> List[str]:
-        from .tool_loader import ensure_trade_hub_path
+        from .paths import ensure_trade_hub_path
         ensure_trade_hub_path()
         from trade_hub_data import get_unique_commodities
         return list(get_unique_commodities(self.routes()))
 
     def dist_cache(self):
-        from .tool_loader import ensure_trade_hub_path
+        from .paths import ensure_trade_hub_path
         ensure_trade_hub_path()
         from trade_hub_data import _dist_cache
         return _dist_cache

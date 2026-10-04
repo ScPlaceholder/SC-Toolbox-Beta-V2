@@ -1,8 +1,20 @@
 # Starmap
 
 Galaxy, system and planet map for the SC Toolbox, with UEX commodity and
-item prices, a grocery list, lore cards and a command bar.
+item prices, the shared shopping list, lore cards and a command bar.
 Built by Red (Kimi) for J, 2026-09-23. Default hotkey: Ctrl+5 (was Shift+9, which earlier releases gave Mining Signals).
+
+## Shopping list
+
+The **Shopping List** button docks the toolbox's one shopping list
+(`shared/shopping/`) beside the map - the same list, widget and file that Item
+Finder and the Everything Finder show. An item added from a place on the map
+(an item pop-out, or **+ Shopping List** in the Market panel) is pinned to
+that place. Routes are planned by Trade Hub's basket planner; **Show on Star
+Map** draws one here in the planner's order, and the drawn route follows the
+list. The map's own grocery panel (`starmap/grocery.py`, with its own file and
+its own stop ordering) was retired on 2026-10-04; an old
+`~/.sctoolbox/starmap/grocery.json` is imported once and left in place.
 
 ## Commands (and where voice went)
 
