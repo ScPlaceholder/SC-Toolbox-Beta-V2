@@ -180,7 +180,8 @@ class EverythingFinderWindow(SCWindow):
         # button opens the Star Map TAB instead of its own separate map window.
         # (Instance attribute: the standalone Item Finder is untouched.)
         win._toggle_starmap = lambda: self.select_tab(TAB_MAP)
-        return embed_window(win, self, on_reveal=lambda: self._reveal(TAB_ITEM))
+        # hide_title: Item Finder's own bar still says "MARKET FINDER"; the tab names it.
+        return embed_window(win, self, on_reveal=lambda: self._reveal(TAB_ITEM), hide_title=True)
 
     def _make_trade_hub(self) -> QWidget:
         from .embed import embed_window
