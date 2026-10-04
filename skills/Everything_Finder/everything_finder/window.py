@@ -338,6 +338,12 @@ class EverythingFinderWindow(SCWindow):
             key = str(cmd.get("tab") or "")
             if key in TAB_LABELS:
                 self.select_tab(key)
+        elif action == "map_command":
+            # The Assistant heard something for the Star Map (it owns the mic; the
+            # map has none). Open the Star Map tab and let its command router run it.
+            panel = self.select_tab(TAB_MAP)
+            if panel is not None and hasattr(panel, "handle_map_command"):
+                panel.handle_map_command(cmd)
 
     def closeEvent(self, event) -> None:
         if self._ipc is not None:

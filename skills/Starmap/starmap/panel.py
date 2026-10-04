@@ -3,8 +3,14 @@
 Combines the Trade Hub star map (galaxy -> system -> planet globe scenes,
 home system, lore bubbles, route plotting) with the Market Finder star
 map (terminal -> items browsing, item pop-outs, grocery list, multi-stop
-shopping routes), and adds voice-command ears (FastWhisper behind a
-keyboard / mouse / joystick / gamepad trigger).
+shopping routes), and a command router ("navigate to Area 18", "zoom in")
+fed by the command bar and by the AI Assistant.
+
+The Star Map has NO microphone (J, 2026-10-04). It used to carry its own
+voice ears (starmap/voice/), and with the saved mic mode "Always on" simply
+opening the map - standalone, or as a tab of the Everything Finder - armed
+the mic. Voice-to-text now lives in one place, the Assistant, which relays
+what it hears as an IPC ``map_command`` (:meth:`StarmapPanel.handle_map_command`).
 
 Terminal clicks open the combined :class:`LocationDialog` (commodities
 + items tabs). The grocery list docks on the right; its "Plot shopping
@@ -57,12 +63,8 @@ from .location_dialog import LocationDialog
 from .grocery import GroceryPanel
 from .lore import LoreBubble, LoreFetcher
 from .ui import make_close_button
-from .voice import missing_deps as voice_missing_deps
-from .voice.ears import EarsController
-from .voice.commands import CommandRouter
-from .voice.input_devices import BindingCaptureDialog, InputBinding
-from .voice.mouth import Mouth
-from .voice_control import VoiceControlBar
+from .commands import CommandRouter, safe_reply_file
+from .command_bar import CommandBar
 from .commodities_view import CommoditiesView
 from .market_view import MarketView
 
@@ -84,7 +86,7 @@ def _btn_ss() -> str:
 
 
 class StarmapPanel(QWidget):
-    """Star map + location browser + grocery list + voice ears."""
+    """Star map + location browser + grocery list + command router (no microphone)."""
 
     _overlay_ready = Signal(object)        # worker thread -> UI: a freshly-built TradeOverlay
     # Asks the host to bring its Trade Hub forward (the Everything Finder switches tab).
@@ -124,9 +126,10 @@ class StarmapPanel(QWidget):
         self._ipc = None
         self._dest_engine = None
         self._setter_obj = None
-        self._mouth = None
-        self._voice_replies = True
-        self._voicebar = None
+        self._voicebar = None          # the CommandBar (name kept: voice_status() feeds it)
+        self._router = None
+        self._said = None              # lines "spoken" while a command runs (see speak())
+        self._reply_file = ""          # where the Assistant that sent the last command listens
         self._root_layout = None
         self._side_panels: Dict[str, QWidget] = {}
         self._side_buttons: Dict[str, QPushButton] = {}
@@ -142,7 +145,7 @@ class StarmapPanel(QWidget):
         self._root_layout = root
         try:
             self._build_ui(root)
-            self._build_ears()
+            self._build_command_bar()
         except Exception as exc:   # never die over the star map
             msg = QLabel(f"Star Map unavailable:\n{exc}")
             msg.setAlignment(Qt.AlignCenter)
@@ -241,7 +244,8 @@ class StarmapPanel(QWidget):
         self._btn_game.setCursor(Qt.PointingHandCursor)
         self._btn_game.setCheckable(True)
         self._btn_game.setStyleSheet(_btn_ss())
-        self._btn_game.setToolTip("Also plot voice routes inside Star Citizen (right-click Route to calibrate)")
+        self._btn_game.setToolTip("Also plot 'navigate to ...' routes inside Star Citizen "
+                                  "(right-click Route to calibrate)")
         self._btn_game.toggled.connect(lambda _on: self._save_soon())
         try:
             self._btn_game.setChecked(bool(load_state().get("game_route")))
@@ -312,139 +316,63 @@ class StarmapPanel(QWidget):
         lay.addStretch(1)
         return self._navbar
 
-    # ears (voice)
-    def _build_ears(self) -> None:
-        missing = voice_missing_deps()
-        self._ears = EarsController(self)
+    # command bar (typed commands + commands relayed by the Assistant; no microphone)
+    def _build_command_bar(self) -> None:
+        """Build the command router and its bar.
+
+        Nothing here opens, arms or even imports audio capture. That is the
+        point of the method: its predecessor (_build_ears) restored the saved
+        mic mode and armed the ears one tick after construction."""
         self._router = CommandRouter(self, parent=self)
         self._router.unrecognized.connect(
             lambda t: self.voice_status("did not understand: '%s'" % t))
-
-        # restore config
-        cfg = (load_state().get("ears") or {})
-        b = cfg.get("binding")
-        if isinstance(b, dict):
-            self._ears.set_binding(InputBinding.from_dict(b))
-        mode = str(cfg.get("mode", "push"))          # old "toggle" -> push-to-talk
-        self._ears.set_mode(mode if mode in ("push", "always") else "push")
-        self._ears.set_model(str(cfg.get("model", "small.en")))
-        self._voice_replies = bool(
-            (load_state().get("voice") or {}).get("replies", True))
-
-        self._ears.statusChanged.connect(self.voice_status)
-        self._ears.transcript.connect(self._on_transcript)
-        self._ears.needsInstall.connect(self._on_ears_needs_install)
-
-        # Speaks as the player's chosen character (Elah by default, set in the launcher's Settings); the old
-        # Windows-voice Mouth stays as the fallback if the shared voice cannot load.
-        try:
-            from shared.character_voice import CharacterMouth
-            self._mouth = CharacterMouth()
-        except Exception:
-            try:
-                self._mouth = Mouth()
-            except Exception:
-                self._mouth = None
-
-        # The interactive voice bar: ears toggle, mic mode (always on /
-        # push-to-talk / toggle), mic keybind, star map calibration, spoken
-        # replies and the status line.
-        self._voicebar = VoiceControlBar(self)
-        self._voicebar.set_replies(self._voice_replies)
-        self._voicebar.sync_mode(self._ears.mode())
+        self._voicebar = CommandBar(self)
         if self._root_layout is not None:
             self._root_layout.insertWidget(2, self._voicebar)
 
-        if missing:
-            self._btn_ears.setEnabled(False)
-            self._btn_ears.setToolTip(
-                "Voice ears need: pip install " + " ".join(missing))
-            self.voice_status("voice ears need: pip install " + " ".join(missing))
-        else:
-            self._refresh_ears_tooltip()
-            # J 2026-09-26: the ears are on by default, no on/off button.
-            QTimer.singleShot(0, lambda: self._btn_ears.setChecked(True))
+    def run_command(self, text: str) -> Tuple[bool, str]:
+        """Run one map command (typed, or relayed by the Assistant).
 
-    def _refresh_ears_tooltip(self) -> None:
-        b = self._ears.binding()
-        self._btn_ears.setToolTip(
-            "Toggle voice command ears (trigger: %s, %s) - right-click to configure"
-            % (b.describe() if b else "not set", self._ears.mode()))
+        Returns ``(understood, reply)``. *reply* is what the pilot should be
+        told: the lines the command "spoke" (see :meth:`speak`) if it spoke
+        any, else its status message."""
+        if self._router is None:
+            return False, "map unavailable"
+        self._said = []
+        try:
+            ok, msg = self._router.run(text)
+        finally:
+            said, self._said = self._said, None
+        if msg:
+            self.voice_status(msg)
+        return ok, (" ".join(s for s in said if s) or msg)
 
-    def _arm_ears(self, on: bool) -> None:
-        if on:
-            if not self._ears.arm():
-                self._btn_ears.setChecked(False)
-        else:
-            self._ears.disarm()
+    def handle_map_command(self, cmd: dict) -> None:
+        """IPC ``map_command``: the Assistant heard something meant for the map.
 
-    def _ears_menu(self, pos) -> None:
-        menu = QMenu(self)
-        menu.addAction("Set trigger (press any key / button)...", self._pick_binding)
-        mode_menu = menu.addMenu("Mode")
-        for label, value in (("Push-to-talk (hold)", "push"),
-                             ("Always on", "always")):
-            act = mode_menu.addAction(label)
-            act.setCheckable(True)
-            act.setChecked(self._ears.mode() == value)
-            act.triggered.connect(lambda _=False, v=value: self._set_mode(v))
-        model_menu = menu.addMenu("Whisper model")
-        for name in ("tiny.en", "base.en", "small.en", "medium.en"):
-            act = model_menu.addAction(name)
-            act.setCheckable(True)
-            act.setChecked(self._ears_model_name() == name)
-            act.triggered.connect(lambda _=False, n=name: self._set_model(n))
-        menu.addAction("Voice commands help", self.cmd_voice_help)
-        menu.exec(self._voicebar.mapToGlobal(pos))
-
-    def _ears_model_name(self) -> str:
-        return self._ears._model_name
-
-    def _set_mode(self, value: str) -> None:
-        self._ears.set_mode(value)
-        self._voicebar.sync_mode(value)
-        self._refresh_ears_tooltip()
-        self._save_soon()
-        if self._btn_ears.isChecked():           # re-arm so the new mode takes effect
-            self._ears.disarm()
-            if not self._ears.arm():
-                self._btn_ears.setChecked(False)
-        elif self._btn_ears.isEnabled():
-            self._btn_ears.setChecked(True)
-
-    def _set_model(self, name: str) -> None:
-        self._ears.set_model(name)
-        self._save_soon()
-
-    def _pick_binding(self) -> None:
-        dlg = BindingCaptureDialog(self)
-        if dlg.exec() and dlg.result is not None:
-            self._ears.set_binding(dlg.result)
-            self._refresh_ears_tooltip()
-            self.voice_status("ears trigger: %s" % dlg.result.describe())
-            self._save_soon()
-
-    def _on_ears_needs_install(self, missing: list) -> None:
-        self._btn_ears.setChecked(False)
-        self.voice_status("ears need: pip install " + " ".join(missing))
-
-    def _on_transcript(self, text: str) -> None:
-        self.voice_status('heard: "%s"' % text)
-        self._router.dispatch(text)
+        ``{"type": "map_command", "text": "zoom in", "id": "...", "reply_file": "..."}``.
+        The reply (``{"id", "ok", "reply"}``) is appended to *reply_file*, so the
+        Assistant can say what happened in its own voice; later narration from
+        the in-game route macro goes to the same file as ``{"say": "..."}``."""
+        try:
+            text = str((cmd or {}).get("text") or "").strip()
+            self._reply_file = safe_reply_file((cmd or {}).get("reply_file"))
+            ident = (cmd or {}).get("id")
+        except AttributeError:
+            return
+        if not text:
+            self._send_reply({"id": ident, "ok": False, "reply": "that was an empty command"})
+            return
+        ok, reply = self.run_command(text)
+        self._send_reply({"id": ident, "ok": bool(ok), "reply": reply})
 
     def voice_status(self, msg: str) -> None:
         vb = getattr(self, "_voicebar", None)
         if vb is not None:
             vb.set_status(msg)
 
-    # command handlers (voice router target)
-    def cmd_ears_off(self) -> str:
-        # There is no off any more (J 2026-09-26); "ears off" drops to
-        # push-to-talk so an always-open mic stops listening to the room.
-        self._set_mode("push")
-        return "push-to-talk"
-
-    def cmd_voice_help(self) -> str:
+    # command handlers (CommandRouter target)
+    def cmd_help(self) -> str:
         lines = self._router.help_lines()
         return "commands: " + " | ".join(lines)
 
@@ -1009,7 +937,7 @@ class StarmapPanel(QWidget):
             g.start_route()
             self._btn_route.setText("Cancel")
 
-    # ── voice replies (TTS) ───────────────────────────────────────────────
+    # ── replies (said by the Assistant, never by the map) ─────────────────
     @staticmethod
     def _cline(key: str, default: str, **fields) -> str:
         """A fixed spoken line in the chosen character's words (shared/character_voice.LINES); the plain
@@ -1032,25 +960,45 @@ class StarmapPanel(QWidget):
             return default
 
     def speak(self, text: str) -> None:
-        """Speak a confirmation when Voice Replies is on (never blocks)."""
-        if getattr(self, "_voice_replies", True) and getattr(self, "_mouth", None):
-            try:
-                self._mouth.speak(text)
-            except Exception as e:
-                # LEFT BROAD. self._mouth is the TTS mouth (a character voice behind an HTTP call or a local engine),
-                # so its failures range over OSError, HTTPException, RuntimeError and whatever the engine raises; and
-                # speak() is called from voice-command handlers that must return their text answer to the caller
-                # whether or not the audio comes out. An escape would turn "the confirmation did not play" into "the
-                # voice command failed", which is a worse and false report.
-                # The consequence of swallowing it is the reason this cannot stay silent: Voice Replies is ON, so the
-                # pilot is waiting to HEAR the confirmation, and every visible signal says it was spoken. A mouth
-                # that has died is indistinguishable from one the pilot switched off.
-                log.warning("Starmap: the voice reply did not play (%s: %s); Voice Replies is on but nothing was "
-                            "spoken", type(e).__name__, e, exc_info=True)
+        """Hand a spoken line to whoever is talking to the map. The map itself is mute.
 
-    def _set_voice_replies(self, on: bool) -> None:
-        self._voice_replies = bool(on)
-        self._save_soon()
+        The Star Map had its own TTS mouth while it had its own ears. Both are
+        the Assistant's now, and the map must not talk on its own: with the
+        Assistant's mic open, a line said by the map comes straight back in as
+        the pilot's next utterance ("Navigate to Area 18" would re-run itself).
+        The Assistant marks its OWN speech so its ears skip it; it cannot do
+        that for a second voice in another process.
+
+          * while a command is running, the line becomes that command's reply;
+          * afterwards (the in-game route macro narrates its steps later) it is
+            sent to the Assistant that issued the last command, which says it;
+          * with nobody listening it is dropped - callers put the same text on
+            the status line themselves.
+        """
+        if not text:
+            return
+        if self._said is not None:
+            self._said.append(text)
+            return
+        self._send_reply({"say": text})
+
+    def _send_reply(self, payload: dict) -> bool:
+        """Append *payload* to the Assistant's reply file, if it gave one."""
+        path = self._reply_file
+        if not path:
+            return False
+        try:
+            from shared.ipc import ipc_write
+            return bool(ipc_write(path, payload))
+        except Exception as e:
+            # LEFT BROAD on purpose: this runs on the map's command path and on the route
+            # macro's worker thread, and a reply that cannot be written (the Assistant
+            # closed and its temp file went with it, a lock timeout) must not become
+            # "the map command failed". It is reported, because the Assistant is then
+            # waiting for an answer that will never arrive and will say so itself.
+            log.warning("Starmap: could not answer the Assistant at %s (%s: %s)",
+                        path, type(e).__name__, e)
+            return False
 
     def _route_status(self, msg: str) -> None:
         """Macro step narration: show it on the status line and say it."""
@@ -1128,6 +1076,8 @@ class StarmapPanel(QWidget):
                 win.hide()
         elif kind == "quit" and app is not None:
             app.quit()
+        elif kind == "map_command":
+            self.handle_map_command(cmd)
 
     # ── persistence ───────────────────────────────────────────────────────
     def _save_soon(self) -> None:
@@ -1141,15 +1091,12 @@ class StarmapPanel(QWidget):
         st["galaxy"] = self._galaxy.get_state()
         if hasattr(self, "_btn_game"):
             st["game_route"] = self._btn_game.isChecked()
-        st["voice"] = {"replies": bool(getattr(self, "_voice_replies", True))}
         st["overlay_flags"] = dict(self._overlay_flags)
-        if hasattr(self, "_ears"):
-            b = self._ears.binding()
-            st["ears"] = {
-                "binding": b.to_dict() if b is not None else None,
-                "mode": self._ears.mode(),
-                "model": getattr(self._ears, "_model_name", "small.en"),
-            }
+        # "ears" and "voice" in the state file are the mic settings from when the
+        # map had its own ears. They are NOT written any more and deliberately not
+        # removed either: st is load_state() with this panel's keys laid over it,
+        # so they ride along untouched, and the Assistant reads them once to carry
+        # the pilot's choices over (assistant/starmap_bridge.py).
         save_state(st)
 
     def showEvent(self, ev) -> None:
@@ -1166,25 +1113,13 @@ class StarmapPanel(QWidget):
             self._pick_home()
 
     def shutdown(self) -> None:
-        """Persist state and tear down bubbles / ears / watchers."""
-        # ALL THREE HANDLERS IN THIS METHOD ARE LEFT BROAD, for one reason that belongs to the method rather than to
-        # any of them: the LAST statement is self.save_state(). An exception escaping from the mouth, the ears or the
-        # IPC watcher skips it, and the pilot loses the home system, the panel toggles and the grocery list they just
-        # built - a data loss caused by a failure to shut down a background thread. All three subsystems are also
-        # optional and independently implemented (a TTS engine, a FastWhisper thread, a file watcher), so none of
-        # them has an exception set to narrow to. What was missing was any record that a thread outlived the panel.
-        if getattr(self, "_mouth", None) is not None:
-            try:
-                self._mouth.stop()
-            except Exception as e:
-                log.warning("Starmap shutdown: the voice mouth did not stop (%s: %s); its playback thread may "
-                            "outlive the panel", type(e).__name__, e, exc_info=True)
-        if hasattr(self, "_ears"):
-            try:
-                self._ears.shutdown()
-            except Exception as e:
-                log.warning("Starmap shutdown: the voice ears did not shut down (%s: %s); the trigger listener and "
-                            "the audio stream may still be open", type(e).__name__, e, exc_info=True)
+        """Persist state and tear down bubbles / watchers."""
+        # THE HANDLER IN THIS METHOD IS LEFT BROAD, for a reason that belongs to the method: the LAST statement is
+        # self.save_state(). An exception escaping from the IPC watcher skips it, and the pilot loses the home
+        # system and the panel toggles - a data loss caused by a failure to shut down a background thread. What was
+        # missing was any record that a thread outlived the panel.
+        # (The voice mouth and ears that used to be stopped here are gone: the map has neither any more.)
+        self._reply_file = ""
         if self._lore_bubble is not None:
             self._lore_bubble.close()
             self._lore_bubble = None
@@ -1488,12 +1423,12 @@ class StarmapPanel(QWidget):
             return
         self.tradeHubRequested.emit()
 
-    # ── repurposed set_route_ai: voice destinations + in-game plotting ────
+    # ── repurposed set_route_ai: spoken destinations + in-game plotting ───
     def _engine(self):
         """Lazy DestinationPhoneticEngine (set_route_ai port)."""
         if self._dest_engine is None:
             try:
-                from .voice.destination_engine import DestinationPhoneticEngine
+                from .set_route.destination_engine import DestinationPhoneticEngine
                 self._dest_engine = DestinationPhoneticEngine()
             except Exception:
                 self._dest_engine = None
@@ -1502,7 +1437,7 @@ class StarmapPanel(QWidget):
     def _setter(self):
         if self._setter_obj is None:
             try:
-                from .voice.route_setter import InGameRouteSetter
+                from .set_route.route_setter import InGameRouteSetter
                 self._setter_obj = InGameRouteSetter()
             except Exception:
                 self._setter_obj = None
@@ -1556,7 +1491,7 @@ class StarmapPanel(QWidget):
 
     def _calibrate(self) -> None:
         try:
-            from .voice.route_setter import RouteCalibrationDialog
+            from .set_route.route_setter import RouteCalibrationDialog
         except Exception as exc:
             self.voice_status("calibration unavailable: %s" % exc)
             return

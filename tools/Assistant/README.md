@@ -4,6 +4,11 @@ The user talks; the assistant summons toolbox data through tools and
 answers. Side effects (pinning a route popup, opening Trade Hub) always
 ask the user first.
 
+**This is the toolbox's one microphone.** The Star Map used to have its own
+voice ears; since 2026-10-04 it has none, and what is said for the map
+("navigate to Area 18", "zoom in", "star map, show Hurston") is relayed to it
+from here. See "Star Map commands" below.
+
 ## Plug in an LLM
 
 The endpoint is **not hardcoded**. It is read from
@@ -68,6 +73,11 @@ Workers never write the tools' caches or settings, and run with
   with the launcher's own argv contract when the launcher reads no commands
 * `assistant/agent.py`      - conversation loop + yes/no confirmation gate
 * `assistant/voice.py`      - ears (mic + faster-whisper) + mouth (SAPI TTS), optional deps
+* `assistant/starmap_bridge.py` - the Star Map's voice: which utterances are map
+  commands, relaying them over IPC and saying the map's answer, and the
+  one-time move of the Star Map's saved mic settings
+* `assistant/starmap_ears/` - the Star Map's former ears, kept but not imported
+  (joystick / gamepad mic triggers live only there; see its `__init__`)
 * `assistant/panel.py`      - the HUD window
 * `assistant/selftest.py`   - `python -m assistant.selftest` from `tools/Assistant`
 
@@ -89,6 +99,7 @@ Workers never write the tools' caches or settings, and run with
 | `jump_route(from_system, to_system)` | Starmap | |
 | `current_loadout()` | Battle Buddy (Game.log, read-only) | |
 | `playtime_summary()` | PlayTime | |
+| `starmap_command(command)` | Star Map window (or the Everything Finder's Star Map tab) | |
 | `show_route_popup(route, ship?, show_on_map?)` | Trade Hub window | yes |
 | `open_trade_hub()` | Trade Hub window | yes |
 | `launch_tool(name)` | launcher `launch_skill`, else a direct spawn | yes |
@@ -97,6 +108,38 @@ Names are fuzzy-matched inside the tools ("quantanium" finds
 "Quantainium (Raw)", "helix 1" finds "Helix I Mining Laser"). A result
 with `"empty": true` is a valid "nothing matched", not an error.
 DPS / optimal ship builds are not wired yet.
+
+## Star Map commands
+
+Voice-to-text lives here and nowhere else. A map phrase is recognised by rule
+(`starmap_bridge.command_text`), before any intent scoring:
+
+* said plainly: *navigate to / set route to / set course to / plot a course to
+  <destination>*, *route to <system>*, *clear route*, *zoom in / out*, *back to
+  galaxy*, *take me home*, *open the shopping list*;
+* anything else the map understands, with **star map** in front: *star map,
+  show Hurston*, *star map, commodities*, *star map, help*.
+
+`starmap_command` sends `{"type": "map_command", ...}` to the standalone Star
+Map if it is running, else to the Everything Finder (which opens its Star Map
+tab), waits up to 6 s for the map's answer in a temp reply file, and says it.
+The map never speaks itself: its ears-era TTS is gone, because a second voice
+would come back through this window's open mic as the user's next utterance.
+Later narration from the in-game route macro arrives through the same file and
+is spoken here too. It is not confirm-gated (it was a direct voice command
+when the map had its own ears). If no Star Map is open, it says so; it does
+not open one.
+
+*Stop listening* / *ears off* closes an always-open mic (drops to
+push-to-talk). That was a Star Map command; the mic is this window's now.
+
+**The Star Map's saved mic settings** are folded in once, at the first launch
+after the move (`migrate_starmap_voice`). A setting this window already has is
+the user's own choice and is kept; a Star Map setting only fills a gap; what
+was not applied is shown in the window once and recorded under
+`starmap_voice_migrated` in `~/.sctoolbox/assistant_panel.json`. The Star
+Map's file is only read. Not carried over: a joystick or gamepad mic trigger
+(the Assistant binds keyboard keys and side mouse buttons only).
 
 ## Extending: give the LLM a new tool
 

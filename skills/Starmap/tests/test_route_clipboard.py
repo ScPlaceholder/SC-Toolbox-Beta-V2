@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 pytestmark = pytest.mark.skipif(sys.platform != "win32",
                                 reason="Win32 clipboard API; nothing to test elsewhere")
 
-from starmap.voice.route_setter import _set_clipboard   # noqa: E402
+from starmap.set_route.route_setter import _set_clipboard   # noqa: E402
 
 
 def _read_clipboard() -> str:

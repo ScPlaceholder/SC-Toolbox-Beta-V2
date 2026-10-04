@@ -7,6 +7,10 @@ Two kinds of tools:
     Mission DB's ``data`` package never meets Market Finder's.
   * Action (confirm=True): show_route_popup, open_trade_hub, launch_tool.
     These change what is on the user's screen, so the agent asks first.
+  * starmap_command: relays a spoken map command to the Star Map, which has
+    no microphone of its own (voice-to-text lives here). Not confirm-gated:
+    it was a direct voice command when the map had its own ears, and asking
+    "say yes or no" before every "zoom in" would make it unusable.
 
 Descriptions are written for a small local model: each says WHEN to use
 the tool in the user's own words, and what comes back.
@@ -18,7 +22,7 @@ from __future__ import annotations
 
 import logging
 
-from . import headless, ipc_bus
+from . import headless, ipc_bus, starmap_bridge
 from shared.scunpacked import ATTRIBUTION as _SCUNPACKED_ATTRIBUTION
 from .tools import ToolContext, ToolError, ToolRegistry, tool
 
@@ -31,7 +35,7 @@ def build_default_registry() -> ToolRegistry:
               _missions_for_blueprint, _where_to_mine, _search_missions,
               _blueprint_recipe, _identify_signal, _mining_loadout_stats,
               _cargo_layout, _jump_route, _current_loadout, _playtime_summary,
-              _best_ship_weapons,
+              _best_ship_weapons, _starmap_command,
               _show_route_popup, _open_trade_hub, _launch_tool):
         reg.register(t)
     return reg
@@ -292,6 +296,32 @@ def _current_loadout(ctx: ToolContext) -> dict:
 )
 def _playtime_summary(ctx: ToolContext) -> dict:
     return _w(ctx, "playtime", "playtime_summary", timeout=120)
+
+
+# ── the Star Map's commands (voice lives here; the map has no mic) ───────
+
+@tool(
+    name="starmap_command",
+    description=(
+        "Tell the open Star Map to do something: 'navigate to Area 18', 'set route "
+        "to Port Tressler', 'route to Pyro', 'clear route', 'zoom in', 'zoom out', "
+        "'back to galaxy', 'take me home', 'open the shopping list'. Pass the "
+        "command in the user's own words. Use jump_route instead when the user "
+        "only asks how many jumps or which systems lie between two systems."),
+    params={"command": {"type": "string",
+                        "description": "The map command as spoken, e.g. navigate to Area 18"}},
+    required=["command"],
+)
+def _starmap_command(ctx: ToolContext, command: str) -> dict:
+    """Relay one command to the Star Map and report what it answered.
+
+    The map's later narration (the in-game route macro says each step) is
+    spoken through ctx.speak, i.e. by the Assistant's own mouth: its ears
+    know to ignore that voice, and would hear a second one as the user."""
+    command = (command or "").strip()
+    if not command:
+        raise ToolError("no map command was given")
+    return starmap_bridge.send_command(command, on_say=ctx.speak)
 
 
 # ── actions (ask first) ───────────────────────────────────────────────────

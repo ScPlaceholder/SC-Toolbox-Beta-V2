@@ -569,6 +569,7 @@ _LABEL = {
     "show_route_popup": "pinning the route",
     "open_trade_hub": "opening Trade Hub",
     "launch_tool": "opening a tool",
+    "starmap_command": "a Star Map command",
 }
 
 # words in a follow-up answer that pick one of the offered options
@@ -620,7 +621,8 @@ _SLOT_QUESTION = {
 CAPABILITIES = ("trade routes, ship cargo sizes, ship and item prices, missions and "
                 "blueprint rewards, where to mine, crafting recipes, scanner signals, "
                 "mining loadouts, cargo layouts, jump routes, your FPS loadout, play time, "
-                "the best guns for a ship, and opening toolbox tools")
+                "the best guns for a ship, opening toolbox tools, and Star Map commands "
+                "like navigate to Area 18")
 
 _SIGNAL_NUM = re.compile(
     r"(?<![\w.,-])(\d{3,6})(?![\w-])(?![.,]\d)(?!\s*(?:scu|auec|uec|k\b|hours?\b|h\b|%|m\b|gm\b|km\b))",
@@ -957,6 +959,16 @@ class Router:
 
     # ── decision ─────────────────────────────────────────────────────────
     def decide(self, text: str, pending: Optional[dict] = None) -> Decision:
+        # A Star Map command ("navigate to Area 18", "zoom in", "star map, ...") is a
+        # fixed phrase, not an intent to score: the map's own command router decides
+        # what it means. Checked first so an open question from the turn before
+        # ("Which ship?") cannot swallow it.
+        if self._has("starmap_command"):
+            from .starmap_bridge import command_text
+            cmd = command_text(text)
+            if cmd:
+                return Decision("call", tool="starmap_command", args={"command": cmd},
+                                reason="star map command")
         spans = self.catalog.find(text)
         scores = self.score(text, spans)
         ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))

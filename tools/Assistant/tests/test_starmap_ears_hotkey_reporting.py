@@ -4,28 +4,31 @@ The defect these cover: "the listener never started" and "it started fine and yo
 pressed the key" used to be the same empty log — `_start_pynput` returned a bare False from
 `except Exception`, and `arm()` then emitted "ears armed (...)" regardless of the result.
 
+These tests cover assistant/starmap_ears/ - the Star Map's former ears, moved into the
+Assistant on 2026-10-04 (see that package's __init__). The file came with them from
+skills/Starmap/tests/test_starmap_hotkey_reporting.py; only the import path changed, and
+the HOME redirect went (it protected starmap.data's state path, which is no longer
+imported here, and it would have redirected HOME for every other Assistant test too).
+
 Run explicitly (this directory is not in pyproject's testpaths):
-    python -m pytest skills/Starmap/tests/test_starmap_hotkey_reporting.py -q
+    python -m pytest tools/Assistant/tests/test_starmap_ears_hotkey_reporting.py -q
 """
 
 import logging
 import os
 import sys
-import tempfile
 import types
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-_HOME = tempfile.mkdtemp(prefix="starmap_hotkey_test_")
-os.environ["HOME"] = os.environ["USERPROFILE"] = _HOME      # before any starmap import
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                  '..', '..', '..')))
 import shared.path_setup  # noqa: E402
 shared.path_setup.ensure_path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from starmap.voice import ears as ears_mod                          # noqa: E402
-from starmap.voice.input_devices import HotkeyMonitor, InputBinding  # noqa: E402
+from assistant.starmap_ears import ears as ears_mod                          # noqa: E402
+from assistant.starmap_ears.input_devices import HotkeyMonitor, InputBinding  # noqa: E402
 
 
 class _FakeListener:
@@ -72,7 +75,7 @@ def _binding():
 @pytest.fixture(autouse=True)
 def _fast_timeout(monkeypatch):
     """The real 2 s readiness ceiling is not worth paying eight times over."""
-    monkeypatch.setattr("starmap.voice.input_devices._READY_TIMEOUT_S", 0.05)
+    monkeypatch.setattr("assistant.starmap_ears.input_devices._READY_TIMEOUT_S", 0.05)
 
 
 def test_a_listener_that_refuses_to_start_is_named_with_its_exception_type(monkeypatch, caplog):

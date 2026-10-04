@@ -59,7 +59,6 @@ def panel(monkeypatch, tmp_path):
     monkeypatch.setattr(distances, "_cache", {})
     monkeypatch.setattr(grocery, "_STORE_PATH", str(tmp_path / "grocery.json"))
     monkeypatch.setattr(lore, "_CACHE_PATH", str(tmp_path / "lore_cache.json"))
-    monkeypatch.setattr(panel_mod.StarmapPanel, "_build_ears", lambda self: None)
     assert os.path.expanduser("~") == _HOME
 
     p = panel_mod.StarmapPanel()

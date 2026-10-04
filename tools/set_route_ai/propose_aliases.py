@@ -895,7 +895,7 @@ def _selftest() -> int:
     # ── 1. normalize() must still match the ENGINE's. A copy that drifts breaks suppression silently.
     engine_norm = None
     for rel in ("dependencies/destination_engine.py",
-                "../../skills/Starmap/starmap/voice/destination_engine.py"):
+                "../../skills/Starmap/starmap/set_route/destination_engine.py"):
         p = (HERE / rel).resolve()
         if not p.exists():
             continue

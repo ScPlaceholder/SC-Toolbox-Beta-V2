@@ -267,6 +267,20 @@ def _pin(a, r):
     return (r.get("message") or "Pinned it") + "."
 
 
+def _starmap(a, r):
+    """What the Star Map answered, in its words (it does not speak for itself)."""
+    reply = str(r.get("reply") or "").strip()
+    if r.get("not_running"):
+        return reply
+    where = r.get("target") or "the Star Map"
+    if r.get("timed_out"):
+        return f"I sent that to {where}, but it has not answered yet."
+    if not reply:
+        return f"Sent to {where}."
+    out = _cap(reply)                      # _cap drops a trailing full stop
+    return out if out.endswith(("?", "!")) else out + "."
+
+
 def _opened(a, r):
     return f"Opened {r.get('launched') or 'Trade Hub'}."
 
@@ -280,6 +294,7 @@ _FORMATTERS = {
     "current_loadout": _loadout, "playtime_summary": _playtime,
     "best_ship_weapons": _weapons, "show_route_popup": _pin,
     "open_trade_hub": _opened, "launch_tool": _opened,
+    "starmap_command": _starmap,
 }
 
 

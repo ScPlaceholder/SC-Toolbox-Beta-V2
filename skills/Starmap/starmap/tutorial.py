@@ -8,8 +8,8 @@ Every button label, menu entry and mouse gesture named below was read out of
 the source, not a commit message:
   panel.py            Home / Route / In-Game / Grocery / Market / Commodities,
                       "< Back", the "   >   " breadcrumb, the context menus
-  voice_control.py    Mic: Push-to-talk | Always on, Set Mic Keybind,
-                      Calibrate Star Map, Voice Replies
+  command_bar.py      the command box, Calibrate Star Map, the status line
+                      (the mic controls moved to the Assistant, 2026-10-04)
   grocery.py          X, clear, Plot shopping route
   market_view.py      Filter terminals..., Search items everywhere...,
                       Pop out, + Grocery
@@ -160,14 +160,15 @@ it. While you are still picking points it reads <b>Cancel</b> and backs out
 without drawing anything.</p>
 
 {_h4("Setting the route inside the game", _C_MARKET)}
-<p>Turn on <b>In-Game</b> and a route you ask for <b>by voice</b> is also
+<p>Turn on <b>In-Game</b> and a route you ask for with <em>navigate to
+&hellip;</em> (said to the Assistant, or typed in the command bar) is also
 punched into Star Citizen's own map for you &mdash; it opens the map, types
 the destination and sets it.</p>
 <p><span style="{_YLW}">It has to be calibrated first</span>, because it works
 by clicking your screen and every screen is different.
 <b>Right-click Route</b> and choose
 <b>Calibrate in-game route setter&hellip;</b>, or press
-<b>Calibrate Star Map</b> on the voice bar. It walks you through three clicks
+<b>Calibrate Star Map</b> on the command bar. It walks you through three clicks
 and remembers them.</p>
 <p style="{_DIM}">Until it is calibrated, In-Game has nothing to aim at.
 Plotting on this map, on its own, needs no calibration at all.</p>
@@ -234,44 +235,37 @@ the trip get shorter.</p>
 """)
 
 _TAB_VOICE = _html(f"""
-{_h3("Talking to the map", _C_VOICE)}
-<p>You can drive the map by voice, hands on the stick: <em>navigate to
-Daymar</em>, <em>clear route</em>, <em>show Hurston</em>. Speech is recognised
-<b>on this PC</b>, not in the cloud.</p>
+{_h3("Telling the map what to do", _C_VOICE)}
+<p>The map takes commands: <em>navigate to Daymar</em>, <em>clear route</em>,
+<em>zoom in</em>, <em>take me home</em>. There are two ways to give one.</p>
 
-{_h4("How the mic opens", _C_VOICE)}
-<p>The <b>Mic:</b> pair on the voice bar chooses:</p>
-<ul>
-  <li><b>Push-to-talk</b> &mdash; hold a key while you speak. Quieter, and it
-      cannot be set off by the game's own audio.</li>
-  <li><b>Always on</b> &mdash; the mic stays open; just talk.</li>
-</ul>
+{_h4("Say it to the Assistant", _C_VOICE)}
+<p>The Star Map <b>has no microphone of its own</b>. Voice lives in one
+place, the <b>Toolbox Assistant</b>: open it, hold its mic key (or use its
+<b>Always on</b>), and say the command. The Assistant passes it to this map
+and tells you what the map did. Its mic key, mic mode and <b>Voice Replies</b>
+are set in the Assistant's window.</p>
+<p style="{_DIM}">Opening the Star Map never opens the mic. It used to: the
+map had its own ears, and a saved "Always on" armed them every time the map
+was opened.</p>
+<p>Said with nothing in front, the Assistant sends the map: <em>navigate to
+&hellip;</em>, <em>set route to &hellip;</em>, <em>route to &hellip;</em>,
+<em>clear route</em>, <em>zoom in / out</em>, <em>back to galaxy</em>,
+<em>take me home</em> and <em>open the shopping list</em>. For anything else,
+start with <b>star map</b>: <em>star map, show Hurston</em>, <em>star map,
+commodities</em>, <em>star map, help</em>.</p>
 
-{_h4("Set Mic Keybind", _C_VOICE)}
-<p>Press it, then press whatever you want to use: a <b>key, mouse button,
-joystick or gamepad button</b>. Bind it to something on your HOTAS and you
-never take a hand off the controls.</p>
-<p><span style="{_YLW}">Push-to-talk with no key bound does nothing</span>,
-so set one, or switch to Always on.</p>
+{_h4("Type it", _C_VOICE)}
+<p>The box on the <b>command bar</b> runs the same commands: type
+<em>navigate to Area 18</em> and press Enter. <em>help</em> prints the whole
+list into the status line.</p>
+<p style="{_DIM}">The status line beside it is where the map answers: what it
+was told, what it did, or that it did not understand.</p>
 
-{_h4("Voice Replies", _C_VOICE)}
-<p>Toggle it to have the map <b>say confirmations out loud</b>
-(<em>Navigate to&hellip;</em>) instead of only printing them. Handy when you
-are looking at the game and not at this window.</p>
-
-{_h4("What can I say?", _C_VOICE)}
-<p><b>Right-click the voice bar</b> for <b>Voice commands help</b> &mdash; it
-prints the whole list of commands into the status line. The same menu also
-has <b>Set trigger</b>, the <b>Mode</b> choice, and <b>Whisper model</b>
-(<b>tiny.en</b>, <b>base.en</b>, <b>small.en</b>, <b>medium.en</b> &mdash;
-bigger hears better and costs more time).</p>
-<p style="{_DIM}">The status line beside the buttons is where the map answers:
-what it heard, what it did, or that it did not understand. If it says voice
-ears need a package installed, that is why nothing is listening.</p>
-
-{_h4("Voice and the game together", _C_GROC)}
-<p>With <b>In-Game</b> on, a spoken route is set in Star Citizen too &mdash;
-see the <b>Jump Routes</b> tab, and calibrate it first.</p>
+{_h4("Commands and the game together", _C_GROC)}
+<p>With <b>In-Game</b> on, <em>navigate to &hellip;</em> sets the route in
+Star Citizen too &mdash; see the <b>Jump Routes</b> tab, and calibrate it
+first.</p>
 """)
 
 _TABS = [

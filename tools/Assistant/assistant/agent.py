@@ -278,7 +278,10 @@ class AssistantAgent:
         draft = plain_answer(tool.name, args, result)
         reply = draft
         # actions are said in fixed words ("Opened Starmap."); nothing to phrase
+        # ... and so is what the Star Map answered: "Which one? Area 18, Area 04" must
+        # reach the pilot as the map said it, not as a model's paraphrase of it.
         if (self.effective_mode == "router+llm" and not tool.confirm
+                and tool.name != "starmap_command"
                 and not (isinstance(result, dict) and result.get("error"))):
             reply = self._phrase(question, tool.name, result, draft, rec)
         routes = result.get("routes") if isinstance(result, dict) else None

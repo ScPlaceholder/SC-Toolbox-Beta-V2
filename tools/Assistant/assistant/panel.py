@@ -5,19 +5,26 @@ Layout:
   [ title bar                                             ✕ ]
   [ Ears ] [ Set Mic Key ] [ Voice Replies ] [ Settings… ]
   <no-mic-key hint, only while no key is set>
+  <one-time notice: what came over from the Star Map's voice settings>
   You:  <last thing the ears heard>
   AI:   <the assistant's reply, word-wrapped>
   <status line>
 
 The agent runs blocking LLM calls on a worker thread; everything reaches
 the GUI through Qt signals. The ears/mouth/speak pipeline is optional-
-dependency gated exactly like the Starmap voice bar.
+dependency gated.
+
+This window is the toolbox's ONE microphone (J, 2026-10-04). The Star Map
+used to have its own ears and voice bar; they are gone, and what is said for
+the map is relayed to it from here (starmap_bridge.py, the starmap_command
+tool). The Star Map's saved mic settings are folded in once at start-up.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import re
 from typing import Optional
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -40,6 +47,12 @@ log = logging.getLogger(__name__)
 
 _STATE_PATH = os.path.join(os.path.expanduser("~"), ".sctoolbox",
                            "assistant_panel.json")
+
+#: Said to close an always-open mic. It was the Star Map's "ears off" command;
+#: the mic is this window's now, so the command is handled here and never
+#: reaches the agent. There is no "off" (J 2026-09-26): it drops to push-to-talk.
+_STOP_LISTENING = re.compile(r"^\W*(?:please\s+)?(?:ears?\s+off|stop\s+listening|go\s+to\s+sleep)\W*$",
+                             re.IGNORECASE)
 
 
 def _btn_ss() -> str:
@@ -134,6 +147,7 @@ class AssistantWindow(SCWindow):
                          accent=P.energy_cyan, parent=parent)
         self._base_dir = base_dir
         self._state = self._load_state()
+        self._migration_notes = self._migrate_starmap_voice()
         self._worker: Optional[_AskWorker] = None
         self._capture: Optional[KeyCaptureDialog] = None
 
@@ -160,6 +174,8 @@ class AssistantWindow(SCWindow):
         # (default) or always on. An old saved "toggle" becomes push-to-talk.
         mode = self._state.get("mic_mode", "push")
         self._ears.set_mode(mode if mode in ("push", "always") else "push")
+        if self._state.get("whisper_model"):       # carried over from the Star Map, if it had one
+            self._ears.set_model(str(self._state["whisper_model"]))
         self._ears.statusChanged.connect(self._set_status)
         self._ears.transcript.connect(self._on_transcript)
         self._ears.needsInstall.connect(self._on_needs_install)
@@ -240,6 +256,16 @@ class AssistantWindow(SCWindow):
             f"background: transparent; padding: 0 12px;")
         self.content_layout.addWidget(self._lbl_mic)
 
+        # Shown once, the first time this window opens after the Star Map's voice
+        # moved here: what was carried over and what was deliberately left alone.
+        self._lbl_notice = QLabel(" ".join(self._migration_notes))
+        self._lbl_notice.setWordWrap(True)
+        self._lbl_notice.setStyleSheet(
+            f"color: {P.energy_cyan}; font-family: Consolas; font-size: 9pt; "
+            f"background: transparent; padding: 0 12px;")
+        self._lbl_notice.setVisible(bool(self._migration_notes))
+        self.content_layout.addWidget(self._lbl_notice)
+
         self._lbl_heard = QLabel("You: —")
         self._lbl_heard.setWordWrap(True)
         self._lbl_heard.setStyleSheet(
@@ -303,7 +329,35 @@ class AssistantWindow(SCWindow):
         else:
             self._btn_ears.setChecked(True)
 
+    def _migrate_starmap_voice(self) -> list:
+        """Fold the Star Map's saved mic settings into this window's state, once.
+
+        See starmap_bridge.migrate_starmap_voice for the rule (what this window
+        already has is kept; the Star Map's values only fill gaps). Runs before
+        the ears are built, so a carried-over mode is the one they start in.
+        Never fatal: a failure leaves the settings as they were and tries again
+        next launch."""
+        try:
+            import datetime
+            from . import starmap_bridge
+            before = json.dumps(self._state, sort_keys=True, default=str)
+            notes = starmap_bridge.migrate_starmap_voice(
+                self._state, starmap_bridge.load_starmap_state(),
+                today=datetime.date.today().isoformat())
+            if json.dumps(self._state, sort_keys=True, default=str) != before:
+                os.makedirs(os.path.dirname(_STATE_PATH), exist_ok=True)
+                with open(_STATE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(self._state, f, indent=2)
+            for line in notes:
+                log.info("assistant: star map voice migration: %s", line)
+            return notes
+        except Exception as exc:                          # noqa: BLE001 - never block the window
+            log.warning("assistant: could not carry over the Star Map's voice settings "
+                        "(%s: %s); they are untouched", type(exc).__name__, exc)
+            return []
+
     def _set_mic_mode(self, value: str) -> None:
+        self._lbl_notice.setVisible(False)     # the pilot has now chosen for themselves
         for v, b in self._mode_btns.items():
             b.setChecked(v == value)
         self._ears.set_mode(value)
@@ -343,8 +397,21 @@ class AssistantWindow(SCWindow):
 
     def _on_transcript(self, text: str) -> None:
         self._lbl_heard.setText("You: " + text)
+        if _STOP_LISTENING.match(text or ""):
+            self._stop_listening()
+            return
         self._set_status("thinking…")
         self._run_turn(text)
+
+    def _stop_listening(self) -> None:
+        """'Stop listening' / 'ears off': close an always-open mic (push-to-talk)."""
+        if self._ears.mode() != "push":
+            self._set_mic_mode("push")
+        msg = ("Push-to-talk. Hold " + self._ears.binding().describe() + " to talk."
+               if self._ears.binding() is not None
+               else "Push-to-talk. Set a mic key to talk to me again.")
+        self._lbl_reply.setText("AI: " + msg)
+        self._set_status("mic closed — push-to-talk")
 
 
     def _run_turn(self, text: str) -> None:

@@ -2,8 +2,8 @@
 
 The combined standalone star map: the full Trade Hub galaxy -> system ->
 planet scenes plus the Market Finder terminal items browsing, grocery list
-and multi-stop shopping routes, with voice-command ears (FastWhisper behind
-a keyboard / mouse / joystick / gamepad trigger).
+and multi-stop shopping routes, with a command bar. It has no microphone:
+voice input lives in the AI Assistant, which relays map commands here.
 
 Launched as a subprocess by skill_launcher.py.
 Args: <x> <y> <w> <h> <opacity> <cmd_file>
@@ -74,7 +74,7 @@ def main() -> None:
     win.move(parsed["x"], parsed["y"])
     win.show()
 
-    # Persist map / ears / grocery state and disarm the ears on exit.
+    # Persist map state and close its bubbles / watchers on exit.
     app.aboutToQuit.connect(panel.shutdown)
 
     sys.exit(app.exec())

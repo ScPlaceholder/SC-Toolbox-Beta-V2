@@ -29,6 +29,16 @@ builds for commodities, keyed by UEX terminal id. Options: start terminal,
 preferred strategy (MIN STOPS / SHORTEST TRIP / BEST PRICE), terminals per
 entry, auto-calculate. "Show on Star Map" draws a plan in the Star Map tab.
 
+## Star Map tab and the microphone
+
+The Star Map tab is the standalone Star Map's panel, and that panel used to
+own voice ears: with its mic mode saved as "Always on", selecting the tab
+armed the microphone. It has no ears now. Voice-to-text lives in the AI
+Assistant, which sends map commands to this window as the IPC command
+`map_command`; the window opens the Star Map tab and hands the command to it.
+The Item Finder tab's own "MARKET FINDER" header is hidden here (the tab
+names the tool).
+
 ## Not done yet
 
 * **Three lists, not one.** Item Finder's own Grocery List and the Star Map's
