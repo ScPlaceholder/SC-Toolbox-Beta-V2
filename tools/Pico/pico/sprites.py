@@ -368,8 +368,9 @@ EVENT_COOLDOWN_S = 45.0
 # 19 outfit folders: the nine idle_*_default loops share frame 0 exactly, and a mood loop's frame 0 differs
 # only by its face). The window pauses the loop on that frame (LoopChooser.resting).
 ACT_PASSES = (1, 3)            # how many times one animation plays before he rests
-REST_S = (10.0, 25.0)          # how long he stands still between animations, in seconds
-HOLD_STILL_S = (10.0, 25.0)    # how long a drawn weapon is held still between idle breaks
+REST_S = (10.0, 20.0)          # how long he stands still between animations, in seconds (J 2026-10-04:
+                               # "Let's try an animation every 10-20 seconds"; was 10-25)
+HOLD_STILL_S = (10.0, 20.0)    # how long a drawn weapon is held still between idle breaks
 # The Customise dialog's "How lively" choice: a multiplier on REST_S and HOLD_STILL_S.
 LIVELINESS: Mapping[str, float] = {"calm": 2.0, "normal": 1.0, "lively": 0.4}
 # The loop whose frame 0 is his standing pose for each mood (the face is baked into the loop, so a hurt
