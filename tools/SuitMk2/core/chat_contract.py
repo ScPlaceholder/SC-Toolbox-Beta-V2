@@ -179,7 +179,10 @@ def late_act(t: str) -> Optional[tuple[str, str]]:
 # ---------------------------------------------------------------------------------------------------------------
 # 3. The serializer (evaluation and training only; the Suit does not call it)
 # ---------------------------------------------------------------------------------------------------------------
-OPEN_CONTENT = "respond to what the pilot just said, as yourself. No facts about the world, places, ships or prices."
+# "beyond what was already said": a follow-up ("where did it roll out again?") is answered from the thread, which
+# is in front of the talker; the first wording forbade that and was caught in the pilot's dry run, before any model ran.
+OPEN_CONTENT = ("respond to what the pilot just said, as yourself. You may use what was already said in this "
+                "conversation. No other facts about the world, places, ships or prices.")
 RULES = ("Rules. Answer as yourself and nobody else, in one or two spoken sentences, no lists, no quotation marks. "
          "Each pilot message may carry an ACT, CONTENT, FACTS and MEMORY. Say what CONTENT asks. A fact about the "
          "ship, a place, a price, a person or what happened comes ONLY from FACTS or MEMORY; if it is not there, "
