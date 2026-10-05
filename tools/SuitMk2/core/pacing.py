@@ -87,6 +87,21 @@ def clamp_level(level) -> int:
         return DEFAULT_LEVEL
 
 
+# TALK ABOUT WHAT THE EYES SAW: a second dial, same five names (J 2026-10-05: "There should also be cooldown periods
+# for chatting about what it sees with a chattiness slider for that as well"). How often the eyes take a picture is
+# one setting (picture_pace.py); how often a picture may become a spoken line is this one. Seconds that must pass
+# after a line about something the eyes saw before the next one; None = no such lines at all.
+# Level 2 is 240 s, which is what it was before there was a dial (an unprompted look every 240 s at most). Level 4 is
+# no wait of its own. Like the main dial it only ever ADDS a refusal ahead of the gate: the gate, the main dial, Mute,
+# AFK, a fight and the hardware limits all still apply to a line this lets through. An answer to "look at that" is an
+# answer to the pilot, not a line of the eyes' own, and is not held by this.
+EYE_TALK_GAP_S = {0: None, 1: 600.0, 2: 240.0, 3: 90.0, 4: 0.0}
+
+
+def eye_talk_gap_s(level) -> Optional[float]:
+    return EYE_TALK_GAP_S[clamp_level(level)]
+
+
 def params_for(level: int) -> PacingParams:
     level = clamp_level(level)
     gap, pr, ev, am, ba, budget, tick, banter, allowed = _TABLE[level]
@@ -299,6 +314,9 @@ def _selftest(verbose: bool = True) -> int:
           and n.quiet_budget_max_lines == sg.QUIET_BUDGET_MAX_LINES)
     check("out-of-range levels clamp", params_for(-3).level == 0 and params_for(99).level == 4
           and params_for("x").level == DEFAULT_LEVEL)
+    gaps = [eye_talk_gap_s(i) for i in range(5)]
+    check("eye talk: silent is never, then each level waits less, very chatty does not wait",
+          gaps[0] is None and gaps[1] > gaps[2] > gaps[3] > gaps[4] == 0.0 and eye_talk_gap_s("x") == gaps[2])
 
     # 2. level 0: ambient/banter/event/practical dropped, URGENT allowed, mute still beats URGENT
     g = sg.SpeakGate(now=now)

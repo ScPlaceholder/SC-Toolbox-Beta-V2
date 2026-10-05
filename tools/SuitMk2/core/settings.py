@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
+
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import picture_pace                               # noqa: E402  stdlib only at import, like this module
 
 DIR = Path.home() / ".sctoolbox" / "suitmk2"
 PATH = DIR / "settings.json"
@@ -22,8 +27,39 @@ DEFAULT_TALK_KEY = {"kind": "keyboard", "code": 145, "label": "SCROLL_LOCK", "jo
 RECORD_CONVERSATIONS_DEFAULT = True
 
 DEFAULTS = {
+    # J 2026-10-05: "a disable companions checkbox which keeps them from running for people who don't want them or
+    # have potato computers". False = NOT RUNNING, which is more than muted: no model service is started or woken, no
+    # model is loaded, there are no eyes, the game log is not read, no voice is loaded and the talk key is not
+    # watched. The window still opens and says they are off.
+    "companions_enabled": True,
     "presence": "present",            # off | occasional | present | curious (eyes cadence; only while SC is focused)
     "vision_glance": False,           # local gemma3:4b glance when the fast eyes cannot tell (headroom-gated)
+    # HOW OFTEN THE EYES TAKE A PICTURE, by what the pilot is doing (J 2026-10-05, picture_pace.py). A picture is a
+    # frame handed to the vision model; the frame compare that "presence" sets is not one. Per activity: seconds
+    # between pictures (5 s .. 120 min, put in range on load) and a never flag. The keys are
+    #   eyes_salvage_every_s 300        eyes_salvage_never False
+    #   eyes_mining_every_s 300         eyes_mining_never False
+    #   eyes_combat_mission_every_s 120 eyes_combat_mission_never False
+    #   eyes_sandbox_every_s 300        eyes_sandbox_never False     (everything else)
+    #   eyes_mining_capture_cooldown_s 90   a capture from the mining reader may ask for a picture early, at most
+    #                                       this often (nothing feeds it yet)
+    # The interval is one more condition on a picture, never a replacement for the others: only with Star Citizen in
+    # front, never with headroom TIGHT or in a fight, inside the hourly cap below.
+    **picture_pace.defaults(),
+    # Talk about what the eyes saw: 0 never .. 4 no wait of its own (pacing.EYE_TALK_GAP_S; 2 = one such line per
+    # 240 s at most, as before there was a dial). Separate from how often they look.
+    "eyes_chattiness": 2,
+    # NO CEILING IS CHOSEN FOR THE PILOT (J 2026-10-05: someone will run a 27B model and want companions that never
+    # shut up, "our system should make that possible"). These were constants in eyes.py; they are settings with the
+    # same values, so nothing changes until someone sets them. Not in the window; read when the model service starts.
+    #   eyes_pictures_per_hour  None = what "presence" gives (occasional 4, present 12, curious 30); a number = that
+    #                           many pictures in any hour, with no upper limit
+    #   eyes_look_gap_s         seconds between two deliberate looks (20)
+    # What is NOT a setting, here or anywhere: looking only while Star Citizen is the window in front, no picture and
+    # no chat model while headroom is TIGHT or a fight is on, and both switched off while the PC stays overloaded
+    # (hardware_guard.py).
+    "eyes_pictures_per_hour": None,
+    "eyes_look_gap_s": 20.0,
     "game_log": "",                   # blank = auto-detect
     "ambient_every_s": 90,
     "volume": 1.0,
@@ -122,7 +158,28 @@ def load() -> dict:
         s["talk_key"] = dict(DEFAULT_TALK_KEY)
     if not chat_on(s):
         s["chat"] = False                         # chat with no chat model named is off, and the file is told so
+    _clean_eyes(s)
     return s
+
+
+def _clean_eyes(s: dict) -> None:
+    """Put the eyes' keys in range, in place. Anything unreadable becomes its default; nothing else is touched."""
+    picture_pace.clean(s)                         # the per-activity intervals: 5 s .. 120 min
+    s["companions_enabled"] = s.get("companions_enabled") is not False
+    try:
+        s["eyes_chattiness"] = max(0, min(4, int(s.get("eyes_chattiness"))))
+    except (TypeError, ValueError):
+        s["eyes_chattiness"] = DEFAULTS["eyes_chattiness"]
+    try:
+        n = s.get("eyes_pictures_per_hour")
+        s["eyes_pictures_per_hour"] = None if n is None or isinstance(n, bool) or int(n) < 1 else int(n)
+    except (TypeError, ValueError):
+        s["eyes_pictures_per_hour"] = None
+    try:
+        gap = float(s.get("eyes_look_gap_s"))
+        s["eyes_look_gap_s"] = gap if gap >= 0.0 else DEFAULTS["eyes_look_gap_s"]      # NaN fails this too
+    except (TypeError, ValueError):
+        s["eyes_look_gap_s"] = DEFAULTS["eyes_look_gap_s"]
 
 
 def save(s: dict) -> None:

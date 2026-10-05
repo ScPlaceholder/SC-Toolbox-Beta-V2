@@ -51,6 +51,7 @@ from voice_in.ears import EarsController      # noqa: E402
 from voice_in.input_devices import InputBinding, BindingCaptureDialog, HotkeyMonitor   # noqa: E402
 from pacing import LEVEL_NAMES                  # noqa: E402
 from dev_facts import DevFacts                  # noqa: E402
+import picture_pace as pp                       # noqa: E402
 
 log = logging.getLogger("suitmk2.ui")
 
@@ -90,6 +91,44 @@ def forget_conversations(core, pilot_dir) -> int:
     if tree is None:
         tree = tree_memory.open_tree(pilot_dir)
     return tree.clear()
+
+
+# What the window says while the companions are disabled (J 2026-10-05: "a disable companions checkbox which keeps
+# them from running for people who don't want them or have potato computers").
+COMPANIONS_OFF_NOTICE = ("Companions are off. Nothing of theirs is running: no model, no eyes, no game log, no "
+                         "voices, no talk key. Untick to start them.")
+
+
+class _NoSpeech:
+    """What stands where the voices stand while the companions are disabled. It loads nothing and says nothing, so
+    the rest of the window (volume sliders, the voice gate, quit) can go on calling it."""
+
+    ducker = None
+    muted = True
+
+    def mute(self, on) -> None:
+        pass
+
+    def allow_addressed(self, on) -> None:
+        pass
+
+    def set_level(self, who, level) -> None:
+        pass
+
+    def preload(self) -> None:
+        pass
+
+    def say(self, *a, **k) -> bool:
+        return False
+
+    def voice_source(self, who) -> str:
+        return "off"
+
+    def pending(self) -> int:
+        return 0
+
+    def close(self) -> None:
+        pass
 
 
 def _voice_gate(speech, user_muted: bool, tool_open: bool, answer_pass: bool) -> None:
@@ -157,23 +196,8 @@ class _SuitBody:
         self.s = st.load()
         self.core: Optional[CompanionCore] = None
         self.sidecar: Optional[Sidecar] = None
-        ducker = None
-        if self.s.get("ducking", True):          # wait/duck under Star Citizen's own dialogue (voice_fx)
-            try:
-                import voice_fx
-                ducker = voice_fx.DuckingMonitor(duck_scale=float(self.s.get("duck_scale", 0.8))).start()
-            except Exception:
-                log.exception("ducking unavailable; voices never wait for the game")
-        self.speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker)
-        for who in ("elah", "montaigne"):
-            self.speech.set_level(who, float(self.s.get(f"volume_{who}", 1.5)))
-        # J 2026-10-04: "make sure that suitmk2 only have the AI's talk while it is launched". The launcher
-        # preloads this tool HIDDEN when the launcher itself starts, and closing the window only hides it, so
-        # the companions used to talk for a tool the user had never opened, or had closed. They are now silent
-        # whenever the window is not open; see _apply_voice_gate. The window does not exist yet here, so start
-        # silent and let showEvent open the gate.
-        self.speech.mute(True)
-        threading.Thread(target=self.speech.preload, name="suitmk2_voice_preload", daemon=True).start()
+        self._boot_gen = 0           # goes up each time the companions are started or stopped; see _boot
+        self.speech = self._make_speech()
 
         if chrome:                               # as a tab, the window it sits in has the title bar
             tb = SCTitleBar(window=self, title="SUIT MK2", accent_color=ACCENT, hotkey_text=hotkey_text,
@@ -205,10 +229,25 @@ class _SuitBody:
                 log.exception("setup panel failed to build; continuing without it")
                 self.setup = None
 
+        # Disable companions (J 2026-10-05). Not a mute: ticked, nothing of theirs runs at all.
+        power = QHBoxLayout()
+        self._disable = QCheckBox("Disable companions")
+        self._disable.setChecked(not self._companions_on())
+        self._disable.setToolTip("Stops Elah and Montaigne from running at all: no model service, no model loaded, "
+                                 "no eyes, no reading of the game log, no voices, no talk key.\nFor a PC with "
+                                 "nothing to spare, or if you do not want them. Untick to start them again.")
+        self._disable.toggled.connect(self._set_disabled)
+        self._off_lbl = QLabel("")
+        self._off_lbl.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
+        self._off_lbl.setWordWrap(True)
+        power.addWidget(self._disable)
+        power.addWidget(self._off_lbl, 1)
+        lay.addLayout(power)
+
         grid = QGridLayout()
         self._rows = {}
         for i, key in enumerate(("Game.log", "Model service", "Elah voice", "Montaigne voice", "Heard / spoken",
-                                 "Pacing", "Combat", "Game ears", "Eyes")):
+                                 "Pacing", "Combat", "Game ears", "Eyes", "Hardware")):
             k = QLabel(key)
             k.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
             v = QLabel("...")
@@ -291,7 +330,7 @@ class _SuitBody:
             mon = HotkeyMonitor(self)
             mon.triggered.connect(lambda down, n=name: down and self.core and self.core.feedback.press(n))
             self._fb_mon[name] = mon
-            if self.s.get(key):
+            if self.s.get(key) and self._companions_on():
                 mon.start(InputBinding.from_dict(self.s[key]))
         resume = QPushButton("Resume")
         resume.setStyleSheet(_btn_ss())
@@ -299,6 +338,63 @@ class _SuitBody:
         resume.clicked.connect(lambda: self.core and self.core.not_now.cancel())
         pace.addWidget(resume)
         lay.addLayout(pace)
+
+        # How often the eyes take a picture, by what the pilot is doing (J 2026-10-05, core/picture_pace.py): one
+        # slider and one "never" box per activity. The slider moves along a table of stops (5 s ... 120 min), fine
+        # at the low end and coarse at the top, because one even scale would give the first minute no room at all.
+        eyes = QGridLayout()
+        head = QLabel("Eyes: take a picture every")
+        head.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        head.setToolTip("A picture is one frame of the game handed to the local vision model. Only while Star "
+                        "Citizen is the window in front, never in a fight, and never while the PC has no room to "
+                        "spare.\nThey speak only about something that is in the picture, and may say nothing.")
+        eyes.addWidget(head, 0, 0, 1, 4)
+        self._pic_sl, self._pic_lbl, self._pic_never = {}, {}, {}
+        for row, act in enumerate(pp.ACTIVITIES, 1):
+            name = QLabel(pp.LABELS[act])
+            name.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+            sl = _Slider(Qt.Horizontal)
+            sl.setRange(0, len(pp.STOPS) - 1)
+            sl.setPageStep(1)
+            sl.setTickPosition(QSlider.TicksBelow)
+            sl.setTickInterval(1)
+            sl.setValue(pp.stop_index(self.s.get(pp.every_key(act), pp.DEFAULT_EVERY_S[act])))
+            sl.setToolTip("5 seconds to 120 minutes")
+            val = QLabel("")
+            val.setMinimumWidth(78)
+            never = QCheckBox("never")
+            never.setChecked(bool(self.s.get(pp.never_key(act))))
+            never.setToolTip(f"No pictures of their own accord while this is what you are doing ({pp.LABELS[act]}).")
+            sl.valueChanged.connect(lambda i, a=act: self._set_picture_every(a, i))
+            never.toggled.connect(lambda on, a=act: self._set_picture_never(a, on))
+            eyes.addWidget(name, row, 0)
+            eyes.addWidget(sl, row, 1)
+            eyes.addWidget(val, row, 2)
+            eyes.addWidget(never, row, 3)
+            self._pic_sl[act], self._pic_lbl[act], self._pic_never[act] = sl, val, never
+            self._show_picture(act)
+        # Talking about what they saw is its own dial (J: "cooldown periods for chatting about what it sees with a
+        # chattiness slider for that as well"): looking and speaking are two things.
+        row = len(pp.ACTIVITIES) + 1
+        tl = QLabel("Talk about what they see")
+        tl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        self._eye_chat = _Slider(Qt.Horizontal)
+        self._eye_chat.setRange(0, 4)
+        self._eye_chat.setPageStep(1)
+        self._eye_chat.setTickPosition(QSlider.TicksBelow)
+        self._eye_chat.setTickInterval(1)
+        self._eye_chat.setValue(int(self.s.get("eyes_chattiness", 2)))
+        self._eye_chat.setToolTip("How long they wait between two remarks about something the eyes saw.\n"
+                                  "0 never ... 2 one in four minutes at most ... 4 no wait of its own.\n"
+                                  "Separate from how often the eyes look, and from Chattiness above.")
+        self._eye_chat_lbl = QLabel(LEVEL_NAMES[self._eye_chat.value()])
+        self._eye_chat_lbl.setMinimumWidth(78)
+        self._eye_chat.valueChanged.connect(self._set_eye_chattiness)
+        eyes.addWidget(tl, row, 0)
+        eyes.addWidget(self._eye_chat, row, 1)
+        eyes.addWidget(self._eye_chat_lbl, row, 2)
+        eyes.setColumnStretch(1, 1)
+        lay.addLayout(eyes)
 
         # Per-character volume, 0-200%. Applied from the next line; above 100% the limiter keeps it from clipping.
         vol = QHBoxLayout()
@@ -467,10 +563,86 @@ class _SuitBody:
         self._notice_pending = True
         if self.isVisible():
             QTimer.singleShot(600, self._maybe_show_notice)
-        threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
+        self._show_disabled()
+        if self._companions_on():
+            threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
+
+    # -- disable companions ---------------------------------------------------------------------------------------
+    def _companions_on(self) -> bool:
+        return self.s.get("companions_enabled", True) is not False
+
+    def _make_speech(self):
+        """The two voices, silent until the window is seen. With the companions disabled: nothing is loaded."""
+        if not self._companions_on():
+            return _NoSpeech()
+        ducker = None
+        if self.s.get("ducking", True):          # wait/duck under Star Citizen's own dialogue (voice_fx)
+            try:
+                import voice_fx
+                ducker = voice_fx.DuckingMonitor(duck_scale=float(self.s.get("duck_scale", 0.8))).start()
+            except Exception:
+                log.exception("ducking unavailable; voices never wait for the game")
+        speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker)
+        for who in ("elah", "montaigne"):
+            speech.set_level(who, float(self.s.get(f"volume_{who}", 1.5)))
+        # J 2026-10-04: "make sure that suitmk2 only have the AI's talk while it is launched". The launcher
+        # preloads this tool HIDDEN when the launcher itself starts, and closing the window only hides it, so
+        # the companions used to talk for a tool the user had never opened, or had closed. They are now silent
+        # whenever the window is not open; see _apply_voice_gate. Start silent and let the gate open it.
+        speech.mute(True)
+        threading.Thread(target=speech.preload, name="suitmk2_voice_preload", daemon=True).start()
+        return speech
+
+    def _show_disabled(self) -> None:
+        self._off_lbl.setText("" if self._companions_on() else COMPANIONS_OFF_NOTICE)
+
+    def _set_disabled(self, disabled: bool) -> None:
+        """The checkbox. Saved, and it takes effect now in both directions: no restart is needed."""
+        if bool(disabled) == (not self._companions_on()):
+            return
+        self.s["companions_enabled"] = not disabled
+        st.save(self.s)
+        self._boot_gen += 1                      # a boot still in flight sees this and stops what it started
+        if disabled:
+            self._stop_companions()
+        else:
+            self.speech = self._make_speech()
+            self._apply_voice_gate()
+            for name, key in (("good_one", "good_key"), ("shut_up", "shutup_key")):
+                if self.s.get(key):
+                    self._fb_mon[name].start(InputBinding.from_dict(self.s[key]))
+            self._arm_ears()
+            threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
+        self._show_disabled()
+
+    def _stop_companions(self) -> None:
+        """Stop everything of theirs that runs, and leave the window up. The same steps as _quit, without the quit."""
+        try:
+            if self.ears.armed() or self.ears.recording():
+                self.ears.disarm()
+            for m in self._fb_mon.values():
+                m.stop()
+        except Exception:
+            log.exception("disable companions: the talk key or a feedback key did not stop")
+        core, speech, sidecar = self.core, self.speech, self.sidecar
+        self.core, self.sidecar, self.speech = None, None, _NoSpeech()
+        self._sidecar_ready = False
+
+        def work():                              # off the GUI thread: stopping the service can take seconds
+            for what, step in (("core", core and core.stop), ("voices", speech.close),
+                               ("model service", sidecar and sidecar.stop)):
+                try:
+                    if step:
+                        step()
+                except Exception:
+                    log.exception("disable companions: the %s did not stop cleanly", what)
+        threading.Thread(target=work, name="suitmk2_disable", daemon=True).start()
 
     # -- boot off the UI thread: finding the log and waking the model service can take seconds ------------------
     def _boot(self) -> None:
+        if not self._companions_on():
+            return                              # disabled: no service, no core, no eyes, no log, no voices
+        gen = self._boot_gen
         core_dir = CORE
         self.sidecar = Sidecar(self.s["model_python"], core_dir / "companion_service.py", Path(self.s["adapters_dir"]),
                                presence=self.s["presence"], glance=bool(self.s["vision_glance"]),
@@ -480,6 +652,11 @@ class _SuitBody:
             up = self.sidecar.ensure()          # also wakes a sleeping local runtime (auto/ollama backends)
         finally:
             self._sidecar_ready = True          # the Setup panel may now check (from _refresh, on the GUI thread)
+        if gen != self._boot_gen:               # disabled while the service was starting: undo, build nothing
+            sc, self.sidecar, self._sidecar_ready = self.sidecar, None, False
+            if sc is not None:
+                sc.stop()
+            return
         from companion_service import RemoteRealizer, RemoteEyes
         realizer = RemoteRealizer() if up else None
         eyes = RemoteEyes() if up and self.s["presence"] != "off" else None
@@ -497,6 +674,9 @@ class _SuitBody:
         def headroom():
             h = health()
             return (h or {}).get("headroom") or "TIGHT"
+
+        def hardware_reading():                 # for the overload guard: None when there is no reading at all
+            return (health() or {}).get("headroom")
         lifecycle = None
         try:
             from move_lifecycle import MoveLifecycle
@@ -512,14 +692,20 @@ class _SuitBody:
                 sound = SoundClassifier()
             except Exception:
                 log.exception("sound classifier unavailable; combat confirm falls back to the eyes / meter")
-        self.core = CompanionCore(self.speech, realizer=realizer, eyes=eyes, recorder=recorder, dreams=dreams,
-                                  headroom=headroom, ambient_every_s=float(self.s["ambient_every_s"]),
-                                  chattiness=int(self.s.get("chattiness", 2)), feedback_dir=st.DIR / "feedback",
-                                  lifecycle=lifecycle, store=self.store, sound=sound,
-                                  idle_source=os_idle_seconds,
-                                  afk_after_s=float(self.s.get("afk_minutes", DEFAULT_AFK_MINUTES)) * 60.0,
-                                  dev_facts=DevFacts.from_settings(self.s),
-                                  features=self.s)      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
+        core = CompanionCore(self.speech, realizer=realizer, eyes=eyes, recorder=recorder, dreams=dreams,
+                             headroom=headroom, ambient_every_s=float(self.s["ambient_every_s"]),
+                             chattiness=int(self.s.get("chattiness", 2)), feedback_dir=st.DIR / "feedback",
+                             lifecycle=lifecycle, store=self.store, sound=sound,
+                             idle_source=os_idle_seconds,
+                             afk_after_s=float(self.s.get("afk_minutes", DEFAULT_AFK_MINUTES)) * 60.0,
+                             dev_facts=DevFacts.from_settings(self.s),
+                             features=self.s,      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
+                             pace=pp.PicturePace(self.s),      # a picture every N, per activity (the sliders)
+                             eye_chattiness=int(self.s.get("eyes_chattiness", 2)),
+                             hardware_reading=hardware_reading)
+        if gen != self._boot_gen:               # disabled while this was being built: it never starts
+            return
+        self.core = core
         self.core.dev_facts_persist = self._persist_dev_facts
         self._attach_tree()
         # Free talk (core/chat_talker.py): only with "chat" on AND a "chat_model" named in the settings. Otherwise
@@ -538,6 +724,11 @@ class _SuitBody:
         from emotion import LOCAL_STANCE_TRAINED
         self.core.affect.stance_text = self.s.get("backend") == "api" or LOCAL_STANCE_TRAINED
         self.core.start(find_game_log(self.s.get("game_log") or None))
+        if gen != self._boot_gen:               # disabled in the moment it started: stop it again
+            c, sc, self.core, self.sidecar = self.core, self.sidecar, None, None
+            c.stop()
+            if sc is not None:
+                sc.stop()
 
     def _maybe_check_setup(self) -> None:
         """GUI thread, once: after the sidecar had its chance to wake the runtime, ask the panel whether a complete
@@ -569,6 +760,10 @@ class _SuitBody:
 
     # -- UI ---------------------------------------------------------------------------------------------------------
     def _refresh(self) -> None:
+        if not self._companions_on():
+            for v in self._rows.values():
+                v.setText("off")
+            return
         self._maybe_check_setup()
         c, h = self.core, None
         self._rows["Game.log"].setText(("reading" if c and c._monitor else "not found") if c else "starting...")
@@ -606,8 +801,15 @@ class _SuitBody:
             else:
                 self._rows["Game ears"].setText("off (meter only)")
             e = getattr(c, "last_eyes", None) or {}
+            every = c.pace.every(c.doing_now)
+            doing = f" | {pp.LABELS[c.doing_now].lower()}: " + ("no pictures" if every is None
+                                                               else f"a picture every {pp.label(every)}")
             self._rows["Eyes"].setText((e.get("scene") or "not looking") + (" | sees combat" if e.get("in_combat") else "")
-                                       if c.eyes is not None else "off")
+                                       + doing if c.eyes is not None else "off")
+            # The hard limit (core/hardware_guard.py). Said here, never out loud, and there is nothing to untick.
+            hold = c._picture_hold()
+            self._rows["Hardware"].setText(c.hardware_notice or ("a fight is on: no pictures, chat model not asked"
+                                                                 if hold == "combat" else "room to spare"))
 
     def _set_talk_key(self) -> None:
         dlg = BindingCaptureDialog(self)
@@ -671,8 +873,8 @@ class _SuitBody:
 
     def _arm_ears(self) -> None:
         """Arm the ears if this dashboard may listen and there is a way to talk (a key, or always on)."""
-        if not self._may_listen():
-            return
+        if not self._companions_on() or not self._may_listen():
+            return                              # disabled companions do not watch a key or open the microphone
         if self.s.get("talk_key") or self.ears.mode() == "always":
             self.ears.arm()
 
@@ -1054,6 +1256,34 @@ class _SuitBody:
         st.save(self.s)
         self._vol_lbl[who].setText(f"{v}%")
         self.speech.set_level(who, v / 100.0)
+
+    def _show_picture(self, act: str) -> None:
+        never = self._pic_never[act].isChecked()
+        self._pic_sl[act].setEnabled(not never)
+        self._pic_lbl[act].setText("never" if never else pp.label(pp.STOPS[self._pic_sl[act].value()]))
+
+    def _repace(self) -> None:
+        if self.core is not None:
+            self.core.pace.configure(self.s)      # takes effect on the eyes' next tick; nothing restarts
+
+    def _set_picture_every(self, act: str, index: int) -> None:
+        self.s[pp.every_key(act)] = float(pp.STOPS[max(0, min(len(pp.STOPS) - 1, int(index)))])
+        st.save(self.s)
+        self._show_picture(act)
+        self._repace()
+
+    def _set_picture_never(self, act: str, on: bool) -> None:
+        self.s[pp.never_key(act)] = bool(on)
+        st.save(self.s)
+        self._show_picture(act)
+        self._repace()
+
+    def _set_eye_chattiness(self, v: int) -> None:
+        self.s["eyes_chattiness"] = int(v)
+        st.save(self.s)
+        self._eye_chat_lbl.setText(LEVEL_NAMES[int(v)])
+        if self.core is not None:
+            self.core.set_eye_chattiness(int(v))
 
     def _set_chattiness(self, v: int) -> None:
         self.s["chattiness"] = int(v)

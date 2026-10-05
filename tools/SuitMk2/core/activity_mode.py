@@ -22,6 +22,7 @@ never records.
 from __future__ import annotations
 
 import math
+import re
 import time
 from collections import deque
 from typing import Optional
@@ -193,10 +194,44 @@ LOOK_VOICES = [
 ]
 
 
+# NEVER COMMENT ON AN ABSENCE (J 2026-10-05). "If nothing is being salvaged do not comment on it. Depending on the
+# salvage approach 3 ships could've been munched since the last picture and being like 'yeah slim pickings today' just
+# breaks the immersion. If something does happen or there's a ship to salvage the engine should choose to comment or
+# not." A picture is one moment; what it does not show may have come and gone between two pictures. So a picture is
+# only ever a reason to speak about something that IS in it.
+#
+# The rule is positive, with the refusal on top: a description may become a line only if it NAMES something (at least
+# one word that is not filler), and it is refused whole if any part of it reports an absence. Whole, not trimmed: "an
+# empty hangar, no ships" with the absence cut out would hand the model half a sentence it did not get from the eyes.
+# Being refused costs nothing: silence is always allowed.
+# Not on the list, on purpose: "abandoned", "dark", "still", "calm", "few", "lone". Each can describe a thing that is
+# there ("an abandoned outpost", "a few ships docked").
+ABSENCE = re.compile(
+    r"\b(?:no|not|none|nothing|nobody|noone|never|without|nil|n/a|empty|emptiness|quiet|silent|silence|deserted|"
+    r"vacant|barren|bare|blank|void|lifeless|devoid|absent|absence|missing|lack|lacks|lacking|uneventful|"
+    r"unremarkable|nondescript|slim|sparse|cannot|cant|isnt|arent|dont|doesnt|wont|\w+n't)\b")
+# Words that name nothing by themselves: a description made only of these has not said what is there.
+LOOK_FILLER = frozenset("""the and but for with from into onto over under near around about above below behind
+some something anything everything thing things stuff maybe perhaps possibly probably just only very quite rather
+here there this that these those its their are was were has have had being been seems seem appears appear looks
+look looking like kind sort scene view screen image frame picture shot game notable particular special usual normal
+ordinary typical standard same usual visible seen see sees shows show what which where when more much many any all
+""".split())
+
+
+def names_something_there(notable: str) -> bool:
+    """True when the eyes' description names a thing that is in the picture and reports no absence. See ABSENCE."""
+    low = " ".join(str(notable or "").replace("\u2019", "'").lower().split())
+    if not low or ABSENCE.search(low):
+        return False
+    return any(len(w) >= 3 and w not in LOOK_FILLER for w in re.findall(r"[a-z]+", low))
+
+
 def build_look_spec(notable: str, reason: str, variant: int) -> Optional[dict]:
-    """A spec from one curiosity look. notable = the eyes' short description (may carry uncertainty)."""
+    """A spec from one curiosity look. notable = the eyes' short description (may carry uncertainty).
+    None when the description names nothing that is there (names_something_there): no spec, so no line."""
     notable = (notable or "").strip()
-    if not notable:
+    if not names_something_there(notable):
         return None
     speaker, move, stance = LOOK_VOICES[variant % len(LOOK_VOICES)]
     return {
@@ -268,6 +303,14 @@ def _selftest() -> int:
     case("afk: ... for the same window only", w.afk())
     case("afk: no idle source -> never AFK (the dry run)", not AfkWatch(None, now=lambda: clock[0]).afk())
     case("afk: an unreadable idle source -> never AFK", not AfkWatch(lambda: None, now=lambda: clock[0]).afk())
+    for nothing in ("", "nothing", "Nothing notable.", "no ships", "quiet", "An empty hangar.", "slim pickings",
+                    "Empty space, no ships in sight", "just the usual", "there isn't much here"):
+        case(f"an absence makes no spec: {nothing!r}", build_look_spec(nothing, "interval", 0) is None)
+    spec = build_look_spec("a wrecked hull drifting, or maybe a station", "interval", 0)
+    case("a word that only ends like \"isn't\" is not an absence",
+         build_look_spec("a giant plant in front of a distant vent", "interval", 0) is not None)
+    case("a thing that is there makes a spec, word for word",
+         spec is not None and spec["claims"][0]["value"] == "a wrecked hull drifting, or maybe a station")
     case("afk: a raising idle source -> never AFK",
          not AfkWatch(lambda: 1 / 0, afk_after_s=1, now=lambda: clock[0]).afk())
     case("afk: afk_after_s 0 disables it", not AfkWatch(lambda: 1e9, afk_after_s=0, now=lambda: clock[0]).afk())

@@ -34,6 +34,10 @@ from topic_ledger import TopicLedger, subject_key    # noqa: E402
 from topic_graph import TopicGraph, TopicWalker      # noqa: E402
 from combat_watch import CombatWatch                 # noqa: E402
 from activity_mode import ActivityMode, PRESENT, PRESENCE, build_look_spec   # noqa: E402
+from activity_mode import names_something_there                              # noqa: E402
+from picture_pace import ActivityTracker, PicturePace                        # noqa: E402
+from hardware_guard import OverloadGuard                                     # noqa: E402
+import pacing                                                                # noqa: E402
 from activity_mode import AfkWatch, DEFAULT_AFK_MINUTES                      # noqa: E402
 from emotion import CompanionAffect                                          # noqa: E402
 import idle_spec                                     # noqa: E402
@@ -181,7 +185,8 @@ class CompanionCore:
                  feedback_dir: Optional[Path] = None, lifecycle=None, session_id: str = "", store=None,
                  sound=None, idle_source: Optional[Callable[[], Optional[float]]] = None,
                  afk_after_s: float = DEFAULT_AFK_MINUTES * 60.0, dev_facts=None,
-                 features: Optional[dict] = None):
+                 features: Optional[dict] = None, pace: Optional[PicturePace] = None, eye_chattiness: int = 2,
+                 hardware_reading: Optional[Callable[[], Optional[str]]] = None):
         self.speech, self.realizer, self.eyes = speech, realizer, eyes
         self.features = {k: (features or {}).get(k, _SETTING_DEFAULTS.get(k)) for k in FEATURE_KEYS}
         self.sound = sound                   # sound_classifier.SoundClassifier or None (game ears that know WHAT)
@@ -246,8 +251,27 @@ class CompanionCore:
         self._affect_t = now()
         self._presence_last: dict = {}          # scenario -> last time a routine EVENT line spoke in PRESENCE
         self._pending_look: Optional[str] = None
+        self._pending_look_t = -1e9
+        self._pending_early = False             # the pending look may go ahead of the interval (a mining capture)
         self._look_busy = False
         self._last_look_t = -1e9
+        # HOW OFTEN THE EYES TAKE A PICTURE depends on what the pilot is doing (J 2026-10-05, picture_pace.py):
+        # salvage, mining, a combat mission, or anything else. The tracker says which; the pace says how often, or
+        # never. A core built with no settings (the selftests, the dry run) gets the shipped defaults.
+        self.doing = ActivityTracker()
+        self.pace = pace if pace is not None else PicturePace(now=now)
+        self.doing_now, self.doing_why = "sandbox", ""
+        self._pace_sent: Optional[tuple] = None
+        self._pace_sent_t = -1e9
+        # Talk about what the eyes saw: its own dial (pacing.EYE_TALK_GAP_S), separate from how often they look.
+        self.eye_chattiness = pacing.clamp_level(eye_chattiness)
+        self._last_eye_line_t = -1e9
+        # THE HARD LIMIT (hardware_guard.py): no picture and no chat model while headroom is TIGHT or a fight is on,
+        # and both switched off while the PC stays overloaded. Nothing in the settings reaches any of it.
+        # hardware_reading is the monitor's verdict with None for "no reading"; without one, headroom() is used.
+        self.overload = OverloadGuard(now=now)
+        self._hardware_reading = hardware_reading
+        self.hardware_notice = ""               # what the window shows while eyes and chat are switched off
         self._seen_transitions = 0
         self.lifecycle, self.session_id = lifecycle, session_id or time.strftime("%Y%m%d_%H%M%S")
         self.store = store
@@ -304,6 +328,7 @@ class CompanionCore:
             threading.Thread(target=self._welcome, name="suitmk2_welcome", daemon=True).start()
         if self.eyes is not None:
             threading.Thread(target=self._eyes_loop, name="suitmk2_eyes_watch", daemon=True).start()
+        threading.Thread(target=self._hardware_loop, name="suitmk2_hardware", daemon=True).start()
         if self.sound is not None:
             try:
                 self._note("game ears: " + ("listening for StarCitizen.exe" if self.sound.start() else "unavailable"))
@@ -516,6 +541,8 @@ class CompanionCore:
                 self._dev_resume["injury_spoken"] = True
         if spec.get("scenario") == "idle_relationship":
             self._last_idle = self.now()        # the relationship slot is spent only when one is actually said
+        if spec.get("scenario") == "scene_look":
+            self._last_eye_line_t = self.now()  # the eye-talk wait starts when such a line is SAID, not when tried
         self.topics.record(spec)
         t = spec.get("topic")
         if t and self.walker is not None:
@@ -564,6 +591,10 @@ class CompanionCore:
                 self.contracts.on_line(line)             # <EndMission> ... Abandon: the one outcome with no HUD line
             except Exception:
                 log.exception("contract history")
+        try:
+            self.doing.on_line(line)                     # <EndMission>: that contract no longer says what he is doing
+        except Exception:
+            log.exception("activity tracker")
         if self.bdl is not None:
             try:
                 evs = self.bdl.on_line(line, getattr(self.parser, "_local_name", None))
@@ -638,16 +669,83 @@ class CompanionCore:
                 log.exception("eyes presence")
             last = scene
 
-    CURIOSITY_EVERY_S = 240.0      # in PRESENT, an unprompted look this often at most
+    PENDING_LOOK_S = 60.0          # a look a hook asked for (an arrival, a new room) is dropped if not taken by then
+    HARDWARE_CHECK_S = 5.0         # how often the overload guard is fed the monitor's verdict
+    PACE_RESEND_S = 60.0           # the pace is sent to the eyes again this often (their service may have restarted)
+
+    # -- the hard limit -------------------------------------------------------------------------------------------
+    def _picture_hold(self) -> str:
+        """Why no picture may be taken and no chat model asked right now: "overload" (the PC has stayed overloaded),
+        "combat" (a fight is on), or "" (neither). No setting changes the answer."""
+        if self.overload.off:
+            return "overload"
+        if self.gate_state.in_combat or self.combat.active:
+            return "combat"
+        return ""
+
+    def _hardware_tick(self) -> None:
+        try:
+            reading = self._hardware_reading() if self._hardware_reading is not None else self.headroom()
+        except Exception:
+            log.exception("hardware reading")
+            reading = None                       # no reading: nothing is switched off, nothing is switched back on
+        self.overload.feed(reading)
+        notice = self.overload.take_notice()
+        if notice:                               # once per switch-off and once per recovery; never spoken
+            self.hardware_notice = notice if self.overload.off else ""
+            self._note(notice)
+            self.stats["overload_trips"] = self.overload.trips
+
+    def _hardware_loop(self) -> None:
+        while not self._stop.wait(self.HARDWARE_CHECK_S):
+            try:
+                self._hardware_tick()
+            except Exception:
+                log.exception("hardware tick")
+
+    # -- pictures -------------------------------------------------------------------------------------------------
+    def _ask_look(self, reason: str, early: bool = False) -> None:
+        """A hook wants a picture. It waits for the pace like any other, unless it is early (a mining capture)."""
+        if self._pending_look is None or early:
+            self._pending_look, self._pending_look_t, self._pending_early = reason, self.now(), early
+
+    def mining_capture(self, reliable: bool = True) -> bool:
+        """The mining reader has handed over a capture it trusts: take a picture now instead of waiting for the
+        interval, unless one was taken or asked for this way less than the cooldown ago (J: "so it's not spamming
+        the player or GPU 85 times in 3 minutes"), or mining pictures are set to never. True = a picture was asked
+        for. It is still only taken if every other rule allows it.
+        NOTHING CALLS THIS YET. The mining reader is another tool and SuitMk2 has no channel from it."""
+        age = self.now() - self._last_look_t
+        ok = self.pace.mining_capture(reliable, picture_age_s=age)
+        if ok:
+            self._ask_look("mining_capture", early=True)
+        return ok
+
+    def set_eye_chattiness(self, level: int) -> None:
+        self.eye_chattiness = pacing.clamp_level(level)
+
+    def _pace_eyes(self, every: Optional[float], hold: str) -> None:
+        """Tell the eyes the pace, so the pictures they take of their own accord keep to it as well."""
+        setp = getattr(self.eyes, "set_pace", None)
+        if not callable(setp):
+            return
+        want, now = (every, hold), self.now()
+        if want == self._pace_sent and now - self._pace_sent_t < self.PACE_RESEND_S:
+            return
+        try:
+            if setp(interval_s=every, never=every is None, hold=hold) is not False:
+                self._pace_sent, self._pace_sent_t = want, now
+        except Exception:
+            log.exception("picture pace not sent to the eyes")
 
     def _eyes_present(self, st: dict, scene, last) -> None:
-        """What the eyes see drives the mode and the curiosity looks (J: "the eyes at times will need to be doing
+        """What the eyes see drives the mode and the pictures (J: "the eyes at times will need to be doing
         the heavy lifting" because the log skips elevators, doorways, going indoors)."""
         n = int(st.get("transitions") or 0)
         if n > self._seen_transitions:
             self._seen_transitions = n
             self.activity.feed("scene_transition")
-            self._pending_look = self._pending_look or "transition"
+            self._ask_look("transition")
         if scene and last and scene != last and scene not in ("dead", "menu", "map"):
             self.activity.feed("scene_change")
         mode = self.activity.tick(scene)
@@ -657,15 +755,33 @@ class CompanionCore:
         except Exception:
             log.exception("affect drift")
         self._affect_t = now_
-        if mode != PRESENT or self.gate_state.in_combat or self._look_busy or not hasattr(self.eyes, "look"):
+        # A PICTURE, when this activity's interval says one is due (picture_pace.py). Until 2026-10-05 this was one
+        # look every 240 s and only in PRESENT mode; now the interval belongs to the activity and holds in either
+        # mode, because a slow loop (salvage, mining) is exactly where J asked for one every five minutes. Whether
+        # the picture becomes a line is decided afterwards, and it may well not.
+        kind, why = self.doing.activity(scene)
+        if kind != self.doing_now:
+            self._note(f"eyes: pilot is doing '{kind}' ({why})")
+        self.doing_now, self.doing_why = kind, why
+        hold = self._picture_hold()
+        every = self.pace.every(kind)            # None = never for this activity
+        self._pace_eyes(every, hold)
+        if hold or every is None or self._look_busy or not hasattr(self.eyes, "look"):
             return
         now = self.now()
-        reason = self._pending_look
-        if reason is None and now - self._last_look_t >= self.CURIOSITY_EVERY_S:
-            reason = "curiosity"
-        if reason is None:
+        if self._pending_look is not None and now - self._pending_look_t > self.PENDING_LOOK_S:
+            self._pending_look, self._pending_early = None, False     # the moment it was for has passed
+        reason, early = self._pending_look, self._pending_early
+        # How long since the model last saw a frame: the eyes' own count (it includes the glances they take by
+        # themselves), and never less than since this core last ASKED, so a refused look is not asked again at once.
+        age = now - self._last_look_t
+        seen = st.get("picture_age_s")
+        if isinstance(seen, (int, float)) and not isinstance(seen, bool):
+            age = min(age, float(seen))
+        if not early and age < every:
             return
-        self._pending_look, self._look_busy, self._last_look_t = None, True, now
+        reason = reason or "interval"
+        self._pending_look, self._pending_early, self._look_busy, self._last_look_t = None, False, True, now
         threading.Thread(target=self._look_worker, args=(reason,), name="suitmk2_look", daemon=True).start()
 
     def _look_worker(self, reason: str) -> None:
@@ -674,8 +790,19 @@ class CompanionCore:
             self.stats["looks"] = self.stats.get("looks", 0) + 1
             if not notable:
                 return
+            # Never a line about an absence (activity_mode.names_something_there): no spec, nothing considered.
             spec = build_look_spec(notable, reason, self._variant["ambient"])
             if spec is None:
+                self.stats["look_nothing_there"] = self.stats.get("look_nothing_there", 0) + 1
+                self._note(f"look ({reason}): names nothing that is there, not said: {str(notable)[:50]!r}")
+                return
+            # The eye-talk dial (pacing.EYE_TALK_GAP_S): the picture was taken either way; whether it may be TALKED
+            # about is a separate wait, counted from the last such line that was actually said.
+            gap = pacing.eye_talk_gap_s(self.eye_chattiness)
+            if gap is None or self.now() - self._last_eye_line_t < gap:
+                self.stats["eye_talk_quiet"] = self.stats.get("eye_talk_quiet", 0) + 1
+                self._note(f"look ({reason}): quiet (talk about what they see: "
+                           f"{pacing.LEVEL_NAMES[self.eye_chattiness]})")
                 return
             self.affect.feed("scene_notable")
             self._variant["ambient"] += 1
@@ -733,9 +860,13 @@ class CompanionCore:
         try:
             self.activity.feed(et, data)
             if et in ("location_change", "qt_arrived"):
-                self._pending_look = "arrival"
+                self._ask_look("arrival")
         except Exception:
             log.exception("activity mode")
+        try:
+            self.doing.note_event(et, data)              # which contracts are open: salvage, mining, a combat mission
+        except Exception:
+            log.exception("activity tracker")
         dup = self.volatile.is_duplicate(et, data)          # BEFORE recording, or it finds itself
         self.volatile.record_event(et, data)
         # Departure. location_name is only ever REPLACED (on arrival somewhere new), never cleared, so after leaving
@@ -1429,6 +1560,10 @@ class CompanionCore:
         look = getattr(self.eyes, "look", None) if self.eyes is not None else None
         if not callable(look) or not (spec.get("place") or {}).get("look") or spec.get("aside") == "dev_fact":
             return spec
+        hold = self._picture_hold()
+        if hold:                                 # a fight, or the PC overloaded: no picture, whoever asks
+            self._note(f"look: not taken ({hold})")
+            return spec
         from conversation import with_observation
         from place_knowledge import holding_line
         box: dict = {}
@@ -1454,6 +1589,10 @@ class CompanionCore:
             self._last_saw = (self.now(), saw)
         elif not th.is_alive() and last is not None and self.now() - last[0] <= self.LOOK_REUSE_S:
             saw = last[1]
+        if saw and not names_something_there(saw):
+            # The same rule as an unprompted look: a picture is never a reason to speak about what is not in it.
+            self._note(f"look: names nothing that is there, left out: {str(saw)[:60]!r}")
+            return spec
         if not saw:
             self._note("look: the eyes reported nothing" + (" in time" if th.is_alive() else ""))
             return spec
@@ -1472,6 +1611,13 @@ class CompanionCore:
         Never raises: this runs on the answer thread."""
         talker = getattr(self, "talker", None)
         if talker is None:
+            return None
+        hold = self._picture_hold()
+        if hold:
+            # A fight, or the PC overloaded: the chat model is not asked (hardware_guard.py). The sentence is
+            # answered as it would be with chat off, like every other time the model cannot be asked.
+            self.stats["talk_held"] = self.stats.get("talk_held", 0) + 1
+            self._note(f"talk: chat model not asked ({hold}); answered as with chat off")
             return None
         try:
             got = talker.answer(spec, utterance, self.headroom)

@@ -58,8 +58,10 @@ def _warn_once(key: str, msg: str, *args) -> None:
 SCENES = ("menu", "hangar", "on_foot", "cockpit", "quantum", "combat", "landing", "mining", "trading", "map",
           "dead", "other")   # "dead": death / incapacitated / respawn screen (CIG keeps cutting death lines from Game.log)
 CADENCE_S = {"occasional": 10.0, "present": 3.0, "curious": 2.0}
+# Pictures (glances and looks together) in any one hour, by presence. A DEFAULT, not a ceiling: the settings key
+# eyes_pictures_per_hour replaces it with any number the pilot likes (Eyes(per_hour=...)).
 GLANCES_PER_HOUR = {"occasional": 4, "present": 12, "curious": 30}
-GLANCE_MIN_GAP_S = 45.0
+GLANCE_MIN_GAP_S = 45.0      # between two routine glances, until the core has set a pace (Eyes.set_pace)
 CHANGE_BITS = 10             # of 64 dHash bits; below this the frame is "the same scene"
 # SCENE TRANSITIONS the log never records (J 2026-09-24: "going down an elevator and going indoors ... the eyes will
 # need to be doing the heavy lifting"). A frame far from the ROLLING average of recent frames is a new place, not a
@@ -67,7 +69,9 @@ CHANGE_BITS = 10             # of 64 dHash bits; below this the frame is "the sa
 TRANSITION_DIST = 0.22
 TRANSITION_EMA = 0.15        # weight of each new changed frame in the rolling baseline
 TRANSITION_MIN_GAP_S = 20.0
-LOOK_MIN_GAP_S = 20.0        # a deliberate curiosity look (Eyes.look) still waits this long between looks
+LOOK_MIN_GAP_S = 20.0        # a deliberate look (Eyes.look) waits this long after the last one. The default of
+                             # the settings key eyes_look_gap_s (Eyes(look_gap_s=...)), not a floor
+HOLDS = ("", "combat", "overload")   # why no picture may be taken at all right now (Eyes.set_pace)
 THUMB = (32, 18)             # classifier features: 32x18 RGB = 1728 bytes per example
 SEED = Path(__file__).resolve().parent.parent / "data" / "eyes_seed.json"   # companion_design/seed_eyes.py
 MAX_PER_LABEL = 40
@@ -414,9 +418,21 @@ class Eyes:
                  headroom: Callable[[], str] = lambda: "OK",
                  now: Callable[[], float] = time.time,
                  classifier: Optional[SceneClassifier] = None,
-                 on_glance: Optional[Callable[[bytes, dict], object]] = None):
+                 on_glance: Optional[Callable[[bytes, dict], object]] = None,
+                 per_hour: Optional[int] = None, look_gap_s: float = LOOK_MIN_GAP_S):
         if presence not in CADENCE_S:
             raise ValueError(f"presence must be one of {tuple(CADENCE_S)}")
+        # The pilot's own numbers (settings eyes_pictures_per_hour / eyes_look_gap_s). None = what presence gives.
+        self.per_hour = None if per_hour is None else max(1, int(per_hour))
+        self.look_gap_s = max(0.0, float(look_gap_s))
+        # The pace, set by the core as the pilot's activity changes (picture_pace.py). Until it is set the eyes
+        # behave as they did before there was one. interval: seconds between two pictures the eyes take of their own
+        # accord. never: no picture of their own accord at all. hold: no picture of any kind, a pilot's "look at
+        # that" included, because a fight is on or the PC is overloaded.
+        self._pace_set = False
+        self._pace_interval = GLANCE_MIN_GAP_S
+        self._pace_never = False
+        self._hold = ""
         self.presence, self._grab, self._fg, self._glance = presence, grab, foreground, glance
         self._headroom, self._now = headroom, now
         self.clf = classifier or SceneClassifier()
@@ -454,14 +470,30 @@ class Eyes:
     def cadence(self) -> float:
         return CADENCE_S["occasional"] if self._headroom() == "TIGHT" else CADENCE_S[self.presence]
 
+    def set_pace(self, interval_s: Optional[float] = None, never: bool = False, hold: str = "") -> None:
+        """The core says how often a picture may be taken for what the pilot is doing now, and whether any may be.
+        One more condition on a picture, never fewer: game in front, headroom and the hourly cap are checked as
+        before. interval_s None leaves the interval as it was."""
+        if interval_s is not None:
+            self._pace_interval = max(0.0, float(interval_s))
+        self._pace_never = bool(never)
+        self._hold = hold if hold in HOLDS else "overload"     # an unknown reason to stop is still a reason to stop
+        self._pace_set = True
+
+    def _cap(self) -> int:
+        return GLANCES_PER_HOUR[self.presence] if self.per_hour is None else self.per_hour
+
     def _may_glance(self, t: float) -> bool:
         if self._glance is None or self._headroom() == "TIGHT":   # local model = the player's GPU
             return False
+        if self._hold or self._pace_never:
+            return False
         while self._glance_times and t - self._glance_times[0] > 3600:
             self._glance_times.popleft()
-        if len(self._glance_times) >= GLANCES_PER_HOUR[self.presence]:
+        if len(self._glance_times) >= self._cap():
             return False
-        return not self._glance_times or t - self._glance_times[-1] >= GLANCE_MIN_GAP_S
+        gap = self._pace_interval if self._pace_set else GLANCE_MIN_GAP_S
+        return not self._glance_times or t - self._glance_times[-1] >= gap
 
     def _set_scene(self, scene: Optional[str], t: float) -> None:
         if scene and scene != self.scene:
@@ -534,7 +566,11 @@ class Eyes:
         t = self._now()
         if (self._fg() or "").lower() != SC_PROCESS.lower():
             return None
-        if self._last_look is not None and t - self._last_look < LOOK_MIN_GAP_S:
+        # A fight or an overloaded PC: no picture, whoever asks. "Never" for this activity: none of the eyes' own
+        # accord, but the pilot saying "look at that" is the pilot's accord.
+        if self._hold or (self._pace_never and reason != "pilot_asked"):
+            return None
+        if self._last_look is not None and t - self._last_look < self.look_gap_s:
             return None
         # A routine glance may have JUST described this frame (a transition usually triggers one): reuse it rather
         # than spend another look on the same view.
@@ -549,7 +585,7 @@ class Eyes:
             return None
         while self._glance_times and t - self._glance_times[0] > 3600:
             self._glance_times.popleft()
-        if len(self._glance_times) >= GLANCES_PER_HOUR[self.presence]:
+        if len(self._glance_times) >= self._cap():
             return None
         self._last_look = t
         self._glance_times.append(t)
@@ -580,6 +616,9 @@ class Eyes:
                 "notable_reason": self.notable_reason,
                 "transition_age_s": None if self.transition_at is None else round(t - self.transition_at, 1),
                 "transitions": self.transitions,
+                # seconds since the model was last handed a frame (a glance or a look), for the core's pace
+                "picture_age_s": round(t - self._glance_times[-1], 1) if self._glance_times else None,
+                "pictures_held": self._hold,
                 "in_combat": self.scene == "combat",
                 "eyes_source": "vision"}
 
@@ -795,6 +834,34 @@ def _selftest() -> int:
                 now=lambda: 0.0)
     e_tg.tick()
     case("TIGHT forbids the local glance (it would cost the game's GPU)", not tight_calls)
+
+    # 10b. The pace (picture_pace.py) and the pilot's own numbers. A pace only ever adds a refusal.
+    def paced(**kw):
+        n, c = [], [0.0]
+        e = Eyes(presence="occasional", grab=lambda: shown[0], foreground=lambda: "StarCitizen.exe", now=lambda: c[0],
+                 glance=lambda j: n.append(1) or {"scene": "hangar", "confidence": 0.9, "notable": "a ship"}, **kw)
+        return e, n, c
+    e_p, n_p, c_p = paced(per_hour=100000, look_gap_s=0.0)
+    e_p.set_pace(5.0)
+    for _ in range(40):
+        c_p[0] += 11.0
+        e_p.look("interval")
+    case("a pilot's own cap and gap: 40 looks in 440 s where 'occasional' allows 4 an hour", len(n_p) == 40)
+    e_p.set_pace(5.0, hold="combat")
+    c_p[0] += 60
+    case("a hold stops every picture, a pilot's 'look at that' too",
+         e_p.look("pilot_asked") is None and e_p.look("interval") is None and len(n_p) == 40)
+    e_p.set_pace(5.0, never=True)
+    c_p[0] += 60
+    case("never: none of the eyes' own accord, but the pilot may still ask",
+         e_p.look("interval") is None and e_p.look("pilot_asked") == "a ship" and len(n_p) == 41)
+    e_t2, n_t2, c_t2 = paced(per_hour=100000, look_gap_s=0.0, headroom=lambda: "TIGHT")
+    e_t2.set_pace(5.0)
+    c_t2[0] += 60
+    e_t2.tick()
+    case("TIGHT forbids the picture at any pace and any cap", e_t2.look("interval") is None and not n_t2)
+    case("state() says how old the last picture is", e_p.state()["picture_age_s"] == 0.0
+         and e_t2.state()["picture_age_s"] is None)
 
     # 11. Classifier persists and reloads (portable memory).
     import tempfile

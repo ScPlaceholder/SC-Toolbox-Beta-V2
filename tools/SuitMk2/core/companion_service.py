@@ -10,6 +10,7 @@ falls back to a canned line.
     POST /realize  {spec}    -> {"text": str|null}          (pair_realizer: two adapters, headroom-gated)
     POST /reload             -> {"ok", "backend", "device", ...}  drop loaded models, re-resolve the backend
     GET  /eyes               -> eyes.state() or {}          (scene facts; only ever looks while SC is focused)
+    GET  /eyes/pace?interval=&never=&hold=  -> {"ok"}       (the core's picture pace for the pilot's activity)
 
 Backends (--backend, default auto): ollama = suitmk2-* (tool-provisioned) or realizer-* (dev) in Ollama, the first
 complete set in pair_realizer.MODEL_PREFIXES; stdlib HTTP only, so
@@ -126,6 +127,18 @@ class Service:
         except Exception as e:
             return {"notable": None, "error": f"{type(e).__name__}: {e}"[:160]}
 
+    def eyes_pace(self, interval_s: Optional[float], never: bool, hold: str) -> dict:
+        """The core's picture pace (picture_pace.py): seconds between pictures for what the pilot is doing, whether
+        this activity is set to never, and whether a fight or an overloaded PC holds every picture."""
+        fn = getattr(self.eyes, "set_pace", None) if self.eyes is not None else None
+        if fn is None:
+            return {"ok": False, "error": "no eyes"}
+        try:
+            fn(interval_s=interval_s, never=never, hold=hold)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": f"{type(e).__name__}: {e}"[:160]}
+
     def eyes_burst(self) -> dict:
         """Weapons fire on screen? eyes.burst_confirm() never blocks: a fresh cached answer, or None while a ~1.5 s
         burst runs in the background. {"fire": True|False|None}. (muzzle-flash detector, 2026-09-23)"""
@@ -153,6 +166,15 @@ def make_handler(svc: Service):
                 return self._send(200, svc.eyes_state())
             if self.path == "/eyes/burst":
                 return self._send(200, svc.eyes_burst())
+            if self.path.startswith("/eyes/pace"):
+                from urllib.parse import urlparse, parse_qs
+                q = parse_qs(urlparse(self.path).query)
+                try:
+                    interval = float(q["interval"][0]) if q.get("interval") else None
+                except ValueError:
+                    return self._send(400, {"ok": False, "error": "interval is not a number"})
+                return self._send(200, svc.eyes_pace(interval, (q.get("never") or ["0"])[0] == "1",
+                                                     (q.get("hold") or [""])[0][:20]))
             if self.path.startswith("/eyes/look"):
                 from urllib.parse import urlparse, parse_qs
                 reason = (parse_qs(urlparse(self.path).query).get("reason") or ["curiosity"])[0][:40]
@@ -280,10 +302,28 @@ class RemoteEyes:
             _client_ok(self)
             return notable
         except _HTTP_ERRORS as e:
-            # A look is deliberate and rare (CURIOSITY_EVERY_S), so this one is worth a line every time it fails.
+            # A look is deliberate and paced (picture_pace.py); a failed one is reported like any other call here.
             _client_failed(self, f"GET /eyes/look?reason={reason}", e,
                            "the curiosity look produced nothing, which reads as 'nothing worth remarking on'")
             return None
+
+    def set_pace(self, interval_s: Optional[float] = None, never: bool = False, hold: str = "") -> bool:
+        """Tell the service's eyes the picture pace. False when it did not arrive: the eyes then keep the pace they
+        had, and the core, which also keeps the pace itself, sends it again."""
+        import urllib.request
+        from urllib.parse import urlencode
+        q = {"never": "1" if never else "0", "hold": hold or ""}
+        if interval_s is not None:
+            q["interval"] = f"{float(interval_s):.1f}"
+        try:
+            with urllib.request.urlopen(self.url + "/eyes/pace?" + urlencode(q), timeout=self.timeout) as r:
+                ok = bool((json.loads(r.read()) or {}).get("ok"))
+            _client_ok(self)
+            return ok
+        except _HTTP_ERRORS as e:
+            _client_failed(self, "GET /eyes/pace", e,
+                           "the eyes keep the picture pace they had; the core still paces its own looks")
+            return False
 
     def stop(self) -> None:
         pass
@@ -360,6 +400,14 @@ def _selftest() -> int:
     case("health answers", h and h["ok"] and h["headroom"] == "OK")
     case("realize round-trips", RemoteRealizer(url)(spec) == "line for montaigne")
     case("eyes state round-trips", RemoteEyes(url).state() == {"scene": "hangar", "in_combat": False})
+    case("pace: eyes that take no pace say so", RemoteEyes(url).set_pace(300.0) is False)
+    paced = []
+    FakeEyes.set_pace = lambda self, interval_s=None, never=False, hold="": paced.append((interval_s, never, hold))
+    case("pace round-trips: interval, never and hold",
+         RemoteEyes(url).set_pace(120.0, never=True, hold="combat") is True and paced == [(120.0, True, "combat")])
+    case("pace: hold alone leaves the interval as it was",
+         RemoteEyes(url).set_pace(hold="overload") is True and paced[-1] == (None, False, "overload"))
+    del FakeEyes.set_pace
     case("realizer exception -> None, service survives", RemoteRealizer(url)(dict(spec, id="boom")) is None
          and service_health(url) is not None)
     import urllib.request
@@ -491,8 +539,17 @@ def main() -> int:
             keep = default_store().keep
         except Exception as e:
             log(f"training shots unavailable ({type(e).__name__}: {e})")
+        # The pilot's own picture cap and look gap (settings.py: eyes_pictures_per_hour, eyes_look_gap_s). Read
+        # here, once, like presence: a change takes effect when this service next starts.
+        own = {}
+        try:
+            import settings
+            s = settings.load()
+            own = {"per_hour": s.get("eyes_pictures_per_hour"), "look_gap_s": s.get("eyes_look_gap_s")}
+        except Exception as e:
+            log(f"settings unreadable ({type(e).__name__}: {e}); the eyes use their default cap and look gap")
         eyes = Eyes(presence=a.presence, glance=glance, headroom=realizer.headroom_state,
-                    classifier=SceneClassifier(HERE / "eyes_scenes.json"), on_glance=keep)
+                    classifier=SceneClassifier(HERE / "eyes_scenes.json"), on_glance=keep, **own)
         eyes.run()
     serve(Service(realizer, eyes, log), a.port)
     b = realizer.backend_info()
