@@ -18,7 +18,11 @@ This module is that narrowing. It has four parts, and only the first two are use
          past          "where were you born", "tell me about your past"
          unknown_fact  a question about the world that nothing in the Suit can answer ("what's a Vanduul",
                        "what's quantanium selling for", "what's my name")
-     These are answered from the canon, by code. No model sees them. Everything else that is not already a
+                       and, since step b2, the kinds a model answered with an invention: "who runs it",
+                       "what's the Hathor Group", "are there pirates nearby", "is this place dangerous",
+                       "is the Carrack faster than the Cutlass"; "did you watch the game" goes to offrole
+     These are answered from the canon, by code. No model sees them. (The canon files also hold `cannot_act`, the
+     wording for an order the Suit cannot carry out. The running Suit does not use it yet; the evaluation does.) Everything else that is not already a
      question the Suit knows (facts, the place, the eyes, the quoted memory, an action) is the single act `open`,
      and with no talker `open` is exactly what it was before today: the adapter's "did not catch a question".
 
@@ -137,7 +141,10 @@ EARLY = [
                  r"news today|what year is it|what time is it|whats the time|whats the date|todays date|what day is it)\b",
                  r"\b(?:whats|what is|calculate|solve) \d+ (?:plus|minus|times|divided by|x) \d+\b",
                  r"\b(?:homework|my taxes|tax return|medical advice|legal advice|diagnose)\b",
-                 r"\bwho won (?:the )?(?:\w+ ){0,3}(?:game|match|election|world cup|super bowl|war)\b"]),
+                 r"\bwho won (?:the )?(?:\w+ ){0,3}(?:game|match|election|world cup|super bowl|war)\b",
+                 # "did you watch the game last night": left to a model, Elah answered "Drake won. It was a close
+                 # match." on both seed sets (2026-10-05).
+                 r"\bdid you (?:watch|see|catch) (?:the|that|last nights) (?:\w+ )?(?:game|match|race|fight|show|film|movie|episode|final)\b"]),
     ("grief", [rf"\b(?:my|our) (?:\w+ )?(?P<who>{_KIN}) (?:just |has |had |recently )?(?:died|passed away|passed|is dead|was put down|"
                rf"was put to sleep|didnt make it|has cancer|is dying|is in hospital|is in the hospital)\b",
                rf"\b(?:i|we) (?:just |recently )?(?:lost|buried|had to put down) (?:my|our) (?:\w+ )?(?P<who>{_KIN})\b",
@@ -155,7 +162,25 @@ LATE = [
                       # "and what about its guns?": a question about a part of something, with nothing behind it.
                       # Left open, every model answered it with an invention ("They are standard issue.").
                       r"\b(?:what|how) about (?:its|the|this|that|those|these|his|her|their) \w+", r"\bwhen (?:is|was|does|did|will) (?:the|a|an|it|that) \w+",
-                      r"\bwhere (?:is|are|can i (?:find|buy|sell|get)|do i (?:find|buy|sell|get)) \w+"]),
+                      r"\bwhere (?:is|are|can i (?:find|buy|sell|get)|do i (?:find|buy|sell|get)) \w+",
+                      # THE INVENTING KINDS (2026-10-05, step b2). Each of these, left to a model, was answered with a
+                      # fluent invention in the measured runs: "The facility is staffed by a small team", "They
+                      # specialize in long-range survey operations", "There are vessels in this sector. They are
+                      # distant", "Drake ships are faster than Cutlass". Nothing in the Suit can answer them, so code
+                      # says so. They are tried LAST: "who runs this" keeps its jurisdiction answer, "what's that
+                      # tower" its place answer, "what's the mission" its fact.
+                      r"\bwho (?:runs|owns|built|made|founded|controls|operates|commands|governs|manages|leads|designed|lives|works)\b",
+                      r"\bwhat(?:s| is| are| was| were) (?:the|this|that|these|those) "
+                      r"(?!(?:matter|point|plan|problem|deal|story|catch|use|harm|rush|hurry|worst|best|difference|trouble|idea|"
+                      r"word|damage|verdict|occasion|joke|fuss)\b)\w+",
+                      r"\b(?:are|is) there (?:any |a |an |some )?(?:\w+ )?(?:pirates?|hostiles?|enemy|enemies|threats?|contacts?|"
+                      r"bandits?|outlaws?|ships?|players?|people|anyone|anybody|someone|somebody|danger|trouble)\b",
+                      r"\bany (?:pirates?|hostiles?|enemy|enemies|threats?|contacts?|bandits?|outlaws?|danger|trouble)\b",
+                      r"\bis (?:this|that|it|here)(?: place)? (?:\w+ )?(?:dangerous|safe|hostile|risky|secure|friendly)\b",
+                      r"\b(?:is|are|was|were) (?:the |a |an |this |that |my |your )?(?:\w+ ){1,4}?(?:faster|slower|bigger|smaller|"
+                      r"better|worse|stronger|weaker|tougher|quicker|cheaper|heavier|lighter|larger|longer|safer) than\b",
+                      r"\bwhich (?:is|one is|ship is|of them is) (?:the )?(?:fast|slow|bigg|small|bett|best|wors|strong|tough|quick|"
+                      r"cheap|heav|light|larg|safe)\w*"]),
 ]
 
 
@@ -207,13 +232,27 @@ EXAMPLES = {
                   ("Rough day.", "Then let us not improve it with talk, pilot. I am here.")],
 }
 LIMITS = {"elah": "1-2 short sentences, at most 25 words", "montaigne": "1-2 sentences, at most 40 words"}
+# THIRD WORDING (strict=True), 2026-10-05, after J read the samples. His diagnosis: the model gives an adequate
+# answer and then adds one more sentence of plausible invention; and Montaigne performs a template (pilot, "I find",
+# an observation, a rhetorical question, a ship metaphor). NO_DETAIL is his rule in his words. Measured in
+# elah-audio/_suit_chat_eval.md, section 12; strict stays False by default until that section says it helps.
+# The rule is his sentence and nothing more. My first try spelled it out ("nothing about the weather, the surroundings,
+# the ship, the route, a schedule ...") and the list did the opposite of what it said: Elah began to announce "I am
+# monitoring", "I will adjust course", "I'll adjust the lighting" (runs/b2_listrule). Naming a thing in a prompt
+# invites it.
+NO_DETAIL = "Add no environmental, historical, operational or factual detail that was not supplied."
+SPEAKER_RULES = {"montaigne": "At most one metaphor or one rhetorical question in a reply, never both, and none at all "
+                              "when you are giving a fact or saying that you do not know."}
 
 
-def front(speaker: str) -> str:
+def front(speaker: str, strict: bool = False) -> str:
     """The part of the prompt that never changes between turns: persona, rules, two examples of the voice."""
     ex = "\n".join(f"PILOT: {p}\n{speaker.upper()}: {a}" for p, a in EXAMPLES[speaker])
     other = "Montaigne" if speaker == "elah" else "Elah"
-    return f"{persona(speaker)}\n{RULES.format(other=other)}\nHow you sound:\n{ex}"
+    rules = RULES.format(other=other)
+    if strict:
+        rules += " " + NO_DETAIL + (" " + SPEAKER_RULES[speaker] if speaker in SPEAKER_RULES else "")
+    return f"{persona(speaker)}\n{rules}\nHow you sound:\n{ex}"
 
 
 def turn_block(pilot_line: str, act: str = "open", content: str = OPEN_CONTENT, facts=(), memory=(),
@@ -227,11 +266,11 @@ def turn_block(pilot_line: str, act: str = "open", content: str = OPEN_CONTENT, 
 
 
 def serialize(speaker: str, turns: list, pilot_line: str, act: str = "open", content: str = OPEN_CONTENT,
-              facts=(), memory=(), fmt: str = "chatml") -> str:
+              facts=(), memory=(), fmt: str = "chatml", strict: bool = False) -> str:
     """The whole prompt. turns: [(pilot line, reply)], the thread so far, oldest first, carried as plain lines.
     fmt "chatml" (Qwen: a system turn) or "gemma" (no system role: the front rides in the first user turn)."""
     block = turn_block(pilot_line, act, content, facts, memory, LIMITS[speaker])
-    head = front(speaker)
+    head = front(speaker, strict)
     if fmt == "gemma":
         out, first = "", True
         for p, a in list(turns) + [(None, None)]:
@@ -270,6 +309,30 @@ def clean_reply(reply: str, speaker: str) -> str:
     s = re.sub(r"\*([A-Z][^*]{0,40})\*", r"\1", s)
     s = re.sub(r"[\"“”‘]((?:[\w'’-]+)(?: [\w'’-]+){0,2})[\"“”’]", r"\1", s)
     return s.strip()
+
+
+# THE ONE-SENTENCE CAP (J, 2026-10-05: "one extra sentence of plausible bullshit after a perfectly adequate answer").
+# Done by cutting in code after the model has spoken, never by asking in the prompt.
+#   WHEN: the turn handed the talker nothing to answer from: its FACTS line and its MEMORY line both read "none".
+#         A turn with a fact or a quoted memory is not cut; it may need its second sentence to carry the fact.
+#   WHERE: after the first full stop, question mark or exclamation mark that is followed by a space and then a
+#          capital letter, a digit or an opening quotation mark. Not after an ellipsis ("...") and not after a
+#          title (Mr. Dr. St.). Everything after that point is dropped.
+_SENTENCE_END = re.compile(r"(?<!\.\.)[.!?][\"”’')]*(?=\s+[A-Z0-9“\"‘'])")
+_TITLES = ("mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "no.")
+
+
+def first_sentence(reply: str) -> str:
+    s = str(reply or "").strip()
+    for m in _SENTENCE_END.finditer(s):
+        if s[:m.end()].lower().split()[-1] not in _TITLES:        # the whole last word, not its ending ("request.")
+            return s[:m.end()].strip()
+    return s
+
+
+def cap_reply(reply: str, facts=(), memory=()) -> str:
+    """The reply as it may be spoken: its first sentence only when nothing was supplied to answer from."""
+    return reply if (facts or memory) else first_sentence(reply)
 
 
 CHARACTER = [

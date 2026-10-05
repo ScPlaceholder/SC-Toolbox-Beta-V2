@@ -167,11 +167,12 @@ _FACTUAL = [
     ("injury", r"\bhow (?:hurt|bad|injured|wounded|banged up)\b|\bam i (?:hurt|injured|wounded|bleeding|ok|okay|alright)\b|"
                r"\binjur\w*|\bwound\w*|\bmy health\b"),
     ("deaths", r"\bhow many times (?:have |did )?(?:i|we) (?:die|died|been killed|gone down|go down)\b|"
-               r"\bhow many deaths\b|\bdeath count\b"),
+               r"\bhow many deaths\b|\bdeath count\b|\b(?:have|did) (?:i|we) (?:died|die)\b"),
     ("armistice", r"\barmistice\b|\b(?:safe|green|no fire|no weapons) zone\b|\bcan i (?:shoot|fire|draw)\b|"
                   r"\bweapons (?:free|hot|allowed)\b"),
     ("jurisdiction", r"\bjurisdiction\b|\bwhose (?:space|territory|turf)\b|\bwho (?:owns|controls|runs|polices) (?:this|here)\b"),
-    ("earnings", r"\b(?:how much|what)\b.*\b(?:earn\w*|made|make|money|auec|credits|paid|profit)\b|\bearnings\b|\bpayout\b"),
+    # "what do you make of Montaigne" is not about money: until 2026-10-05 it was answered with the session's earnings.
+    ("earnings", r"\b(?:how much|what)\b(?!.*\bmake of\b).*\b(?:earn\w*|made|make|money|auec|credits|paid|profit)\b|\bearnings\b|\bpayout\b"),
     ("system", r"\b(?:which|what) (?:star )?system\b|\bsystem (?:are|am|is) (?:we|i|this)\b"),
     # Loadout (J 2026-09-24, from Battle_Buddy's parser): what the pilot carries.
     ("loadout", r"\bwhat (?:am i|are we) (?:carrying|packing|holding)\b|\bmy loadout\b|\bloadout\b|"
@@ -179,7 +180,9 @@ _FACTUAL = [
                 r"\bwhat (?:guns?|weapons?) (?:do i|have i|am i|are we)\b|\bam i (?:low on|out of) (?:ammo|mags|medpens)\b"),
     # J 2026-09-24 (the old skill had it as a Wingman tool): "what missions do I have".
     ("mission", r"\bwhat (?:missions?|contracts?|jobs?) (?:do|have|am|are|did)\b|"
-                r"\b(?:my|current|active|our) (?:missions?|contracts?|jobs?|objectives?)\b|"
+                # "my job" alone is the pilot's own work ("I quit my job this morning" was answered as a mission
+                # question until the fresh set of 2026-10-05 showed it).
+                r"\b(?:current|active|our) (?:missions?|contracts?|jobs?|objectives?)\b|\bmy (?:missions?|contracts?|objectives?)\b|"
                 r"\bwhat(?:'?s| is) (?:the|my|our) (?:mission|contract|job|objective)\b|"
                 r"\bwhat (?:am i|are we) (?:doing|supposed to (?:do|be doing))\b"),
     ("ship", r"\btell me about (?:this|the|my|our) ship\b|\b(?:which|what) ship\b|\bwhat (?:am i|are we) (?:flying|in|on|sitting in)\b|\bwhats this ship\b"),
@@ -187,7 +190,7 @@ _FACTUAL = [
     # knew only "what is this place".
     ("location", r"\bwhere (?:am i|are we|is this|we at|is here)\b|\bwhere (?:we|i) (?:are|am)\b|\bwhere im\b|"
                  r"\bwhere (?:the \w+ |on earth |in the \w+ )(?:am i|are we|is this)\b|\bwheres (?:this|here)\b|"
-                 r"\bwhat (?:place|station|outpost|planet|moon|city|town) (?:is|s) this\b|"
+                 r"\b(?:what|which) (?:place|station|outpost|planet|moon|city|town) (?:is|s) this\b|"
                  r"\bwhat(?:s| is| was) this (?:place|station|outpost|city|town|moon|planet)\b|"
                  r"\bwhat (?:do you|do they|is this place|is it) call(?:ed)? this place\b|\bcurrent location\b"),
 ]
@@ -214,7 +217,10 @@ _ACTION = [
     r"^(?:please )?(?P<v>set|plot|open|close|turn|switch|lower|raise|land|launch|fire|shoot|call|request|jump|power|"
     r"start|stop|eject|lock|unlock|deploy|retract|scan|mark|target|fly|bring|drop|pick|spool|activate|deactivate|"
     r"engage|hail|dock|undock|take off)\b",
-    r"\b(?:can|could|would|will) you (?:please )?(?!tell|remind|say|explain|repeat|hear|see)(?P<v>\w+)",
+    # "would you rather I flew something else" and "would you take it into a fight" ask for a view, not a deed
+    # (2026-10-05: both were being refused as orders).
+    r"\b(?:can|could|would|will) you (?:please )?(?!tell|remind|say|explain|repeat|hear|see|rather|ever|like|prefer|want|"
+    r"mind|be|have|think|know|believe|agree|miss|take it into|recommend|choose|pick)(?P<v>\w+)",
     r"\bi (?:need|want) you to (?P<v>\w+)",
 ]
 _SOCIAL = [

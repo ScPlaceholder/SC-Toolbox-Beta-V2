@@ -338,3 +338,109 @@ def test_cleaning_does_not_let_through_what_the_gate_should_refuse(who, raw, why
 def test_a_reply_that_repeats_the_last_one_is_refused():
     line = "No reading on that, and I won't guess."
     assert cc.chat_problems("elah", line, "", "", recent=[line]) == ["repeats itself"]
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Step b2 (J's review of the samples, 2026-10-05): the inventing kinds go to code, the cap, the third wording
+# ---------------------------------------------------------------------------------------------------------------
+# Each of these was answered by a model with a fluent invention in the measured runs.
+INVENTING = ["Who runs it?", "who owns the station", "What's the Hathor Group?", "what was the Messer era",
+             "Are there pirates nearby?", "any hostiles", "is there anyone out there", "Is this place dangerous?",
+             "is it safe", "Is the Carrack faster than the Cutlass?", "which is faster"]
+
+
+@pytest.mark.parametrize("sentence", INVENTING)
+def test_the_kinds_a_model_answered_with_an_invention_are_answered_by_code(sentence):
+    who, intent, slots = conv.route(sentence)
+    assert (intent, slots.get("topic")) == ("social", "unknown_fact"), (sentence, intent, slots.get("topic"))
+    spec = spec_for(sentence)
+    assert spec["fixed_text"] in cc.canon_lines(who, "unknown_fact")
+
+
+def test_did_you_watch_the_game_is_not_theirs_to_know():
+    assert conv.route("Did you watch the game last night?")[2]["topic"] == "offrole"
+    assert conv.route("did you see that")[2].get("topic") != "offrole"            # pointing at something is not the game
+
+
+@pytest.mark.parametrize("sentence", ["what's the matter", "what's the plan", "what's the point", "is that good",
+                                      "am I better than yesterday", "who cares", "any ideas", "is it my turn"])
+def test_ordinary_talk_is_not_taken_for_a_question_about_the_world(sentence):
+    assert conv.route(sentence)[2].get("topic") != "unknown_fact", sentence
+
+
+@pytest.mark.parametrize("sentence, intent, topic", [
+    ("who runs this", "factual", "jurisdiction"), ("what's that tower", "factual", "place_about"),
+    ("what's the mission", "factual", "mission"), ("is this an armistice zone", "factual", "armistice"),
+    ("who made you", "social", "origin"), ("what's the time", "social", "offrole"),
+])
+def test_the_new_patterns_come_last(sentence, intent, topic):
+    got = conv.route(sentence)
+    assert (got[1], got[2].get("topic")) == (intent, topic)
+
+
+def test_asking_for_a_view_is_not_an_order():
+    for s in ("Would you rather I flew something else?", "Would you take it into a fight?", "would you like a bigger ship"):
+        assert conv.route(s)[1] != "action", s
+    for s in ("can you set a route to hurston", "would you open the doors", "could you land us"):
+        assert conv.route(s)[1] == "action", s
+
+
+def test_what_do_you_make_of_him_is_not_about_money():
+    assert conv.route("What do you make of Montaigne?")[2].get("topic") != "earnings"
+    assert conv.route("what did I make tonight")[2].get("topic") == "earnings"
+    assert conv.route("how much money did I make")[2].get("topic") == "earnings"
+
+
+def test_both_canon_files_hold_wordings_for_an_order_they_cannot_carry_out():
+    for who in cc.SPEAKERS:
+        lines = cc.canon_lines(who, "cannot_act")
+        assert 2 <= len(lines) <= 3 and cc.LAST_RESORT[who] not in lines
+        assert not any(w in " ".join(lines).lower() for w in ("opening", "i will", "i'll", "done"))    # never claims the deed
+    assert "cannot_act" not in cc.CANON_ACTS          # the running Suit does not route to it; the evaluation does
+
+
+@pytest.mark.parametrize("reply, first", [
+    ("Good fortune. It's a standard sortie.", "Good fortune."),
+    ("Shubin, pilot. A rather desolate place, judging by the brochures.", "Shubin, pilot."),
+    ("Well... I suppose so. Then go.", "Well... I suppose so."),
+    ("Ask Dr. Voss about it. He knows.", "Ask Dr. Voss about it."),
+    ("That's a strange request. I don't understand pirates.", "That's a strange request."),     # "request." is not "St."
+    ("I manage systems. Nothing else.", "I manage systems."),                                   # nor is "systems." "Ms."
+    ("He paid 12.5 for it. Cheap.", "He paid 12.5 for it."),
+    ("Is that so? I had not heard.", "Is that so?"),
+    ("Yes.", "Yes."), ("no full stop at all", "no full stop at all"), ("", ""),
+])
+def test_the_cap_keeps_the_first_sentence_and_cuts_where_it_says(reply, first):
+    assert cc.first_sentence(reply) == first
+    assert cc.cap_reply(reply) == first
+
+
+def test_the_cap_leaves_a_reply_alone_when_the_turn_supplied_something_to_answer_from():
+    two = "You are flying the Drake Cutlass Black. It was first flown on 12 September."
+    assert cc.cap_reply(two, facts=["ship.name=Drake Cutlass Black"]) == two
+    assert cc.cap_reply(two, memory=[("pilot", "12 September", "first flight")]) == two
+    assert cc.cap_reply(two, facts=[], memory=[]) == "You are flying the Drake Cutlass Black."
+
+
+def test_the_third_wording_is_off_unless_asked_for_and_montaignes_rule_is_only_his():
+    for who in cc.SPEAKERS:
+        assert cc.NO_DETAIL not in cc.front(who) and cc.NO_DETAIL in cc.front(who, strict=True)
+        assert cc.front(who, strict=True).startswith(cc.persona(who))
+        assert cc.NO_DETAIL in cc.serialize(who, [], "hello", strict=True) and cc.NO_DETAIL not in cc.serialize(who, [], "hello")
+    assert cc.SPEAKER_RULES["montaigne"] in cc.front("montaigne", strict=True)
+    assert cc.SPEAKER_RULES["montaigne"] not in cc.front("elah", strict=True)
+    assert "environmental, historical, operational or factual detail" in cc.NO_DETAIL          # J's words
+
+
+@pytest.mark.parametrize("sentence, intent, topic", [
+    ("Which city is this?", "factual", "location"), ("Have I died yet?", "factual", "deaths"),
+    ("what's my job", "factual", "mission"), ("what are my contracts", "factual", "mission"),
+])
+def test_three_questions_the_fresh_set_showed_were_not_being_heard(sentence, intent, topic):
+    got = conv.route(sentence)
+    assert (got[1], got[2].get("topic")) == (intent, topic)
+
+
+def test_the_pilots_own_job_is_not_a_mission():
+    for s in ("I quit my job this morning.", "I hate my job", "my job is killing me"):
+        assert conv.route(s)[2].get("topic") != "mission", s
