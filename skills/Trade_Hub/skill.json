@@ -1,0 +1,16 @@
+{
+    "id": "trade",
+    "name": "Trade Hub",
+    "summary": "Find profitable trade routes for your ship and budget, from a single run to a loop with several stops.",
+    "icon": "💰",
+    "color": "#ffcc00",
+    "folder": "Trade_Hub",
+    "script": "trade_hub_app.py",
+    "hotkey": "<shift>+6",
+    "settings_key": "hotkey_trade",
+    "custom_args": [
+        "300",
+        "500"
+    ],
+    "hidden": true
+}

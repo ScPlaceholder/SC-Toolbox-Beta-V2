@@ -1,0 +1,12 @@
+{
+    "id": "market",
+    "name": "Item Finder",
+    "summary": "Search everything you can buy in the game and see which shops sell it and at what price.",
+    "icon": "🛒",
+    "color": "#aa66ff",
+    "folder": "Market_Finder",
+    "script": "uex_item_browser.py",
+    "hotkey": "<shift>+5",
+    "settings_key": "hotkey_market",
+    "hidden": true
+}

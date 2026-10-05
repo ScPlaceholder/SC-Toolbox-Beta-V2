@@ -1,6 +1,7 @@
 {
   "id": "dev_history",
   "name": "Dev History",
+  "summary": "Search what the developers have said about Star Citizen: video transcripts, official posts, Monthly Reports and the dev tracker.",
   "icon": "📜",
   "color": "#88aaff",
   "folder": "Dev_History",

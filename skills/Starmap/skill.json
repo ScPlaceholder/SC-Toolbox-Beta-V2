@@ -1,6 +1,7 @@
 {
   "id": "starmap",
   "name": "Starmap",
+  "summary": "A map of the galaxy, its systems and planets, with shop and commodity prices, a shopping list and routes with several stops.",
   "icon": "✦",
   "color": "#44ccff",
   "folder": "Starmap",

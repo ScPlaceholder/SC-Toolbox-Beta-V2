@@ -254,14 +254,16 @@ def build_tabs(cmd_file):
     def suit(mic: bool):
         return _suit_panel_class()(cmd_file=cmd_file, mic=mic)
 
-    def tip(settings_key: str, default: str) -> str:
+    def tip(settings_key: str, default: str, tool_dir: str) -> str:
+        # What the tab's tool does (the "summary" in its skill.json, the launcher tile's text), then its hotkey.
         try:
-            return "Hotkey: " + hotkey_label(settings_key, default)
+            from shared.tool_tips import Section, read_summary, tooltip_text
+            return tooltip_text([Section("", read_summary(tool_dir), "Hotkey: " + hotkey_label(settings_key, default))])
         except Exception:                          # noqa: BLE001 - a tooltip is not worth a failed start
             return ""
 
-    tabs = [TabSpec(TAB_ASSISTANT, TAB_LABELS[TAB_ASSISTANT], assistant, tip("hotkey_assistant", "<ctrl>+3")),
-            TabSpec(TAB_SUIT, TAB_LABELS[TAB_SUIT], suit, tip("hotkey_suitmk2", "<ctrl>+2"))]
+    tabs = [TabSpec(TAB_ASSISTANT, TAB_LABELS[TAB_ASSISTANT], assistant, tip("hotkey_assistant", "<ctrl>+3", HERE)),
+            TabSpec(TAB_SUIT, TAB_LABELS[TAB_SUIT], suit, tip("hotkey_suitmk2", "<ctrl>+2", SUIT_DIR))]
     off = {t.strip() for t in os.environ.get("SC_TOOLBOX_TABS_OFF", "").split(",") if t.strip()}
     # Every tab switched off would be a window with nothing in it; something asked for this window, so show both.
     return [t for t in tabs if t.key not in off] or tabs

@@ -1,6 +1,7 @@
 {
   "id": "playtime",
   "name": "PlayTime",
+  "summary": "Adds up how long you have played Star Citizen, read from the game's logs, with sessions, trends, a calendar and fun stats.",
   "icon": "⏱",
   "color": "#44ccff",
   "folder": "PlayTime_Calculator",

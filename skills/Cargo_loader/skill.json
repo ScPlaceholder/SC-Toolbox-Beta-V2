@@ -1,0 +1,11 @@
+{
+    "id": "cargo",
+    "name": "Cargo Loader",
+    "summary": "See a ship's cargo hold in 3D and work out how to pack containers, commodities and loose items so that everything fits.",
+    "icon": "📦",
+    "color": "#33ccdd",
+    "folder": "Cargo_loader",
+    "script": "cargo_app.py",
+    "hotkey": "<shift>+2",
+    "settings_key": "hotkey_cargo"
+}

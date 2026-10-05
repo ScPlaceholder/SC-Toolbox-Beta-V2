@@ -1,6 +1,7 @@
 {
     "id": "craft_db",
     "name": "Craft Database",
+    "summary": "Browse crafting blueprints and see the materials each one needs.",
     "icon": "\ud83c\udfed",
     "color": "#44ccbb",
     "folder": "Craft_Database",

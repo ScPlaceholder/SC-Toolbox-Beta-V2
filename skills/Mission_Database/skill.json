@@ -1,0 +1,11 @@
+{
+    "id": "missions",
+    "name": "Mission/Craft DB",
+    "summary": "Browse missions and their rewards, crafting blueprints and where to find mining resources. Keeps track of the blueprints you own.",
+    "icon": "📋",
+    "color": "#33dd88",
+    "folder": "Mission_Database",
+    "script": "mission_db_app.py",
+    "hotkey": "<shift>+3",
+    "settings_key": "hotkey_missions"
+}

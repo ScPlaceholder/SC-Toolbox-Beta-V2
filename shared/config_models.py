@@ -106,6 +106,10 @@ class SkillConfig:
     # paired with ``hidden`` so the launcher shows one tile for the window.
     # Ignored when the host is not installed: the tool then runs on its own.
     tab_of: str = ""
+    # One or two plain sentences on what the tool does FOR THE PLAYER, shown in
+    # the tooltip of its launcher tile (shared/tool_tips.py). Optional: without
+    # one the tooltip is the tool's name and hotkey.
+    summary: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillConfig:
@@ -122,6 +126,7 @@ class SkillConfig:
             preload=bool(data.get("preload", False)),
             hidden=bool(data.get("hidden", False)),
             tab_of=str(data.get("tab_of", "") or ""),
+            summary=" ".join(str(data.get("summary", "") or "").split()),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -143,6 +148,8 @@ class SkillConfig:
             d["hidden"] = True
         if self.tab_of:
             d["tab_of"] = self.tab_of
+        if self.summary:
+            d["summary"] = self.summary
         return d
 
 

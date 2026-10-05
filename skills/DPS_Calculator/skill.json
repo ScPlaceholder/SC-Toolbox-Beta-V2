@@ -1,0 +1,11 @@
+{
+    "id": "dps",
+    "name": "DPS Calculator",
+    "summary": "Pick a ship, swap its weapons, shields and other components, and see the damage, time to kill and power use of the build.",
+    "icon": "⚔",
+    "color": "#ff7733",
+    "folder": "DPS_Calculator",
+    "script": "dps_calc_app.py",
+    "hotkey": "<shift>+1",
+    "settings_key": "hotkey_dps"
+}

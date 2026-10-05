@@ -1,6 +1,7 @@
 {
   "id": "assistant",
   "name": "Toolbox Assistant / AI Crew",
+  "summary": "Ask out loud about trade routes, prices, cargo, missions and ship loadouts. It looks the answer up in the other tools and tells you.",
   "icon": "\ud83e\udd16",
   "color": "#66ddff",
   "folder": "Assistant",

@@ -1,0 +1,11 @@
+{
+    "id": "everything_finder",
+    "name": "Everything Finder",
+    "summary": "Item Finder, Trade Hub and Star Map in one window. Find where to buy anything, plan trade runs and browse the map, with one shared shopping list.",
+    "icon": "🔎",
+    "color": "#55ddaa",
+    "folder": "Everything_Finder",
+    "script": "everything_finder_app.py",
+    "hotkey": "<ctrl>+6",
+    "settings_key": "hotkey_everything_finder"
+}

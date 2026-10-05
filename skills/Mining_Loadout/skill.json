@@ -1,0 +1,11 @@
+{
+    "id": "mining",
+    "name": "Mining Loadout",
+    "summary": "Fit a mining ship with lasers, modules and gadgets and see how each choice changes its mining stats and what the setup costs.",
+    "icon": "⛏",
+    "color": "#ffaa22",
+    "folder": "Mining_Loadout",
+    "script": "mining_loadout_app.py",
+    "hotkey": "<shift>+4",
+    "settings_key": "hotkey_mining"
+}

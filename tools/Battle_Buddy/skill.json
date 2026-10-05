@@ -1,0 +1,11 @@
+{
+    "id": "battle_buddy",
+    "name": "Battle Buddy",
+    "summary": "An on-screen display of the weapons you carry, your spare magazines, medpens, oxypens and grenades. It updates itself from the game's log.",
+    "icon": "🎖",
+    "color": "#dd4444",
+    "folder": "Battle_Buddy",
+    "script": "hud_app.py",
+    "hotkey": "<shift>+8",
+    "settings_key": "hotkey_battle_buddy"
+}

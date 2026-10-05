@@ -1,6 +1,7 @@
 {
     "id": "mining_signals",
     "name": "Mining Signals",
+    "summary": "Reads your mining scan from the screen and shows what the rock holds and whether your ship can break it. Also tracks refinery orders and your mining crew.",
     "icon": "\ud83d\udce1",
     "color": "#33dd88",
     "folder": "Mining_Signals",

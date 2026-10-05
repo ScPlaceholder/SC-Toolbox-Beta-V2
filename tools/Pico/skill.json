@@ -1,6 +1,7 @@
 {
   "id": "pico",
   "name": "Pico Pals",
+  "summary": "Pico, a small penguin who lives on your desktop and reacts to what happens in your game. Drag him anywhere; right-click to change how he looks.",
   "icon": "🐧",
   "color": "#ff9ecf",
   "folder": "Pico",

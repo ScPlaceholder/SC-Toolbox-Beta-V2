@@ -1,6 +1,7 @@
 {
     "id": "mouse_blocker",
     "name": "Mouse Blocker",
+    "summary": "Covers the screen and catches mouse clicks so they do not reach the game by accident. Use the hotkey again to turn it off.",
     "icon": "🚫",
     "color": "#ff3355",
     "folder": "Mouse_Blocker",

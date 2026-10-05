@@ -22,6 +22,7 @@ from core.skill_registry import tile_skills
 from shared.config_models import SkillConfig, WindowGeometry
 from shared.i18n import _ as _t
 from shared.qt.theme import P
+from shared.tool_tips import tile_sections, tooltip_html
 from shared.qt.base_window import SCWindow
 from shared.qt.title_bar import SCTitleBar
 from shared.qt.hud_widgets import HUDPanel, GlowEffect
@@ -406,6 +407,10 @@ class LauncherWindow(SCWindow):
 
         self.restore_geometry_from_args(geometry.x, geometry.y, geometry.w, geometry.h, geometry.opacity)
 
+        # The launcher sits over the game, which has the keyboard: without this
+        # Qt shows no tooltip at all on a window that is not the active one.
+        self.setAttribute(Qt.WA_AlwaysShowToolTips, True)
+
         # ── Title bar ──
         self._title_bar = SCTitleBar(
             window=self,
@@ -604,6 +609,7 @@ class LauncherWindow(SCWindow):
                     tile.set_hotkey("")
                 else:
                     tile.set_hotkey(get_hotkey_display(skill.hotkey))
+        self._refresh_tile_tooltips()
 
         # ── Settings button ──
         from ui.settings_panel import _btn_qss
@@ -682,6 +688,27 @@ class LauncherWindow(SCWindow):
         except Exception:
             log.exception("playtime: background summary refresh failed")
 
+    def tile_tooltip(self, skill: SkillConfig, skill_hotkeys: Optional[Dict[str, str]] = None) -> str:
+        """What the tile of *skill* says on hover: name, summary, the hotkey in force now, and the
+        same for each tool that is a tab of it (shared/tool_tips.py)."""
+        return tooltip_html(
+            tile_sections(
+                skill, self._skills,
+                hotkeys=skill_hotkeys,
+                keybinds_off=self._keybinds_disabled,
+                disabled=self._disabled_skills,
+                hotkey_label=_t("Hotkey"),
+                tab_label=_t("Tab"),
+            ),
+            title_color=P.fg_bright,
+            hotkey_color=P.accent,
+        )
+
+    def _refresh_tile_tooltips(self, skill_hotkeys: Optional[Dict[str, str]] = None) -> None:
+        """Run whenever a hotkey badge is set, so a tooltip never names a key the badge does not."""
+        for tile in self._tiles.values():
+            tile.setToolTip(self.tile_tooltip(tile.skill, skill_hotkeys))
+
     def update_hotkey_badges(self, launcher_hotkey: str, skill_hotkeys: Dict[str, str]) -> None:
         self._title_bar.set_hotkey(get_hotkey_display(launcher_hotkey))
         for skill in self._skills:
@@ -692,6 +719,7 @@ class LauncherWindow(SCWindow):
                 else:
                     hk = skill_hotkeys.get(skill.id, skill.hotkey)
                     tile.set_hotkey(get_hotkey_display(hk))
+        self._refresh_tile_tooltips(skill_hotkeys)
 
     def set_status(self, text: str, color: Optional[str] = None) -> None:
         self._status_label.setText(text)
