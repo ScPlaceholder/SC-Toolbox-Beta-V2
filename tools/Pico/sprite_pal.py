@@ -268,6 +268,12 @@ class AuraLayer(QWidget):
         p.end()
 
 
+# What "Gags at most" offers, in minutes. The default (sprites.GAG_COOLDOWN_S) has to be one of these:
+# when it was not, the box showed "once an hour" for a 15-minute default and OK saved the hour.
+GAG_CHOICES = (("every 15 min", 15), ("every 30 min", 30), ("once an hour", 60), ("every 2 hours", 120),
+               ("every 4 hours", 240))
+
+
 class Customise(QDialog):
     def __init__(self, parent, current: Path, height: int):
         super().__init__(parent)
@@ -287,16 +293,23 @@ class Customise(QDialog):
         self.signs = QCheckBox("Signs on game events")
         self.signs.setChecked(bool(prefs.get("signs", True)))
         self.often = QComboBox()
-        for label, mins in (("every 30 min", 30), ("once an hour", 60), ("every 2 hours", 120),
-                            ("every 4 hours", 240)):
+        # The box shows what the chooser will really do with these settings, default included. A saved
+        # value that is not one of the choices gets its own line, so it is shown as it is.
+        cur = sprites.gag_cooldown_s(prefs) / 60.0
+        choices = list(GAG_CHOICES)
+        if all(mins != cur for _label, mins in choices):
+            choices.append(("every %g min" % cur, cur))
+            choices.sort(key=lambda c: c[1])
+        for label, mins in choices:
             self.often.addItem(label, mins)
-        cur = prefs.get("gag_cooldown_min", 60)
-        self.often.setCurrentIndex(max(0, self.often.findData(cur)))
+            if mins == cur:
+                self.often.setCurrentIndex(self.often.count() - 1)
         # J 2026-10-04: he rests between animations. One control for how long (sprites.LIVELINESS).
         self.lively = QComboBox()
         for label, key in (("Calm (long rests)", "calm"), ("Normal", "normal"), ("Lively (short rests)", "lively")):
             self.lively.addItem(label, key)
-        self.lively.setCurrentIndex(max(0, self.lively.findData(prefs.get("liveliness", "normal"))))
+        live = str(prefs.get("liveliness", "normal"))       # an unknown word rests as "normal" does
+        self.lively.setCurrentIndex(self.lively.findData(live if live in sprites.LIVELINESS else "normal"))
         form = QFormLayout(self)
         form.addRow("Outfit", self.outfit)
         form.addRow("Size", self.size)
@@ -308,6 +321,18 @@ class Customise(QDialog):
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         form.addRow(bb)
+        self.opened = self.values()
+
+    def values(self) -> dict:
+        return {"outfit": self.outfit.currentData(), "height": self.size.value(),
+                "gags": self.gags.isChecked(), "signs": self.signs.isChecked(),
+                "gag_cooldown_min": self.often.currentData(), "liveliness": self.lively.currentData()}
+
+    def changes(self) -> dict:
+        """Only what the user changed while the dialog was open. OK on an untouched dialog changes nothing:
+        a control cannot always hold the saved value exactly (a size past the slider, an unknown word), and
+        writing back what it shows instead would alter a setting nobody touched."""
+        return {k: v for k, v in self.values().items() if v != self.opened[k]}
 
 
 class Pal(QWidget):
@@ -549,10 +574,10 @@ class Pal(QWidget):
         dlg = Customise(self, self.chooser.catalog.root, self.height_px)
         if dlg.exec() != QDialog.Accepted:
             return
-        self.height_px = dlg.size.value()
-        root = Path(dlg.outfit.currentData())
-        self.remember(outfit=str(root), gags=dlg.gags.isChecked(), signs=dlg.signs.isChecked(),
-                      gag_cooldown_min=dlg.often.currentData(), liveliness=dlg.lively.currentData())
+        changed = dlg.changes()
+        self.height_px = changed.pop("height", self.height_px)
+        root = Path(changed["outfit"]) if "outfit" in changed else Path(self.chooser.catalog.root)
+        self.remember(**changed)
         try:
             self.chooser = sprites.LoopChooser(sprites.Catalog.scan(root))
             self.chooser.apply_prefs(load_settings())

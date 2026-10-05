@@ -20,6 +20,7 @@ WHAT IT REFUSES, CARRIED OVER FROM face.py:
 """
 from __future__ import annotations
 
+import math
 import os
 import random
 import re
@@ -103,6 +104,18 @@ def brand_allows(name: str, root: Path) -> bool:
 # cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
 # J 2026-10-04 17:35, after seeing one gag in a day of play: "Yeah let's do that" to about four an hour.
 GAG_COOLDOWN_S = 900.0
+
+
+def gag_cooldown_s(prefs: Mapping) -> float:
+    """The gag cooldown these settings give, in seconds. LoopChooser.apply_prefs and the Customise dialog
+    both ask here, so the dialog shows what the chooser does. A missing or bad value is GAG_COOLDOWN_S."""
+    try:
+        m = float(prefs.get("gag_cooldown_min", GAG_COOLDOWN_S / 60))
+    except (TypeError, ValueError):
+        return GAG_COOLDOWN_S
+    if not math.isfinite(m):
+        return GAG_COOLDOWN_S
+    return max(60.0, m * 60)
 
 # A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
 # repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
@@ -551,11 +564,7 @@ class LoopChooser:
         """Settings from the Customise dialog. Missing or bad values keep the defaults."""
         self.gags_on = bool(prefs.get("gags", True))
         self.signs_on = bool(prefs.get("signs", True))
-        try:
-            m = float(prefs.get("gag_cooldown_min", GAG_COOLDOWN_S / 60))
-            self.gag_cooldown_s = max(60.0, m * 60)
-        except (TypeError, ValueError):
-            self.gag_cooldown_s = GAG_COOLDOWN_S
+        self.gag_cooldown_s = gag_cooldown_s(prefs)
         self.rest_scale = LIVELINESS.get(str(prefs.get("liveliness", "normal")), 1.0)
 
     def prop_for(self, name: Optional[str] = None) -> Optional[str]:
