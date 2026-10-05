@@ -12,7 +12,10 @@ the source, not a commit message:
                       Assistant's window with set route, 2026-10-04)
                       (the mic controls moved to the Assistant, 2026-10-04)
   shared/shopping/panel.py   Item | Commodity, Add, x, Clear list, Plan route,
-                      Show on Star Map (the one list all three tools share)
+                      Auto-calculate, Show on Star Map (the one list all three
+                      tools share)
+  tools/Assistant/assistant/panel.py, set_route/route_setter.py
+                      Calibrate Route, Begin, In-Game and the three spoken steps
   market_view.py      Filter terminals..., Search items everywhere...,
                       Pop out, + Shopping List
   location_dialog.py  the Commodities / Items tabs
@@ -84,17 +87,21 @@ into the game.</p>
   <li><b>Planet &amp; Moons</b> &mdash; one planet's own little system</li>
   <li><b>Planet</b> &mdash; its surface locations</li>
 </ul>
-<p><b>Double-click</b> anything to go in. <b>&lt; Back</b> goes out one level,
-and the trail beside it (<span style="{_DIM}">Galaxy &gt; Stanton &gt;
-&hellip;</span>) is clickable &mdash; click any step to jump straight there.</p>
+<p><b>Double-click</b> anything to go in, or keep zooming in on it with the
+wheel. <b>&lt; Back</b> goes out one level, and so does zooming all the way
+out. The trail beside it (<span style="{_DIM}">Galaxy &gt; Stanton &gt;
+&hellip;</span>) shows where you are.</p>
 
 {_h4("Finding something by name", _C_START)}
 <p>Use <b>Search system or location&hellip;</b> in the top bar. It matches
-loosely, so you do not need the exact spelling, and it takes you there.</p>
+loosely, so you do not need the exact spelling. Pick a place from the list
+and the map goes all the way to it: into the system, down to the planet or
+moon, and round to the spot. If what you typed fits several places, pick one
+from the list rather than pressing Enter.</p>
 
 {_h4("The three side panels", _C_START)}
 <p>Three buttons on the right of the top bar open and close panels beside the
-map. They stay how you leave them:</p>
+map. One shows at a time, and the map starts with none open:</p>
 <ul>
   <li><b>Shopping List</b> &mdash; your shopping list, the same one Item
       Finder and the Everything Finder show</li>
@@ -112,8 +119,8 @@ download by hand.</p>
 
 _TAB_MOVING = _html(f"""
 {_h3("Flying the camera", _C_MOVE)}
-<p>It is all mouse, and it is the same at every level of the map. The hint
-line along the bottom of the view says so too.</p>
+<p>It is all mouse. The hint line along the bottom of the view reminds you
+what works at the level you are on.</p>
 
 {_h4("The four gestures", _C_MOVE)}
 <ul>
@@ -122,6 +129,8 @@ line along the bottom of the view says so too.</p>
   <li><b>Right-drag</b> &mdash; pan, to slide the whole view sideways.</li>
   <li><b>Double-click</b> &mdash; go into whatever you clicked.</li>
 </ul>
+<p style="{_DIM}">On a planet's globe every drag turns the globe; there is no
+pan there.</p>
 
 {_h4("Right-click for the lore", _C_ROUTE)}
 <p><b>Right-click a system without dragging</b> and you get a card about it:
@@ -167,25 +176,37 @@ without drawing anything.</p>
 &hellip;</em> (said to the Assistant, or typed in the command bar) is also
 punched into Star Citizen's own map for you &mdash; it opens the map, types
 the destination and sets it.</p>
-<p><span style="{_YLW}">It has to be calibrated first</span>, because it works
-by clicking your screen and every screen is different.
-Open the <b>Toolbox Assistant</b> and press <b>Calibrate Route</b>. It walks
-you through three clicks in the game and remembers them. (The button used to
-be here, as <b>Calibrate Star Map</b>; it moved to the Assistant together with
-the route setter it calibrates.)</p>
+<p><span style="{_YLW}">Calibrate it first</span>, because it works by
+clicking your screen and every screen is different. With Star Citizen open,
+click on the game and say <em>calibrate star map</em> to the Assistant, or
+open the <b>Toolbox Assistant</b> and press <b>Calibrate Route</b>, then
+<b>Begin</b>. It then tells you each step, out loud and in its window:</p>
+<ol>
+  <li>Press F2 for the game's map and zoom out. Left-click the search bar,
+      then press Enter.</li>
+  <li>Type a destination in your current system and left-click its
+      result.</li>
+  <li>Left-click the centre of the map.</li>
+</ol>
+<p>Esc cancels. The three places are remembered.</p>
 <p style="{_DIM}"><b>In-Game</b> here and <b>In-Game</b> in the Assistant are
 one switch.</p>
-<p style="{_DIM}">Until it is calibrated, In-Game has nothing to aim at.
-Plotting on this map, on its own, needs no calibration at all.</p>
+<p style="{_DIM}">Without a calibration it clicks where those three things sit
+on a standard layout, which may be the wrong places on your screen. Plotting
+on this map, on its own, needs no calibration at all.</p>
+<p><span style="{_YLW}">Typed is not the same as spoken.</span> Say
+<em>navigate to &hellip;</em> to the Assistant and it asks <em>yes or no</em>
+before it touches the game. Type it in the command bar here with
+<b>In-Game</b> on and it starts at once.</p>
 """)
 
 _TAB_MARKET = _html(f"""
 {_h3("Prices, and where to buy things", _C_MARKET)}
 
 {_h4("Clicking a place on the map", _C_MARKET)}
-<p>Click a station, city or outpost and you get its own window with two tabs:
-<b>Commodities</b> (what it buys and sells, at what price) and <b>Items</b>
-(the gear on its shelves).</p>
+<p>Double-click a station, city or outpost that has a terminal and you get
+its own window with two tabs: <b>Commodities</b> (what it buys and sells, at
+what price) and <b>Items</b> (the gear on its shelves).</p>
 
 {_h4("Market &mdash; the Item Finder", _C_MARKET)}
 <p>The <b>Market</b> panel answers it from the other end. Two search boxes,
@@ -204,7 +225,7 @@ shopping list.</p>
 <p>The <b>Commodities</b> panel lists every commodity in the game &mdash;
 search by <b>name, code or category</b>. A <span style="{_YLW}">(!)</span>
 badge means it is illegal to haul. Click a card for its own page, with the
-price history and a <b>Wiki</b> link, and <b>&#10547; Routes</b> to trade it.</p>
+price history and a <b>Wiki</b> link.</p>
 <p style="{_DIM}">Price trend lines need several days of UEX snapshots before
 they have anything to draw, so a brand-new install shows none.</p>
 """)
@@ -221,8 +242,8 @@ and it is still there next time.</p>
 <ul>
   <li>Pick <b>Item</b> or <b>Commodity</b>, type a name, set a quantity and
       press <b>Add</b>.</li>
-  <li><b>Drag a row</b> from the Market panel, or a popped-out item bubble,
-      and drop it on the list. The bubble says
+  <li><b>Drag a row</b> from the <b>Items</b> tab of a place's window, or a
+      popped-out item bubble, and drop it on the list. The bubble says
       <span style="{_DIM}">drag me onto the Shopping List</span>.</li>
   <li>Press <b>+ Shopping List</b> in the Market panel with a row selected.</li>
   <li>Press <b>&#65291; add to Shopping List</b> on an item's pop-out.</li>
@@ -239,7 +260,9 @@ Click the tag to unpin it and let the planner choose.</p>
 
 {_h4("The route", _C_GROC)}
 <p>Routes are worked out by <b>Trade Hub's planner</b> and listed under the
-entries: <b>MIN STOPS</b>, <b>SHORTEST TRIP</b>, <b>BEST PRICE</b>. Choose
+entries: <b>MIN STOPS</b>, <b>SHORTEST TRIP</b>, <b>BEST PRICE</b>. With
+<b>Auto-calculate</b> ticked they are worked out again a moment after the
+list changes; otherwise press <b>Plan route</b>. Choose
 which to see first with <b>Prefer</b>, where you set off from with
 <b>Start</b>, and how many of each entry's cheapest terminals it may choose
 between. Once prices are in, each entry also shows <b>where it is sold</b>,
@@ -285,14 +308,35 @@ Star Citizen too &mdash; see the <b>Jump Routes</b> tab, and calibrate it
 first (in the Assistant's window).</p>
 """)
 
-_TABS = [
-    ("Getting Started", _TAB_GETTING_STARTED),
-    ("Moving Around", _TAB_MOVING),
-    ("Jump Routes", _TAB_ROUTES),
-    ("Market & Items", _TAB_MARKET),
-    ("Shopping List", _TAB_GROCERY),
-    ("Voice", _TAB_VOICE),
-]
+def _hotkey() -> str:
+    """The Star Map's own hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_starmap", "<ctrl>+5")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Ctrl+5"
+
+
+def _tab_getting_started() -> str:
+    """Getting Started, with the hotkey as the launcher has it when the tutorial opens."""
+    opening = (
+        _h4("Opening it", _C_START)
+        + "<p>The Star Map is the <b>STAR MAP</b> tab of the Everything Finder. Its own hotkey is "
+        + '<span style="' + _ACC + '">' + _hotkey() + "</span>, which opens it in a window of its own.</p>"
+    )
+    return _TAB_GETTING_STARTED.replace("</div>", opening + "</div>")
+
+
+def _tabs() -> list:
+    return [
+        # Short titles: six tabs have to fit across the popup without scroll arrows.
+        ("Start", _tab_getting_started()),
+        ("Moving", _TAB_MOVING),
+        ("Jump Routes", _TAB_ROUTES),
+        ("Market && Items", _TAB_MARKET),       # && : a lone & is Qt's shortcut mark and would not be drawn
+        ("Shopping List", _TAB_GROCERY),
+        ("Voice", _TAB_VOICE),
+    ]
 
 
 # ── Close button ─────────────────────────────────────────────────────────
@@ -459,7 +503,7 @@ class TutorialPopup(QDialog):
             }}
         """)
 
-        for tab_title, html in _TABS:
+        for tab_title, html in _tabs():
             tabs.addTab(_make_tab(html, tabs), tab_title)
 
         frame_lay.addWidget(tabs, 1)
