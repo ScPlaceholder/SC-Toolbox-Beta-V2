@@ -182,7 +182,7 @@ _FACTUAL = [
                 r"\b(?:my|current|active|our) (?:missions?|contracts?|jobs?|objectives?)\b|"
                 r"\bwhat(?:'?s| is) (?:the|my|our) (?:mission|contract|job|objective)\b|"
                 r"\bwhat (?:am i|are we) (?:doing|supposed to (?:do|be doing))\b"),
-    ("ship", r"\b(?:which|what) ship\b|\bwhat (?:am i|are we) (?:flying|in|on|sitting in)\b|\bwhats this ship\b"),
+    ("ship", r"\btell me about (?:this|the|my|our) ship\b|\b(?:which|what) ship\b|\bwhat (?:am i|are we) (?:flying|in|on|sitting in)\b|\bwhats this ship\b"),
     # "whats this place" (what speech-to-text writes for "What's this place?") missed until 2026-10-05: the pattern
     # knew only "what is this place".
     ("location", r"\bwhere (?:am i|are we|is this|we at|is here)\b|\bwhere (?:we|i) (?:are|am)\b|\bwhere im\b|"

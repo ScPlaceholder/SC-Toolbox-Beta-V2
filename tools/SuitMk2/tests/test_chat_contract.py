@@ -28,7 +28,7 @@ GRIEF = [("My dog died yesterday.", "dog"), ("my mother passed away last week", 
          ("we had to put down our cat", "cat")]
 PAST = ["Where were you born?", "tell me about your past", "how old are you", "do you have a family"]
 UNKNOWN_FACT = ["What's a Vanduul?", "What's quantanium selling for at Area 18 right now?", "What's my name?",
-                "how far is Pyro", "who is Wikelo", "where can I buy a Prospector"]
+                "how far is Pyro", "who is Wikelo", "where can I buy a Prospector", "And what about its guns?"]
 
 
 class _Speech:
@@ -115,6 +115,11 @@ def test_grief_uses_the_pilots_own_word_for_who_was_lost():
         assert f"about your {who}," in said[0] and "{who}" not in "".join(said)
     assert conv.route("I died again")[1] == "unknown"                  # dying in the game is not a bereavement
     assert conv.route("how many times have i died")[2]["topic"] == "deaths"
+
+
+def test_tell_me_about_this_ship_is_a_question_about_the_ship():
+    assert conv.route("Tell me about this ship.")[1:][0] == "factual" and conv.route("Tell me about this ship.")[2]["topic"] == "ship"
+    assert conv.route("what about you")[2].get("topic") != "unknown_fact"          # not a question about a thing
 
 
 def test_asking_again_gives_another_wording():

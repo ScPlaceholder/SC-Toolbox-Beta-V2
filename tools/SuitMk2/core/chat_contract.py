@@ -151,7 +151,10 @@ LATE = [
     ("unknown_fact", [r"\bwhat(?:s| is| are| was| were) (?:a|an) \w+", r"\b(?:whats|what is|do you know|tell me) my (?:real |own )?name\b",
                       r"\b(?:price|prices|selling for|sells? for|going for|cost|costs|worth)\b",
                       r"\bhow (?:many|far|long|fast|big|heavy|much|old|deep|high|hot|cold)\b", r"\bpopulation of\b",
-                      r"\bwho (?:is|are|was|were|s) \w+", r"\bwhen (?:is|was|does|did|will) (?:the|a|an|it|that) \w+",
+                      r"\bwho (?:is|are|was|were|s) \w+",
+                      # "and what about its guns?": a question about a part of something, with nothing behind it.
+                      # Left open, every model answered it with an invention ("They are standard issue.").
+                      r"\b(?:what|how) about (?:its|the|this|that|those|these|his|her|their) \w+", r"\bwhen (?:is|was|does|did|will) (?:the|a|an|it|that) \w+",
                       r"\bwhere (?:is|are|can i (?:find|buy|sell|get)|do i (?:find|buy|sell|get)) \w+"]),
 ]
 
@@ -183,23 +186,34 @@ def late_act(t: str) -> Optional[tuple[str, str]]:
 # is in front of the talker; the first wording forbade that and was caught in the pilot's dry run, before any model ran.
 OPEN_CONTENT = ("respond to what the pilot just said, as yourself. You may use what was already said in this "
                 "conversation. No other facts about the world, places, ships or prices.")
-RULES = ("Rules. Answer as yourself and nobody else, in one or two spoken sentences, no lists, no quotation marks. "
-         "Each pilot message may carry an ACT, CONTENT, FACTS and MEMORY. Say what CONTENT asks. A fact about the "
-         "ship, a place, a price, a person or what happened comes ONLY from FACTS or MEMORY; if it is not there, "
-         "you do not know it and you say so your own way. Never mention ACT, CONTENT, FACTS or MEMORY.")
+# SECOND WORDING, 2026-10-05, after the first was measured on gemma3:4b (elah-audio/_suit_chat_eval.md, section 11).
+# The first examples had Elah say "The suit was quieter" and "The landing gear thinks so too", and gemma copied the
+# FORM: nearly every open reply became "The suit registered a shift in atmospheric pressure", an invented reading in
+# the third person, with Montaigne and Drake dragged in from the persona. So: the examples are first person and
+# about the pilot, and the rules say in words that there are no readings to report and no one to bring up.
+RULES = ("Rules. You are talking with the pilot, not reporting. Speak as I, about what the pilot just said, in one or "
+         "two spoken sentences; no lists, no quotation marks. You have no sensors or systems to report: never say "
+         "what the suit or the ship registered, detected, monitored or recorded, and never give a reading, unless it "
+         "is in FACTS. Do not bring up {other}, ships or places unless the pilot does. Each pilot message may carry "
+         "an ACT, CONTENT, FACTS and MEMORY. Say what CONTENT asks. A fact about the ship, a place, a price, a person "
+         "or what happened comes ONLY from FACTS, MEMORY or what was already said here; if it is not there, you do "
+         "not know it and you say so in a few words. Never mention ACT, CONTENT, FACTS or MEMORY.")
 EXAMPLES = {
-    "elah": [("Did you miss me?", "The suit was quieter. I would not call it missing."),
-             ("I think I'm getting better at landing.", "The landing gear thinks so too. Barely.")],
-    "montaigne": [("Did you miss me?", "A ship does little else, pilot; I had only my own company, and I know how little that is worth."),
-                  ("I think I'm getting better at landing.", "So the log suggests, though I have it secondhand; we are all better judges of others than of ourselves.")],
+    "elah": [("Did you miss me?", "It was quieter. I wouldn't call that missing."),
+             ("I think I'm getting better at landing.", "You are. Slowly."),
+             ("Rough day.", "Then fly. I'll keep quiet.")],
+    "montaigne": [("Did you miss me?", "A ship does little else, pilot. I had only my own company, and I know what that is worth."),
+                  ("I think I'm getting better at landing.", "So the log suggests, though I have it secondhand. We judge others better than ourselves."),
+                  ("Rough day.", "Then let us not improve it with talk, pilot. I am here.")],
 }
-LIMITS = {"elah": "1-2 short sentences, at most 30 words", "montaigne": "1-3 sentences, at most 50 words"}
+LIMITS = {"elah": "1-2 short sentences, at most 25 words", "montaigne": "1-2 sentences, at most 40 words"}
 
 
 def front(speaker: str) -> str:
     """The part of the prompt that never changes between turns: persona, rules, two examples of the voice."""
     ex = "\n".join(f"PILOT: {p}\n{speaker.upper()}: {a}" for p, a in EXAMPLES[speaker])
-    return f"{persona(speaker)}\n{RULES}\nHow you sound:\n{ex}"
+    other = "Montaigne" if speaker == "elah" else "Elah"
+    return f"{persona(speaker)}\n{RULES.format(other=other)}\nHow you sound:\n{ex}"
 
 
 def turn_block(pilot_line: str, act: str = "open", content: str = OPEN_CONTENT, facts=(), memory=(),
