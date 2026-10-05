@@ -27,7 +27,7 @@ import os
 import re
 from typing import Optional
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QVBoxLayout, QWidget,
@@ -40,6 +40,7 @@ from shared.qt.title_bar import SCTitleBar
 from .agent import AssistantAgent
 from .config import LLMConfig
 from .set_route import gate as route_gate
+from .set_route import phrases as route_phrases
 from .tools import ToolContext
 from .voice import EarsController, Mouth
 from .voice_input import InputBinding, KeyCaptureDialog
@@ -278,8 +279,9 @@ class _AssistantBody:
         self._btn_calibrate.setToolTip(
             "3-click calibration of the in-game route setter: where the game's star map "
             "has its search bar, its first result and its centre.\n"
+            "Or say \"calibrate star map\": it then talks you through the clicks.\n"
             "Open Star Citizen first. This was Calibrate Star Map in the Star Map tool.")
-        self._btn_calibrate.clicked.connect(self._calibrate_route)
+        self._btn_calibrate.clicked.connect(lambda _c=False: self._calibrate_route())
         route_row.addWidget(self._btn_calibrate)
         route_row.addStretch(1)
         self.content_layout.addLayout(route_row)
@@ -461,6 +463,9 @@ class _AssistantBody:
         if _STOP_LISTENING.match(text or ""):
             self._stop_listening()
             return
+        if route_phrases.is_calibrate(text):
+            self._calibrate_by_voice()
+            return
         self._set_status("thinking…")
         self._run_turn(text)
 
@@ -508,7 +513,7 @@ class _AssistantBody:
             self._btn_game.setChecked(on)
             self._btn_game.blockSignals(False)
 
-    def _calibrate_route(self) -> None:
+    def _calibrate_route(self, begin: bool = False) -> None:
         """The in-game macro's 3-click calibration. This is the only button that
         opens it: the Star Map's "Calibrate Star Map" moved here (J, 2026-10-04).
 
@@ -517,16 +522,64 @@ class _AssistantBody:
         nothing from the toolbox's Star Map tool. The positions are saved where
         they always were (tools/set_route_ai/data/mouse_calibration.json, shared
         with the WingmanAI skill), so an existing calibration keeps working."""
+        open_dlg = getattr(self, "_cal_dlg", None)
+        if open_dlg is not None:            # already open (a second request queued behind the first)
+            if begin:
+                open_dlg.begin()
+            return
         try:
             from .set_route.route_setter import RouteCalibrationDialog
         except ImportError as exc:
             self._set_status("calibration unavailable: %s" % exc)
             return
-        dlg = RouteCalibrationDialog(self)
-        if dlg.exec() and dlg.result_ready:
+        # The dialog opens on step 0, "Click on the game and say 'calibrate star map' to begin." (J, 2026-10-04),
+        # and watches nothing until _calibrate_by_voice hears that, or its Begin button is pressed. Its prompts
+        # are spoken through _speak: the same path as every reply, so Voice Replies decides whether they are
+        # heard and the ears are warned before each one (an always-open mic would otherwise hear the prompt).
+        dlg = RouteCalibrationDialog(self, speak=self._speak, mic_hint=self._mic_hint(), begin=bool(begin))
+        self._cal_dlg = dlg
+        try:
+            ok = dlg.exec() and dlg.result_ready
+        finally:
+            self._cal_dlg = None
+        if ok:
             self._set_status("route setter calibrated")
         else:
             self._set_status("calibration cancelled")
+
+    def _calibrate_by_voice(self) -> None:
+        """"Calibrate star map" was heard.
+
+        With the dialog showing its first step, that is the cue it is waiting for. With no dialog, he has already
+        said the words: open it and start straight away. The dialog is modal and its exec() does not return until
+        it closes, so it is opened from the event loop, not from inside the slot the transcript arrived on."""
+        dlg = getattr(self, "_cal_dlg", None)
+        if dlg is not None:
+            dlg.begin()
+            return
+        QTimer.singleShot(0, lambda: self._calibrate_route(begin=True))
+
+    def _mic_hint(self) -> str:
+        """One line for the dialog's first step: can he be heard right now, and how. "" when he simply can."""
+        use_begin = " Press Begin instead."
+        try:
+            from . import missing_voice_deps
+            missing = list(missing_voice_deps() or [])
+        except Exception:                   # noqa: BLE001 - cannot tell: say nothing rather than guess
+            missing = []
+        if missing:
+            return "Voice input is not installed (missing: " + ", ".join(missing) + ")." + use_begin
+        if not getattr(self, "_mic_mine", True):
+            return "The microphone is with the other tab right now." + use_begin
+        ears = self._ears
+        if ears.mode() == "always":
+            return "" if ears.armed() else "The microphone is off." + use_begin
+        b = ears.binding()
+        if b is None:
+            return "No mic key is set, so I cannot hear you." + use_begin
+        if not ears.armed():
+            return "The microphone is off." + use_begin
+        return "Hold " + b.describe() + " while you say it."
 
     def _on_failed(self, err: str) -> None:
         self._lbl_reply.setText("AI: error — " + err)

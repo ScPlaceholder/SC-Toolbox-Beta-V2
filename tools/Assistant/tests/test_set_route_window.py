@@ -135,7 +135,7 @@ _PROBE = textwrap.dedent(r'''
     dialogs = []
     class Dialog:
         result_ready = True
-        def __init__(self, parent=None): dialogs.append(parent is w)
+        def __init__(self, parent=None, **_kw): dialogs.append(parent is w)
         def exec(self): return 1
     real_dialog = route_setter.RouteCalibrationDialog
     out["real_dialog"] = [real_dialog.__module__, real_dialog.__name__]

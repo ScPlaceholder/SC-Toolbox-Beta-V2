@@ -29,6 +29,34 @@ _SET = re.compile(r"^(?:set (?:the |a )?route to|navigate to|set (?:a )?course t
 _BARE = re.compile(r"^route to (\S.*)$")
 
 
+#: "calibrate star map" (J, 2026-10-04): starts the in-game route setter's
+#: calibration. The whole utterance, not its start: "how do I calibrate the
+#: star map" is a question for the assistant, not the command.
+#: Spellings: Whisper writes the map as "star map", "starmap" or "Star Map"
+#: (clean() lowers it and drops the punctuation), and "star" is commonly heard
+#: as "start". "Route" is the name on the button (Calibrate Route).
+_CALIBRATE = re.compile(
+    r"^(?:(?:start|begin|run|do) (?:the |a )?)?"
+    r"(?:re ?)?calibrat(?:e|ion)(?: of)?"
+    r"(?: (?:the |my )?(?:in game )?"
+    r"(?:star ?t? ?maps?(?: route)?|route(?: setter)?|map))?"
+    r"(?: please| now)?$")
+
+
+def is_calibrate(utterance: str) -> bool:
+    """True for "calibrate star map" and the ways it is said and heard:
+
+        "calibrate star map"    "calibrate starmap"     "calibrate the star map"
+        "calibrate route"       "calibrate the route"   "recalibrate the star map"
+        "calibrate start map"   "calibrate"             "start calibration"
+        "star map, calibrate"   "please calibrate the star map"
+    """
+    t = clean(utterance)
+    if not t:
+        return False
+    return bool(_CALIBRATE.match(t) or _CALIBRATE.match(t[_PREFIX.match(t).end():]))
+
+
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", _CLEAN.sub(" ", (text or "").lower())).strip()
 

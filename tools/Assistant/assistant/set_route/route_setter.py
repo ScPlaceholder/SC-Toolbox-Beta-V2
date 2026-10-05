@@ -26,7 +26,7 @@ import time
 from typing import Callable, Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout
 
 from shared.qt.theme import P
 
@@ -290,15 +290,34 @@ class InGameRouteSetter:
 
 
 class RouteCalibrationDialog(QDialog):
-    """3-step click capture for the in-game route setter.
+    """3-step click capture for the in-game route setter, started by voice.
 
-    Mirrors the Wingman skill's calibration:
-      1. open the in-game map (F2), zoom out, LEFT-CLICK the search bar
+    J, 2026-10-04: "Step one for calibrate star map should be 'click on game
+    and say calibrate starmap to begin' then when the user says 'calibrate
+    starmap' it begins the verbal prompts to the user".
+
+      0. "Click on the game and say 'calibrate star map' to begin."
+         NOTHING is watched here: the mouse and keyboard listeners do not
+         exist yet, so the click that gives the game the focus is not a
+         calibration click and cannot become one. begin() ends this step:
+         the Assistant calls it when it hears the phrase (panel.py), and the
+         Begin button calls it for a pilot with no microphone.
+      1. open the in-game map (F2), zoom out, LEFT-CLICK the search bar,
+         ENTER to confirm
       2. search a destination and LEFT-CLICK its result
       3. LEFT-CLICK the centre of the map
 
+    Each of 1-3 is SPOKEN as it begins, through *speak* (the Assistant's own
+    speaking path, which also warns its ears so the line is not heard back as
+    a command), as well as shown: the pilot is looking at the game. Then
+    "Calibration saved." or "Calibration cancelled."
+
     Clicks are captured with a global pynput mouse listener, so the user
     interacts with the GAME while this dialog just watches. Esc cancels.
+
+    *begin* = True starts at step 1 at once (the pilot has already said the
+    words; nothing asked for this dialog by hand), and the dialog then opens
+    without taking the keyboard focus from the game.
     """
 
 
@@ -309,6 +328,19 @@ class RouteCalibrationDialog(QDialog):
     # Step 1 waits for ENTER (J, 2026-09-26). The first click in the game is often only the click that
     # focuses the game window, so taking it as the search-bar position calibrated the wrong spot. Now any
     # number of clicks are allowed in step 1; the most recent one is kept, and Enter confirms it.
+    STEP_0 = "Click on the game and say \"calibrate star map\" to begin."
+
+    # Heard while he is looking at the game: short, one action after another, and none of them contains the
+    # phrase that starts the calibration.
+    SPOKEN = (
+        "Step one. Press F2 for the star map and zoom out. Left click the search bar, then press Enter.",
+        "Step two. Type a destination in your current system, then left click its result.",
+        "Step three. Left click the centre of the map.",
+    )
+    SAID_SAVED = "Calibration saved."
+    SAID_NOT_SAVED = "The calibration could not be saved."
+    SAID_CANCELLED = "Calibration cancelled."
+
     _STEPS = (
         "Step 1 of 3: in the game, press F2 to open the starmap and\n"
         "zoom out with the mouse wheel. Click into the game if you need to,\n"
@@ -318,11 +350,21 @@ class RouteCalibrationDialog(QDialog):
         "Step 3 of 3: LEFT-CLICK the centre of the map.",
     )
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, speak: Optional[Callable[[str], None]] = None, mic_hint: str = "",
+                 begin: bool = False) -> None:
         super().__init__(parent)
         self.result_ready = False
         self._points = []
         self._listener = None
+        self._kb_listener = None
+        self._pending = None          # step 1's most recent click, confirmed by Enter
+        self._speak_fn = speak
+        self._begun = False           # False = step 0: nothing is watched
+        self._closing_said = False
+        self._spoken_steps = set()
+        if begin:
+            # Opened because he SAID it, with the game in front: do not take the keyboard from the game.
+            self.setAttribute(Qt.WA_ShowWithoutActivating, True)
 
         self.setWindowTitle("Calibrate route setter")
         self.setModal(True)
@@ -337,6 +379,16 @@ class RouteCalibrationDialog(QDialog):
         self._label.setStyleSheet(
             f"color: {P.fg}; font-family: Consolas; font-size: 10pt;")
         lay.addWidget(self._label)
+        # step 0 only: how the microphone is set right now, and the way in without one
+        self._mic = QLabel(mic_hint or "")
+        self._mic.setWordWrap(True)
+        self._mic.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
+        self._mic.setVisible(bool(mic_hint))
+        lay.addWidget(self._mic)
+        self._btn_begin = QPushButton("Begin")
+        self._btn_begin.setToolTip("Start without saying it (no microphone, or the mic is off).")
+        self._btn_begin.clicked.connect(lambda _c=False: self.begin())
+        lay.addWidget(self._btn_begin)
         hint = QLabel("Esc cancels. Clicks are captured from anywhere on screen.")
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {P.fg_dim}; font-size: 8pt;")
@@ -351,21 +403,50 @@ class RouteCalibrationDialog(QDialog):
             ok = False
         if not ok:
             self._label.setText("Calibration needs pynput (pip install pynput).")
+            self._btn_begin.setEnabled(False)
         else:
             self.stepCaptured.connect(self._on_step_captured)
             self.clickSeen.connect(self._on_click_seen)
             self.enterPressed.connect(self._on_enter)
-            self._pending = None          # step 1's most recent click, confirmed by Enter
-            self._kb_listener = None
+            self._label.setText(self.STEP_0)
+            if begin:
+                self.begin()
+
+    def begun(self) -> bool:
+        """False while step 0 is showing (nothing is being watched yet)."""
+        return self._begun
+
+    def begin(self) -> bool:
+        """Leave step 0: start watching the mouse and keyboard, show and speak step 1.
+
+        Called when the phrase is heard and by the Begin button. Once: saying it again mid-calibration (or the
+        speakers being heard) does nothing. False when it did not start anything."""
+        if self._begun or self._mouse_mod is None:
+            return False
+        self._begun = True
+        self._btn_begin.setVisible(False)
+        self._mic.setVisible(False)
+        if self._start_listener():
             self._show_step()
-            self._start_listener()
+        return True
+
+    def _say(self, text: str) -> None:
+        if self._speak_fn is None:
+            return
+        try:
+            self._speak_fn(text)
+        except Exception as exc:       # noqa: BLE001 - a prompt that cannot be spoken is still on screen
+            _log.warning("calibration: could not speak %r (%s: %s)", text, type(exc).__name__, exc)
 
     def _show_step(self) -> None:
         i = len(self._points)
         if i < len(self._STEPS):
             self._label.setText(self._STEPS[i])
+            if i not in self._spoken_steps:     # each step's line once, however often its text is redrawn
+                self._spoken_steps.add(i)
+                self._say(self.SPOKEN[i])
 
-    def _start_listener(self) -> None:
+    def _start_listener(self) -> bool:
         mouse = self._mouse_mod
 
         def on_click(x, y, button, pressed):
@@ -391,7 +472,7 @@ class RouteCalibrationDialog(QDialog):
         except Exception:
             self._listener = None
             self._label.setText("Could not start the global click listener.")
-            return
+            return False
         # ENTER is pressed in the GAME, which has focus, so it needs a global keyboard listener too.
         try:
             from pynput import keyboard
@@ -405,6 +486,7 @@ class RouteCalibrationDialog(QDialog):
             self._kb_listener.start()
         except Exception:
             self._kb_listener = None
+        return True
 
     def _on_click_seen(self, x: int, y: int) -> None:
         if not self._points:
@@ -432,6 +514,8 @@ class RouteCalibrationDialog(QDialog):
             self.result_ready = True
         except Exception:
             self.result_ready = False
+        self._closing_said = True
+        self._say(self.SAID_SAVED if self.result_ready else self.SAID_NOT_SAVED)
         self.accept()
 
     def keyPressEvent(self, ev) -> None:
@@ -460,6 +544,10 @@ class RouteCalibrationDialog(QDialog):
 
     def reject(self) -> None:
         self._stop_listener()
+        # Said only for a calibration that had begun: closing step 0 has nothing to cancel out loud.
+        if self._begun and not self._closing_said:
+            self._closing_said = True
+            self._say(self.SAID_CANCELLED)
         super().reject()
 
     def accept(self) -> None:
