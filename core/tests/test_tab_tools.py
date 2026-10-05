@@ -6,8 +6,10 @@ under the tool".  SuitMk2 is now a tab of the Toolbox Assistant window.  For the
     the tile        one tile (Toolbox Assistant); SuitMk2 is declared hidden
     the process     ONE process, the host's; SuitMk2 gets none of its own (two would be two companions
                     reading the same Game.log and fighting over one model service)
-    Ctrl+3          opens the window on the Assistant tab      {"type": "show", "tab": "assistant"}
-    Ctrl+2          opens the same window on the SuitMk2 tab   {"type": "show", "tab": "suitmk2"}
+    Ctrl+3          the window, on the Assistant tab           {"type": "toggle", "tab": "assistant"}
+    Ctrl+2          the same window, on the SuitMk2 tab        {"type": "toggle", "tab": "suitmk2"}
+                    (the window shows, switches or hides from what it really is; what it does with each is
+                    tested with the real window in tools/Assistant/tests/test_hub_window.py)
     preload         SuitMk2 still asks for it; what starts hidden is the window it is a tab of
     Settings        a tool switched off there does not come back as a tab (env SC_TOOLBOX_TABS_OFF)
     IPC             launch_skill / toggle_skill naming SuitMk2 reach the host, on its tab
@@ -222,17 +224,27 @@ def _running_mp():
     return mp, sent
 
 
-def test_toggle_tab_shows_the_tab_then_hides_only_from_that_tab():
+def test_toggle_tab_asks_the_window_and_keeps_its_own_guess_of_the_result():
     mp, sent = _running_mp()
     mp.toggle_tab("assistant")                  # Ctrl+3: hidden -> shown on Assistant
-    assert sent == [{"type": "show", "tab": "assistant"}] and mp.visible
+    assert sent == [{"type": "toggle", "tab": "assistant"}] and mp.visible
     mp.toggle_tab("suitmk2")                    # Ctrl+2 while the Assistant tab is up: switch, do NOT hide
-    assert sent[-1] == {"type": "show", "tab": "suitmk2"} and mp.visible
+    assert sent[-1] == {"type": "toggle", "tab": "suitmk2"} and mp.visible
     mp.toggle_tab("suitmk2")                    # Ctrl+2 again: now it hides
-    assert sent[-1] == {"type": "hide"} and not mp.visible
+    assert sent[-1] == {"type": "toggle", "tab": "suitmk2"} and not mp.visible
     mp.toggle_tab("assistant")
-    assert sent[-1] == {"type": "show", "tab": "assistant"} and mp.visible
+    assert sent[-1] == {"type": "toggle", "tab": "assistant"} and mp.visible
     assert len(sent) == 4
+
+
+def test_toggle_tab_never_decides_to_hide_from_its_own_record():
+    """The launcher's record says "shown, on the Assistant tab"; the user may have closed the window with its X or
+    clicked the other tab since, and nothing told the launcher. A "hide" sent on that record did nothing in the
+    first case and hid the window in the second (seen live, 2026-10-04)."""
+    mp, sent = _running_mp()
+    mp._visible, mp._tab = True, "assistant"
+    mp.toggle_tab("assistant")
+    assert sent == [{"type": "toggle", "tab": "assistant"}], sent
 
 
 def test_show_tab_never_hides():
@@ -260,4 +272,4 @@ def test_a_hotkey_pressed_while_the_tool_is_not_running_starts_it_on_that_tab():
     assert started == [1]
     assert sent == [{"type": "show", "tab": "suitmk2"}], "the new window was not told which tab was asked for"
     mp.toggle_tab("suitmk2")
-    assert sent[-1] == {"type": "hide"}
+    assert sent[-1] == {"type": "toggle", "tab": "suitmk2"}

@@ -320,11 +320,26 @@ class ManagedProcess:
 
     # ── Tabs ─────────────────────────────────────────────────────────────
     # A tool whose window has tabs (the Toolbox Assistant: Assistant + SuitMk2)
-    # is one process reached by several hotkeys, one per tab. The command is
+    # is one process reached by several hotkeys, one per tab. show_tab sends
     # the ordinary "show" with the tab's key added; a tool without tabs never
-    # gets one. The launcher cannot see a tab clicked inside the window, so
-    # ``_tab`` is the last tab IT asked for: after such a click, the hotkey of
-    # the tab now in front costs one extra press before it hides the window.
+    # gets one.
+    #
+    # A hotkey or the tile is toggle_tab, and what it sends to a running
+    # window is {"type": "toggle", "tab": <key>}: the WINDOW decides whether
+    # that shows, switches tab or hides, from what it really is (hidden, or
+    # which tab is in front). The launcher cannot decide it: the X on the
+    # window and a click on a tab both happen in the tool's process and
+    # nothing tells the launcher. When it decided from its own record
+    # (``_visible``, ``_tab``) it sent "hide" to a window the user had already
+    # closed with X (the press did nothing), and "hide" when the user had
+    # clicked the other tab and pressed this tab's hotkey to come back (the
+    # window vanished). Both seen on a real launcher, 2026-10-04.
+    #
+    # ``_visible`` and ``_tab`` are still kept, as the launcher's best guess:
+    # the tile's state and the launcher's own auto-hide read ``visible``. They
+    # are right whenever the user has only used the hotkeys and the tile, and
+    # can be one step behind after an X or a click on a tab, exactly as
+    # ``_visible`` already is for every tool whose X hides its window.
 
     def show_tab(self, tab: str) -> None:
         """show(), on one tab. Starts the process if needed, and the tab
@@ -337,8 +352,10 @@ class ManagedProcess:
             self._tab = tab
 
     def toggle_tab(self, tab: str) -> None:
-        """toggle(), per tab: hide only when the window is showing THIS tab;
-        otherwise show the window on it."""
+        """toggle(), per tab: the window hides only when it is showing THIS
+        tab; otherwise it shows itself on it. The window makes that choice
+        (see the note above); a window that had to be started is told "show"
+        instead, because it comes up shown and a toggle would hide it."""
         with self._lock:
             if not self.running:
                 # If we had a process that died unexpectedly, record the crash
@@ -348,11 +365,10 @@ class ManagedProcess:
                     self._send_unlocked({"type": "show", "tab": tab})
                     self._tab = tab
                 return
+            self._send_unlocked({"type": "toggle", "tab": tab})
             if self._visible and self._tab == tab:
-                self._send_unlocked({"type": "hide"})
                 self._visible = False
             else:
-                self._send_unlocked({"type": "show", "tab": tab})
                 self._visible = True
                 self._tab = tab
 

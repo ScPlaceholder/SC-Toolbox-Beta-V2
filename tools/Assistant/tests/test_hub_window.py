@@ -400,6 +400,83 @@ def test_show_without_a_tab_or_with_an_unknown_one_keeps_the_tab_in_front(app):
     assert built == ["assistant"] and mic.on == {"assistant"}
 
 
+# ── the launcher's hotkeys, against what the user did inside the window ──────
+# The launcher cannot see the X or a click on a tab: both happen in this process. Live on J's launcher,
+# 2026-10-04 21:10 and 21:13 (the tile is the same launcher call as the hotkey, _toggle_skill):
+#     X on the window, then the tile                        -> nothing happened; a second click opened it
+#     the tile, a click on "Suit Mk2", then the tile again  -> the window HID instead of going to the Assistant
+# In both the launcher had sent {"type": "hide"}, from its own record of the window (shown, on the Assistant tab),
+# which the X and the click had made wrong. These drive the launcher's REAL ManagedProcess.toggle_tab and hand what
+# it sends straight to the window, as the command file does.
+
+def _launcher_for(w):
+    from unittest.mock import MagicMock
+    from core.process_manager import ManagedProcess
+    mp = ManagedProcess(skill_id="assistant", python_exe="python", script="x.py", cwd=".", args=[], base_dir=".")
+    proc = MagicMock(spec=subprocess.Popen)
+    proc.poll.return_value = None
+    proc.pid = 4242
+    mp._proc = proc
+    mp._cmd_file = "cmd.jsonl"
+    mp._visible = False                         # the preload state: running, hidden
+    sent = []
+
+    def send(cmd):
+        sent.append(cmd)
+        w.handle_ipc_command(cmd)
+        return True
+
+    mp._send_unlocked = send
+    return mp, sent
+
+
+def test_the_hotkey_after_the_close_button_opens_the_window_at_the_first_press(app):
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)
+    mp, sent = _launcher_for(w)
+    mp.toggle_tab("assistant")                              # Ctrl+3
+    assert w.isVisible() and w.current_tab() == "assistant"
+    w._on_close()                                           # the X: hidden, and the launcher is not told
+    assert w.isHidden()
+    mp.toggle_tab("assistant")                              # Ctrl+3 again
+    assert w.isVisible() and w.current_tab() == "assistant",         "Ctrl+3 after the X did nothing: the launcher sent %r to a window that was already hidden" % (sent[-1],)
+
+
+def test_the_other_tabs_hotkey_after_a_click_on_a_tab_goes_to_that_tab(app):
+    w, mic, _built = make_hub(first="suitmk2", standalone=False)
+    mp, sent = _launcher_for(w)
+    mp.toggle_tab("assistant")                              # Ctrl+3
+    w._buttons["suitmk2"].click()                           # he clicks the Suit Mk2 tab
+    assert w.isVisible() and w.current_tab() == "suitmk2"
+    mp.toggle_tab("assistant")                              # Ctrl+3: he wants the Assistant back
+    assert w.isVisible() and w.current_tab() == "assistant",         "Ctrl+3 from the Suit Mk2 tab hid the window instead of opening the Assistant (sent %r)" % (sent[-1],)
+    assert mic.on == {"assistant"} and mic.most == 1
+
+
+def test_the_front_tabs_hotkey_after_a_click_on_a_tab_hides_at_the_first_press(app):
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)
+    mp, sent = _launcher_for(w)
+    mp.toggle_tab("assistant")                              # Ctrl+3
+    w._buttons["suitmk2"].click()                           # he clicks the Suit Mk2 tab
+    mp.toggle_tab("suitmk2")                                # Ctrl+2, the tab he is looking at
+    assert w.isHidden(), "Ctrl+2 on the Suit Mk2 tab did not hide the window (sent %r)" % (sent[-1],)
+    mp.toggle_tab("suitmk2")
+    assert w.isVisible() and w.current_tab() == "suitmk2"
+
+
+def test_the_hotkeys_with_nothing_done_inside_the_window_are_as_before(app):
+    w, mic, _built = make_hub(first="suitmk2", standalone=False)
+    mp, _sent = _launcher_for(w)
+    mp.toggle_tab("assistant")                              # hidden -> the Assistant
+    assert w.isVisible() and w.current_tab() == "assistant"
+    mp.toggle_tab("suitmk2")                                # the other tab: switch, do not hide
+    assert w.isVisible() and w.current_tab() == "suitmk2"
+    mp.toggle_tab("suitmk2")                                # the same tab: hide
+    assert w.isHidden() and w.current_tab() == "suitmk2"
+    mp.toggle_tab("assistant")                              # hidden -> the Assistant
+    assert w.isVisible() and w.current_tab() == "assistant"
+    assert mic.most == 1
+
+
 def test_the_close_button_hides_under_the_launcher_and_quits_by_hand(app, monkeypatch):
     quits = []
     monkeypatch.setattr(hub.QApplication, "quit", staticmethod(lambda: quits.append(1)))

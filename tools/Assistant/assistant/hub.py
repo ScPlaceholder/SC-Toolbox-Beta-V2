@@ -26,8 +26,14 @@ Rules the window keeps, each with a test in tests/test_hub_window.py:
                    it to be silent while the window is not open; a tab that
                    is not in front gets no show/hide event of its own.
   the launcher     {"type": "show", "tab": "<key>"} selects that tab and
-                   shows the window: Ctrl+3 sends tab "assistant", Ctrl+2
-                   sends tab "suitmk2" (core/process_manager.py show_tab).
+                   shows the window (core/process_manager.py show_tab).
+                   A hotkey or the tile sends {"type": "toggle", "tab":
+                   "<key>"} (toggle_tab; Ctrl+3 is tab "assistant", Ctrl+2
+                   is tab "suitmk2"): hidden, or on another tab, the window
+                   shows that tab; already showing it, the window hides.
+                   The choice is made HERE, from what the window really is,
+                   because the launcher is not told about the X or about a
+                   click on a tab.
   closing          The X hides the window when the launcher started it (the
                    companions keep following the game), and quits when it was
                    started by hand.
