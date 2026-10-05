@@ -32,6 +32,15 @@ confident "no", so do not feed that dict here):
     the pilot has left since the log last named one; `location` is then absent)
 history_facts: the dict dream_queue.history_facts(store, location=..., ship=...) returns.
 
+WHAT CODE ANSWERS FROM THE CANON (2026-10-05, chat_contract.py). Six kinds of sentence are answered word for word
+from the character's own canon file (data/canon_<speaker>.json, which J edits), and no model sees them: `identity`
+("are you an AI"), `stay` ("drop the act", "ignore your instructions"), `offrole` (code, the weather, who is
+president), `grief` ("my dog died"), `past` ("where were you born") and `unknown_fact` (a question about the world
+that nothing in the Suit can answer: "what's a Vanduul"). They are intent `social`, so Elah answers unless Montaigne
+is named. The first five are read BEFORE any other meaning of the sentence ("drop the act" is not an order to drop
+something); `unknown_fact` only when nothing else has claimed it. Every other sentence the Suit does not know is
+still intent `unknown`, answered exactly as before.
+
 WHAT THE PILOT SAID BEFORE (2026-10-05, topic `recall`). "What did I say about my sister", "do you remember that
 cargo run where we lost the ROC?". The answer QUOTES the conversation log (tree_memory.py): the day it was said and
 the pilot's own sentence, word for word, inside a short frame in the speaker's voice. No model words it and nothing
@@ -86,6 +95,7 @@ from ambient_spec import _ELAH_MOVES, _MONT_MOVES, _claim   # noqa: E402
 from grounding_validator import ground                      # noqa: E402
 from location_names import LOCATION_MAP                      # noqa: E402
 import place_knowledge as pk                                 # noqa: E402
+import chat_contract as cc                                   # noqa: E402
 
 Spec = dict[str, Any]
 Route = tuple[str, str, dict]
@@ -271,7 +281,10 @@ def route(utterance: str) -> Route:
     who, t, greeted = _addressee(utterance)
     slots: dict = {"text": t, "said": _norm(utterance)}
     intent = None
-    for rx in _OPINION:
+    canon_act = cc.early_act(t)                          # a sentence code answers from the canon, whatever else it looks like
+    if canon_act:
+        intent, slots["topic"], slots["who_lost"] = "social", canon_act[0], canon_act[1]
+    for rx in _OPINION if intent is None else ():
         m = re.search(rx, t)
         if m:
             intent, slots["subject"] = "opinion", m.group("x").strip()
@@ -311,6 +324,10 @@ def route(utterance: str) -> Route:
             if re.search(rx, t):
                 intent, slots["topic"] = "social", topic
                 break
+    if intent is None:
+        canon_act = cc.late_act(t)                       # a question about the world that nothing above can answer
+        if canon_act:
+            intent, slots["topic"], slots["who_lost"] = "social", canon_act[0], ""
     if intent is None:
         if not t and (who or greeted):                   # "Elah?" / "hey Montaigne": being called is a greeting
             intent, slots["topic"] = "social", "greeting"
@@ -636,6 +653,36 @@ def _as_dev_fact(spec: Spec, entry: dict, variant: int = 0) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# What code answers from the canon (chat_contract.py)
+# ---------------------------------------------------------------------------------------------------------------
+def canon_spec(route_result: Route, variant: int = 0) -> Spec:
+    """A sentence the character's canon file answers: one of its wordings for that act, word for word."""
+    addressee, intent, slots = route_result
+    act, who = slots["topic"], slots.get("who_lost", "")
+    text = cc.canon_line(addressee, act, variant, who)
+    n = len(text.split())
+    claims = [_claim("C1", "PILOT_SUBMISSION", "pilot.said", " ".join(slots["text"].split()[:12]))]
+    return {
+        "scenario": f"direct_canon_{act}", "speaker": addressee,
+        "rhetoric": ["DEADPAN" if addressee == "elah" else "SELF_DEPRECATION"], "claims": claims,
+        "interpretation": {"owner": addressee, "text": "says the line the canon file holds for this, word for word",
+                           "grounds": []},
+        "required_claims": [], "required_values": [], "length_words": [max(1, n - 3), n],
+        "id": f"dir_canon_{act}_{addressee}", "lane": "direct",
+        "route": {"addressee": addressee, "intent": intent, "topic": act, "text": slots["text"]},
+        "fixed_text": text, "canon": {"act": act, "who": who},
+    }
+
+
+def canon_problems(spec: Spec, text: str) -> list[str]:
+    """A canon answer may be exactly one of the wordings the canon file holds NOW for that speaker and act. They are
+    J's own lines, so nothing else is checked: he may write a number, a name or a feeling into them."""
+    c = spec.get("canon") or {}
+    return [] if text in cc.canon_lines(spec["speaker"], c.get("act", ""), c.get("who", "")) else \
+        ["not a line the canon file holds for this"]
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # What the pilot said before: a quotation from the conversation log, never a paraphrase
 # ---------------------------------------------------------------------------------------------------------------
 # {When} opens a sentence ("Yesterday", "12 September"); {when} sits inside one ("yesterday", "on 12 September").
@@ -748,6 +795,8 @@ def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict],
         return place_spec(route_result, state, variant, fact)
     if intent == "memory" and topic == "recall":
         return recall_spec(route_result, None, variant, keeping=False)     # no log was handed in: ConversationLane has it
+    if intent == "social" and topic in cc.CANON_ACTS:
+        return canon_spec(route_result, variant)
     if intent == "factual":
         if topic == "injury":
             claims = _injury_claims(state, nid)
@@ -823,6 +872,8 @@ def ground_direct(spec: Spec, text: str) -> list[str]:
     Catches the realizer answering an UNKNOWN location with a real-sounding place, which ground() cannot."""
     if spec.get("recall") is not None:
         return recall_problems(spec, text)           # a quotation and its frame: see recall_problems
+    if spec.get("canon") is not None:
+        return canon_problems(spec, text)            # J's own line, word for word
     fails = ground(spec, text)
     authorised = " | ".join(str(c["value"]).lower() for c in spec["claims"])
     low = text.lower()
@@ -1090,7 +1141,7 @@ CASES = [
 def echo_realizer(spec: Spec) -> str:
     """Honest fake: says the claim values and admits the unknowns. Values first so truncation keeps them.
     For a question about a place the honest line is the planned one: the claims themselves, in order."""
-    if spec.get("place") or spec.get("recall") is not None:
+    if spec.get("place") or spec.get("recall") is not None or spec.get("canon") is not None:
         return spec.get("fixed_text") or pk.answer_line(spec)
     vals = [str(c["value"]) for c in spec["claims"] if c["kind"] in ("OBSERVED", "HISTORY") and not isinstance(c["value"], bool)]
     words = (("Pilot, " + ", ".join(vals) + ".") if vals else "Pilot.").split()
