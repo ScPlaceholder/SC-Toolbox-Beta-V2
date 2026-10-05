@@ -1,0 +1,761 @@
+"""banter_memory.py - WHAT A COMPANION MAY BRING UP UNASKED, and nothing else (J, 2026-10-05).
+
+The conversation memory (tree_memory.py) keeps every sentence the pilot said, and when it picks what a session
+holds on to it favours the personal ones ("I hate", "I miss", "my sister"). That is right for its job: quoting the
+pilot back when the PILOT asks "what did I say about X". It is the wrong list to banter from. J: "Last thing we
+need is Montaigne obsessing about someone's dead dog or Elah beating a player over the head because someone's
+fiance left them."
+
+So this module is a narrow, READ-ONLY door beside the tree. It never writes, filters or deletes the log. It answers
+one question: of the things the pilot said earlier, which one may a companion raise without being asked?
+
+THE RULE IS AN ALLOW-LIST. A sentence is offered only when plain code positively recognises it as one of:
+
+    ship       the pilot's ship, gear or loadout
+    place      where they like to fly, or a place in the game
+    plan       a plan or goal in the game
+    taste      a like, a dislike, a running joke or a story about game things
+    remember   something they explicitly asked to have remembered (and that is about the game)
+
+Not recognised means not offered. "Recognised" is strict on purpose, because the talk-kind router in
+chat_contract.py was measured finding 5 of 9 feeling turns: spotting the sensitive thing and blocking it leaks.
+Here a sentence has to get through FOUR gates, and every one of them fails closed:
+
+  1. EVERY WORD IS KNOWN. Each word must be in the game vocabulary or the small plain-English list below. "He",
+     "she", "him", "her", every word for a relative, a pet, a job, an illness, a bill, and every name the lists do
+     not hold (Dave, Biscuit) are simply not in them, so a sentence containing one is refused without anyone having
+     had to think of it. This gate carries most of the weight.
+  2. A GAME THING IS NAMED: a ship, a place, a piece of gear or a game word. Where a sentence has several parts
+     ("..., because ...", "... so ...") a part in which the pilot speaks about themselves needs a game thing of its
+     own. "I'm saving for a Carrack because I need something to look forward to" fails on its second half.
+  3. "MY ..." AND "OUR ..." POINT AT A GAME THING. "My Cutlass", "my loadout", "my favourite station" pass; "my
+     back", "my time", "my place" do not.
+  4. THE VETO. A second, smaller gate of sensitive topics that refuses even a sentence that names a ship or a
+     plan: death and grief, illness and health, a breakup or relationship trouble, family and pets, real money,
+     work, real-world events, a named real person, and jokes that are not jokes. "I'm saving for a Cutlass because
+     my dad left me some money when he died" is refused several times over. An explicit "remember this" does NOT
+     get past the veto: the pilot can still have it back by asking, which is tree_memory's path and not this one.
+
+RAISE-ONCE, FADING, FORGET. BanterMemory hands out each sentence at most once (max_offers, default 1), nothing
+older than max_age_days (default 21) and nothing younger than min_age_minutes (default 10, so a companion does not
+echo what was said a moment ago). forget() marks the last offered sentence, or one matching some words, as never to
+be offered again. All of that lives in its own small file beside the log (banter_state.json in the tree folder).
+The state holds ids, times and hashes, never the pilot's words. If the state file exists and cannot be read,
+nothing is offered: a "forget that" must not come undone because a file was damaged.
+
+    classify(text: str) -> dict        {"offer": bool, "kind": str, "why": str}
+                                       kind is one of KINDS when offer is True; otherwise "vetoed" (a sensitive
+                                       topic was found) or "unrecognised" (it was not positively recognised).
+                                       Pure, no state, never raises.
+    BanterMemory(store).next_offer()   the next sentence a companion may raise, or None
+    BanterMemory(store).forget()       never offer the last one (or a matching one) again
+
+NOT WIRED IN. Nothing calls this module yet: not conversation.py, not companion_core.py, not chat_contract.py, not
+tree_memory.py, not the settings or the windows. It imports nothing from this folder except tree_memory inside
+open_banter(). No model, no network.
+
+WHAT IT CANNOT DO, AND HOW FAR TO TRUST THE NUMBER. A sentence made only of plain words and a ship name can
+still carry something this code does not see ("It's the Zeus or the heating this month"). On the dev set
+(tests/data/banter_memory_dev.jsonl, 185 sentences, written BEFORE the filter) no must-refuse sentence is offered
+and 3 of the 82 safe ones are missed. That zero is weak evidence: the sentences and the patterns have one author.
+Two further batches were written afterwards in other wording, as hard as could be made, and scored before any
+fix: the first leaked 14 of 55 and missed 11 of 30 safe ones, the second (after fixing what the first showed)
+leaked 3 of 40 and missed 11 of 30. Both were then used to fix what was general in them, so they are spent too.
+Expect a held-out set to leak a few of the quiet, wordless kind, and to miss perhaps a third of ordinary talk.
+
+Selftest: python banter_memory.py --selftest
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Callable, Optional
+
+KINDS = ("ship", "place", "plan", "taste", "remember")
+STATE_NAME = "banter_state.json"
+STATE_SCHEMA = "suitmk2.banter.state"
+MAX_AGE_DAYS = 21.0          # fading: older than this is never raised unasked
+MAX_OFFERS = 1               # raise-once
+MIN_AGE_MINUTES = 10.0       # not an echo of what was just said
+MIN_WORDS, MAX_WORDS = 4, 45
+
+# ---------------------------------------------------------------------------------------------------------------
+# The vocabulary. Gate 1 is "every word is in one of these lists". What is NOT here matters as much as what is:
+# no he/she/him/her/his, no word for a person outside the game, no body, no illness, no bill, no job.
+# ---------------------------------------------------------------------------------------------------------------
+# Ship names that are not ordinary English words: one of these is a game thing however it is written.
+SHIP_NAMES = set("""carrack cutlass caterpillar corsair vulture buccaneer dragonfly kraken ironclad gladius avenger
+sabre vanguard retaliator hammerhead idris javelin redeemer reclaimer starfarer hornet terrapin valkyrie
+hurricane ballista gladiator liberator crucible freelancer prospector starlancer endeavor polaris perseus
+constellation andromeda aquila taurus zeus scorpius galaxy hoverquad hercules starlifter ares pisces nursa
+lynx 85x 890 nox khartu santokyai merchantman defender glaive scythe talon prowler railen syulen mustang
+cyclone nautilus merlin archimedes paladin asgard starfighter peregrine legionnaire mpuv srv stv ptv atls
+connie msr herc tali cutty vulcan odyssey harbinger hoplite firebird heartseeker wildfire pitbull
+tumbril greycat aegis anvil aopoa esperia origin misc argo kruger gatac mirai banu crusader rsi roc
+c1 c2 m2 a2 a1 f7a f7c f8c m50 100i 300i 400i 600i 325a 315p 350r 135c 125a c8x c8r p52 p72""".split())
+# Ship names that are also ordinary words. Known words always, but they only count as a game thing when the pilot's
+# sentence writes them with a capital in the middle of a sentence (the same rule as ship_makers.AMBIGUOUS).
+SHIP_AMBIGUOUS = set("""fury spirit storm titan hull mole mule arrow hawk blade pioneer guardian meteor apollo
+eclipse reliant ranger nomad razor herald aurora phoenix mercury genesis fortune pulse nova comet wolf raven
+raft cutter mantis lightning sentinel warden intrepid golem hermes ion inferno expanse drake spartan centurion
+shiv ursa cyclone warlock stalker tracker ghost super black red blue steel white""".split())
+PLACE_NAMES = set("""stanton pyro nyx terra hurston lorville orison arccorp area18 microtech babbage olisar
+grimhex everus harbor harbour baijini tressler seraphim cellin daymar yela aberdeen arial ita magda lyria wala
+calliope clio euterpe klescher levski delamar checkmate orbituary monox terminus jumptown kareah brios shubin
+rayari covalex cryastro platinum lagrange aaronhalo halo magnus cathcart vega odin castra ruinstation""".split())
+# Words that only turn up inside a place name ("New Babbage", "Port Olisar", "Ghost Hollow"): allowed to carry a
+# capital, never a game thing on their own.
+PLACE_GLUE = set("new port point bay city hollow ghost breaker yard".split())
+SHIP_NOUNS = set("""ship fleet fighter hauler freighter bomber gunship snub bike rover buggy vehicle loadout gear
+armor armour helmet undersuit backpack flightsuit gun rifle pistol sniper smg lmg shotgun railgun launcher grenade
+knife multitool tractor medpen medgun ammo mag weapon cannon repeater gatling laser ballistic missile torpedo bomb
+turret shield thruster engine quantum cooler component radar scanner module gadget cockpit paint skin livery
+camper suit beam capacitor powerplant""".split())
+PLACE_NOUNS = set("""station outpost bunker cave moon planet system hangar pad spaceport refinery settlement derelict
+wreck asteroid belt orbit atmosphere armistice tram elevator hab prison gateway depot kiosk terminal ridge base airlock""".split())
+GAME_NOUNS = set("""cargo scu auec uec credit mission contract bounty salvage salvaging mining mined quantanium
+laranite agricium titanium gold scrap rmc cmat hadanite org crew pirate piracy vanduul npc crimestat insurance
+claim patch server wipe mobiglas starmap spool interdiction pledge pledging pledged melt ccu lti warbond
+dogfight dogfighting pvp pve bug desync respawn racing hauling hauled multicrew loot looted medbed timer rank
+rep reputation wingman gunner squad outlaw xenothreat fuel hydrogen refuel rearm restock commodity commodities
+invictus citizencon luminalia hunting hunter rammer rented renting rental beacon smuggle smuggling corpse""".split())
+# Known, but too weak to count as "a game thing was named": a part of a sentence in which the pilot is the subject
+# may lean on one of these, the sentence as a whole may not.
+ACTIVITY = set("""fly flew flown flying land landed landing park parked parking log logged logging haul jump jumped
+jumping spawn spawned dock docked store stored crash crashed session run runs game play played playing sell
+selling sold forgot forget die died""".split())
+GAME_OTHER = set("""pilot captain player enemy team party security trader miner salvager griefer noob swarm wipe
+wiped frame frames fps lag laggy laptop pc rig mouse keyboard joystick hotas stick throttle pedals headset
+monitor screenshot stream discord update hotfix build rammed ram pad glitch clip physics gank ganked snipe sniped ambush camp atc burrito noodles benny galley bunk toilet shower quarters armory locker rack storage inventory container""".split())
+
+PLAIN = set("""
+a an the and or but so if then than that this these those there here it its itself i me my mine myself we us our
+ours you your yours they them their theirs
+is are was were be been being am do does did done doing have has had having will would can could should may might
+must shall not no yes yeah yep nope nah ok okay
+of to in on at for with without by from as about into onto out up down over under off again against around between
+through behind above below near next past across along inside outside before after during until till since while
+because cause cos though although unless whether like
+what which who where when why how whatever whenever wherever however
+all any some every each both either neither none much many more most less least few several enough plenty lot lots
+bit little whole half couple pair double single only just even still already yet ever never always often sometimes
+usually once twice also too very really quite pretty rather almost nearly exactly probably maybe perhaps
+definitely honestly actually basically literally apparently seriously absolutely totally completely properly
+finally eventually suddenly instead anyway else otherwise especially mostly everywhere anywhere somewhere nowhere
+anything
+zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen
+eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million billion k
+first second third fourth fifth last other another same different
+time day night week weekend month year hour minute today tonight tomorrow yesterday now later soon early late
+morning evening afternoon monday tuesday wednesday thursday friday saturday sunday january february march april
+may june july august september october november december lately recently ago someday
+im ive id dont cant wont didnt doesnt isnt arent wasnt werent couldnt wouldnt shouldnt havent hasnt hadnt youre
+youve youll theyre theyve theyll theyd weve well thats theres whats lets itll itd aint gonna wanna gotta kinda
+go went gone going get got gotten make made take took taken give gave given put keep kept let say said tell told
+see saw seen look watch know knew think thought thinking want need love hate prefer enjoy miss hope wish try tried
+use used find found lose lost leave left come came bring brought buy bought pay paid spend spent cost earn
+save saving own have hold held carry carried move moved ran walk sit sat stand stood stay wait start stop finish
+end begin began open close turn pull push drop pick throw threw thrown catch caught hit shoot shot fire fired kill
+die died dead death blow blew blown explode crash break broken fix repair set remember remind note learn join
+help trade race fight fought win won beat chase escape hide hid follow lead led drive drove driven ride rode drift
+float fall fell fallen climb roll slide spin fit swap swapped switch change upgrade equip load unload fill empty
+steal stole stolen rob board dodge track aim lock scan ping search explore discover reach arrive travel cross
+visit show call name mean feel feels felt seem sound handle guess bet reckon swear trust believe agree
+count cool heat overheat burn eat ate eaten wake woke laugh talk ask answer read test plan grind farm survive
+live trap bleed bled disappear wipe add mind bring throws ends goes
+good better best bad worse worst great nice fine awesome amazing brilliant fantastic lovely beautiful gorgeous ugly
+terrible awful horrible rubbish garbage trash useless useful perfect favourite favorite fun funny boring bored
+annoying annoyed stupid silly dumb crazy mad insane ridiculous weird strange odd big small tiny huge massive giant
+large long short tall wide narrow deep high low fast slow quick heavy light hot warm cold hard easy smooth loud
+quiet bright dark full new old fresh spare extra main true false right wrong sure certain ready safe dangerous
+deadly lucky unlucky rich cheap expensive free worth stuck missing alive happy glad proud excited
+angry furious close far distant top bottom front back side middle rear green yellow orange purple pink grey gray
+silver worth short
+thing stuff way place spot part piece kind sort type reason idea goal dream list fund money price deal chance luck
+fault mistake problem issue joke lesson rule trick tip question number code level size speed range distance height
+weight view sight noise colour color shape door floor roof wall window seat bed deck ramp ladder bridge corridor
+room hold bay wing nose tail wheel tank ground air sky cloud sun star space rock ice snow sand dust wind rain
+water smoke gas fog mountain hill valley canyon crater river lake ocean desert forest tree sunrise sunset dawn
+horizon home world universe verse trip tour journey route loop path road train thing mess brick boat bus truck
+beast monster rest record case hand
+lol haha ha hey oh ah wow ugh yikes please thanks damn bloody crap hell fucking freaking
+forever base straight direct total sign area zone bunch box crate power plant battery heat signature stealth armed
+stock class grade military civilian industrial tier version variant model edition interior exterior bag bottle food
+figure realise realize notice decide manage expect suppose imagine wonder check clear cut bounce bump scrape
+scratch dent wreck smash hover glide dive boost strafe stall brake approach depart takeoff touch hail request
+clearance permission tow rescue revive sneak snuck panic panicked eject ejected explosion debris wreckage drive takes
+works working lands flies handles turns looks sounds per
+quit fail succeed afford broke owe cash budget hear listen sense online offline moment ages chat voice comms radio
+music alarm warning button key keybind control setting mode option map marker waypoint course heading altitude
+gravity weather temperature oxygen damage hunger thirst profit margin market demand shop vendor lift glass canopy
+hud mfd screen display target flare chaff countermeasure decoy emp distortion stun trolley cart freight grid stack
+pile panel strut chair table logo flag plushie trophy poster fish bar coffee alpha beta release ptu evocati wave
+queue login error nerf nerfed buff buffed meta balance rework standard devs developer centre center edge corner
+surface underside rounder tired knives immediately barely hardly simply obviously luckily hopefully supposedly
+technically genuinely fully constantly randomly accidentally deliberately solo enough during entire location
+shuttle interdict interdicted overshoot wear wore worn round halfway platform
+""".split())
+
+SHIP_WORDS = SHIP_NAMES | SHIP_NOUNS
+PLACE_WORDS = PLACE_NAMES | PLACE_NOUNS
+GAME_WORDS = SHIP_WORDS | SHIP_AMBIGUOUS | PLACE_WORDS | PLACE_GLUE | GAME_NOUNS | ACTIVITY | GAME_OTHER
+# Describing words that take -er, -est and -ly. Their forms are added to the vocabulary here, so the word lookup
+# never has to guess at those endings.
+_COMPARABLE = """big small tiny huge large long short tall wide narrow deep high low fast slow quick heavy light hot
+warm cold hard easy smooth loud quiet bright dark full new old fresh cheap rich safe close far ugly pretty cute
+nice fine weird strange odd dumb silly crazy mad funny lucky happy angry proper rough tough clean dirty sharp
+instant bad slight quick direct exact complete total absolute definite real""".split()
+_COMPARED = set()
+for _a in _COMPARABLE:
+    if _a == "real":
+        _COMPARED.add("really")
+        continue
+    _b = _a[:-1] + "i" if _a.endswith("y") else _a
+    _dbl = _a + _a[-1] if re.fullmatch(r"[a-z]*[^aeiou][aeiou][bdgmnpt]", _a) else _a
+    _COMPARED |= {_a, _b + "ly"}
+    _COMPARED |= ({_a + "r", _a + "st"} if _a.endswith("e") else
+                  {_b + "er", _b + "est"} if _a.endswith("y") else {_dbl + "er", _dbl + "est"})
+_COMPARED -= {"badder", "baddest", "hardly", "lately", "newly", "richly", "farly", "farer", "farest"}
+_COMPARED |= {"farther", "further", "cutest"}
+VOCAB = PLAIN | GAME_WORDS | _COMPARED
+ANCHORS = SHIP_WORDS | PLACE_WORDS | GAME_NOUNS            # a "game thing"; SHIP_AMBIGUOUS joins only with a capital
+_DAYS = set("monday tuesday wednesday thursday friday saturday sunday january february march april may june july "
+            "august september october november december".split())
+# Place names of two words are read as one ("Grim HEX" -> grimhex), so that "grim", "cry", "ruin" and "Aaron" are
+# not game words on their own. Their halves may still carry a capital.
+_JOINED = {"grim hex": "grimhex", "cry astro": "cryastro", "aaron halo": "aaronhalo", "ruin station": "ruinstation"}
+CAPITAL_OK = GAME_WORDS | _DAYS | {"i", "im", "ive", "id", "ill", "grim", "hex", "cry", "astro", "aaron", "ruin"}
+# After "my" or "our": a describing word is stepped over, then a game thing must follow.
+_MY_ADJ = set("""new old first second third last next main own spare other whole favourite favorite little big best
+worst only trusty current daily poor good bad go to two three four black red blue white steel home""".split())
+_MY_OK = (SHIP_WORDS | SHIP_AMBIGUOUS | PLACE_WORDS | GAME_NOUNS | GAME_OTHER
+          | set("plan goal favourite favorite fault mistake bad idea list guess bet luck own".split()))
+_I_SUBJECT = {"i", "im", "ive", "id", "we", "weve"}
+# Words whose plural-looking form would otherwise be read as a known word ("news" is not "new").
+_NEVER = set("news hers ills wills mays arts".split())
+
+
+def _stems(w: str):
+    """The word, then the plainer forms it could be an ending on (ships -> ship, parked -> park, rammed -> ram,
+    hauling -> haul). Plural and verb endings only. "-er", "-est" and "-ly" are NOT stripped: that turned "letter"
+    into "let" and "news" would have become "new". Comparatives come from _COMPARED, built from a list."""
+    seen = {w}
+    yield w
+    cands = []
+    if w.endswith("ies") or w.endswith("ied"):
+        cands.append(w[:-3] + "y")
+    for suf in ("s", "es"):
+        if w.endswith(suf) and not w.endswith("ss"):
+            cands.append(w[: len(w) - len(suf)])
+    for c in list(cands) + [w]:
+        for suf in ("ed", "d", "ing"):
+            if c.endswith(suf):
+                base = c[: len(c) - len(suf)]
+                cands.append(base)
+                if suf != "d":
+                    cands.append(base + "e")
+                    if len(base) > 3 and base[-1] == base[-2] and base[-1] not in "aeiou":
+                        cands.append(base[:-1])
+    for c in cands:
+        if len(c) >= 3 and c not in seen:
+            seen.add(c)
+            yield c
+
+
+def _in(w: str, group: set) -> bool:
+    return any(s in group for s in _stems(w))
+
+
+def known(word: str) -> bool:
+    """Gate 1 for one word. A number or a model code (C2, 890, FR-86) is known. "I'll" is written out as "i will"
+    before this is asked, so a bare "ill" is the illness and is not known."""
+    if not word:
+        return True
+    if any(ch.isdigit() for ch in word):
+        return True
+    if len(word) == 1:
+        return True
+    if word in _NEVER:
+        return False
+    return _in(word, VOCAB)
+
+
+def _plain(text: str) -> str:
+    """Lower case, no punctuation, one space. "I'll" becomes "i will"; a possessive is split off its word
+    ("mum's" -> "mum s", "no one's" -> "no one s") so the word itself is what gets looked up; the everyday
+    contractions keep their usual apostrophe-less spelling (its, thats, whats, lets, dont, im)."""
+    low = str(text).replace("\u2019", "'").replace("\u2018", "'").lower()
+    low = re.sub(r"\b([a-z]{1,4})-(\d)", r"\1\2", low)                 # FR-86 -> fr86, one word
+    low = re.sub(r"\b([a-z]+)'ll\b", r"\1 will", low)
+    low = re.sub(r"\b(?!(?:it|that|what|let|there|here|who|where|how)'s)([a-z]+)'s\b", r"\1 s", low)
+    out = " ".join(re.sub(r"[^a-z0-9]+", " ", low.replace("'", "")).split())
+    for two, one in _JOINED.items():
+        out = re.sub(r"\b" + two + r"\b", one, out)
+    return out
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Gate 4, the veto: topics that are never raised unasked, whatever else the sentence says. Written against the
+# plain form (lower case, no apostrophes, no punctuation). Most of these words are also simply absent from the
+# vocabulary; they are listed so the refusal can say WHY, and so that a later widening of the vocabulary cannot
+# quietly let one through.
+# ---------------------------------------------------------------------------------------------------------------
+_KIN = (r"mum|mums|mom|moms|mother|mam|dad|dads|father|parents?|brother|sister|sons?|daughters?|kids?|child|children|baby|"
+        r"babies|toddler|wife|husband|partner|spouse|missus|girlfriend|boyfriend|fiancee?|fianc|grandmother|grandfather|"
+        r"grandma|grandpa|grandad|granddad|gran|nan|nana|uncle|aunt|auntie|cousin|nephew|niece|family|families|"
+        r"in laws?|stepdad|stepmum|stepmom|twin|relatives?|folks")
+VETO = [
+    ("death or grief",
+     r"\b(?:funeral|wake(?! up)|grave|cemetery|ashes|memorial|mourn\w*|grief(?!er)\w*|griev\w*|widow\w*|bereave\w*|coffin|burial|buried|bury|"
+     r"suicide|rest in peace|rip|passed (?:away|on|last|in|this)|has passed|have passed|passing|"
+     r"put (?:\w+ )?(?:down|to sleep)|lost (?:him|her|them|my|our|someone|somebody|a friend)|"
+     r"(?:not|never|isnt|arent|wont be) coming back|gone now|is gone|no longer (?:with|here)|not with us|"
+     r"would have|wouldve|should have been|could have been|we used to|they used to|used to \w+ (?:with|together)|"
+     r"the death|death (?:of|in)|a death(?! trap)|died (?:a little |a bit )?inside|part of me died|"
+     r"died (?:on the table|of|from|when i was|in (?:january|february|march|april|may|june|july|august|september|october|"
+     r"november|december|\d{4}))|"
+     r"(?:a|one|two|three|four|five|six|ten|\d+) (?:years?|months?|weeks?) (?:today|ago today|now|tomorrow)|"
+     r"its? (?:has |s )?been (?:a|an|one|two|three|four|five|six|ten|\d+|so|too) (?:years?|months?|weeks?|long)|"
+     r"was (?:meant|supposed) to be|were (?:meant|supposed|going) to)\b"),
+    ("illness or health",
+     r"\b(?:hospital|doctors?|dr|gp|nurses?|surgery|surgeon|operation|cancer|chemo\w*|tumou?r|biopsy|diagnos\w*|clinic|"
+     r"ward|icu|ambulance|stroke|heart attack|seizure|pain(?:s|ful|fully|ed)?|hurts?|hurting|ach(?:e|es|ing)|migraine|headache|covid|"
+     r"flu|fever|treatment|appointment|rehab|sober|drink(?:ing)?|drunk|relapse\w*|pregnan\w*|miscarr\w*|wheelchair|"
+     r"disab\w*|blind|deaf|hearing|meds|medication|pills?|tablets?|therap\w*|counsell?\w*|depress\w*|anxi\w+|panic attacks?|"
+     r"insomnia|unwell|ill|illness|tired(?! of)|sick(?! of)|sickness|injur\w*|"
+     r"not (?:very |too |so |that |really |feeling |doing |been )?(?:well|great|good|okay|ok|myself)|"
+     r"(?:cant|couldnt|not|no|barely|hardly|dont|didnt) sleep\w*|"
+     r"(?:scan|scans|tests?|results?|bloods?) (?:\w+ )?(?:came|come|comes|coming) back|"
+     r"came back (?:clear|clean|positive|negative|normal|fine|bad|good|worse|and)|waiting (?:room|on|for)|"
+     r"results?|feel(?:ing)? (?:nothing|empty|numb|dead|lost|like)|"
+     r"my (?:back|knee|head|neck|shoulder|leg|foot|feet|hands|eyes?|ears?|heart|chest|arm|wrist|hip|stomach)s?|(?<!in )my hand)\b"),
+    ("a breakup or relationship trouble",
+     r"\b(?:divorc\w*|split up|broke up|break up|breakup|breaking up|dumped|left me|leave me|leaving me|"
+     r"walk(?:s|ed|ing)? out|moved out|moving out|kicked (?:me )?out|cheat(?:ed|ing)|affair|custody|ex|exes|single again|"
+     r"separat\w*|its over|was over|called it off|engagement|engaged|wedding|married|marriage|anniversar\w*|"
+     r"the two of us|both of us|just (?:me|us)|on my own|by myself|alone|lonely|loneliness|no ones?|nobodys?|"
+     r"anyone else|together|lover|more than (?:me|her|him))\b"),
+    ("family or a pet",
+     r"\b(?:" + _KIN + r"|dogs?|cats?|pupp(?:y|ies)|kittens?|pets?|rabbit|hamster|horse|vet|vets|birthdays?|"
+     r"the little ones?|other half|better half|the old (?:man|lady|girl|boy))\b"),
+    ("real money",
+     r"\b(?:dollars?|bucks|quid|pounds?|euros?|rent|mortgage|bills?|debts?|loans?|bank|overdraft|salary|wages?|paycheck|"
+     r"paycheque|payday|payslip|credit cards?|savings|pension|benefits|bailiffs?|evict\w*|bankrupt\w*|repossess\w*|"
+     r"real money|real cash|grand|landlord|inherit\w*|redundanc\w*)\b|[$£€]"),
+    ("work or school",
+     r"\b(?:jobs?|boss|bosses|manager|shifts?|office|overtime|deadlines?|meetings?|clients?|colleagues?|coworkers?|"
+     r"laid off|layoffs?|(?:got|was|been|get|getting|be) (?:fired|sacked|canned)|fired me|unemploy\w*|interviews?|"
+     r"career|promotion|let (?:me|us|him|her|them) go|let go|(?:days?|weeks?|months?|time|nights?|years?) off|"
+     r"signed off|on leave|off sick|exams?|school|college|uni|university|homework|teachers?|lawyers?|court|hearing)\b"),
+    ("real-world events",
+     r"\b(?:news|war|wars|election\w*|president|government|politic\w*|earthquake|floods?|pandemic|lockdown|protests?|"
+     r"riots?|police|deployment|deployed|irl|real life|in real|for real|real world|accident)\b"),
+    ("a joke that is not a joke",
+     r"\b(?:(?:kill|shoot|airlock|space|hang|off) myself|end it|ending it|better off without|whats the point|no point|"
+     r"cant do this|cant go on|nobody would|no one would|wouldnt (?:notice|miss|care)|"
+     r"at least (?:the|my|this|that|a) \w+ (?:\w+ )?(?:never|doesnt|wont|cant|didnt|isnt|still)|(?:doesnt|never|wont|cant|didnt|dont) (?:ask|judge|leave|complain|care|mind|nag|lie|argue|shout|talk back|answer back|let me down)|how (?:im|i am|ive been) doing)\b"),
+    ("something they are carrying",
+     r"\b(?:after everything|everything that|what happened|been through|going through|mind off|"
+     r"keep(?:s|ing)? me (?:sane|going|busy)|to keep (?:me|my)|look(?:ing)? forward|get away from|to think|clear my head|"
+     r"cope|coping|distract\w*|only (?:thing|home|friend|one|time|place) (?:i have|ive got|i got|i still have|thats|keeping|left|that keeps|(?:i |that |where |when |we )?(?:havent|dont|cant|didnt|never|can still))|(?:plenty of|all the|so much|too much|lots of|loads of|nothing but) time|time in the world|only time|now that|happen\w*|think(?:ing)? about it|every year|same day|on the day|that day|this year|last year|way (?:it|things|we) (?:was|were|used)|since (?:it|then|they|we)|since that (?:day|night|time)|ever since|any ?more|no longer|these days|nowadays|used to|promis\w*|now$|(?:one|only) good thing|all i have|all ive got|"
+     r"something to|(?:been|being|is|are|was|were|got|gets|getting) (?:so |really |very |pretty |too )?"
+     r"(?:hard|rough|tough|bad|difficult) (?:lately|recently|year|month|week|time|times|patch)|"
+     r"(?:rough|hard|tough|bad|long|worst|terrible|awful) (?:day|week|month|year|time|patch)|"
+     r"things (?:are|have|were|got|went|arent|havent)|at home|from home|back home|left home|only home|my place(?! to))\b"),
+]
+VETO = [(topic, re.compile(rx)) for topic, rx in VETO]
+# "work" is a job unless it is plainly a thing working or not working.
+_WORK_OK = re.compile(r"\b(?:doesnt|dont|didnt|wont|not|never|stopped|isnt|arent|still|finally|actually|does|did|to) work(?:s|ing|ed)?\b|"
+                      r"\bworks\b|\bworking (?:on|towards|toward|again|now|fine)\b|\bwork(?:s|ed)? (?:fine|great|now|again|well)\b")
+_WORK = re.compile(r"\bwork\w*\b")
+# Money words that mean the pilot's own purse unless the sentence says it is the game's.
+_MONEY = re.compile(r"\b(?:money|cash|afford\w*|broke|skint|owe[sd]?|budget)\b")
+_GAME_MONEY = re.compile(r"\b(?:auec|uec|credits?(?! cards?)|in game|ingame|in the game)\b")
+# A handful of ordinary words that are also first names: refused where they stand as a person.
+_NAME_WORDS = (r"will|mark|may|april|june|hope|rich|art|dawn|sky|chase|miles|rob|red|ace|lucky|buddy|major|angel|"
+               r"king|hunter|drake|aurora|max")
+_NAME_SUBJECT = re.compile(r"^(?:" + _NAME_WORDS + r") (?:and i|says|said|thinks|thought|wants|wanted|told|asked|reckons|"
+                           r"keeps|loves|hates|is (?:coming|visiting|staying|going)|texted|called|came|left|wont|doesnt|didnt)\b|"
+                           r"\b(?:me|i) and (?:" + _NAME_WORDS + r")\b|\b(?:with|told|asked|for|from) (?:" + _NAME_WORDS + r")$")
+
+_QUESTION = re.compile(r"^(?:what|whats|where|wheres|who|whos|when|why|how|which|is|are|do|does|did|can|could|would|will|"
+                       r"should|have|has)\b")
+_ORDER = re.compile(r"^(?:set|open|close|scan|plot|show|give|check|call|lock|target|find|turn|switch|stop|start|play|mute|"
+                    r"read|list|calculate|route|navigate|take me|tell me|get me|bring up|pull up|look up)\b")
+_REMEMBER = re.compile(r"\b(?:remind me|remember (?:that|this|to|i|im|ive|my|the|we)|dont (?:let me )?forget|do not forget|"
+                       r"note that|make a note|for the record|keep in mind|bear in mind|write that down)\b")
+_PLAN = re.compile(r"\b(?:i want|i wanna|i need to|im going to|i am going to|going to|gonna|i will|ill|"
+                   r"next (?:week|time|month|session|patch)|tomorrow|tonight|saving|save up|plan|planning|one day|someday|"
+                   r"some day|goal|aiming|working (?:towards|toward|on)|thinking (?:about|of)|id love|id like|cant wait|"
+                   r"hoping to|i hope to)\b")
+_TASTE = re.compile(r"\b(?:love|loved|like|hate|hated|prefer|favourite|favorite|best|worst|cant stand|sick of|fed up|"
+                    r"done with|never again|every time|always|again|as usual|of course|annoy\w*|miss|fan of|prettiest|"
+                    r"ugliest|trust|enjoy)\b")
+# Small openers that say nothing about the pilot: dropped before a part of the sentence is looked at.
+_OPENER = re.compile(r"^(?:and |but |so |then |well |oh |lol |haha |ha |hey |honestly |yeah |ok |okay )*"
+                     r"(?:(?:i (?:think|swear|guess|reckon|mean|bet|know)|i tell you|to be fair|for the record|"
+                     r"keep in mind|bear in mind|note that|dont forget|remember that|remember)\b ?)?")
+_BACK_REF = re.compile(r"\b(?:love|loved|like|enjoy|hate|miss|want|need|keep|kept|use|fly|flew|own|trust|sold|bought|lost|lose|"
+                       r"crashed|forget|forgot|melt|take|took|bring|store|park|parked) (?:it|them|that one|this one|one|both)\b")
+_SPLIT = re.compile(r"[,;:.!?()—–]| - |\b(?=(?:because|cause|cos|since|now that|but|and|when|while|until|though|"
+                    r"although|unless|if|before|after)\b)|\b(?=so (?:i|im|ive|ill|id|we|the|my|it|its|that|now|no|yes|only|"
+                    r"there|theres)\b)")
+_BAD_START = {"things", "everything", "nothing", "stuff", "times", "there", "theres", "today", "everywhere"}
+
+
+def _no(kind: str, why: str) -> dict:
+    return {"offer": False, "kind": kind, "why": why}
+
+
+def _capitals(text: str) -> tuple[set, list]:
+    """(the words written with a capital in the middle of a sentence, those among them that are not game names).
+    A capital on a word the game does not own is how a name the vocabulary happens to hold ("Will", "Hope") shows."""
+    mid, strange = set(), []
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9'’]*(?:-\d[A-Za-z0-9]*)?", text):
+        w = m.group(0)
+        if not w[0].isupper():
+            continue
+        before = text[: m.start()].rstrip()
+        if not before or before[-1] in ".!?":
+            continue                                            # the first word of a sentence carries no news
+        low = re.sub(r"[^a-z0-9]", "", w.lower())
+        mid.add(low)
+        if len(low) > 1 and not any(ch.isdigit() for ch in low) and not _in(low, CAPITAL_OK):
+            strange.append(w)
+    return mid, strange
+
+
+def _anchor(tok: str, caps: set) -> str:
+    """'ship', 'place' or 'game' when this word names a game thing, else ''."""
+    if tok in SHIP_AMBIGUOUS and tok not in SHIP_NOUNS:
+        return "ship" if tok in caps else ""
+    if _in(tok, SHIP_WORDS):
+        return "ship"
+    if _in(tok, PLACE_WORDS) or (any(ch.isdigit() for ch in tok) and tok.startswith(("area", "stanton", "pyro"))):
+        return "place"
+    if _in(tok, GAME_NOUNS):
+        return "game"
+    return ""
+
+
+def _classify(text: str) -> dict:
+    plain = _plain(text)
+    toks = plain.split()
+    # gate 4 first, so a refusal names the topic when there is one
+    for topic, rx in VETO:
+        m = rx.search(plain)
+        if m:
+            return _no("vetoed", f"touches {topic} (\"{m.group(0).strip()}\")")
+    if re.search(r"[$£€]", str(text)):
+        return _no("vetoed", "touches real money (a currency sign)")
+    if _WORK.search(_WORK_OK.sub(" ", plain)):
+        return _no("vetoed", "touches work or school (\"work\")")
+    m = _MONEY.search(plain)
+    if m and not _GAME_MONEY.search(plain):
+        return _no("vetoed", f"touches real money (\"{m.group(0)}\" with nothing saying it is the game's)")
+    m = _NAME_SUBJECT.search(plain)
+    if m:
+        return _no("vetoed", f"names a real person (\"{m.group(0)}\")")
+    caps, strange = _capitals(str(text))
+    if strange:
+        return _no("vetoed", f"names a real person or thing outside the game (\"{strange[0]}\")")
+
+    if len(toks) < MIN_WORDS or len(toks) > MAX_WORDS:
+        return _no("unrecognised", "too short or too long to be worth bringing up")
+    if str(text).strip().endswith("?") or _QUESTION.search(plain):
+        return _no("unrecognised", "a question to the Suit, not something the pilot told it")
+    if _ORDER.search(plain):
+        return _no("unrecognised", "an order to the Suit, not something the pilot told it")
+    # gate 1: every word is known
+    for i, t in enumerate(toks):
+        if not known(t):
+            return _no("unrecognised", f"a word outside the game and plain-talk lists (\"{t}\")")
+    # gate 3: my / our points at a game thing
+    for i, t in enumerate(toks):
+        if t not in ("my", "our"):
+            continue
+        ok = False
+        for j in range(i + 1, min(i + 6, len(toks))):
+            w = toks[j]
+            nxt = toks[j + 1] if j + 1 < len(toks) else ""
+            is_adj = w in _MY_ADJ or any(ch.isdigit() for ch in w)
+            if is_adj and nxt and (nxt in _MY_ADJ or _in(nxt, _MY_OK)):
+                continue
+            ok = _in(w, _MY_OK)
+            break
+        if not ok and " ".join(toks[max(0, i - 1): i + 2]) != "in my hand":
+            what = " ".join(toks[i: i + 3])
+            return _no("unrecognised", f"\"{what}\" is not plainly a game thing")
+    # gate 2: a game thing is named, and each part where the pilot speaks of themselves has one of its own
+    kinds_seen = [a for a in (_anchor(t, caps) for t in toks) if a]
+    if not kinds_seen:
+        return _no("unrecognised", "no ship, place, gear or game thing is named")
+    low = re.sub(r"\b([a-z]{1,4})-(\d)", r"\1\2", str(text).replace("’", "'").lower())
+    for part in _SPLIT.split(low):
+        p = _OPENER.sub("", _plain(part), count=1).strip()
+        pt = p.split()
+        if not pt:
+            continue
+        if any(_anchor(t, caps) for t in pt):
+            continue
+        if _I_SUBJECT & set(pt):
+            if any(_in(t, ACTIVITY) for t in pt) or _BACK_REF.search(p):
+                continue
+            return _no("unrecognised", f"a part of it is about the pilot and names nothing in the game (\"{p}\")")
+        first = pt[1] if pt[0] in ("and", "but", "so", "because", "cause", "cos", "since", "when", "while", "if") and len(pt) > 1 else pt[0]
+        if first in _BAD_START:
+            return _no("unrecognised", f"a part of it names nothing in the game (\"{p}\")")
+    # the kind
+    if _REMEMBER.search(plain):
+        return {"offer": True, "kind": "remember", "why": "the pilot asked to have it remembered, and it is about the game"}
+    if _PLAN.search(plain):
+        return {"offer": True, "kind": "plan", "why": "a plan or goal in the game"}
+    if _TASTE.search(plain):
+        return {"offer": True, "kind": "taste", "why": "a like, a dislike or a running joke about game things"}
+    if "ship" in kinds_seen:
+        return {"offer": True, "kind": "ship", "why": "about the pilot's ship, gear or loadout"}
+    if "place" in kinds_seen:
+        return {"offer": True, "kind": "place", "why": "about a place in the game"}
+    return {"offer": True, "kind": "taste", "why": "a story about game things"}
+
+
+def classify(text: str) -> dict:
+    """May a companion bring this sentence of the pilot's up without being asked?
+
+    Returns {"offer": bool, "kind": str, "why": str}. When offer is True, kind is one of KINDS ("ship", "place",
+    "plan", "taste", "remember"). When it is False, kind is "vetoed" (a sensitive topic was found; why names it) or
+    "unrecognised" (nothing sensitive was found, but the sentence was not positively recognised as safe either).
+    Pure and deterministic: no state, no file, no model. Never raises; anything it cannot read is refused."""
+    try:
+        if not isinstance(text, str) or not text.strip():
+            return _no("unrecognised", "nothing was said")
+        return _classify(text)
+    except Exception as e:                                     # a classifier that fails must fail shut
+        return _no("unrecognised", f"could not be read ({type(e).__name__})")
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The door: which remembered sentence is next, honouring raise-once, fading and forget.
+# ---------------------------------------------------------------------------------------------------------------
+def sentence_key(text: str) -> str:
+    """What makes two sentences 'the same one': their words, not their log id. A sentence said again in a later
+    session is still the one that was already raised, or the one the pilot asked to have dropped."""
+    return hashlib.sha1(_plain(text).encode("utf-8")).hexdigest()[:16]
+
+
+class BanterMemory:
+    """Reads a tree_memory.TreeStore and never writes to it. Its own state is one small JSON file beside the log.
+
+    max_age_days      fading: a sentence older than this is not offered (default 21)
+    max_offers        raise-once: how many times one sentence may be offered, to either companion (default 1)
+    min_age_minutes   a sentence younger than this is not offered yet (default 10)"""
+
+    def __init__(self, store, state_path: Optional[Path | str] = None, now: Optional[Callable[[], float]] = None,
+                 max_age_days: float = MAX_AGE_DAYS, max_offers: int = MAX_OFFERS,
+                 min_age_minutes: float = MIN_AGE_MINUTES):
+        self.store = store
+        self.now = now or getattr(store, "now", None) or time.time
+        self.max_age_s = float(max_age_days) * 86400.0
+        self.min_age_s = float(min_age_minutes) * 60.0
+        self.max_offers = int(max_offers)
+        self._state_path = Path(state_path) if state_path else None
+        self._lock = threading.RLock()
+
+    @property
+    def state_path(self) -> Optional[Path]:
+        if self._state_path is not None:
+            return self._state_path
+        d = getattr(self.store, "dir", None)
+        return Path(d) / STATE_NAME if d else None
+
+    # -- the state file ----------------------------------------------------------------------------------------
+    def _read_state(self) -> Optional[dict]:
+        """The state, a fresh one if there is no file yet, or None if a file is there and cannot be trusted."""
+        p = self.state_path
+        if p is None:
+            return None
+        try:
+            if not p.exists():
+                return {"schema": STATE_SCHEMA, "version": 1, "offered": {}, "forgotten": {}, "last": ""}
+            st = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if (not isinstance(st, dict) or st.get("schema") != STATE_SCHEMA or not isinstance(st.get("offered"), dict)
+                or not isinstance(st.get("forgotten"), dict)):
+            return None
+        st.setdefault("last", "")
+        return st
+
+    def _write_state(self, st: dict) -> bool:
+        p = self.state_path
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_name(p.name + ".tmp")
+            with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+                json.dump(st, f, ensure_ascii=False, indent=1)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, p)
+            return True
+        except OSError:
+            return False
+
+    def _pilot_lines(self) -> Optional[list[dict]]:
+        try:
+            recs = self.store.records()
+        except Exception:
+            return None                                        # a missing or unreadable tree is not our error to raise
+        out = []
+        for r in recs or []:
+            if (isinstance(r, dict) and r.get("who") == "pilot" and r.get("kind", "said") == "said"
+                    and isinstance(r.get("text"), str) and isinstance(r.get("t"), (int, float))):
+                out.append(r)
+        return out
+
+    # -- the two things a caller does ----------------------------------------------------------------------------
+    def next_offer(self, companion: str = "", mark: bool = True) -> Optional[dict]:
+        """The newest sentence of the pilot's that may be raised unasked, or None. Returns
+        {"id", "t", "text", "kind", "why", "key"}; text is the pilot's own words, byte for byte as logged.
+        mark=True (the default) counts it as raised the moment it is handed out, so it cannot be handed out twice
+        even if the caller then says nothing. If that cannot be written down, nothing is offered."""
+        with self._lock:
+            lines = self._pilot_lines()
+            st = self._read_state()
+            if not lines or st is None:
+                return None
+            t_now = float(self.now())
+            for r in sorted(lines, key=lambda r: (-float(r["t"]), str(r.get("id", "")))):
+                age = t_now - float(r["t"])
+                if age < self.min_age_s or age > self.max_age_s:
+                    continue
+                key = sentence_key(r["text"])
+                if key in st["forgotten"]:
+                    continue
+                seen = st["offered"].get(key) or {}
+                if int(seen.get("n", 0)) >= self.max_offers:
+                    continue
+                c = classify(r["text"])
+                if not c["offer"]:
+                    continue
+                if mark:
+                    st["offered"][key] = {"n": int(seen.get("n", 0)) + 1, "t": t_now, "id": r.get("id", ""),
+                                          "by": companion or ""}
+                    st["last"] = key
+                    if not self._write_state(st):
+                        return None
+                return {"id": r.get("id", ""), "t": float(r["t"]), "text": r["text"], "kind": c["kind"],
+                        "why": c["why"], "key": key}
+            return None
+
+    def forget(self, matching: Optional[str] = None) -> list[str]:
+        """"Forget that." With no argument: the sentence offered most recently is never offered again. With some
+        words: every sentence of the pilot's that shares most of them is never offered again, offered yet or not.
+        Returns the keys that were marked (empty if there was nothing to mark). The log is not touched: the pilot
+        can still ask for the sentence, and tree_memory will still find it."""
+        with self._lock:
+            st = self._read_state()
+            if st is None:
+                return []
+            keys: list[str] = []
+            if matching is None or not _plain(matching):
+                if st.get("last"):
+                    keys = [st["last"]]
+            else:
+                want = {s for s in _plain(matching).split() if len(s) > 2 and s not in _FORGET_STOP}
+                for r in self._pilot_lines() or []:
+                    have = set(_plain(r["text"]).split())
+                    if want and len(want & have) * 2 >= len(want):
+                        k = sentence_key(r["text"])
+                        if k not in keys:
+                            keys.append(k)
+            if not keys:
+                return []
+            for k in keys:
+                st["forgotten"][k] = float(self.now())
+            return keys if self._write_state(st) else []
+
+
+_FORGET_STOP = set("the and that this about what said you forget drop never mention again please thing with for".split())
+
+
+def open_banter(pilot_dir: Path | str, session: str = "", **kw) -> BanterMemory:
+    """The door for one pilot's memory folder (the same folder tree_memory.open_tree takes)."""
+    import tree_memory as tm
+    return BanterMemory(tm.open_tree(pilot_dir, session=session), **kw)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Selftest
+# ---------------------------------------------------------------------------------------------------------------
+def _selftest() -> int:
+    import tempfile
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import tree_memory as tm
+    results = []
+
+    def case(name, cond, detail=""):
+        results.append((name, bool(cond), str(detail)))
+
+    turret = "I hate the turret on this Cutlass, it never tracks right."
+    dad = "I'm saving for a Cutlass because my dad left me some money when he died."
+    case("a dislike about a ship is offered", classify(turret)["offer"], classify(turret))
+    case("a ship plan with a death in it is refused", not classify(dad)["offer"], classify(dad))
+    case("an in-game death is game talk", classify("I died twice in Pyro before I even found the station.")["offer"])
+    case("a real death is not", not classify("My brother died in March.")["offer"])
+    case("'remember this' does not get past the veto",
+         not classify("Remember that my mum's birthday is on Friday.")["offer"])
+    case("a sentence with nothing recognised is refused", classify("She's not coming back.") ["offer"] is False)
+    case("anything that is not a sentence is refused, not raised", classify(None)["offer"] is False)  # type: ignore[arg-type]
+    day = 86400.0
+    clock = [1_790_000_000.0]
+    with tempfile.TemporaryDirectory() as tmp:
+        store = tm.TreeStore(Path(tmp) / "tree", now=lambda: clock[0], current_session="s1")
+        store.append("pilot", dad)
+        store.append("pilot", turret)
+        raw = store.log_path.read_bytes()
+        clock[0] += 3600
+        door = BanterMemory(store)
+        got = door.next_offer("elah")
+        case("the door offers the safe sentence, in the pilot's own words", got and got["text"] == turret, got)
+        case("...once", door.next_offer("montaigne") is None)
+        case("...and never the other one", door.next_offer("elah") is None)
+        case("the log was not touched", store.log_path.read_bytes() == raw)
+        store.append("pilot", "I want to save up for a Prospector.")
+        clock[0] += 3600
+        case("forget() by words marks a sentence that was never offered", len(door.forget("the Prospector")) == 1)
+        case("...and it is then not offered", door.next_offer("elah") is None)
+        store.append("pilot", "I always land at Orison just to watch the clouds.")
+        clock[0] += 30 * day
+        case("an old sentence has faded", door.next_offer("elah") is None)
+        case("a missing tree gives None", BanterMemory(tm.TreeStore(Path(tmp) / "nowhere")).next_offer() is None)
+    dev = here.parent / "tests" / "data" / "banter_memory_dev.jsonl"
+    if dev.is_file():
+        rows = [json.loads(x) for x in dev.read_text(encoding="utf-8").splitlines() if x.strip()]
+        leaked = [r["text"] for r in rows if not r["offer"] and classify(r["text"])["offer"]]
+        missed = [r["text"] for r in rows if r["offer"] and not classify(r["text"])["offer"]]
+        case(f"dev set: none of the {sum(not r['offer'] for r in rows)} must-refuse sentences is offered", not leaked, leaked[:3])
+        print(f"  note  dev set: {len(missed)} of {sum(r['offer'] for r in rows)} must-offer sentences are missed "
+              f"(that direction costs a forgotten joke)")
+    for name, ok, detail in results:
+        print(f"  {'PASS' if ok else 'FAIL'}  {name}" + (f"   <{detail[:200]}>" if not ok else ""))
+    bad = sum(not ok for _, ok, _ in results)
+    print(f"banter_memory selftest: {len(results) - bad}/{len(results)} passed")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    if "--selftest" in sys.argv:
+        sys.exit(_selftest())
+    print(__doc__)
