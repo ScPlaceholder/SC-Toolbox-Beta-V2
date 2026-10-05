@@ -1806,7 +1806,8 @@ forever after — no detection, no drift.</p>
       and lock button turn <b style="color:#2a8;">green</b>, and the
       crop coordinates are saved to disk immediately.</li>
   <li><b>Repeat for all three rows</b> (Mass, Resistance,
-      Instability). The Resource (mineral name) row is optional.</li>
+      Instability). The other rows in the dialog, Resource (Mineral),
+      Signature / Signal Value and Needle (difficulty), are optional.</li>
   <li>When all three are locked, the dialog displays
       <b style="color:#2a8;">"CALIBRATION COMPLETE"</b> in
       large text at the top. You can now close the dialog.</li>

@@ -3565,9 +3565,8 @@ class MiningSignalsApp(SCWindow):
                 "<b>150&times;50 pixels</b> or larger generally works "
                 "well.</p>"
                 "<p style='color:#ff5533;'>Do <b>NOT</b> draw a tight "
-                "box around only the digits &mdash; that was the "
-                "previous wording and it's wrong: without the icon "
-                "the anchor has nothing to lock onto.</p>"
+                "box around only the digits: without the icon the "
+                "scanner has nothing to lock onto.</p>"
             ),
             on_proceed=self._open_scan_region_selector,
         )

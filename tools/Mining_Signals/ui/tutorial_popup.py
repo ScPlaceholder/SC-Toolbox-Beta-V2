@@ -32,6 +32,8 @@ _C_TIPS   = "#cc88ff"
 _C_SHIPS  = "#ffaa22"
 _C_ROSTER = "#00e7ff"
 _C_BREAK  = "#ff5533"
+_C_CHART  = "#44ccbb"
+_C_REFINERY = "#cc88ff"
 
 
 def _h3(text: str, color: str) -> str:
@@ -50,351 +52,409 @@ def _html(body: str) -> str:
 # Tab content
 # ═══════════════════════════════════════════════════════════════════════════
 
-_TAB_GETTING_STARTED = _html(f"""
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_mining_signals", "<ctrl>+1")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Ctrl+1"
+
+
+def _tab_getting_started() -> str:
+    return _html(f"""
 {_h3("Welcome to Mining Signals", _C_START)}
-<p>Mining Signals is an all-in-one mining operations tool. It reads
-your ship's scanner HUD to identify resources, calculates whether your
-fleet can break rocks, and provides a full fleet management roster for
-organising large-scale mining operations.</p>
+<p>Use Mining Signals while you mine. It reads the numbers off your ship's
+scanner and mining HUD, tells you what a rock is and whether you can break
+it, and keeps track of your refinery jobs and your crew.</p>
 
 {_h4("Quick Setup", _C_START)}
+<p>All of this is on the <b>Scanner</b> tab.</p>
 <ol>
-  <li>Click <b style="{_ACC}">Set Region</b> and draw a box around the
-      signal number on your mining scanner HUD.</li>
-  <li>Click <b style="{_ACC}">Set Mining Output Display Location</b> and
-      click where you want the result bubble to appear.</li>
-  <li>Click <b style="{_ACC}">Start Scan</b> to begin continuous
-      scanning.</li>
+  <li>Click <b>Set Scanning Region</b> and draw a box round the signature
+      panel on your scanner: the location-pin icon <em>and</em> the
+      number.</li>
+  <li>Click <b>Set Mining HUD Region</b> and draw a box round the SCAN
+      RESULTS panel of your mining HUD.</li>
+  <li>Click <b>Set Mining Output Display Location</b> and click where you
+      want the result to appear.</li>
+  <li>Click <b>Start Scan</b>.</li>
 </ol>
-<p>The tool reads the number every 2-3 seconds and shows the matched
-resource in a floating HUD bubble.</p>
+<p>The first time you press each of the first two, a short tip shows exactly
+what to box. Tick <b>Do not show again</b> on a tip when you no longer need
+it.</p>
 
-{_h4("Tabs Overview", _C_START)}
+{_h4("The tabs", _C_START)}
 <ul>
-  <li><b>Scanner</b> &mdash; OCR scanning, signal lookup, and
-      breakability display</li>
-  <li><b>Mining Ships</b> &mdash; Load mining and salvage loadouts</li>
-  <li><b>Gadgets</b> &mdash; Manage consumable gadget quantities</li>
-  <li><b>Refinery</b> &mdash; Track refinery work orders</li>
-  <li><b>Mining Roster</b> &mdash; Full fleet hierarchy management</li>
+  <li><b>Mining Chart</b> &mdash; which resource is found where</li>
+  <li><b>Scanner</b> &mdash; scanning, the signal table and the break
+      check</li>
+  <li><b>Mining Ships</b> &mdash; load the loadouts the break check uses</li>
+  <li><b>Gadgets</b> &mdash; how many of each gadget you carry</li>
+  <li><b>Refinery</b> &mdash; your refinery orders</li>
+  <li><b>Mining Roster</b> &mdash; players, teams and ships for a group
+      operation</li>
 </ul>
 
-{_h4("Data Source &amp; Hotkey", _C_START)}
-<p>Signal data is fetched from a community spreadsheet and refreshed
-every hour (works offline with cached data). The default global hotkey
-is <b>Shift + 9</b> (reassignable in SC Toolbox settings).</p>
+{_h4("Data and hotkey", _C_START)}
+<p>The signal table comes from a community spreadsheet, is refreshed every
+hour, and is kept on this PC so the tool still works offline.</p>
+<p>The launcher's hotkey for this tool is
+<span style="{_ACC}">{_hotkey()}</span>. It shows and hides the window, and it
+is shown in the title bar.</p>
+""")
+
+
+_TAB_CHART = _html(f"""
+{_h3("Mining Chart", _C_CHART)}
+<p>The <b>Mining Chart</b> tab is a table of locations against resources,
+titled <b>Live Mining Chart</b>. Each cell is how much of that resource the
+rocks at that location hold on average. The data comes from scmdb.net and is
+kept for a day.</p>
+
+{_h4("Reading it", _C_CHART)}
+<ul>
+  <li>A plain percentage is a resource you can scan for there.</li>
+  <li>A dim value starting with <b>~</b> is a trace: the resource turns up
+      inside other rocks there, but you cannot scan for it.</li>
+  <li><b>Ship Mining</b> and <b>FPS / ROC Mining</b> switch between what a
+      mining ship finds and what you find on foot or in a ROC.</li>
+</ul>
+
+{_h4("Finding the best place", _C_CHART)}
+<ul>
+  <li>Type in <b>Resource:</b> or <b>Location:</b> to narrow the table.</li>
+  <li>Click a resource's column heading, or one of its cells, to sort the
+      locations by that resource. Click again to reverse, and a third time
+      to stop sorting.</li>
+  <li><b>Highest</b> and <b>Lowest</b> set the sort direction. <b>Clear
+      Sort</b> puts the table back in its usual order.</li>
+  <li>Hold <b>Ctrl</b> and scroll to zoom. <b>Reset Scale</b> undoes it.</li>
+</ul>
+
+{_h4("Keeping it in view", _C_CHART)}
+<p><b>Pop-out Chart</b> opens a floating copy you can keep beside the game
+while you scan. <b>Fullscreen</b> switches the whole window between
+fullscreen and normal. <b>Refresh</b> fetches the data again.</p>
 """)
 
 _TAB_SCANNING = _html(f"""
-{_h3("Scanning &amp; OCR", _C_SCAN)}
+{_h3("Scanning", _C_SCAN)}
 
-{_h4("How It Works", _C_SCAN)}
-<p>The scanner captures a small area of your screen where the mining
-signal number appears. It uses OCR to read the digits, then looks up
-the value in the signal reference table.</p>
+{_h4("How it works", _C_SCAN)}
+<p>Two readers run while a scan is on. One reads the signal number from your
+scanner and looks it up in the signal table. The other reads mass, resistance
+and instability from the mining HUD and feeds the break check.</p>
 
-{_h4("Set Region", _C_SCAN)}
-<p>Click <b>Set Region</b> to draw a box around the signal number on
-your HUD. Draw it <b>tightly around the number</b> &mdash; avoid
-including icons or other HUD elements.</p>
+{_h4("Set Scanning Region", _C_SCAN)}
+<p>Draw the box round the whole signature panel: the location-pin icon on
+the left and the number on the right, with a small margin. About 150 by 50
+pixels or larger works well. <b>Do not</b> box only the digits: the scanner
+needs the icon to find the panel.</p>
 
-{_h4("Set HUD Region", _C_SCAN)}
-<p>Click <b>Set HUD Region</b> to capture the mining HUD's mass and
-resistance values. This feeds the <b>breakability calculator</b>
-automatically while scanning.</p>
+{_h4("Set Mining HUD Region", _C_SCAN)}
+<p>Draw the box from just above the SCAN RESULTS title to just below the
+INSTABILITY row. Leave out the COMPOSITION list under it.</p>
 
-{_h4("Display Location", _C_SCAN)}
-<p>Click <b>Set Mining Output Display Location</b> to choose where the
-result bubble appears. A preview follows your cursor &mdash; click to
-lock the position.</p>
+{_h4("Where results appear", _C_SCAN)}
+<p><b>Set Mining Output Display Location</b> places the result bubble.
+<b>Set Break Bubble Location</b> places the break check's own panel. For
+both, click where you want it, or press Esc to cancel.</p>
 
-{_h4("Choose Mining Ship", _C_SCAN)}
-<p>Selects which loaded ship loadout (or the full fleet) feeds the
-breakability calculator. Options: individual ships or <b>Fleet</b>
-mode (uses all loaded ships combined).</p>
+{_h4("While scanning", _C_SCAN)}
+<p><b>Start Scan</b> turns into <b>Stop Scan</b> and the window shrinks to a
+small bar. Results can take several seconds. If one looks wrong, look away
+from the rock until the bubble clears, then look back.</p>
 
-{_h4("Calc: Fleet / Team Toggle", _C_SCAN)}
-<p>Switches breakability between:</p>
+{_h4("If the numbers read wrongly", _C_SCAN)}
 <ul>
-  <li><b>Fleet</b> &mdash; All fleet ships combined (default)</li>
-  <li><b>Team</b> &mdash; Only your assigned team's ships (from the
-      Mining Roster). Escalates: solo &rarr; team &rarr; cluster
-      &rarr; fleet when substitutes are needed.</li>
+  <li><b>Calibrate Mining Crops</b> lets you show the tool exactly where
+      each value sits on your screen. It needs a mining HUD region first. The
+      window it opens has its own written tutorial and a spoken one.</li>
+  <li><b>Game Resolution</b> tells the tool the resolution the game runs
+      at, when it cannot work it out by itself.</li>
 </ul>
 
-{_h4("Compact Mode", _C_SCAN)}
-<p>When scanning is active, the window collapses to a small bar showing
-only essential controls. Press your hotkey to hide/show the tool
-entirely.</p>
+{_h4("Which ship does the break check use?", _C_SCAN)}
+<p><b>Choose Mining Ship</b> picks one of the loadouts you loaded on the
+<b>Mining Ships</b> tab, or the whole <b>Mining Ops Fleet</b>.
+<b>Calc: Fleet</b> and <b>Calc: Team</b> choose between counting every
+ship in the fleet and only your team's ships from the <b>Mining Roster</b>.</p>
+
+{_h4("No scan needed", _C_SCAN)}
+<p>Type a rock's numbers into <b>Mass:</b> and <b>Resistance %:</b> to run
+the break check by hand. A value read from the HUD replaces what you
+typed.</p>
 
 {_h4("Requirements", _C_SCAN)}
 <ul>
-  <li>Star Citizen must run in <b>Borderless Windowed</b> mode</li>
-  <li>Fullscreen exclusive mode shows a black capture</li>
-  <li><span style="{_DIM}">Scanning uses ~7-8% of one CPU core at
-      2-3 second intervals</span></li>
+  <li>Star Citizen should run in <b>Borderless Windowed</b> mode. A game in
+      exclusive fullscreen is captured as a black picture.</li>
 </ul>
 """)
 
 _TAB_TABLE = _html(f"""
 {_h3("Signal Table", _C_TABLE)}
 
-{_h4("Reading the Table", _C_TABLE)}
-<p>The table shows all known mining resources with their signal values
-for 1 to 6 rocks. Click column headers to sort by any column.
-<b>Double-click</b> a row to open a detail popup with pin/close.</p>
+{_h4("Reading the table", _C_TABLE)}
+<p>The table on the <b>Scanner</b> tab lists every known resource with its
+signal value for 1 to 6 rocks. Click a column heading to sort.
+<b>Double-click</b> a row to open that resource in its own popup, which you
+can <b>Pin</b>.</p>
 
-{_h4("Manual Search", _C_TABLE)}
-<p>Type a signal value in the search bar to identify a resource without
-scanning. You can also search by resource name. When multiple resources
-share the same value, all matches are shown.</p>
+{_h4("Looking one up by hand", _C_TABLE)}
+<p>Type a number in <b>Signal value...</b> to find the resources it could
+be, or part of a name in <b>Resource name...</b></p>
 
-{_h4("Rarity Tiers", _C_TABLE)}
+{_h4("Rarity", _C_TABLE)}
 <ul>
-  <li><span style="color:#8cc63f;"><b>Common</b></span> &mdash; Most
+  <li><span style="color:#8cc63f;"><b>Common</b></span> &mdash; most
       frequently found</li>
-  <li><span style="color:#00bcd4;"><b>Uncommon</b></span> &mdash;
-      Moderate value</li>
-  <li><span style="color:#ffc107;"><b>Rare</b></span> &mdash; High
-      value resources</li>
-  <li><span style="color:#aa66ff;"><b>Epic</b></span> &mdash; Very
-      valuable</li>
-  <li><span style="color:#ff9800;"><b>Legendary</b></span> &mdash;
-      Extremely rare and valuable</li>
+  <li><span style="color:#00bcd4;"><b>Uncommon</b></span></li>
+  <li><span style="color:#ffc107;"><b>Rare</b></span></li>
+  <li><span style="color:#aa66ff;"><b>Epic</b></span></li>
+  <li><span style="color:#ff9800;"><b>Legendary</b></span> &mdash; the
+      rarest</li>
 </ul>
+<p>The table also has rows for ROC, FPS and salvage signals.</p>
 
-{_h4("Overlapping Values", _C_TABLE)}
-<p>Some resources share the same signal value at different rock counts.
-The result bubble lists <b>all possible matches</b> so you can narrow
-it down based on context.</p>
+{_h4("When two resources share a number", _C_TABLE)}
+<p>Some resources give the same signal value at different rock counts. The
+result bubble lists <b>all possible matches</b>, so you can tell them apart
+from what you see.</p>
 """)
 
 _TAB_SHIPS = _html(f"""
-{_h3("Mining Ships &amp; Salvage", _C_SHIPS)}
+{_h3("Mining Ships and Gadgets", _C_SHIPS)}
 
-{_h4("Mining Sub-Tab", _C_SHIPS)}
-<p>Load a saved <b>Mining Loadout</b> (.json) for each ship type:</p>
-<ul>
-  <li><b>Golem</b>, <b>Prospector</b>, <b>MOLE</b> &mdash; individual
-      loadout slots</li>
-  <li>Each shows turret hierarchy with lasers, modules, and gadget</li>
-  <li>The active ship selection feeds the breakability calculator</li>
-</ul>
+{_h4("Mining", _C_SHIPS)}
+<p>On the <b>Mining Ships</b> tab, the <b>Mining</b> page has a slot each
+for <b>Golem</b>, <b>Prospector</b> and <b>Mole</b>. Press <b>Load</b> on a
+slot and pick a loadout you saved in the Mining Loadout tool. <b>Clear</b>
+empties the slot. A laser saved as crafted keeps its crafted power here.</p>
 
 {_h4("Mining Ops Fleet", _C_SHIPS)}
-<p>Add multiple ship loadouts to form a fleet. In <b>Fleet</b> mode
-all ships are combined for breakability analysis. The first ship is
-treated as "yours" for solo-check priority.</p>
+<p><b>Add Ship</b> adds a loadout to the fleet. The first ship in the fleet
+is yours. <b>Expand Fleet</b> lists the fleet so you can remove ships one at
+a time, and <b>Clear Fleet</b> empties it.</p>
 
-{_h4("Salvage Sub-Tab", _C_SHIPS)}
-<p>Load <b>DPS Calculator</b> loadout files (.json) for salvage ships
-(Vulture, Reclaimer, etc.). Salvage ships appear in the Mining Roster
-fleet panel and can be dragged onto teams and strike groups. They
-don't affect mining breakability calculations.</p>
+{_h4("Salvage", _C_SHIPS)}
+<p>On the <b>Salvage</b> page, <b>Add Salvage Ship</b> loads a loadout saved
+in the DPS Calculator. Salvage ships show up in the <b>Mining Roster</b>.
+They are not counted in the break check.</p>
 
-{_h4("Gadgets Tab", _C_SHIPS)}
-<p>Set quantities for each consumable gadget type. The breakability
-calculator uses gadgets as a last resort when passive + active modules
-can't crack a rock. Toggle <b>"Always use best gadget"</b> to apply
-the strongest one automatically.</p>
+{_h4("Gadgets tab", _C_SHIPS)}
+<p>Set how many of each gadget you carry. The break check uses a gadget
+only when lasers and modules are not enough. Tick
+<b>Always use best gadget</b> to have it use the strongest one every
+time.</p>
+<p><b>Mining Foreman Console</b> shows what the fleet has left: gadgets, and
+the remaining uses of each turret's active modules. <b>Refresh All
+Modules</b> and <b>Refresh All Gadgets</b> set them back to full.</p>
+""")
+
+_TAB_REFINERY = _html(f"""
+{_h3("Refinery", _C_REFINERY)}
+<p>The <b>Refinery</b> tab keeps a list of the refinery orders you have
+placed, so you know what is ready and where.</p>
+
+{_h4("Adding orders", _C_REFINERY)}
+<ol>
+  <li>Click <b>Set Refinery Region</b> and draw a box round the part of
+      the screen where the refinery terminal shows your order.</li>
+  <li>Click <b>Scan Now</b> to read it once, or turn on <b>Auto-Scan</b> to
+      read it every few seconds while you place orders.</li>
+</ol>
+<p style="{_DIM}">Scan Now does nothing while the mining scan is
+running.</p>
+
+{_h4("The lists", _C_REFINERY)}
+<ul>
+  <li><b>Orders In Process</b> &mdash; still refining, with <b>Rename</b>
+      and <b>Delete</b>.</li>
+  <li><b>Orders Complete</b> &mdash; ready to collect. An order moves here
+      by itself when your game log says it finished. Press <b>Mark Picked
+      Up</b> when you have collected it.</li>
+  <li><b>Picked Up</b> &mdash; your history.</li>
+</ul>
+<p>Double-click an order to open it in its own popup. If orders never
+complete, press <b>Set Log Path</b> and choose your LIVE folder.</p>
+
+{_h4("Where to refine", _C_REFINERY)}
+<ul>
+  <li><b>Locations</b> lists the refineries. <b>Near me</b> sorts them from
+      where the game log last placed you. Click one to see its yields.</li>
+  <li><b>Yields</b> compares every refinery for each mineral.</li>
+</ul>
 """)
 
 _TAB_ROSTER = _html(f"""
 {_h3("Mining Roster", _C_ROSTER)}
-<p>The Roster is a three-panel interactive fleet management tool for
-organising large-scale mining operations.</p>
+<p>The <b>Mining Roster</b> tab is for organising a group: who is in it,
+which team they are in, and which ship they are on.</p>
 
-{_h4("Left Panel: Player Roster", _C_ROSTER)}
+{_h4("Left panel: Player Roster", _C_ROSTER)}
 <ul>
-  <li><b>Add Player</b> &mdash; type a name and press Enter or click
-      Add</li>
-  <li><b>Import / Export</b> &mdash; save/load player lists as JSON</li>
-  <li><b>Search</b> &mdash; fuzzy filter players by name</li>
-  <li>Players are grouped by team with collapsible headers. Unassigned
-      players fall into an "Unassigned" section.</li>
+  <li>Type a name and press Enter or click <b>Add Player</b>.</li>
+  <li><b>Import</b> and <b>Export</b> load and save the list of players as
+      a file.</li>
+  <li>The search box filters the players by name.</li>
 </ul>
 
-{_h4("Right-Click a Player", _C_ROSTER)}
+{_h4("Right-click a player", _C_ROSTER)}
 <ul>
-  <li><b>Set as User</b> &mdash; marks "you"; the canvas centres on your
-      team on launch</li>
-  <li><b>Set as Foreman</b> &mdash; makes them the fleet foreman (top
-      node on the canvas)</li>
-  <li><b>Promote to Leader</b> &mdash; creates a new Team node on the
-      canvas for them</li>
-  <li><b>Promote to Strike Group Leader</b> &mdash; (inside a strike
-      group) marks them as the SG leader</li>
-  <li><b>Assign Profession</b> &mdash; choose from 23 professions; an
-      icon appears by their name and on their canvas badge</li>
-  <li><b>Remove Player</b> &mdash; removes from the roster</li>
+  <li><b>Set as User</b> &mdash; marks which player is you. The canvas
+      moves to your ship or team.</li>
+  <li><b>Set as Foreman</b> &mdash; puts them in charge of the fleet.</li>
+  <li><b>Promote to Leader</b> &mdash; makes them a team leader.</li>
+  <li><b>Promote to Strike Group Leader</b> &mdash; for a player in a
+      strike group.</li>
+  <li><b>Assign Profession</b> &mdash; choose one of 23 professions.</li>
+  <li><b>Remove Player</b> &mdash; takes them off the roster.</li>
 </ul>
+<p>Right-click the player again to undo any of the first four.</p>
 
-{_h4("Profession Key Tab", _C_ROSTER)}
-<p>Switch to the <b>Key</b> tab to see all profession icons with
-descriptions. Drag a profession row directly onto a player's name to
-assign it. Use the search box to filter professions.</p>
+{_h4("Key", _C_ROSTER)}
+<p>The <b>Key</b> page beside <b>Players</b> lists every profession and
+its icon.</p>
 
-{_h4("Right Panel: Ship Fleet", _C_ROSTER)}
-<p>Shows all loaded mining ships, salvage ships, and fleet support
-ships in collapsible categories. <b>Drag</b> any ship onto the canvas
-to place it.</p>
+{_h4("Right panel: Ship Fleet", _C_ROSTER)}
+<p><b>Ship Fleet</b> lists the mining and salvage ships you loaded and the
+support ships you added. <b>Drag</b> a ship onto the canvas to place
+it.</p>
 
-{_h4("Fleet Support Ships", _C_ROSTER)}
-<p>Add support ships via the buttons at the bottom: Hauling, Repair,
-Refuel, Escort, Mothership, Medical. Each opens a <b>fuzzy search</b>
-of 270+ Star Citizen ships with crew counts from the UEX database.</p>
+{_h4("Add Fleet Support", _C_ROSTER)}
+<p>The buttons under <b>Add Fleet Support</b> add a ship that does not
+mine: <b>Hauling</b>, <b>Repair</b>, <b>Refuel</b>, <b>Escort</b>,
+<b>Mothership</b> or <b>Medical</b>. Each asks you to pick the ship model.
+The list of models comes from Item Finder's data, so open Item Finder once
+if it is empty.</p>
 """)
 
 _TAB_CANVAS = _html(f"""
-{_h3("Canvas &amp; Hierarchy", _C_ROSTER)}
+{_h3("The canvas", _C_ROSTER)}
+<p>The middle of the <b>Mining Roster</b> tab draws the group as boxes
+joined by lines: the foreman at the top, teams under them, ships under
+teams, and the crew on each ship.</p>
 
-{_h4("The Node Graph", _C_ROSTER)}
-<p>The centre panel is an interactive canvas showing the fleet
-hierarchy as a node graph (like Blender's geometry nodes):</p>
+{_h4("Moving around", _C_ROSTER)}
 <ul>
-  <li><b>Foreman</b> &mdash; top node (double-click to rename)</li>
-  <li><b>Teams</b> &mdash; created when a player is promoted to Leader
-      (double-click to rename)</li>
-  <li><b>Ships</b> &mdash; dragged from the fleet panel or assigned via
-      right-click</li>
-  <li><b>Player Badges</b> &mdash; crew assigned to each ship, with
-      colour-coded connector lines back to the ship</li>
+  <li><b>Drag empty canvas</b>, with the left or the middle button, to
+      slide the view.</li>
+  <li><b>Scroll</b> to zoom.</li>
 </ul>
 
-{_h4("Interactions", _C_ROSTER)}
+{_h4("Arranging", _C_ROSTER)}
 <ul>
-  <li><b>Left-click drag</b> on empty canvas &mdash; pan the view</li>
-  <li><b>Middle-click drag</b> &mdash; also pans</li>
-  <li><b>Scroll wheel</b> &mdash; zoom in/out</li>
-  <li><b>Drag a team</b> &mdash; moves the entire sub-tree (all its
-      ships, strike groups, and child teams) together</li>
-  <li><b>Right-click a ship</b> &mdash; delete, assign to team/foreman,
-      unassign, manage crew, add strike group (on motherships)</li>
-  <li><b>Right-click a team</b> &mdash; assign to cluster (A-Z)</li>
-  <li><b>Drag a ship near a team</b> &mdash; snaps into that team
-      (120px proximity)</li>
-  <li><b>Drag a team near another team</b> &mdash; nests as a
-      sub-team (200px proximity)</li>
+  <li><b>Drag a team</b> and everything under it moves with it.</li>
+  <li><b>Drop a ship near a team</b> and it joins that team.</li>
+  <li><b>Drop a team near another team</b>, or near the foreman, and it
+      goes under it.</li>
+  <li><b>Double-click</b> the foreman, a team or a strike group to rename
+      it.</li>
+  <li><b>Right-click a ship</b> to delete it, assign it to a team or take
+      it out of one.</li>
 </ul>
 
-{_h4("Motherships &amp; Strike Groups", _C_ROSTER)}
+{_h4("Motherships and strike groups", _C_ROSTER)}
 <ul>
-  <li>Add a <b>Mothership</b> from Fleet Support, then <b>drag ships
-      onto it</b> &mdash; creates a "Strike Group 1" with the ships
-      snapped in a column</li>
-  <li><b>Right-click a mothership</b> &rarr; "Add Strike Group" to
-      create additional groups (Strike Group 2, 3, etc.)</li>
-  <li>Double-click a strike group to <b>rename</b> it</li>
-  <li>Players on strike group ships can be promoted to
-      <b>Strike Group Leader</b> via right-click</li>
-  <li>Strike groups appear as nested sub-sections in the left
-      panel player list</li>
+  <li>Add a <b>Mothership</b> from <b>Add Fleet Support</b>, then
+      right-click it and choose <b>Add Strike Group</b>.</li>
+  <li>Drag a ship from <b>Ship Fleet</b> onto a strike group to put it in
+      that group.</li>
 </ul>
 
 {_h4("Clusters", _C_ROSTER)}
 <ul>
-  <li><b>Right-click a team</b> &rarr; "Assign to Cluster" (A-Z)</li>
-  <li>Cluster label appears on the team node (e.g. "Cluster B")</li>
-  <li>The <b>Cluster filter bar</b> above the canvas lets you check/
-      uncheck clusters. Unchecked clusters dim to 30% opacity.</li>
-  <li>Your cluster's checkbox is highlighted in green</li>
-  <li>Team-mode breakability searches your cluster first before trying
-      other clusters (alphabetically nearest)</li>
+  <li>Right-click a team and choose <b>Assign to Cluster</b>, then a
+      letter from A to Z.</li>
+  <li>The <b>Clusters:</b> bar above the canvas has a tick box for each
+      cluster. Untick one to dim its teams. <b>All</b> and <b>None</b> tick
+      or untick every one.</li>
 </ul>
 """)
 
 _TAB_BREAK = _html(f"""
-{_h3("Breakability Calculator", _C_BREAK)}
-<p>The breakability system determines whether your ship(s) can crack
-a mining rock based on its mass and resistance.</p>
+{_h3("Can I break it?", _C_BREAK)}
+<p>The break check works out whether your lasers can crack a rock, from the
+rock's mass and resistance and the loadouts you loaded.</p>
 
-{_h4("How It Calculates", _C_BREAK)}
-<p>Power required = mass &times; 0.2 / (1 - effective resistance).
-Effective resistance is the rock's base resistance modified by your
-laser's resistance modifier, modules, and gadgets.</p>
+{_h4("How it calculates", _C_BREAK)}
+<p>Power needed = mass &times; 0.2 / (1 &minus; effective resistance).
+Effective resistance is the rock's resistance after your lasers, modules
+and gadgets have changed it.</p>
 
-{_h4("Escalation Order (Team Mode)", _C_BREAK)}
+{_h4("What it tries, in order", _C_BREAK)}
+<p>Lasers alone first, then with active modules, then with a gadget. The
+result says which of those it took.</p>
+
+{_h4("Who it counts", _C_BREAK)}
 <ol>
-  <li><b>Solo</b> &mdash; your ship's turrets only</li>
-  <li><b>Team</b> &mdash; all mining ships in your team</li>
-  <li><b>Cluster</b> &mdash; adds one team at a time from your cluster
-      (alphabetical by team name)</li>
-  <li><b>Fleet</b> &mdash; tries other clusters (alphabetical by
-      cluster letter, nearest first)</li>
+  <li><b>Solo</b> &mdash; your ship only</li>
+  <li><b>Team</b> &mdash; the mining ships in your team</li>
+  <li><b>Cluster</b> &mdash; teams from your cluster</li>
+  <li><b>Fleet</b> &mdash; everyone</li>
 </ol>
-<p>The HUD bubble shows the scope that succeeded (Solo/Team/Cluster/
-Fleet) next to the power percentage.</p>
+<p>When it needed more than your own ship, the result names how far it had
+to go.</p>
 
-{_h4("Fleet Mode", _C_BREAK)}
-<p>In Fleet mode, all fleet ships are combined. If your ship can't
-solo, the bubble shows two tabs: <b>Least Players</b> (fewest crew)
-and <b>Least Ships</b> (fewest ships needed).</p>
-
-{_h4("Substitute Info", _C_BREAK)}
-<p>When substitutes are needed, the bubble shows which ships from which
-teams/clusters can assist, with their crew requirements.</p>
-
-{_h4("Gadgets &amp; Active Modules", _C_BREAK)}
-<p>The calculator tries passive-only first, then active modules, then
-gadgets. It tracks remaining uses per turret and gadget quantities.
-The result shows how many activations are needed.</p>
+{_h4("Substitute", _C_BREAK)}
+<p>In fleet mode, when your ship cannot break the rock alone but the fleet
+can, a <b>Substitute</b> button appears on the <b>Scanner</b> tab. It opens
+<b>Substitute Ships Needed</b>, which lists who to call in: <b>Least
+Players</b> for the fewest crew, <b>Least Ships</b> for the fewest
+ships.</p>
 """)
 
 _TAB_PERSISTENCE = _html(f"""
-{_h3("Saving &amp; Persistence", _C_TIPS)}
+{_h3("Saving", _C_TIPS)}
 
-{_h4("Roster File Location", _C_TIPS)}
-<p>Your roster saves to <b>Documents/SC Loadouts/mining_roster.json</b>.
-This location <b>survives SC Toolbox updates</b> (the tool folder gets
-replaced, but Documents is never touched).</p>
+{_h4("Where the roster is kept", _C_TIPS)}
+<p>Your roster saves by itself to
+<b>Documents/SC Loadouts/mining_roster.json</b>, which a toolbox update does
+not touch.</p>
 
-{_h4("Export &amp; Load", _C_TIPS)}
+{_h4("Sharing a roster", _C_TIPS)}
 <ul>
-  <li><b style="{_ACC}">Export</b> &mdash; saves the entire roster
-      (players, teams, ships, clusters, strike groups, professions,
-      canvas positions) to a shareable JSON file</li>
-  <li><b style="{_ACC}">Load</b> &mdash; imports a previously exported
-      roster file (replaces the current roster after confirmation)</li>
-  <li>Share exported files with org members so everyone has the same
-      fleet structure</li>
+  <li><b>Export</b>, in the bar above the canvas, writes the whole roster
+      to a file: players, teams, ships, clusters, strike groups,
+      professions and where everything sits on the canvas.</li>
+  <li><b>Load</b>, beside it, opens such a file. It replaces the roster you
+      have, after asking.</li>
 </ul>
+<p style="{_DIM}">The <b>Export</b> button in the player panel is a
+different one: it saves only the list of players.</p>
 
-{_h4("What Persists Automatically", _C_TIPS)}
+{_h4("Clearing", _C_TIPS)}
+<p>Three buttons in the same bar, each asking first: <b>Players</b>,
+<b>Ships</b> and <b>All</b>.</p>
+
+{_h4("Tips", _C_TIPS)}
 <ul>
-  <li>All team assignments, ship placements, and player roles</li>
-  <li>Canvas node positions (drag layout is preserved)</li>
-  <li>Cluster assignments (A-Z)</li>
-  <li>Strike group names and leaders</li>
-  <li>Profession assignments</li>
-  <li>Assigned user selection (centres on your team on launch)</li>
-  <li>Player roster import/export files</li>
-</ul>
-
-{_h4("Clear Roster", _C_TIPS)}
-<p>The <b>Clear</b> button wipes all teams, ships, and assignments but
-keeps your player roster and fleet support ship definitions. A
-confirmation dialog prevents accidental clearing.</p>
-
-{_h4("Tips &amp; Troubleshooting", _C_TIPS)}
-<ul>
-  <li>Draw the OCR scan region <b>tightly</b> around just the number</li>
-  <li>Star Citizen must run in <b>Borderless Windowed</b> mode</li>
-  <li>Signal data refreshes every hour (restart to force refresh)</li>
-  <li>All windows stay on top of Star Citizen</li>
-  <li>Drag the title bar to reposition any popup</li>
+  <li>Box the whole signature panel, icon included, not only the
+      number.</li>
+  <li>Star Citizen should run in <b>Borderless Windowed</b> mode.</li>
+  <li>The main window stays on top of Star Citizen. Use the slider in the
+      title bar to make it more or less see-through.</li>
 </ul>
 """)
 
-_TABS = [
-    ("Getting Started", _TAB_GETTING_STARTED),
-    ("Scanning",        _TAB_SCANNING),
-    ("Signal Table",    _TAB_TABLE),
-    ("Ships & Salvage", _TAB_SHIPS),
-    ("Roster",          _TAB_ROSTER),
-    ("Canvas",          _TAB_CANVAS),
-    ("Breakability",    _TAB_BREAK),
-    ("Save & Tips",     _TAB_PERSISTENCE),
-]
+
+def _tabs() -> list:
+    """(title, html) per tab. Built when the popup opens, so the hotkey shown is the current one.
+    Short titles: ten of them have to fit across the popup without scroll arrows."""
+    return [
+        ("Start",    _tab_getting_started()),
+        ("Chart",    _TAB_CHART),
+        ("Scanning", _TAB_SCANNING),
+        ("Signals",  _TAB_TABLE),
+        ("Ships",    _TAB_SHIPS),
+        ("Refinery", _TAB_REFINERY),
+        ("Roster",   _TAB_ROSTER),
+        ("Canvas",   _TAB_CANVAS),
+        ("Breaking", _TAB_BREAK),
+        ("Saving",   _TAB_PERSISTENCE),
+    ]
 
 
 # ── Close button ─────────────────────────────────────────────────────────
@@ -558,7 +618,7 @@ class TutorialPopup(QDialog):
             }}
         """)
 
-        for tab_title, html in _TABS:
+        for tab_title, html in _tabs():
             tabs.addTab(_make_tab(html, tabs), tab_title)
 
         frame_lay.addWidget(tabs, 1)
