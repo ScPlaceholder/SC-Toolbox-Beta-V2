@@ -442,8 +442,10 @@ _LINES = {
         "bare": ["That is all I know about it.", "I have nothing more on it."],
     },
     "montaigne": {
-        "pointing": ["I cannot see which {thing} you mean, pilot; a ship has only what he is told.",
-                     "Which {thing} you mean I cannot see; I have no eyes of my own, only the suit's feed."],
+        # J, 2026-10-05: he is a man aboard the ship who never goes out. Until then these two lines read "a ship
+        # has only what he is told" and "I have no eyes of my own".
+        "pointing": ["I cannot see which {thing} you mean, pilot; I stay aboard, and have only what I am told.",
+                     "Which {thing} you mean I cannot see from in here; I have only the suit's feed."],
         "seen": ["The suit's eyes report this: {saw}.",
                  "I am shown this, by the suit's eyes and not my own: {saw}."],
         "seen_not_it": ["The suit's eyes report this: {saw}. Which {thing} you mean in that, I cannot tell."],

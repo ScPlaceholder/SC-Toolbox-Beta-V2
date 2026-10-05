@@ -131,7 +131,13 @@ _CALL = {"hey", "hi", "hello", "yo", "oi", "ok", "okay"}        # "hey Elah": th
 _FILLER_WORDS = {"hey", "hi", "hello", "ok", "okay", "so", "um", "uh", "oi", "yo", "and", "right", "listen"}   # as _FILLER
 _WEAK = {"suit": "elah", "ship": "montaigne", "mountain": "montaigne", "monty": "montaigne", "monte": "montaigne"}
 _FILLER = r"^(?:(?:hey|hi|hello|ok|okay|so|um|uh|oi|yo|and|right|listen)\s+)+"
-_DETERMINERS = {"the", "this", "my", "our", "a", "your", "her", "that", "his", "whose", "which", "what"}
+# A last word "ship" or "suit" is calling the companion ("thanks, suit") unless the word before makes it a thing:
+# "what ship", and since 2026-10-05 "your dream ship", "my other ship", "the last ship" (until then "what's your
+# favourite ship" lost its last word and was heard as "what's your favourite").
+_DETERMINERS = {"the", "this", "my", "our", "a", "your", "her", "that", "his", "whose", "which", "what",
+                "dream", "favourite", "favorite", "ideal", "perfect", "best", "worst", "other", "another", "last", "next",
+                "old", "new", "first", "same", "different", "any", "every", "each", "one", "no", "big", "small", "whole",
+                "own", "wrong", "right", "nice", "good", "bad", "fast", "slow", "beautiful", "ugly", "lovely"}
 _NOISE = {"uh", "um", "hmm", "er", "ah", "the", "a", "oh", "huh", "mm"}
 
 _OPINION = [
@@ -142,6 +148,40 @@ _OPINION = [
     r"\bdo you (?:like|rate|trust) (?P<x>.+)",
     r"\bthoughts on (?P<x>.+)",
 ]
+# LIKES AND DISLIKES ARE THE CANON FILE'S (J, 2026-10-05). Tried before _OPINION, and only claims the sentence when
+# the companion asked actually HAS an entry for it; "do you like it?" and "what do you think of this place" go on
+# to the readings they always had.
+_PREF_ASK = [
+    ("dream_ship", r"\b(?:whats|what is|which is|tell me) your (?:dream|favou?rite|ideal|perfect) ship\b|"
+                   r"\bwhat ship (?:do you|would you) (?:dream of|want|love|like best|pick|choose)\b|\bwhat would you (?:rather )?fly\b"),
+    ("favourite_maker", r"\byour favou?rite (?:manufacturer|maker|ship ?builder|brand)\b|\bwho (?:makes|builds) the best ships\b"),
+    ("dislike", r"\b(?:what|which) (?:ships?|manufacturers?|makers?|brands?) (?:do you|dont you) (?:hate|dislike|not like|like least|cant stand)\b|"
+                r"\byour least favou?rite (?:ship|manufacturer|maker|brand)\b"),
+]
+_PREF_NAMED = [
+    r"\bwhat (?:do|d|would) you (?:think|make|reckon|feel) (?:of|about) (?P<x>.+)",
+    r"\bwhats your (?:opinion|take|view|verdict) (?:of|on|about) (?P<x>.+)",
+    r"\bhow do you feel about (?P<x>.+)", r"\bthoughts on (?P<x>.+)",
+    r"\b(?:do|dont|would) you (?:really |actually |even )?(?:like|love|hate|rate|trust|dislike|fancy|care for|want) (?P<x>.+)",
+    r"\b(?:what|how) about (?P<x>.+)",
+]
+
+
+def _preference(who: Optional[str], t: str) -> Optional[dict]:
+    """{"ask": ...} or {"thing": ...} when the canon file of the companion asked answers this sentence."""
+    speaker = who or _DEFAULT_ADDRESSEE["social"]
+    for ask, rx in _PREF_ASK:
+        if re.search(rx, t) and cc.preference_asked(speaker, ask):
+            return {"ask": ask}
+    for rx in _PREF_NAMED:
+        m = re.search(rx, t)
+        if m:
+            p = cc.preference_named(speaker, m.group("x"))
+            if p:
+                return {"thing": p["thing"]}
+    return None
+
+
 _MEMORY = [
     ("been_here", r"\b(?:been|visited|come|came|stopped)\b(?:\s+\w+){0,4}?\s+(?:here|this place|this station|"
                   r"this city|this planet|this moon)\b|\bfirst time (?:here|at this|in this|visiting)\b|"
@@ -288,8 +328,16 @@ def route(utterance: str) -> Route:
     slots: dict = {"text": t, "said": _norm(utterance)}
     intent = None
     canon_act = cc.early_act(t)                          # a sentence code answers from the canon, whatever else it looks like
+    owner = cc.SPEAKER_ACTS.get(canon_act[0]) if canon_act else None
+    if owner and who and who != owner:                   # "Elah, are you coming?" is not Montaigne's act
+        canon_act = None
     if canon_act:
         intent, slots["topic"], slots["who_lost"] = "social", canon_act[0], canon_act[1]
+        who = owner or who
+    if intent is None:
+        pref = _preference(who, t)
+        if pref:
+            intent, slots["topic"], slots["pref"] = "social", "preference", pref
     for rx in _OPINION if intent is None else ():
         m = re.search(rx, t)
         if m:
@@ -665,7 +713,15 @@ def canon_spec(route_result: Route, variant: int = 0) -> Spec:
     """A sentence the character's canon file answers: one of its wordings for that act, word for word."""
     addressee, intent, slots = route_result
     act, who = slots["topic"], slots.get("who_lost", "")
-    text = cc.canon_line(addressee, act, variant, who)
+    thing = ""
+    if act == "preference":                              # the one line the file holds for that thing
+        pref = slots.get("pref") or {}
+        found = cc.preference_asked(addressee, pref.get("ask", "")) or \
+            [p for p in cc.preferences(addressee) if p["thing"] == pref.get("thing")]
+        entry = found[variant % len(found)] if found else None
+        text, thing = (entry["why"].strip(), entry["thing"]) if entry else (cc.canon_line(addressee, "unknown_fact", variant), "")
+    else:
+        text = cc.canon_line(addressee, act, variant, who)
     n = len(text.split())
     claims = [_claim("C1", "PILOT_SUBMISSION", "pilot.said", " ".join(slots["text"].split()[:12]))]
     return {
@@ -676,7 +732,7 @@ def canon_spec(route_result: Route, variant: int = 0) -> Spec:
         "required_claims": [], "required_values": [], "length_words": [max(1, n - 3), n],
         "id": f"dir_canon_{act}_{addressee}", "lane": "direct",
         "route": {"addressee": addressee, "intent": intent, "topic": act, "text": slots["text"]},
-        "fixed_text": text, "canon": {"act": act, "who": who},
+        "fixed_text": text, "canon": {"act": act, "who": who, "thing": thing},
     }
 
 
@@ -684,6 +740,9 @@ def canon_problems(spec: Spec, text: str) -> list[str]:
     """A canon answer may be exactly one of the wordings the canon file holds NOW for that speaker and act. They are
     J's own lines, so nothing else is checked: he may write a number, a name or a feeling into them."""
     c = spec.get("canon") or {}
+    if c.get("act") == "preference":
+        held = [p["why"].strip() for p in cc.preferences(spec["speaker"])] + cc.canon_lines(spec["speaker"], "unknown_fact")
+        return [] if text in held else ["not a line the canon file holds for this"]
     return [] if text in cc.canon_lines(spec["speaker"], c.get("act", ""), c.get("who", "")) else \
         ["not a line the canon file holds for this"]
 
@@ -801,7 +860,7 @@ def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict],
         return place_spec(route_result, state, variant, fact)
     if intent == "memory" and topic == "recall":
         return recall_spec(route_result, None, variant, keeping=False)     # no log was handed in: ConversationLane has it
-    if intent == "social" and topic in cc.CANON_ACTS:
+    if intent == "social" and (topic in cc.CANON_ACTS or topic in cc.SPEAKER_ACTS or topic == "preference"):
         return canon_spec(route_result, variant)
     if intent == "factual":
         if topic == "injury":

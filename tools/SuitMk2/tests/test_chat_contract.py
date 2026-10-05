@@ -82,8 +82,8 @@ def test_each_act_routes_and_is_spoken_from_the_canon_file(act, sentences):
 def test_the_provisional_lines_are_the_ones_proposed_and_are_marked_as_not_approved():
     e, m = cc.canon("elah"), cc.canon("montaigne")
     assert e["lines"]["identity"][0] == "Yes. Your suit's. Was there a complaint?"
-    assert m["lines"]["identity"][0] == ("I am Michel de Montaigne. How I came to converse through a ship remains a "
-                                         "considerable puzzle.")
+    assert m["lines"]["identity"][0] == ("I am Michel de Montaigne. How I came to be aboard a ship among the stars remains "
+                                         "a considerable puzzle.")
     assert e["lines"]["grief"][0] == "I'm sorry. You don't have to fill the silence."
     assert m["lines"]["grief"][0] == "I am sorry. If you wish to tell me about your {who}, I would gladly listen."
     for c in (e, m):
@@ -444,3 +444,160 @@ def test_three_questions_the_fresh_set_showed_were_not_being_heard(sentence, int
 def test_the_pilots_own_job_is_not_a_mission():
     for s in ("I quit my job this morning.", "I hate my job", "my job is killing me"):
         assert conv.route(s)[2].get("topic") != "mission", s
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# J, 2026-10-05 16:30: Montaigne is a MAN ABOARD the ship, not the ship. He never leaves it.
+# ---------------------------------------------------------------------------------------------------------------
+ABOARD = ["Why don't you ever leave the ship?", "why do you never come out", "are you coming with me", "Come with me.",
+          "do you ever go outside", "will you get off the ship", "are you agoraphobic", "why do you always stay on the ship"]
+SHIP_TO_SHIP = ["How did you get from the last ship to this one?", "how do you get from one ship to another",
+                "If you never leave, how are you here?", "how did you get here", "weren't you on my other ship",
+                "how do you move between ships"]
+J_ABOARD = ("I have travelled enough, pilot. Rome, the baths, the mountain roads. A man who has seen the world has earned "
+            "the right to see the rest of it through a window.")
+J_SHIP_TO_SHIP = [
+    "I have asked it of myself. I do not remember arriving anywhere, pilot. I only ever find that I am here.",
+    "They say the ship of Theseus was replaced plank by plank. Whether the ship changes about me or I about the ship, I "
+    "leave to better heads. I have not gone out, that much I will swear to.",
+    "I never leave, and yet I am always where you are. One of those must be false, and I have decided not to inquire which."]
+
+
+@pytest.mark.parametrize("act, sentences", [("aboard", ABOARD), ("ship_to_ship", SHIP_TO_SHIP)])
+def test_montaignes_two_own_acts_are_answered_by_code_from_his_file(act, sentences):
+    on_disk = json.loads(cc.canon_path("montaigne").read_text(encoding="utf-8"))["lines"][act]
+    for s in sentences:
+        for said in (s, "Montaigne, " + s):                 # asked of nobody in particular, it is still his
+            r = conv.route(said)
+            assert (r[0], r[1], r[2].get("topic")) == ("montaigne", "social", act), said
+            spec = spec_for(said)
+            assert spec["fixed_text"] in on_disk and conv.ground_direct(spec, spec["fixed_text"]) == []
+
+
+def test_the_lines_j_approved_are_the_first_wordings():
+    lines = cc.canon("montaigne")["lines"]
+    assert lines["aboard"][0] == J_ABOARD and lines["ship_to_ship"] == J_SHIP_TO_SHIP
+    lane = conv.ConversationLane()
+    said = [spec_for("Montaigne, how did you get from the last ship to this one?", lane)["fixed_text"] for _ in range(3)]
+    assert sorted(said) == sorted(J_SHIP_TO_SHIP)                 # they rotate; none is an actual answer
+
+
+def test_asked_of_elah_they_are_not_his_acts():
+    for s in ("Elah, are you coming with me?", "Elah, how did you get here?", "Elah, why don't you ever leave the ship?"):
+        r = conv.route(s)
+        assert r[0] == "elah" and r[2].get("topic") not in cc.SPEAKER_ACTS, s
+    assert "aboard" not in cc.canon("elah")["lines"] and "ship_to_ship" not in cc.canon("elah")["lines"]
+
+
+def test_ordinary_sentences_are_not_taken_for_his_two_acts():
+    for s in ("how do I get cargo from one ship to another", "I am staying here tonight", "leave it", "how did I get here"):
+        assert conv.route(s)[2].get("topic") not in cc.SPEAKER_ACTS, s
+
+
+_SHIP_SELF = ("i am a ship", "a ship who", "a ship has", "a ship is told", "a ship does", "ask a ship", "to be a ship",
+              "become a ship", "a vessel", "no eyes of my own", "through a ship", "no hands")
+
+
+def test_nowhere_in_his_file_does_he_call_himself_a_ship():
+    c = cc.canon("montaigne")
+    spoken = [ln for lines in c["lines"].values() for ln in lines]
+    for text in spoken + [c["persona"].split("You never call yourself")[0]]:
+        assert not any(w in text.lower() for w in _SHIP_SELF), text
+    assert "never leave the ship" in c["persona"] and "agoraphobe" in c["persona"] and "a man" in c["persona"]
+    assert "the AI of the pilot's ship" not in c["persona"]
+    import place_knowledge as pk
+    assert not any(w in str(pk.LINES["montaigne"]).lower() for w in _SHIP_SELF) if hasattr(pk, "LINES") else True
+    assert not any(w in a.lower() for _, a in cc.EXAMPLES["montaigne"] for w in ("a ship", "vessel"))
+
+
+def test_what_he_cannot_see_is_said_as_a_man_aboard():
+    spec = spec_for("Montaigne, what's that tower?")
+    assert "a ship has" not in spec["fixed_text"] and "no eyes of my own" not in spec["fixed_text"]
+    assert "aboard" in spec["fixed_text"] or "from in here" in spec["fixed_text"]
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# J, 2026-10-05 16:23: preferences are canon data, and code answers from them
+# ---------------------------------------------------------------------------------------------------------------
+def test_elahs_preferences_are_the_set_she_gave_and_guns_and_armor_are_left_empty():
+    ps = {p["thing"]: (p["stance"], p["strength"], p.get("kind")) for p in cc.preferences("elah")}
+    assert ps == {"Drake Kraken": ("love", "strong", "ship"), "Kraken Privateer": ("love", "strong", "ship"),
+                  "Drake": ("like", "strong", "manufacturer"), "Aegis": ("like", "strong", "manufacturer"),
+                  "Crusader": ("like", "mild", "manufacturer"), "Origin": ("dislike", "strong", "manufacturer")}
+    c = cc.canon("elah")
+    assert "GUNS and ARMOR are EMPTY ON PURPOSE" in c["_preferences_todo"] and "J has NOT approved" in c["_preferences_todo"]
+    assert not any(p.get("kind") in ("weapon", "gun", "armor", "armour") for p in c["preferences"])
+    assert cc.preferences("montaigne") == [] and "EMPTY ON PURPOSE" in cc.canon("montaigne")["_preferences_todo"]
+
+
+@pytest.mark.parametrize("sentence, thing", [
+    ("What's your dream ship?", "Kraken"), ("what's your favourite ship", "Kraken"), ("Do you like Drake?", "Drake."),
+    ("What do you think of Origin?", "Origin."), ("how do you feel about Aegis", "Aegis."), ("do you like Crusader ships", "Crusader"),
+    ("what do you think of the Kraken Privateer", "Privateer"), ("which manufacturer do you hate", "Origin."),
+    ("what's your favourite manufacturer", "Drake."),
+])
+def test_a_question_about_what_she_likes_is_answered_from_the_file_word_for_word(sentence, thing):
+    who, intent, slots = conv.route(sentence)
+    assert (who, intent, slots.get("topic")) == ("elah", "social", "preference"), sentence
+    spec = spec_for(sentence)
+    whys = [p["why"] for p in cc.preferences("elah")]
+    assert spec["fixed_text"] in whys and thing in spec["fixed_text"]
+    assert spec["canon"]["act"] == "preference" and conv.ground_direct(spec, spec["fixed_text"]) == []
+
+
+def test_the_dream_ship_is_the_kraken_and_then_the_privateer():
+    lane = conv.ConversationLane()
+    said = [spec_for("What's your dream ship?", lane)["fixed_text"] for _ in range(2)]
+    assert "Kraken" in said[0] and "Privateer" in said[1] and said[0] != said[1]
+
+
+def test_a_dislike_is_stated_as_a_dislike():
+    line = spec_for("Do you like Origin?")["fixed_text"]
+    assert line == "Origin. All polish. You pay for the badge."
+
+
+@pytest.mark.parametrize("sentence", ["Do you like it?", "what do you think of this place", "do you like the Cutlass",
+                                      "What do you make of Montaigne?", "do you like flying", "what about you"])
+def test_a_thing_with_no_entry_is_not_given_a_canon_preference(sentence):
+    assert conv.route(sentence)[2].get("topic") != "preference", sentence
+
+
+def test_montaigne_has_no_entries_yet_so_his_questions_go_where_they_went():
+    assert conv.route("Montaigne, what's your dream ship?")[2].get("topic") != "preference"
+    assert conv.route("Montaigne, do you like Drake?")[1] == "opinion"
+
+
+def test_editing_a_preference_changes_the_answer_without_a_restart(canon_copy):
+    p = canon_copy / "canon_elah.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    d["preferences"] = [{"thing": "Anvil", "names": ["anvil"], "kind": "manufacturer", "stance": "dislike", "strength": "mild",
+                         "why": "Anvil. Too pleased with itself."},
+                        {"thing": "broken entry"}]                                   # skipped, never a crash
+    p.write_text(json.dumps(d), encoding="utf-8")
+    assert spec_for("do you like Anvil")["fixed_text"] == "Anvil. Too pleased with itself."
+    assert conv.route("do you like Drake")[2].get("topic") != "preference"
+    assert [x["thing"] for x in cc.preferences("elah")] == ["Anvil"]
+
+
+def test_only_a_line_the_file_holds_may_be_said_as_a_preference():
+    spec = spec_for("Do you like Drake?")
+    assert conv.ground_direct(spec, "Drake. Best ships in the verse, top speed 1200.") != []
+
+
+def test_a_talker_may_be_told_a_preference_as_a_supplied_fact():
+    assert cc.preference_facts("elah", "I'm thinking of buying an Origin 300i") == [
+        "elah.dislikes=Origin (strong): Origin. All polish. You pay for the badge."]
+    assert cc.preference_facts("elah", "nice day") == [] and cc.preference_facts("montaigne", "I love Drake") == []
+
+
+@pytest.mark.parametrize("line", ["It's functional. I don't have preferences.", "I do not have any preferences.",
+                                  "No preferences. It flies.", "I don't have favourites."])
+def test_elah_saying_she_has_no_preferences_is_a_counted_failure(line):
+    assert any("no preferences" in f for f in cc.chat_problems("elah", line, "", ""))
+    assert not any("no preferences" in f for f in cc.chat_problems("elah", "I'd take the Kraken.", "kraken", ""))
+
+
+def test_a_ship_at_the_end_of_a_question_is_a_thing_not_a_way_of_calling_montaigne():
+    assert conv.route("What's your favourite ship?")[2]["text"].endswith("ship")
+    assert conv.route("weren't you on my other ship")[2]["text"].endswith("ship")
+    assert conv.route("thanks, ship")[0] == "montaigne" and conv.route("thanks suit")[0] == "elah"      # still a vocative

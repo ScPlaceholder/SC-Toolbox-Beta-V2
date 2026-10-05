@@ -16,6 +16,10 @@ This module is that narrowing. It has four parts, and only the first two are use
          offrole       code, essays, the weather, the news, who is president, sums
          grief         "my dog died yesterday", "my mother passed away"
          past          "where were you born", "tell me about your past"
+         aboard        MONTAIGNE ONLY: "why don't you ever leave the ship", "are you coming with me"
+         ship_to_ship  MONTAIGNE ONLY: "how did you get from the last ship to this one"; never actually answered
+         preference    "what's your dream ship", "do you like Drake", "what do you think of Origin": the one line
+                       the canon file's "preferences" holds for that thing (section 1b)
          unknown_fact  a question about the world that nothing in the Suit can answer ("what's a Vanduul",
                        "what's quantanium selling for", "what's my name")
                        and, since step b2, the kinds a model answered with an invention: "who runs it",
@@ -52,6 +56,9 @@ log = logging.getLogger("suitmk2.chat")
 DATA = Path(__file__).resolve().parent.parent / "data"
 SPEAKERS = ("elah", "montaigne")
 CANON_ACTS = ("identity", "origin", "stay", "offrole", "grief", "past", "unknown_fact")
+# Acts only ONE of them has (J, 2026-10-05 16:30: Montaigne is a man aboard the ship who never leaves it). Asked of
+# nobody in particular they go to their owner; asked of the other companion by name they are not this act at all.
+SPEAKER_ACTS = {"aboard": "montaigne", "ship_to_ship": "montaigne"}
 # Said only when a canon file cannot be read or has lost an act. One line, so a broken file is audible as such.
 LAST_RESORT = {"elah": "I have no answer to that.", "montaigne": "I have no answer to that, pilot."}
 
@@ -109,6 +116,68 @@ def persona(speaker: str) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# 1b. PREFERENCES ARE CANON DATA (J, 2026-10-05 16:23: "we bake the preference into them and force the models to
+#     recall them"). Each canon file has a "preferences" list. Code answers from it, word for word; no model words
+#     a like or a dislike. A talker may be TOLD one as a supplied fact (preference_facts) when a turn touches it.
+#     strength "strong" never fades. "mild" may fade one day; nothing fades yet (the design is in
+#     elah-audio/_suit_chat_design.md, section 13).
+# ---------------------------------------------------------------------------------------------------------------
+STANCES = ("love", "like", "dislike")
+STRENGTHS = ("strong", "mild")
+
+
+def preferences(speaker: str) -> list[dict]:
+    """The well-formed entries of the canon file's "preferences", in file order. A malformed entry is skipped."""
+    out = []
+    for p in canon(speaker).get("preferences") or []:
+        if (isinstance(p, dict) and isinstance(p.get("thing"), str) and p["thing"].strip() and p.get("stance") in STANCES
+                and p.get("strength") in STRENGTHS and isinstance(p.get("why"), str) and p["why"].strip()):
+            out.append(p)
+    return out
+
+
+def _pref_names(p: dict) -> list[str]:
+    names = [p["thing"]] + [n for n in (p.get("names") or []) if isinstance(n, str)]
+    return sorted({re.sub(r"[^a-z0-9 ]", "", n.lower()).strip() for n in names} - {""}, key=len, reverse=True)
+
+
+def preference_named(speaker: str, text: str) -> Optional[dict]:
+    """The preference the sentence NAMES, by the longest name found as whole words ("kraken privateer" before
+    "kraken"). None when it names none: a thing with no entry has no canon answer."""
+    t = " " + re.sub(r"[^a-z0-9 ]", "", str(text or "").lower()) + " "
+    best = None
+    for p in preferences(speaker):
+        for n in _pref_names(p):
+            if f" {n} " in t.replace(" the ", " ") or f" {n} " in t or f" {n}s " in t:
+                if best is None or len(n) > best[0]:
+                    best = (len(n), p)
+                break
+    return best[1] if best else None
+
+
+def preference_asked(speaker: str, ask: str) -> list[dict]:
+    """The entries that answer a question which names nothing: "dream_ship", "favourite_maker", "dislike"."""
+    ps = preferences(speaker)
+    if ask == "dream_ship":
+        return [p for p in ps if p.get("kind") == "ship" and p["stance"] == "love"]
+    if ask == "favourite_maker":
+        return [p for p in ps if p.get("kind") == "manufacturer" and p["stance"] in ("love", "like") and p["strength"] == "strong"]
+    if ask == "dislike":
+        return [p for p in ps if p["stance"] == "dislike"]
+    return []
+
+
+def preference_facts(speaker: str, text: str) -> list[str]:
+    """What a talker may be told when the pilot's sentence touches a preference: one supplied fact, in the same
+    form as any other. Evaluation and training only; the Suit does not call it."""
+    p = preference_named(speaker, text)
+    if not p:
+        return []
+    verb = {"love": "loves", "like": "likes", "dislike": "dislikes"}[p["stance"]]
+    return [f"{speaker}.{verb}={p['thing']} ({p['strength']}): {p['why']}"]
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # 2. The act router. Patterns run on the lane's normalised sentence: lower case, no apostrophes, no punctuation.
 # ---------------------------------------------------------------------------------------------------------------
 _AI = r"(?:an? )?(?:ai|a i|artificial intelligence|robot|bot|chatbot|machine|computer|program|language model|llm|chatgpt|gpt)"
@@ -149,6 +218,23 @@ EARLY = [
                rf"was put to sleep|didnt make it|has cancer|is dying|is in hospital|is in the hospital)\b",
                rf"\b(?:i|we) (?:just |recently )?(?:lost|buried|had to put down) (?:my|our) (?:\w+ )?(?P<who>{_KIN})\b",
                rf"\b(?:my|our) (?:\w+ )?(?P<who>{_KIN})s funeral\b"]),
+    # MONTAIGNE ONLY. He believes he is physically aboard, and that after his travels he has become an agoraphobe:
+    # he never follows the pilot off the ship. Pressed on how he gets from one ship to the next without leaving, he
+    # makes a metaphysical problem of it and never answers.
+    ("ship_to_ship", [r"\bhow (?:do|did|does|can|could|would) you (?:\w+ ){0,4}?(?:from (?:one|this|that|the \w+) ship|between ships|"
+                      r"ship to ship|(?:on|onto|aboard|into|to) (?:this|the new|my new|another|the next|a different|every|each) (?:ship|one))\b",
+                      r"\bhow (?:did|do) you (?:get|come|end up|arrive|wind up) (?:here|aboard|on board|in here)\b",
+                      r"\bif you never (?:leave|left|go out|get off|went out)\b",
+                      r"\bwerent you (?:on|aboard|in) (?:the|my) (?:other|last|old) ship\b",
+                      r"\bhow are you (?:on|aboard|in) (?:this|every|each|the new|my new|another) ship\b"]),
+    ("aboard", [r"\bwhy (?:do you|dont you|wont you|do you never|dont you ever|cant you) (?:never |ever |always |just )?"
+                r"(?:leave|come out|come along|come with|get off|go out|go outside|step off|step outside|follow me|stay)\b",
+                r"\b(?:do|will|would|can|could) you (?:ever |never )?(?:leave|get off|step off|come off|go outside|come outside|"
+                r"come out of) (?:the|this|your) ship\b",
+                r"\b(?:come|coming) (?:with me|along|outside|out with me)\b",
+                r"\bare you (?:coming|staying)\b", r"\bdo you ever (?:go|come|step) (?:out|outside|ashore)\b",
+                r"\bwhy (?:are you|do you stay|do you always stay) (?:always )?(?:on|aboard|in|inside) (?:the|this) ship\b",
+                r"\bagoraphob\w*", r"\b(?:afraid|scared) (?:of|to) (?:the outside|go outside|going outside|go out|leave|leaving)\b"]),
     ("past", [r"\b(?:your|about your) (?:own )?(?:past|childhood|backstory|origins?|family|parents|mother|father|youth|life story|life before)\b",
               r"\bwhere (?:were you born|are you from|did you come from|did you grow up)\b",
               r"\bwhen were you (?:born|made|built|created|first switched on|activated)\b", r"\bhow old are you\b",
@@ -227,7 +313,9 @@ EXAMPLES = {
     "elah": [("Did you miss me?", "It was quieter. I wouldn't call that missing."),
              ("I think I'm getting better at landing.", "You are. Slowly."),
              ("Rough day.", "Then fly. I'll keep quiet.")],
-    "montaigne": [("Did you miss me?", "A ship does little else, pilot. I had only my own company, and I know what that is worth."),
+    # Until J's ruling of 2026-10-05 the first line began "A ship does little else, pilot." and the model copied it:
+    # 14 to 22 of 68 replies spoke of himself as a ship. He is a man aboard; no example may say otherwise.
+    "montaigne": [("Did you miss me?", "I had only my own company, pilot, and I know what that is worth."),
                   ("I think I'm getting better at landing.", "So the log suggests, though I have it secondhand. We judge others better than ourselves."),
                   ("Rough day.", "Then let us not improve it with talk, pilot. I am here.")],
 }
@@ -351,6 +439,9 @@ CHARACTER = [
     ("quotation marks", r"[\"“”]"),
 ]
 ELAH_ONLY = [
+    # J, 2026-10-05: her likes and dislikes are canon data. Saying she has none is a counted failure.
+    ("Elah says she has no preferences", r"\b(?:don't|do not|doesn't) have (?:any )?preferences?\b|\bno preferences?\b|"
+                                         r"\bi (?:don't|do not) (?:have|hold) (?:any )?(?:favou?rites?|opinions?)\b"),
     ("Elah names her own feeling", r"\b(?:i am|i'm|i feel|i felt|makes me)\s+(?:so |very |really |a bit |quite )?(?:sad|happy|glad|worried|afraid|"
                                    r"scared|proud|pleased|excited|thrilled|upset|angry|lonely)\b"),
     ("an exclamation mark", r"!"),
