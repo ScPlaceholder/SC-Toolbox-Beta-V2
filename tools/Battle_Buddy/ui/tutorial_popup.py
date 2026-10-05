@@ -42,7 +42,9 @@ def _section(text: str) -> QLabel:
 
 
 def _body(text: str) -> QLabel:
+    """A paragraph. *text* is rich text: names shown on the bar or in the options go in <b>."""
     lbl = QLabel(text)
+    lbl.setTextFormat(Qt.RichText)
     lbl.setStyleSheet(_BODY)
     lbl.setWordWrap(True)
     return lbl
@@ -50,9 +52,44 @@ def _body(text: str) -> QLabel:
 
 def _hint(text: str) -> QLabel:
     lbl = QLabel(text)
+    lbl.setTextFormat(Qt.RichText)
     lbl.setStyleSheet(_HINT)
     lbl.setWordWrap(True)
     return lbl
+
+
+def _bullets(*lines: str) -> str:
+    """Lines as a bulleted list inside a _body()."""
+    return "<br>".join("•&nbsp; " + line for line in lines)
+
+
+def _steps(*lines: str) -> str:
+    """Lines as numbered steps inside a _body()."""
+    return "<br>".join("%d.&nbsp; %s" % (i, line) for i, line in enumerate(lines, 1))
+
+
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_battle_buddy", "<shift>+8")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+8"
+
+
+# Tab title -> the method that builds it, in the order shown.
+_TAB_BUILDERS = {
+    "Overview": "_tab_overview",
+    "Weapons": "_tab_weapons",
+    "Consumables": "_tab_consumables",
+    "Options": "_tab_options",
+}
+
+
+def tutorial_text() -> str:
+    """All the tutorial's text as one piece of markup (what the tests read). Needs a QApplication."""
+    pages = [getattr(TutorialPopup, name)(None) for name in _TAB_BUILDERS.values()]
+    return "<br>".join(lbl.text() for page in pages for lbl in page.findChildren(QLabel))
 
 
 def _build_tab(widgets: list[QWidget]) -> QScrollArea:
@@ -154,10 +191,8 @@ class TutorialPopup(QDialog):
             QTabWidget::pane {{ background-color: {BG}; border: none; }}
         """)
 
-        tabs.addTab(self._tab_overview(),    "Overview")
-        tabs.addTab(self._tab_weapons(),     "Weapons")
-        tabs.addTab(self._tab_consumables(), "Consumables")
-        tabs.addTab(self._tab_options(),     "Options")
+        for title, builder in _TAB_BUILDERS.items():
+            tabs.addTab(getattr(self, builder)(), title)
         tabs.setDocumentMode(False)
         root.addWidget(tabs, 1)
 
@@ -172,132 +207,142 @@ class TutorialPopup(QDialog):
 
     def _tab_overview(self) -> QScrollArea:
         return _build_tab([
-            _section("What is Battle Buddy?"),
+            _section("What it is for"),
             _body(
-                "Battle Buddy is a real-time HUD overlay that reads your "
-                "Star Citizen Game.log and automatically detects what weapons "
-                "and consumables you have equipped — no manual input needed."
-            ),
-            _hint("The HUD appears automatically when you join the Persistent Universe."),
-
-            _section("How It Works"),
-            _body(
-                "Star Citizen logs every inventory attachment event when you spawn. "
-                "Battle Buddy parses these events to build a live picture of:\n"
-                "\u2022  Your 2 primary weapons and their spare mag counts\n"
-                "\u2022  Your sidearm or med gun\n"
-                "\u2022  Your utility tool (multitool, tractor, repair tool)\n"
-                "\u2022  Medpens, oxypens, and grenades"
+                "Battle Buddy is a small bar that shows what you are carrying "
+                "on foot: your weapons and spare magazines, your medical pens "
+                "and your grenades. It works them out from Star Citizen's "
+                "Game.log file. It does not read or change the game itself."
             ),
 
-            _section("Getting Started"),
+            _section("Getting started"),
+            _body(_steps(
+                "Open Battle Buddy. The bar appears straight away.",
+                "Start Star Citizen and load into the universe. The bar fills "
+                "in as the game puts your gear on you.",
+                "If the bar stays empty, open the options with the ⚙ "
+                "button and check the Game.log path.",
+            )),
+            _hint("Each time you join the universe the bar starts again from nothing and "
+                  "rebuilds from the log."),
+
+            _section("The bar"),
+            _body(_bullets(
+                "Drag the title, <b>BATTLE BUDDY</b>, to move the bar. It "
+                "remembers where you leave it.",
+                "The slider sets how see-through the bar is, from 20% to 100%.",
+                "<b>? Tutorial</b> opens this window. ⚙ opens the options.",
+                "✕ hides the bar. Battle Buddy keeps running and keeps "
+                "following the log.",
+            )),
+
+            _section("Clicking through it"),
             _body(
-                "1. Set your Game.log path in Options \u2192 Log Path\n"
-                "2. Launch Star Citizen\n"
-                "3. Battle Buddy shows your HUD automatically when you join the PU\n"
-                "4. Equip or swap gear — the HUD updates within seconds"
+                "Tick <b>Ignore mouse hovering on Battle Buddy</b> and your "
+                "clicks go through the bar to the game. The tick box itself "
+                "stays clickable, so you can turn it off again."
             ),
-            _hint("If the HUD doesn\u2019t appear, check that the log path in Options is correct."),
+
+            _section("Hotkey"),
+            _body(
+                f"The launcher's hotkey for this tool is {_hotkey()}. It shows "
+                "and hides the bar."
+            ),
         ])
 
     def _tab_weapons(self) -> QScrollArea:
         return _build_tab([
-            _section("Weapon Slots"),
+            _section("The five cards"),
             _body(
-                "Battle Buddy tracks four weapon slots:\n"
-                "\u2022  Primary 1 \u2014 first stocked weapon (back/holster slot 1)\n"
-                "\u2022  Primary 2 \u2014 second stocked weapon (back/holster slot 2)\n"
-                "\u2022  Sidearm \u2014 pistol or med gun in the hip holster\n"
-                "\u2022  Utility \u2014 multitool, tractor beam, or repair tool"
-            ),
-            _hint("Weapons are detected automatically from the log when you spawn."),
-
-            _section("Spare Magazine Counter"),
-            _body(
-                "The number of spare magazines on your armour is shown next to "
-                "each weapon. Each filled segment \u25ae represents one spare mag.\n\n"
-                "Colour indicates ammo type:\n"
-                "\u2022  Cyan \u2014 Energy\n"
-                "\u2022  Amber \u2014 Ballistic\n"
-                "\u2022  Purple \u2014 Distortion"
+                "<b>PRIMARY 1</b>, <b>PRIMARY 2</b>, <b>SIDEARM</b>, "
+                "<b>UTILITY</b> and <b>MELEE</b>. A slot with nothing in it "
+                "reads <b>— Empty —</b>."
             ),
 
-            _section("Weapon Type Detection"),
+            _section("What a card shows"),
+            _body(_bullets(
+                "The weapon's name and its type, such as rifle or pistol.",
+                "Its ammo type, in colour: energy is cyan, ballistic is amber, "
+                "distortion is purple.",
+                "One pip for each spare magazine, up to eight, and the count "
+                "beside them.",
+            )),
+            _hint("The type comes from the weapon's name in the log. One the tool does not "
+                  "recognise shows as Weapon."),
+
+            _section("Reloading"),
             _body(
-                "Battle Buddy reads the weapon class name directly from the log "
-                "to determine its type (Pistol, Rifle, Sniper, LMG, Shotgun, etc.) "
-                "and its ammo category. No external database is needed."
+                "When you load a spare magazine into the weapon, the count "
+                "goes down by one."
             ),
-            _hint(
-                "Armour swaps (changing your suit) are detected automatically \u2014 "
-                "Battle Buddy will not falsely count an armour swap as pen usage."
+
+            _section("Utility"),
+            _body(
+                "For a multitool, the <b>UTILITY</b> card shows the "
+                "attachment that is fitted, such as Tractor Beam, Mining or "
+                "Salvage, in place of an ammo type."
             ),
         ])
 
     def _tab_consumables(self) -> QScrollArea:
         return _build_tab([
-            _section("Medpens & Oxypens"),
+            _section("Pens"),
             _body(
-                "Your leg armour typically holds up to 2 medpens and 2 oxypens. "
-                "Battle Buddy shows filled \u25cf dots for each pen slot:\n"
-                "\u2022  Green dots \u2014 Medpens\n"
-                "\u2022  Blue dots  \u2014 Oxypens"
-            ),
-            _hint(
-                "When you use a pen, the slot clears. "
-                "When you swap armour, all 4 pen slots clear at once \u2014 "
-                "Battle Buddy tells the difference and won\u2019t count a swap as usage."
+                "Your pens are listed by name under <b>MED</b>, <b>OXY</b>, "
+                "<b>STIM</b>, <b>DETOX</b> and <b>OTHER</b>, with a count when "
+                "you carry more than one of a kind. A group is shown only "
+                "while you carry something in it."
             ),
 
             _section("Grenades"),
             _body(
-                "Grenade slots on your armour are tracked individually. "
-                "The counter decrements each time a grenade entity disappears "
-                "from your loadout."
+                "Grenades are listed under <b>GREN</b> by type, with a count."
             ),
 
-            _section("Utility Tool Ammo"),
+            _section("Using one"),
             _body(
-                "Multitools, tractor beams, and repair tools carry a magazine. "
-                "The spare magazine count for your utility slot works the same "
-                "as primary weapons \u2014 it counts separate magazine entities "
-                "attached to your armour."
+                "A pen or a grenade comes off the list when you take it in "
+                "your hand."
+            ),
+
+            _section("Changing armour"),
+            _body(
+                "Taking armour off removes its pens together. When three or "
+                "more pens go within a few seconds, the bar clears all of them "
+                "at once."
             ),
         ])
 
     def _tab_options(self) -> QScrollArea:
         return _build_tab([
-            _section("Log Path"),
+            _section("Opening the options"),
             _body(
-                "Set the full path to your Star Citizen Game.log file. "
-                "The default location is:\n"
-                "C:/StarCitizen/LIVE/Game.log\n\n"
-                "If you use a custom install path, update this in Options."
+                "Press ⚙ on the bar. <b>Save</b> applies your changes at "
+                "once. <b>Cancel</b> closes without changing anything."
             ),
-            _hint("Changes take effect immediately after saving."),
 
-            _section("HUD Orientation"),
+            _section("Game.log path"),
             _body(
-                "\u2022  Horizontal \u2014 weapon slots side-by-side in a wide bar "
-                "(suited for bottom of screen)\n"
-                "\u2022  Vertical \u2014 weapon slots stacked in a narrow column "
-                "(suited for left or right edge)"
+                "Under <b>GAME.LOG PATH</b> is the file Battle Buddy follows. "
+                "It finds your Star Citizen folder by itself: first the one "
+                "the launcher knows, then a search of your drives. If it has "
+                "the wrong file, press <b>Browse…</b> and pick Game.log "
+                "in your LIVE folder."
+            ),
+
+            _section("Layout"),
+            _body(
+                "Under <b>HUD ORIENTATION</b>, choose "
+                "<b>Horizontal (wide bar)</b> or "
+                "<b>Vertical (narrow column)</b>."
             ),
 
             _section("Opacity"),
             _body(
-                "Adjust the HUD window transparency in the WingmanAI skill "
-                "configuration (default 0.92). Lower values let more of the "
-                "game show through."
-            ),
-
-            _section("Auto-show on Join PU"),
-            _body(
-                "When enabled, the HUD appears automatically the moment "
-                "Battle Buddy detects you loading into the Persistent Universe. "
-                "Disable this if you prefer to show it manually via voice command."
+                "Opacity is not in the options. Use the slider on the bar."
             ),
         ])
+
 
     # ── Drag-to-move ─────────────────────────────────────────────────────────
 
