@@ -42,7 +42,7 @@ class VirtualTable(QWidget):
 
         self._table = SCTable(self.COLUMNS, self, sortable=True, draggable=True)
         self._table.setToolTip(
-            "Drag an item onto the Grocery List to add it"
+            "Drag an item onto the Shopping List to add it"
         )
         self._table.row_selected.connect(self._on_row_selected)
         self._table.row_double_clicked.connect(self._on_row_double_clicked)

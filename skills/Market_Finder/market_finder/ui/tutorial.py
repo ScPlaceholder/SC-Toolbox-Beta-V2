@@ -20,115 +20,150 @@ def _html(body: str) -> str:
     return f'<div style="{_B}">{body}</div>'
 
 
-_TAB_GETTING_STARTED = _html(f"""
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_market", "<shift>+5")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+5"
+
+
+def _tab_getting_started() -> str:
+    return _html(f"""
 <h3 style="{_H}">Welcome to Item Finder</h3>
-<p>Item Finder lets you search the entire Star Citizen item catalog
-powered by <span style="{_ACC}">uexcorp.space</span> data. Find buy/sell
-locations, compare prices, and browse ships and rentals.</p>
+<p>Use Item Finder to find out where an item is sold and what it costs:
+armour, weapons, ship parts, food, ships and rentals. The data comes from
+<span style="{_ACC}">UEX</span>.</p>
 
 <h4 style="{_H}">Quick Start</h4>
 <ol>
-  <li>Type an item name in the <b>search bar</b> at the top</li>
-  <li>Click a result from the dropdown, or browse by <b>category tab</b></li>
-  <li>Double-click any row to open a <b>detail bubble</b> with prices</li>
+  <li>Type part of a name in <b>Search items...</b> The table narrows as you
+      type, and a list of matches drops down.</li>
+  <li>Click a row. The panel on the right shows <b>WHERE TO BUY</b>,
+      cheapest first, and <b>WHERE TO SELL</b>.</li>
+  <li>Double-click a row to open the same details in a floating bubble you
+      can keep beside the game.</li>
 </ol>
 
-<h4 style="{_H}">Data Refresh</h4>
-<p>Data is cached locally for fast loading. Click the <b>gear icon</b>
-(\u2699) in the title bar to open settings, where you can adjust cache
-TTL or click <span style="{_ACC}">Refresh Data</span> to fetch the latest
-prices from UEX Corp.</p>
+<h4 style="{_H}">The buttons at the top</h4>
+<ul>
+  <li>⚙ &mdash; settings</li>
+  <li><b>Shopping List</b> &mdash; your shopping list</li>
+  <li><b>? Tutorial</b> &mdash; this window</li>
+  <li><b>Star Map</b> &mdash; the map, to see what a place sells</li>
+</ul>
 
-<h4 style="{_H}">Auto-Refresh</h4>
-<p>The cache refreshes automatically based on your TTL setting (default 2h).
-You can change this in Settings to 30m, 1h, 2h, 4h, or 8h.</p>
+<h4 style="{_H}">Opening it</h4>
+<p>Item Finder is the <b>ITEM FINDER</b> tab of the Everything Finder. Its
+own hotkey is <span style="{_ACC}">{_hotkey()}</span>, which opens it in a
+window of its own.</p>
 """)
+
 
 _TAB_SEARCH = _html(f"""
 <h3 style="{_H}">Search &amp; Browse</h3>
 
-<h4 style="{_H}">Search Bar</h4>
-<p>The search bar supports fuzzy matching. Start typing an item name and
-a <b>search bubble</b> appears with results grouped by category. Click
-any result to jump directly to it.</p>
-<p>Search is debounced &mdash; results appear after 300ms of idle typing.</p>
+<h4 style="{_H}">Search</h4>
+<p><b>Search items...</b> matches any part of an item's name. Once you have
+typed two letters, a list of matches drops down, grouped by kind. Click one
+to go to its tab and show its details in the panel on the right.</p>
 
-<h4 style="{_H}">Category Tabs</h4>
-<p>Browse items by category using the tab bar:</p>
+<h4 style="{_H}">Category tabs</h4>
+<p>The tabs under the search box show one kind of item each:</p>
 <ul>
-  <li><b>All</b> &mdash; Every item in the catalog</li>
-  <li><b>Armor</b> &mdash; Helmets, chest plates, leg guards</li>
-  <li><b>Weapons</b> &mdash; Personal weapons (rifles, pistols, SMGs)</li>
-  <li><b>Clothing</b> &mdash; Undersuits, jackets, pants</li>
-  <li><b>Ship Weapons</b> &mdash; Guns, cannons, repeaters</li>
-  <li><b>Missiles</b> &mdash; Ship-mounted missile systems</li>
-  <li><b>Ship Components</b> &mdash; Shields, coolers, power plants, QDs</li>
-  <li><b>Utility</b> &mdash; Multitools, tractor beams, gadgets</li>
-  <li><b>Sustenance</b> &mdash; Food and drinks</li>
-  <li><b>Misc</b> &mdash; Commodities, liveries, misc items</li>
-  <li><b>Ships</b> &mdash; Purchasable ships and vehicles</li>
-  <li><b>Rentals</b> &mdash; Rentable ships</li>
+  <li><b>All</b> &mdash; every item</li>
+  <li><b>Armor</b>, <b>Weapons</b> and <b>Clothing</b> &mdash; what you
+      wear and carry</li>
+  <li><b>Ship Weapons</b>, <b>Missiles</b> and <b>Ship Components</b>
+      &mdash; what you fit to a ship</li>
+  <li><b>Utility</b>, <b>Sustenance</b> and <b>Misc</b> &mdash; tools, food
+      and drink, and everything else</li>
+  <li><b>Ships</b> &mdash; every ship and vehicle. One that cannot be bought
+      in the game says so when you select it.</li>
+  <li><b>Rentals</b> &mdash; ships you can rent</li>
 </ul>
+
+<h4 style="{_H}">Sorting and filtering</h4>
+<p>Click a column heading to sort by it. On the <b>Ships</b> tab,
+<b>Filter ships...</b> narrows the list by name, and <b>Spaceship</b> and
+<b>Ground</b> show one kind of vehicle.</p>
 """)
 
 _TAB_DETAILS = _html(f"""
-<h3 style="{_H}">Item Details &amp; Prices</h3>
+<h3 style="{_H}">Details &amp; Prices</h3>
 
-<h4 style="{_H}">Detail Panel</h4>
-<p>Click any row in the table to see item details in the right-side
-panel. This shows the item name, category, and a quick summary.</p>
+<h4 style="{_H}">The panel on the right</h4>
+<p>Click a row and the panel shows what the item is, then
+<b>WHERE TO BUY</b> with the cheapest terminal first, and
+<b>WHERE TO SELL</b> with the best price first.</p>
 
-<h4 style="{_H}">Detail Bubbles</h4>
-<p><b>Double-click</b> a row to open a floating detail bubble. Bubbles
-show:</p>
+<h4 style="{_H}">Bubbles</h4>
+<p><b>Double-click</b> a row to open its details in a floating bubble. You
+can open several and drag them where you like. A bubble stays open until you
+close it with ✕.</p>
+
+<h4 style="{_H}">Ships and rentals</h4>
+<p>For a ship, the details list its specifications, <b>WHERE TO BUY</b> and
+<b>RENTAL LOCATIONS</b>, and links to its <b>RSI Store</b> page and its
+<b>Brochure</b> when it has them.</p>
+""")
+
+_TAB_SHOPPING = _html(f"""
+<h3 style="{_H}">Shopping List</h3>
+<p>Press <b>Shopping List</b> at the top to open your list. There is one
+shopping list in the toolbox: the Star Map and the Everything Finder show the
+same one, and it is still there next time.</p>
+
+<h4 style="{_H}">Adding to it</h4>
 <ul>
-  <li>Item name, category, and section</li>
-  <li><b>Buy locations</b> &mdash; Terminals where you can purchase, with prices</li>
-  <li><b>Sell locations</b> &mdash; Terminals where you can sell, with prices</li>
-  <li>Price data fetched live from UEX Corp</li>
+  <li><b>Drag a row</b> from the item table and drop it on the list. Rows on
+      the <b>Ships</b> and <b>Rentals</b> tabs cannot be dragged.</li>
+  <li>Or, in the list itself, pick <b>Item</b> or <b>Commodity</b>, type a
+      name, set how many, and press <b>Add</b>.</li>
 </ul>
 
-<h4 style="{_H}">Pinning Bubbles</h4>
-<p>Click <b>PIN</b> on a detail bubble to keep it open. Unpinned bubbles
-close when you click elsewhere. Pinned bubbles stay visible until you
-close them manually with the \u2715 button.</p>
-
-<h4 style="{_H}">Ships &amp; Rentals</h4>
-<p>The Ships and Rentals tabs use dedicated tables with columns for
-manufacturer, SCU capacity, and price. Double-click for full details
-including purchase/rental locations.</p>
+<h4 style="{_H}">Where to buy it all</h4>
+<p><b>Plan route</b> works out where to buy everything on the list. Press
+<b>Show on Star Map</b> on a plan to see it drawn on the map.
+<b>Clear list</b> empties the list.</p>
 """)
 
 _TAB_SETTINGS = _html(f"""
 <h3 style="{_H}">Settings &amp; Tips</h3>
 
-<h4 style="{_H}">Settings Panel</h4>
-<p>Click the <b>gear icon</b> (\u2699) in the title bar to toggle the
-settings panel. Available options:</p>
+<h4 style="{_H}">Settings</h4>
+<p>Click ⚙ at the top to open or close the settings:</p>
 <ul>
-  <li><b>Opacity</b> &mdash; Adjust window transparency (30%-100%)</li>
-  <li><b>Always on top</b> &mdash; Keep the window above other apps</li>
-  <li><b>Cache TTL</b> &mdash; How long cached data stays fresh</li>
-  <li><b>Refresh Data</b> &mdash; Force-fetch latest data from UEX Corp</li>
+  <li><b>Opacity:</b> &mdash; how see-through the window is, from 30% to
+      100%</li>
+  <li><b>Always on top</b> &mdash; keep the window above the game</li>
+  <li><b>Cache TTL:</b> &mdash; how long downloaded data is used before it
+      is fetched again</li>
+  <li><b>Refresh Data</b> &mdash; fetch everything again now</li>
 </ul>
+<p style="{_DIM}">Always on top and Cache TTL are not remembered. They go
+back to how they started the next time the tool opens.</p>
 
-<h4 style="{_H}">Window Controls</h4>
-<p>The window is frameless and always-on-top by default, perfect for
-use alongside Star Citizen. Drag the title bar to reposition. Window
-position and size are saved between sessions.</p>
+<h4 style="{_H}">Fresh prices</h4>
+<p>While the window is open the data is fetched again about once an hour.
+Use <b>Refresh Data</b> if you want it sooner.</p>
 
-<h4 style="{_H}">Keyboard Shortcut</h4>
-<p>If you launched Item Finder via the SC Toolbox launcher, you can
-assign a global hotkey in the launcher's settings panel to toggle the
-window from anywhere.</p>
+<h4 style="{_H}">Window</h4>
+<p>Drag the title bar to move the window. Where it is and how big it is are
+remembered.</p>
 """)
 
-_TABS = [
-    ("Getting Started", _TAB_GETTING_STARTED),
-    ("Search", _TAB_SEARCH),
-    ("Details", _TAB_DETAILS),
-    ("Settings", _TAB_SETTINGS),
-]
+
+def _tabs() -> list:
+    """(title, html) per tab. Built when the tutorial opens, so the hotkey shown is the current one."""
+    return [
+        ("Getting Started", _tab_getting_started()),
+        ("Search", _TAB_SEARCH),
+        ("Details", _TAB_DETAILS),
+        ("Shopping List", _TAB_SHOPPING),
+        ("Settings", _TAB_SETTINGS),
+    ]
 
 
 class TutorialBubble(QWidget):
@@ -231,7 +266,7 @@ class TutorialBubble(QWidget):
             }}
         """)
 
-        for title, html in _TABS:
+        for title, html in _tabs():
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
