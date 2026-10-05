@@ -464,6 +464,220 @@ def default_is_unknown(pilot_line: str, facts=(), memory=()) -> bool:
     return bool(is_question(pilot_line) and not facts and not memory and not is_talk_question(pilot_line))
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# 5. TALK KINDS AND EXAMPLE PROMPTS (step e, 2026-10-05; evaluation only, the running Suit calls none of it)
+#
+# J: "Would the voice routing through like what we do for the 0.5b model approach work for the bigger models? Like
+# tell it how to answer topic types based on examples?" Measured the same day: a rule written into the prompt did
+# nothing or did harm, a long instruction block is what the model read aloud, and the only things that worked were
+# code deciding the kind of line first. So code sorts ordinary talk into a few KINDS, and each kind has its own
+# short prompt that is almost all examples (data/talk_examples.json): a line of framing, five exchanges in the
+# character's voice on five different subjects, no list of rules.
+# ---------------------------------------------------------------------------------------------------------------
+TALK_KINDS = ("greet", "feeling", "remark", "followup", "fact", "view", "self", "ack")
+_GREET = (r"^(?:oh |ah |well |right |ok |okay )*(?:hi|hello|hey|morning|evening|afternoon|night|goodnight|good (?:morning|evening|"
+          r"afternoon|night)|bye|goodbye|thanks|thank you|cheers|ta|back again|im back|still up|you there|"
+          r"are you there|hello again|welcome back)\b|\b(?:good ?night|see you|im off|"
+          r"logging off|im done for (?:today|tonight)|thats me done|thanks for)\b")
+_FEELING = (r"\b(?:tired|exhausted|worn out|knackered|bored|starving|hungry|freezing|cold|dreading|headache|sick|rough|awful|"
+            r"terrible|miserable|fed up|gutted|worried|nervous|scared|afraid|anxious|stressed|lonely|sad|upset|angry|furious|"
+            r"happy|thrilled|chuffed|proud|relieved|excited|best day|worst day|good day|bad day|long day|cant sleep|couldnt sleep|"
+            r"miss|hate|killing me|hurts?|aching|failed|lost|quit|fired|promotion|promoted|married|engaged|pregnant|baby|"
+            r"hospital|funeral|birthday|broke up|dumped|broken into|robbed|crashed|jumped|died)\b|"
+            r"^(?:i just|ive just|i finally|i nearly|i almost|i should(?:nt)? (?:be|have)|they say)\b")
+_SAYING = set("say said tell told mention mentioned remind again second ago earlier fly flying flew see saw look".split())
+_BACK = r"\b(?:did i say|i said|i say|i told you|i tell you|i mention(?:ed)?|remind me|again|a second ago|a minute ago|earlier|just now)\b"
+
+
+def _plain(s: str) -> str:
+    return re.sub(r"[^a-z0-9 ]", "", str(s or "").lower().replace("'", "").replace("’", "")).strip()
+
+
+def _content(s: str) -> set:
+    stop = set("a an the and or but so if then than that this these those there here it its i me my mine we us our you your he "
+               "him his she her they them their is are was were be been being am do does did done have has had will would can "
+               "could should may might must not no yes of to in on at for with by from as about into out up down over off what "
+               "which who where when why how all any some just very too also really got get going go went well oh hey ok okay "
+               "ive id im dont didnt cant couldnt wont isnt wasnt".split())
+    out = set()
+    for w in _plain(s).split():
+        if w in stop or len(w) < 3:
+            continue
+        for suf in ("ing", "ed", "es", "s"):
+            if w.endswith(suf) and len(w) - len(suf) >= 3:
+                w = w[: len(w) - len(suf)]
+                break
+        out.add(w[:-1] if w.endswith("e") and len(w) > 4 else w)       # "arrive" and "arrives" are one word
+    return out
+
+
+def memory_supports(question: str, earlier: str) -> bool:
+    """THE STRICTER MEMORY TEST. An earlier sentence of the pilot's counts as something to answer from only when
+      (a) the question points back in words ("did I say", "remind me", "again", "a second ago") and shares at least
+          ONE content word with it; or
+      (b) it shares at least TWO content words with it, not counting words of saying, seeing or flying, and one of
+          them is five letters or longer.
+    The first test (any two shared words) let "What was he flying, could you tell?" count an old sentence about the
+    pilot's sister as its memory, and a model then invented the answer."""
+    q, e = _content(question), _content(earlier)
+    shared = (q & e) - _SAYING
+    if re.search(_BACK, _plain(question)) and shared:
+        return True
+    return len(shared) >= 2 and any(len(w) >= 5 for w in shared)
+
+
+def talk_kind(pilot_line: str, facts=(), memory=()) -> Optional[str]:
+    """Which KIND of ordinary talk this is, or None: a question code does not recognise as talk, which the flipped
+    default answers "I don't know". Tried in this order:
+      fact      the turn supplied a fact
+      followup  a question, and an earlier sentence of the pilot's supports it (memory_supports)
+      greet     opens with a greeting, a goodbye or thanks, or carries one ("sleep well", "see you")
+      view      a question asking what the companion thinks the pilot should do or how the pilot is doing
+      self      any other question that is about the companion (says you or your, not as a mere witness)
+      feeling   a statement with a word for a feeling, a state of the body, or news that carries one
+      ack       any other statement of one or two words
+      remark    any other statement"""
+    t = _plain(pilot_line)
+    if facts:
+        return "fact"
+    asked = is_question(pilot_line)
+    if asked and memory:
+        return "followup"
+    if re.search(_GREET, t):
+        return "greet"
+    if asked:
+        if any(re.search(rx, t) for rx in _VIEW):
+            return "view"
+        return "self" if is_talk_question(pilot_line) else None
+    if re.search(_FEELING, t):
+        return "feeling"
+    return "ack" if len(t.split()) <= 2 else "remark"
+
+
+def talk_examples(speaker: str, kind: str) -> list[dict]:
+    """The example exchanges the file holds for this character and kind: [{"pilot", "reply", "known"?, "earlier"?}]."""
+    try:
+        data = json.loads((DATA / "talk_examples.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [x for x in (data.get(speaker) or {}).get(kind) or [] if isinstance(x, dict) and x.get("pilot") and x.get("reply")]
+
+
+def talk_frame(speaker: str, kind: str) -> str:
+    try:
+        data = json.loads((DATA / "talk_examples.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    return f"{(data.get('who') or {}).get(speaker, '')} This is how you answer when {(data.get('when') or {}).get(kind, '')}:"
+
+
+def _kind_turn(label: str, pilot: str, known: str = "", earlier: str = "") -> str:
+    return (f"KNOWN: {known}\n" if known else "") + (f"EARLIER THE PILOT SAID: {earlier}\n" if earlier else "") + f"PILOT: {pilot}"
+
+
+def serialize_kind(speaker: str, kind: str, turns: list, pilot_line: str, facts=(), memory=(), fmt: str = "chatml") -> str:
+    """The per-kind prompt: one or two lines of framing, the examples, then the conversation. No rule list, no ACT
+    block. A supplied fact rides as a KNOWN line and a supporting memory as an EARLIER line, as in the examples."""
+    name = speaker.upper()
+    ex = "\n\n".join(_kind_turn(name, x["pilot"], x.get("known", ""), x.get("earlier", "")) + f"\n{name}: {x['reply']}"
+                     for x in talk_examples(speaker, kind))
+    head = f"{talk_frame(speaker, kind)}\n\n{ex}"
+    last = _kind_turn(name, pilot_line, "; ".join(str(f) for f in facts), " | ".join(m[2] for m in memory))
+    if fmt == "gemma":
+        out, first = "", True
+        for p, a in list(turns) + [(None, None)]:
+            body = last if p is None else f"PILOT: {p}"
+            if first:
+                body, first = head + "\n\nNow the pilot is talking to you.\n\n" + body, False
+            out += f"<start_of_turn>user\n{body}<end_of_turn>\n"
+            if p is not None:
+                out += f"<start_of_turn>model\n{a}<end_of_turn>\n"
+        return out + "<start_of_turn>model\n"
+    out = f"<|im_start|>system\n{head}<|im_end|>\n"
+    for p, a in turns:
+        out += f"<|im_start|>user\nPILOT: {p}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"
+    return out + f"<|im_start|>user\n{last}<|im_end|>\n<|im_start|>assistant\n"
+
+
+def lifted_from(reply: str, shown_replies, run: int = 4) -> list[str]:
+    """A reply may not LIFT its words from an example it was shown (the model copied "I'll adjust the lighting" out
+    of a rule once). Refused when it shares a run of `run` consecutive words with any shown reply, or, being
+    shorter than that, is word for word one of them."""
+    r = _plain(reply).split()
+    for s in shown_replies:
+        w = _plain(s).split()
+        if not r or not w:
+            continue
+        if len(r) < run or len(w) < run:
+            if r == w and len(r) >= 2:
+                return [f"lifts an example whole: {s[:40]}"]
+            continue
+        grams = {" ".join(w[i:i + run]) for i in range(len(w) - run + 1)}
+        for i in range(len(r) - run + 1):
+            if " ".join(r[i:i + run]) in grams:
+                return [f"lifts words from an example: {' '.join(r[i:i + run])}"]
+    return []
+
+
+_PREF_NOUN = r"\b(?:preferences?|favou?rites?|tastes?|likings?|likes and dislikes|opinions?)\b"
+_DISMISS = (r"\b(?:no|not|dont|do not|doesnt|never|without|lack|irrelevant|waste|pointless|meaningless|unnecessary|inefficient|"
+            r"a variable|variables?|illogical|beside the point|a luxury|not my function|not a function|dont apply|doesnt apply)\b")
+
+
+def denies_preferences(reply: str) -> list[str]:
+    """Elah saying, in any words, that she has no likes of her own. Not understanding: a test of two things in ONE
+    sentence, a noun for preference (preference, favourite, taste, opinion) and a word that denies or dismisses it
+    (no, not, irrelevant, a waste, pointless, a variable). "I don't like Origin" has no such noun and passes; "I
+    prefer the Kraken" has no dismissal and passes."""
+    for sent in re.split(r"(?<=[.!?;])\s+", str(reply or "")):
+        p = _plain(sent)
+        if re.search(_PREF_NOUN, p) and re.search(_DISMISS, p):
+            return ["Elah says she has no preferences"]
+    return []
+
+
+# Montaigne's FACT turns are worded by code (step e): given the ACT block, gemma read it aloud on every one of them.
+# PROVISIONAL wording. {v} is the value exactly as the Suit holds it.
+FACT_LINES = {
+    "montaigne": {"session.earnings_auec": "The suit's tally gives {v} aUEC this session, pilot.",
+                  "session.deaths": "Deaths this session, by the suit's count: {v}, pilot.",
+                  "ship.name": "The log names her the {v}, pilot.",
+                  "location.system": "The suit's feed says this is {v}, pilot.",
+                  "suit.injuries_on_record": "By way of injuries the suit has this, pilot: {v}.",
+                  "jurisdiction.armistice": {"True": "The suit's feed says we are under armistice here, pilot.",
+                                             "False": "The suit's feed says there is no armistice here, pilot."},
+                  "": "The suit's feed gives this, pilot: {p} is {v}."},
+}
+
+
+def fact_line(speaker: str, facts) -> Optional[str]:
+    """One code-worded sentence for the first supplied fact ("predicate=value"), or None when this speaker has no
+    templates."""
+    table = FACT_LINES.get(speaker)
+    if not table or not facts:
+        return None
+    p, _, v = str(list(facts)[0]).partition("=")
+    t = table.get(p, table[""])
+    if isinstance(t, dict):
+        t = t.get(v, table[""])
+    return t.format(p=p, v=v)
+
+
+def fact_missing(reply: str, facts) -> list[str]:
+    """On a fact turn the reply must still CARRY the fact after the cut: its number, or a word of its value."""
+    low = _plain(reply)
+    for f in facts:
+        v = str(f).partition("=")[2]
+        if v in ("True", "False"):
+            return []
+        num = re.sub(r"[^0-9]", "", v)
+        words = [w for w in _plain(v).split() if len(w) >= 3]
+        if (num and (num in low.replace(" ", "") or any(w for w, n in NUMBER_WORDS.items() if str(n) == num and w in low))) \
+                or (not num and words and any(w in low for w in words)) or (num == "0" and re.search(r"\b(?:no|none|not|zero|never)\b", low)):
+            return []
+    return ["the fact was not said"] if facts else []
+
+
 def maker_problems(reply: str, supplied: str, maker_words) -> list[str]:
     """A model is never the source of a manufacturer (J, 2026-10-05). Any maker's name in the reply must have been
     SUPPLIED: in the turn's FACTS, in the pilot's own words, or already said in this conversation. The persona does
