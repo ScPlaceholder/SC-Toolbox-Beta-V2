@@ -20,6 +20,15 @@ Three things live here:
      the line that answers must stay inside its claims. See the function for exactly what it checks and what it
      cannot.
 
+  2b. WHAT THE EYES SAW (J 2026-10-05: "'Wow look at that!' should summon the eyes on the word look"). A sentence
+     that points at something makes the Suit take ONE look at the screen (eyes.py, the local vision glance, under
+     every rule eyes.py already has). What comes back is a short description, and it enters the answer as an
+     OBSERVATION, the claim eyes.saw, said word for word: "What I see: A tall lattice tower on a ridge." It is never a
+     fact about what the thing is FOR. Purpose still comes only from the place's own facts, and the closed
+     vocabulary still refuses an invented one. clean_observation() drops a description that carries a number,
+     a name the claims do not have, or a word for where on the screen something is (eyes.py: "The eyes may say
+     WHAT is on screen, never WHERE").
+
   3. THE ANSWER ITSELF, answer_line(): the claims, in order, in the speaker's voice. A question about a place
      is NOT worded by the model. Measured 2026-10-05 on the two shipped 1.5B adapters, 120 lines over ten place
      questions: the gate passed 20 of 60 of Elah's lines and 5 of 60 of Montaigne's, and the ones it passed
@@ -259,11 +268,43 @@ part rest piece bit kind sort matter case
 myself yourself am philosopher
 stand stands standing sit sits sitting worth mine nobody
 memory remember story pretend keeping kept conversation conversations consult find finds earlier yesterday through
-hold holds
+hold holds report reports shown show shows pick
 """.split())
 VOCABULARY = _GRAMMAR | _VOICE
 
 # The pilot's word for the thing they are pointing at, when the Suit cannot see it.
+# Where on the screen. eyes.py bans positions from everything the eyes expose (its POSITION_WORDS guards field
+# names); this is the same rule for the one free-text field, before any of it can be spoken. "ahead", "in the
+# distance" and "on a ridge" describe the scene and are fine; these describe the frame.
+SCREEN_POSITION = re.compile(
+    r"\b(?:left|right|top|bottom|centre|center|middle|corner|upper|lower|foreground|background|"
+    r"(?:of|on) (?:the )?(?:screen|frame|image|picture|hud)|pixels?|coordinates?|degrees?|bearing|crosshair|reticle)\b")
+
+
+def clean_observation(saw: str, spec: dict) -> Optional[str]:
+    """What the eyes reported, made fit to be said, or None when it is not.
+
+    The glance is asked for a few words with no numbers, names or HUD text, and a model does not always do as it
+    is asked. So the description is refused whole (the answer then says what it would have said with no eyes)
+    if it has: a digit or a number word; a capitalised word after its first that is not in the answer's own claims
+    (a place, a ship, a maker the eyes cannot know); any word for a position on the screen; a quotation mark; or
+    more than 20 words. Never repaired: a description with the name cut out of it would be a different sentence
+    from the one the eyes gave."""
+    s = " ".join(str(saw or "").replace("\u2019", "'").split()).strip().rstrip(".!")
+    if not s or len(s.split()) > 20 or re.search(r'["\u201c\u201d]', s):
+        return None
+    low = s.lower()
+    if re.search(r"\d", s) or any(re.search(rf"\b{w}\b", low) for w in CARDINAL_WORDS):
+        return None
+    if SCREEN_POSITION.search(low):
+        return None
+    known = {w.lower() for c in spec.get("claims", []) for w in re.findall(r"[A-Za-z][A-Za-z'-]*", str(c.get("value", "")))}
+    for w in re.findall(r"[A-Za-z][A-Za-z'-]*", s)[1:]:
+        if w[0].isupper() and w.lower() not in known and w != "I":
+            return None
+    return s
+
+
 NOT_KNOWING = re.compile(
     r"\b(?:can(?:'|no)?t|cannot|could ?n(?:'|o)t|unable|do(?:es)? ?n(?:'|o)t know|do not know|no way|not sure|"
     r"no idea|no eyes|which (?:one|structure|building|tower|thing)|whichever|without (?:seeing|eyes)|"
@@ -338,12 +379,18 @@ def place_problems(spec: dict, text: str) -> list[str]:
     if novel:
         fails.append(f"says more than its claims {novel}")
     sentences = [s for s in re.split(r"(?<=[.!?;])\s+", low) if s.strip()]
+    saw = str(place.get("saw") or "")
+    if saw and saw.lower() not in low:
+        fails.append("does not say what the eyes reported, as they reported it")
     if place.get("referent") is not None:
-        if not NOT_KNOWING.search(low):
-            fails.append("does not say it cannot tell which thing is meant")
         ref_words = [w for w in _tokens(place.get("referent") or "") if len(w) >= 4 and w not in VOCABULARY]
+        seen_it = bool(saw) and (not ref_words or any(re.search(rf"\b{re.escape(w)}s?\b", saw.lower()) for w in ref_words))
+        if not seen_it and not NOT_KNOWING.search(low):
+            fails.append("does not say it cannot tell which thing is meant")
         for s in sentences:
-            if any(re.search(rf"\b{re.escape(w)}s?\b", s) for w in ref_words) and not NOT_KNOWING.search(s):
+            # the pilot's word for the thing may appear INSIDE the eyes' own report and in an admission; nowhere else
+            rest = s.replace(saw.lower(), " ") if saw else s
+            if any(re.search(rf"\b{re.escape(w)}s?\b", rest) for w in ref_words) and not NOT_KNOWING.search(s):
                 fails.append("says something about the thing it cannot see")
                 break
     name = next((str(c["value"]) for c in spec.get("claims", [])
@@ -378,6 +425,11 @@ _LINES = {
         "pointing": ["I can't tell which {thing} you mean from here.",
                      "I can't see what you're looking at, so I can't tell you which {thing} that is.",
                      "No eyes on it from here. I can't tell which {thing} you mean."],
+        # The glance answers in a sentence of its own ("A lone figure stands in a dark hangar"), so the frame ends
+        # in a colon and the report follows whole.
+        "seen": ["What I see: {saw}.", "Eyes on it: {saw}."],
+        "seen_not_it": ["What I see: {saw}. I can't tell which {thing} you mean in that."],
+        "looking": ["Looking."],
         "here": ["This is {where}.", "We're at {where}.", "{where}."],
         "label": ["The log calls this {where}. That is its label, not a name I know.",
                   "All I have is the log's label: {where}. I know no name for it."],
@@ -392,6 +444,10 @@ _LINES = {
     "montaigne": {
         "pointing": ["I cannot see which {thing} you mean, pilot; a ship has only what he is told.",
                      "Which {thing} you mean I cannot see; I have no eyes of my own, only the suit's feed."],
+        "seen": ["The suit's eyes report this: {saw}.",
+                 "I am shown this, by the suit's eyes and not my own: {saw}."],
+        "seen_not_it": ["The suit's eyes report this: {saw}. Which {thing} you mean in that, I cannot tell."],
+        "looking": ["One moment, pilot; I am asking the suit's eyes."],
         "here": ["The suit's feed says this is {where}.",
                  "I am told this is {where}; I have that from the suit's feed, not from my own eyes."],
         "label": ["The log calls this {where}; it is a label, and I know no name for it.",
@@ -409,6 +465,12 @@ _LINES = {
 }
 
 
+def holding_line(spec: dict) -> Optional[str]:
+    """What is said at once when the look is taking a while: the model behind the eyes may have to load."""
+    lines = _LINES.get(spec.get("speaker"), {}).get("looking")
+    return lines[0] if lines else None
+
+
 def answer_line(spec: dict, variant: int = 0) -> Optional[str]:
     """The answer to a place question, built from the spec's own claims. None when the spec is not one."""
     place = spec.get("place")
@@ -424,10 +486,17 @@ def answer_line(spec: dict, variant: int = 0) -> Optional[str]:
     title = _val(spec, "topic.name")
     departed, referent = str(place.get("departed") or ""), place.get("referent")
     parts = []
+    saw = str(place.get("saw") or "")
     if referent is not None:
         # The pilot's own word for it, when they used one that names a thing ("big tower"); otherwise "one".
-        named_thing = any(len(w) >= 4 and w not in VOCABULARY for w in _tokens(referent))
-        parts.append(pick("pointing", thing=referent if named_thing else "one"))
+        ref_words = [w for w in _tokens(referent) if len(w) >= 4 and w not in VOCABULARY]
+        thing = referent if ref_words else "one"
+        if not saw:
+            parts.append(pick("pointing", thing=thing))
+        elif not ref_words or any(re.search(rf"\b{re.escape(w)}s?\b", saw.lower()) for w in ref_words):
+            parts.append(pick("seen", saw=saw))           # the eyes' report has the thing the pilot named
+        else:
+            parts.append(pick("seen_not_it", saw=saw, thing=thing))
     here = name or label
     if departed:
         parts.append(pick("left", departed=departed))

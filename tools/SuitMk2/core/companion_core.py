@@ -163,6 +163,17 @@ class CompanionCore:
     # has the measurement behind that). True = let the model word it, two tries, with the planned line as the
     # fallback. Worth trying again with a larger model or the API backend; not with the 1.5B adapters.
     place_answers_from_model = False
+    # "Look at that" (J 2026-10-05): how long the answer waits for the eyes before saying "Looking.", and how long
+    # before it gives up on them and says the answer it had. Measured 2026-10-05 on an idle RTX 4070 with the
+    # glance as eyes.py runs it (gemma3:4b on the GPU): 0.55 s warm, 16 s the first time the model is read from disk.
+    # Not measured with Star Citizen holding the card. (On the CPU the same glance took 8.6 s warm and 77 s cold,
+    # which is why eyes.py runs it on the GPU and only when headroom is not TIGHT.)
+    LOOK_HOLD_AFTER_S = 1.2
+    LOOK_GIVE_UP_S = 25.0
+    # eyes.py will not look twice inside 20 s (LOOK_MIN_GAP_S). Asked again inside that time, the answer uses what
+    # the eyes reported a moment ago, so "look at that" twice in a row does not see the first time and go blind
+    # the second.
+    LOOK_REUSE_S = 20.0
 
     def __init__(self, speech, realizer: Optional[Callable[[dict], Optional[str]]] = None,
                  eyes=None, recorder=None, dreams=None, headroom: Callable[[], str] = lambda: "OK",
@@ -1401,6 +1412,55 @@ class CompanionCore:
             return
         threading.Thread(target=self._answer_worker, args=(spec, cand, utterance), daemon=True).start()
 
+    def _look_for(self, spec: dict, say_now: Callable[[str], object]) -> dict:
+        """The pilot pointed at something: ask the eyes for ONE look and, if they report anything fit to say, start
+        the answer from it. Returns the spec to answer with (the one given, when the eyes give nothing).
+        say_now: the answer worker's own way of speaking, so "Looking." goes out as part of the answer (through
+        the answer pass, into the conversation log) and by no other route.
+
+        Every rule about WHEN the eyes may look is eyes.py's own and is not touched here: only with Star Citizen in
+        front, never with headroom TIGHT, inside the hourly budget of the Presence setting, never more often than
+        its minimum gap, the screenshot kept only if the pilot opted in. Presence "off" means there are no eyes
+        (self.eyes is None) and this does nothing. With no vision model the look returns nothing and the answer is
+        the same "I can't see what you're looking at" as before."""
+        look = getattr(self.eyes, "look", None) if self.eyes is not None else None
+        if not callable(look) or not (spec.get("place") or {}).get("look") or spec.get("aside") == "dev_fact":
+            return spec
+        from conversation import with_observation
+        from place_knowledge import holding_line
+        box: dict = {}
+
+        def run():
+            try:
+                box["saw"] = look("pilot_asked")
+            except Exception:
+                log.exception("look for an answer")
+                box["saw"] = None
+        th = threading.Thread(target=run, name="suitmk2_look_answer", daemon=True)
+        self.stats["answer_looks"] = self.stats.get("answer_looks", 0) + 1
+        th.start()
+        th.join(self.LOOK_HOLD_AFTER_S)
+        if th.is_alive():
+            hold = holding_line(spec)
+            if hold:
+                say_now(hold)
+            th.join(max(0.0, self.LOOK_GIVE_UP_S - self.LOOK_HOLD_AFTER_S))
+        saw = None if th.is_alive() else box.get("saw")
+        last = getattr(self, "_last_saw", None)
+        if saw:
+            self._last_saw = (self.now(), saw)
+        elif not th.is_alive() and last is not None and self.now() - last[0] <= self.LOOK_REUSE_S:
+            saw = last[1]
+        if not saw:
+            self._note("look: the eyes reported nothing" + (" in time" if th.is_alive() else ""))
+            return spec
+        seen = with_observation(spec, saw)
+        if seen is None:
+            self._note(f"look: not fit to say, left out: {str(saw)[:60]!r}")
+            return spec
+        self.stats["answer_seen"] = self.stats.get("answer_seen", 0) + 1
+        return seen
+
     def _answer_worker(self, spec: dict, cand, utterance: str) -> None:
         from conversation import ground_direct
         self.stats["questions"] = self.stats.get("questions", 0) + 1
@@ -1413,6 +1473,7 @@ class CompanionCore:
                 self._note(f"{spec['speaker']} ({how}): {text}")
                 self._log_reply(spec, text)
 
+        spec = self._look_for(spec, lambda text: say(text, "looking"))
         by_model = (self.place_answers_from_model and spec.get("place") and spec.get("aside") != "dev_fact"
                     and self.realizer is not None)
         if spec.get("fixed_text") and not by_model:

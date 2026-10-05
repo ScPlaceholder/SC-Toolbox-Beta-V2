@@ -195,6 +195,9 @@ _PLACE_ABOUT = [
     r"\bwhat (?:am i|are we) (?:looking at|seeing|staring at)(?P<ref>)\b",
     r"\bwhat(?:s| is) (?:over|out|up|down) there(?P<ref>)\b",
     r"\b(?:look|looking|check|get a load) (?:at|out|of) (?:that|this|those|these|it)(?: (?P<ref>(?:\w+ ){0,3}?\w+?))??$",
+    r"\b(?:do|did|can) you see (?:that|this|those|these|it)(?: (?P<ref>(?:\w+ ){0,3}?\w+?))??$",
+    r"^(?:look|see that|see this)(?P<ref>)$",
+    r"\bcheck (?:that|this|it|those|these) out(?P<ref>)\b",
     r"^(?:wow|whoa|woah|damn|holy \w+)\b.*\b(?:that|thats|this|those|look)(?P<ref>)\b",
 ]
 _ACTION = [
@@ -562,10 +565,18 @@ def place_spec(route_result: Route, state: dict, variant: int = 0, fact: Optiona
                                 | ({str(departed)} if dep_ok else set())),
         "place": {"asked": {"location": "where"}.get(topic, "referent" if referent is not None else "comment"),
                   "referent": referent, "named": named, "departed": departed if (dep_ok and not loc_ok) else None,
-                  "knowledge": knowledge},
+                  "knowledge": knowledge, "variant": variant,
+                  # A sentence that points at something asks the eyes for ONE look (CompanionCore._look_for).
+                  # "where are we" and "what is this place" do not: the log answers those.
+                  "look": referent is not None, "saw": ""},
     }
     if knowledge and knowledge["kind"] == "brochure":
-        spec["topic"] = {"node": knowledge["node"], "status": "brochure", "source": knowledge["source"]}
+        # "fact" is the index of the line in its node: CompanionCore._spoke marks it told, so the topic walker does
+        # not offer the pilot the same brochure line again as a remark. (Left out until the look tests drove a
+        # Montaigne place answer through the core: _spoke raised KeyError AFTER the line was spoken, so the answer
+        # was heard and then not recorded.)
+        spec["topic"] = {"node": knowledge["node"], "fact": knowledge["fact"], "status": "brochure",
+                         "source": knowledge["source"]}
     if fact and fact.get("kind") == "dev" and fact.get("entry"):
         _as_dev_fact(spec, fact["entry"], variant)
     if spec.get("aside") != "dev_fact":
@@ -575,6 +586,29 @@ def place_spec(route_result: Route, state: dict, variant: int = 0, fact: Optiona
         n = len(spec["fixed_text"].split())
         spec["model_length_words"], spec["length_words"] = [lo, hi], [max(1, n - 3), n]
     return spec
+
+
+def with_observation(spec: Spec, saw: str) -> Optional[Spec]:
+    """The same answer, now starting from what the eyes reported. `saw` is the glance's own description.
+
+    It joins the claims as eyes.saw, OBSERVED, and is said word for word; nothing else in the answer changes, so
+    what the thing is FOR still comes only from the place's facts. None when the description is not fit to be said
+    (place_knowledge.clean_observation), when the answer is a dev-history aside, or when the new line fails the
+    gate: the caller then says the answer it already had."""
+    if not spec.get("place") or spec.get("aside") == "dev_fact":
+        return None
+    clean = pk.clean_observation(saw, spec)
+    if not clean:
+        return None
+    new = dict(spec)
+    ids = len(spec["claims"])
+    new["claims"] = list(spec["claims"]) + [_claim(f"C{ids + 1}", "OBSERVED", "eyes.saw", clean)]
+    new["place"] = dict(spec["place"], saw=clean)
+    new["fixed_text"] = pk.answer_line(new, spec["place"].get("variant", 0))
+    n = len(new["fixed_text"].split())
+    new["length_words"] = [max(1, n - 3), n]
+    new["id"] = spec["id"] + "_seen"
+    return None if ground_direct(new, new["fixed_text"]) else new
 
 
 def _as_dev_fact(spec: Spec, entry: dict, variant: int = 0) -> None:
@@ -968,7 +1002,9 @@ def check_spec(spec: Spec, state: dict, hist: dict, utterance: str) -> list[str]
     ids = {c["id"] for c in spec["claims"]}
     for c in spec["claims"]:
         k, v = c["kind"], c["value"]
-        if k == "OBSERVED" and (c["predicate"], v) not in SELF_FACTS and str(v) not in sv \
+        if k == "OBSERVED" and c["predicate"] == "eyes.saw":
+            pass                                     # from the glance, not from the trackers
+        elif k == "OBSERVED" and (c["predicate"], v) not in SELF_FACTS and str(v) not in sv \
                 and not (c["predicate"] == "suit.injuries_on_record" and state.get("injuries") == {}):
             errs.append(f"OBSERVED {c['predicate']}={v!r} is not in state")
         elif k == "HISTORY" and str(v) not in hv:
