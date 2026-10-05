@@ -62,6 +62,15 @@ def _html(body: str) -> str:
     return f'<div style="{_B}">{body}</div>'
 
 
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_playtime", "<ctrl>+4")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Ctrl+4"
+
+
 _TAB_GETTING_STARTED = _html(f"""
 {_h3("How long have you actually played?", _C_START)}
 <p>Star Citizen does not tell you. This reads the game's own log files off
@@ -114,8 +123,8 @@ all of it &mdash; and pick your <b>currency</b>. It divides that by your hours
 and shows the arithmetic underneath, e.g.
 <span style="{_ACC}">$1,200 &divide; 430 h played</span>.</p>
 <p>The figure is <b>saved</b>, so you type it once and it survives patches and
-restarts. Until you enter something, the cost reads
-<span style="{_DIM}">$ &mdash;</span>.</p>
+restarts. Until you enter something, the cost shows a dash and the line under
+it reads <span style="{_DIM}">enter your lifetime spend</span>.</p>
 <p style="{_DIM}">Some currencies show as their three-letter code rather than
 a symbol. That is deliberate &mdash; a few symbols do not render reliably, and
 a wrong glyph is worse than a clear code.</p>
@@ -125,18 +134,18 @@ a wrong glyph is worse than a clear code.</p>
 <b>Most Played Day</b>, <b>Most Played Week</b>, <b>Most Played Month</b>,
 <b>Longest Streak</b>, <b>Avg / Active Day</b>, <b>Busiest Hour</b> and
 <b>Busiest Weekday</b>.</p>
-<p><b>They are buttons.</b> Nothing says so, so it is worth knowing: clicking
-one takes you to the tab that shows the workings.
+<p><b>Four of them are buttons.</b> Nothing says so, so it is worth knowing:
 <b>Longest Session</b> opens the <b>Sessions</b> log sorted longest-first;
 <b>Most Played Day</b> opens <b>Calendar</b> on that day;
 <b>Most Played Week</b> and <b>Most Played Month</b> open <b>Trends</b> at
-that grouping.</p>
+that grouping. The other four have nowhere further to take you and stay on
+<b>Overview</b>.</p>
 
 {_h4("The two charts below", _C_NUM)}
 <p><b>Time of Day</b> shows when you play. <b>Hover</b> a bar for the exact
-total, and <b>click</b> it to break that hour down. <b>By Weekday &amp;
-Release Channel</b> splits your time across the week and between
-LIVE and PTU.</p>
+total, or <b>click</b> it to have that hour's total written out under the
+chart. <b>By Weekday &amp; Release Channel</b> splits your time across the
+week and between LIVE and PTU.</p>
 """)
 
 _TAB_EXPLORE = _html(f"""
@@ -149,18 +158,23 @@ its total; <b>click</b> a bar to list that period's sessions in the box
 below.</p>
 
 {_h4("Calendar", _C_EXPLORE)}
-<p>A heat grid of your play. Darker means more hours.</p>
+<p>A heat grid of your play. Brighter means more hours; the darkest cells
+are days with none.</p>
 <ul>
   <li><b>&#9664;</b> and <b>&#9654;</b> step back and forward a period;
       <b>Latest</b> jumps to now.</li>
-  <li><b>Month</b> / <b>Year</b> switch between a month of days and a year of
-      months.</li>
+  <li><b>Month</b> / <b>Year</b> switch between one month and a whole year.
+      Both are drawn a day to a cell.</li>
   <li>Three things in the grid are clickable and none of them look it:
       a <b>day</b> cell, a <b>weekday name</b> in the header (every Tuesday,
       say), and in year view a <b>month label</b>. The cursor changes to a
       hand when you are over one.</li>
   <li>The <b>title in the middle</b> is also a button &mdash; press it for a
       summary of the whole period on screen.</li>
+  <li>Click a day and the detail panel gives its total and lists
+      <b>Sessions started today</b>. A session that ran past midnight counts
+      toward the next day's total too, but is listed only on the day it
+      started.</li>
 </ul>
 
 {_h4("Sessions", _C_EXPLORE)}
@@ -186,7 +200,8 @@ whichever you open first pays for the other two.</p>
 <p><span style="{_YLW}">Two refresh buttons, two different jobs.</span>
 <b>&#8635; Rescan</b> in the top bar redoes the fast play-time scan.
 <b>&#8635; Re-analyze</b> inside these tabs redoes this deep one. Played since
-you last looked? Press both.</p>
+you last looked? Press <b>&#8635; Rescan</b> while one of these three tabs is
+showing and it redoes both. From any other tab it redoes only the fast one.</p>
 
 {_h4("Fun Stats", _C_DEEP)}
 <p>Your most-flown ship, favourite weapon, favourite manufacturer and
@@ -202,8 +217,8 @@ says so rather than inventing a number.</p>
 {_h4("Injuries", _C_DEEP)}
 <p>Where you get hurt, on a body diagram, stacked by severity
 (<b>Tier 1</b> is the worst), plus injuries per week and how many med bed
-surgeries you have had. The diagram is drawn <b>facing you</b>, so
-<em>your</em> left is on the marked side.</p>
+surgeries you have had. The diagram is drawn <b>facing you</b>, and the two
+sides are labelled <b>YOUR RIGHT</b> and <b>YOUR LEFT</b>.</p>
 
 {_h4("Why some tabs look empty", _C_DEEP)}
 <p>The game only started writing these events to the log in later builds
@@ -220,7 +235,9 @@ _TAB_TIPS = _html(f"""
 {_h4("Two scans, and which button you want", _C_TIPS)}
 <p><b>&#8635; Rescan</b> (top bar) = the fast timestamp pass behind the total,
 the charts and the Calendar. <b>&#8635; Re-analyze</b> (inside Fun Stats /
-Career / Injuries) = the deep content pass. Neither refreshes the other.</p>
+Career / Injuries) = the deep content pass. Re-analyze never redoes the fast
+pass. Rescan redoes the deep one only if one of those three tabs is the one
+showing.</p>
 
 {_h4("Everything is local", _C_TIPS)}
 <p>No account, no login, no network. The only inputs are your log folder and
@@ -236,13 +253,27 @@ the thing it came from.</p>
 Leave your spend in the box and it keeps score for you.</p>
 """)
 
-_TABS = [
-    ("Getting Started", _TAB_GETTING_STARTED),
-    ("The Numbers", _TAB_NUMBERS),
-    ("Explore", _TAB_EXPLORE),
-    ("Deep Stats", _TAB_DEEP),
-    ("Tips", _TAB_TIPS),
-]
+
+def _tab_tips() -> str:
+    """Tips, with the hotkey as the launcher has it when the tutorial opens."""
+    return _TAB_TIPS.replace("</div>", _TIP_HOTKEY.format(hotkey=_hotkey()) + "</div>")
+
+
+_TIP_HOTKEY = (
+    _h4("Hotkey", _C_TIPS)
+    + '<p>The launcher\'s hotkey for this tool is <span style="' + _ACC + '">{hotkey}</span>. '
+      'It shows and hides the window.</p>'
+)
+
+
+def _tabs() -> list:
+    return [
+        ("Getting Started", _TAB_GETTING_STARTED),
+        ("The Numbers", _TAB_NUMBERS),
+        ("Explore", _TAB_EXPLORE),
+        ("Deep Stats", _TAB_DEEP),
+        ("Tips", _tab_tips()),
+    ]
 
 
 # ── Close button ─────────────────────────────────────────────────────────
@@ -405,7 +436,7 @@ class TutorialPopup(QDialog):
             }}
         """)
 
-        for tab_title, html in _TABS:
+        for tab_title, html in _tabs():
             tabs.addTab(_make_tab(html, tabs), tab_title)
 
         frame_lay.addWidget(tabs, 1)
