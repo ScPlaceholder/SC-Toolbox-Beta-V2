@@ -2342,6 +2342,182 @@ class TradeHubWindow(SCWindow):
 
     # ── Tutorial ──
 
+    @staticmethod
+    def _tutorial_pages() -> list:
+        """(tab title, html) for the tutorial, in the order shown.
+
+        A name the user can read in the tool (a button, a heading, a column) is in <b>, and
+        tests/test_tutorial.py checks that each one is still a string somewhere else in the source."""
+        hdr_style = f"font-weight: bold; color: {P.tool_trade}; font-size: 10pt;"
+        acc = f"color: {P.accent};"
+        grn = f"color: {P.green};"
+        red = f"color: {P.red};"
+        pur = f"color: {P.purple};"
+        dim = f"color: {P.fg_dim};"
+        try:
+            from shared.hotkey_label import hotkey_label
+            hotkey = hotkey_label("hotkey_trade", "<shift>+6")
+        except Exception:                   # noqa: BLE001 - a tutorial is not worth a failed open
+            hotkey = "Shift+6"
+
+        basics = f"""
+            <p style="{hdr_style}">WHAT IT IS FOR</p>
+            <p>Use Trade Hub to find something to haul: what to buy, where, and
+            where to sell it for the most profit. Prices come from UEX.</p>
+            <p style="{hdr_style}">START HERE</p>
+            <p>1. Under <b style="{acc}">VEHICLE:</b>, choose your ship (type to
+            search). Its cargo size limits how much each route can carry.
+            <b style="{acc}">-- No Ship Cap --</b> removes the limit.</p>
+            <p>2. Read the table. Each row is one trade, best first. Click a
+            column heading to sort by it and click again to reverse.</p>
+            <p>3. Double-click a row to open that route's card, with the
+            terminals, prices, distance and profit.</p>
+            <p style="{hdr_style}">FRESH PRICES</p>
+            <p><b style="{acc}">REFRESH</b> fetches the prices again. The tool
+            also does this by itself every few minutes.</p>
+            <p style="{hdr_style}">OPENING IT</p>
+            <p>Trade Hub is the <b style="{acc}">TRADE HUB</b> tab of the
+            Everything Finder. Its own hotkey is {hotkey}, which opens it in a
+            window of its own.</p>
+        """
+
+        views = f"""
+            <p style="{hdr_style}">VIEW MODE</p>
+            <p>The buttons under <b style="{acc}">VIEW MODE:</b> change what the
+            main area shows.</p>
+            <p><b style="{acc}">ROUTES</b> &mdash; single trades: buy here, sell
+            there.</p>
+            <p><b style="{acc}">LOOPS</b> &mdash; chains of trades, selling at
+            each stop and buying for the next leg.</p>
+            <p><b style="{acc}">BASKET</b> &mdash; you say what you want.
+            Choose <b>BUY</b> or <b>SELL</b> beside <b>MODE:</b>, pick a
+            <b>START LOCATION:</b>, tick the commodities, and press
+            <b>PLAN ROUTE</b> (or <b>PLAN SALE</b>). It offers up to five
+            plans, such as <b>MIN STOPS</b>, <b>SHORTEST TRIP</b> and
+            <b>BEST PRICE</b>.</p>
+            <p><b style="{acc}">STAR MAP</b> &mdash; Trade Hub's own map, where a
+            route can be drawn.</p>
+            <p><b style="{acc}">HEATMAP</b> &mdash; three short lists:
+            <b>TOP ROUTES</b>, <b>TRADE FLOWS</b> and <b>ACTIVITY</b>.
+            Double-click a row for its card. The filters at the side do not
+            apply here.</p>
+            <p><b style="{acc}">COMMODITIES</b> &mdash; a card for every
+            commodity with its average buy and sell price.</p>
+            <p><b style="{acc}">MY CAREER</b> &mdash; the runs you have logged,
+            the ones that failed, and your favourite routes. A run is logged
+            only when you press a button on a route's card (see
+            <b>Cards</b>).</p>
+        """
+
+        freight = f"""
+            <p style="{hdr_style}">FREIGHT MODE</p>
+            <p><b style="{acc}">BULK</b> fills your cargo bay with one commodity
+            for each leg.</p>
+            <p><b style="{grn}">MIXED</b> combines several commodities in one
+            load. It picks a high-value <span style="{grn}">Primary</span>
+            commodity first, then fills the space that is left with
+            <span style="{pur}">Filler</span> commodities going to the same
+            place.</p>
+            <p>MIXED needs a ship: with <b style="{acc}">-- No Ship Cap --</b>
+            chosen it shows nothing.</p>
+            <p style="{hdr_style}">A MIXED CARD</p>
+            <p>Double-click a mixed route to see the whole load: each
+            commodity, the SCU of it, the buy and sell prices and the profit,
+            coloured by its role. An illegal commodity is marked
+            <b style="{red}">ILLEGAL</b>.</p>
+        """
+
+        filters = f"""
+            <p style="{hdr_style}">NARROWING THE LIST</p>
+            <p><b style="{acc}">SYSTEM: BUY</b> and
+            <b style="{acc}">SYSTEM: SELL</b> &mdash; the star system at each
+            end of the trade.</p>
+            <p><b style="{acc}">ONLY SYSTEM(S) SELECTED:</b> &mdash; on
+            <b>YES</b>, both ends must be in the systems you chose.</p>
+            <p><b style="{acc}">BUY LOCATION</b> and
+            <b style="{acc}">SELL LOCATION</b> &mdash; a place or terminal at
+            each end.</p>
+            <p><b style="{acc}">COMMODITY</b> &mdash; routes for one commodity
+            only.</p>
+            <p><b style="{acc}">MIN SCU</b> &mdash; hide routes with less stock
+            than this.</p>
+            <p><b style="{acc}">MIN PROFIT/SCU</b> &mdash; hide routes that earn
+            less than this for each SCU.</p>
+            <p><b style="{acc}">STARTING INVESTMENT (aUEC)</b> &mdash; what you
+            have to spend. Routes whose first purchase costs more are
+            hidden.</p>
+            <p style="{dim}">Press Enter after typing a number in the last
+            three.</p>
+            <p><b style="{acc}">SEARCH</b> &mdash; type any text; the list
+            narrows as you type.</p>
+            <p><b style="{acc}">CLEAR</b> empties every filter.</p>
+            <p style="{hdr_style}">ILLEGAL CARGO</p>
+            <p><b style="{acc}">ALLOW ILLEGAL CARGO:</b> starts on
+            <b style="{red}">NO</b>, which takes illegal commodities out of
+            <b>ROUTES</b> and out of <b>MIXED</b> loads. The other views can
+            still list them.</p>
+            <p style="{hdr_style}">HOW MUCH YOU CAN SELL</p>
+            <p>Under <b style="{acc}">MARKET CALCULATIONS:</b>,
+            <b>Reported Demand</b> (the default) limits a load to what the
+            buying terminal is reported to want, as well as to what is in
+            stock. <b>Max Profit</b> ignores demand and limits a load only by
+            stock and by your ship.</p>
+        """
+
+        cards = f"""
+            <p style="{hdr_style}">A ROUTE'S CARD</p>
+            <p>Double-click a row to open its card. A card stays open until you
+            close it, so you can keep several side by side.</p>
+            <p><b style="{acc}">Show Route</b> &mdash; draws the route on the
+            <b>STAR MAP</b> view and switches to it.</p>
+            <p><b style="{acc}">Show Trade Hub</b> &mdash; goes back to the
+            <b>ROUTES</b> table.</p>
+            <p><b style="{acc}">Complete Route</b> &mdash; you flew it. The run
+            is logged to <b>MY CAREER</b> and the card closes.</p>
+            <p><b style="{acc}">Route Failed</b> &mdash; it went wrong. Tick
+            what happened (<b>Pirate Attack</b>, <b>Unable to Sell</b>,
+            <b>Ship Loss</b> or <b>Price Change</b>), say whether you lost
+            everything or part of it, and press <b>Log Failure</b>.</p>
+            <p><b style="{acc}">Add Favorite</b> &mdash; keeps the route in
+            <b>MY CAREER</b>.</p>
+            <p style="{hdr_style}">PROFIT CALCULATOR</p>
+            <p><b style="{acc}">PROFIT CALC</b> opens a small calculator. Enter
+            what you had under <b>Starting Income (aUEC)</b> and what you have
+            now under <b>Ending Income (aUEC)</b>, then press
+            <b>CALCULATE</b>.</p>
+        """
+
+        columns = f"""
+            <p style="{hdr_style}">COLUMNS OF THE ROUTES TABLE</p>
+            <p><b style="{acc}">Item</b> &mdash; the commodity.
+            <b style="{acc}">Buy At</b> and <b style="{acc}">Sell At</b>
+            &mdash; the two terminals.</p>
+            <p><b style="{acc}">CS</b> &mdash; the container sizes the terminal
+            handles.</p>
+            <p><b style="{acc}">Invest</b> &mdash; what the load costs to
+            buy.</p>
+            <p><b style="{acc}">SCU</b> &mdash; how much you can load: limited
+            by your ship and by the stock on sale, and by demand as well when
+            <b>MARKET CALCULATIONS:</b> is on <b>Reported Demand</b>.</p>
+            <p><b style="{acc}">Distance</b> &mdash; how far apart the two
+            terminals are.</p>
+            <p><b style="{acc}">ETA</b> &mdash; a rough travel time. It is the
+            same whichever ship you chose.</p>
+            <p><b style="{acc}">ROI</b> &mdash; profit as a percentage of what
+            the load cost.</p>
+            <p><b style="{acc}">Income</b> &mdash; the profit you can expect
+            from the load.</p>
+            <p style="{hdr_style}">TIPS</p>
+            <p>• The table shows only the best few hundred rows. Use the
+            filters to bring the ones you want into it.</p>
+            <p>• Your ship, the freight mode and the illegal cargo choice
+            are remembered. The view mode and the filters start fresh each
+            time.</p>
+        """
+
+        return [("Basics", basics), ("Views", views), ("Freight", freight),
+                ("Filters", filters), ("Cards", cards), ("Columns", columns)]
+
     def _open_tutorial(self):
         """Open a tabbed tutorial dialog explaining Trade Hub features."""
         if hasattr(self, '_tutorial_dlg') and self._tutorial_dlg and self._tutorial_dlg.isVisible():
@@ -2405,13 +2581,6 @@ class TradeHubWindow(SCWindow):
             background: transparent; padding: 16px;
             line-height: 1.5;
         """
-        hdr_style = f"font-weight: bold; color: {P.tool_trade}; font-size: 10pt;"
-        accent_style = f"color: {P.accent};"
-        green_style = f"color: {P.green};"
-        yellow_style = f"color: {P.yellow};"
-        red_style = f"color: {P.red};"
-        purple_style = f"color: {P.purple};"
-
         def _make_tab(html: str) -> QScrollArea:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
@@ -2424,109 +2593,8 @@ class TradeHubWindow(SCWindow):
             scroll.setWidget(lbl)
             return scroll
 
-        # Tab 1: Getting Started
-        tabs.addTab(_make_tab(f"""
-            <p style="{hdr_style}">GETTING STARTED</p>
-            <p>Trade Hub shows you the most profitable trade routes in Star Citizen
-            using live data from the UEX Corp API.</p>
-            <p style="{hdr_style}">VEHICLE</p>
-            <p>Select your ship from the <span style="{accent_style}">VEHICLE</span>
-            dropdown. This sets your cargo capacity (SCU) and all profit calculations
-            adjust automatically. Type to fuzzy-search ship names.</p>
-            <p style="{hdr_style}">VIEW MODE</p>
-            <p><span style="{accent_style}">ROUTES</span> shows single-leg
-            point-to-point trades. <span style="{accent_style}">LOOPS</span> shows
-            multi-leg chains where you sell cargo at each stop and buy new cargo
-            for the next leg.</p>
-            <p style="{hdr_style}">ROUTE DETAILS</p>
-            <p>Double-click any row to open a detailed breakdown card showing
-            buy/sell terminals, prices, distances, travel time, and profit.
-            Cards can be pinned to stay open.</p>
-        """), "Basics")
-
-        # Tab 2: Freight Modes
-        tabs.addTab(_make_tab(f"""
-            <p style="{hdr_style}">FREIGHT MODES</p>
-            <p><span style="{accent_style}">BULK</span> fills your entire cargo bay
-            with a single commodity per leg. This is the traditional trading method.</p>
-            <p><span style="{green_style}">MIXED</span> strategically combines
-            multiple commodities per leg to maximize profit. It selects a
-            high-value <span style="{green_style}">Primary</span> commodity as the
-            anchor, then fills remaining bay space with profitable
-            <span style="{purple_style}">Filler</span> commodities heading to the
-            same destination.</p>
-            <p style="{hdr_style}">MIXED FREIGHT DETAILS</p>
-            <p>In Mixed mode, <span style="{accent_style}">ROUTES</span> shows
-            single-stop mixed loads. <span style="{accent_style}">LOOPS</span>
-            shows multi-stop chains where each leg carries a mixed cargo bay.</p>
-            <p>Double-click a mixed route to see the full cargo breakdown:
-            each commodity, SCU loaded, buy/sell prices, and per-item profit
-            color-coded by role.</p>
-        """), "Freight")
-
-        # Tab 3: Filters
-        tabs.addTab(_make_tab(f"""
-            <p style="{hdr_style}">FILTERING ROUTES</p>
-            <p>Use the sidebar filters to narrow results:</p>
-            <p><span style="{accent_style}">SYSTEM: BUY / SELL</span> &mdash;
-            filter by star system on either side of the trade.</p>
-            <p><span style="{accent_style}">BUY / SELL LOCATION</span> &mdash;
-            filter by planet, moon, or outpost name.</p>
-            <p><span style="{accent_style}">COMMODITY</span> &mdash;
-            show only routes for a specific commodity.</p>
-            <p><span style="{accent_style}">MIN SCU</span> &mdash;
-            hide routes with less available stock than this.</p>
-            <p><span style="{accent_style}">MIN PROFIT/SCU</span> &mdash;
-            hide routes below this margin per SCU.</p>
-            <p><span style="{accent_style}">SEARCH</span> &mdash;
-            fuzzy text search across all columns. Results update as you type.</p>
-            <p><span style="{accent_style}">ONLY SYSTEM(S) SELECTED</span> &mdash;
-            when YES, both buy and sell sides must be within the selected systems.</p>
-        """), "Filters")
-
-        # Tab 4: Illegal Cargo & Market
-        tabs.addTab(_make_tab(f"""
-            <p style="{hdr_style}">ALLOW ILLEGAL CARGO</p>
-            <p>Default: <span style="{red_style}">NO</span>. Illegal commodities
-            (drugs, contraband) are hidden from all calculations and displays.</p>
-            <p>Set to <span style="{green_style}">YES</span> to include illegal
-            cargo in both Bulk and Mixed freight. Illegal items are marked with
-            <span style="{red_style}">\u26a0 ILLEGAL</span> in detail cards.</p>
-            <p style="{hdr_style}">MARKET CALCULATIONS</p>
-            <p><span style="{accent_style}">Reported Demand</span> (default) caps
-            your loadable SCU by both available supply AND reported demand at
-            the sell terminal. Conservative but realistic.</p>
-            <p><span style="{accent_style}">Max Profit</span> ignores demand caps
-            and only limits by supply and ship capacity. Use this for optimistic
-            estimates when demand data may be stale.</p>
-            <p style="{hdr_style}">PROFIT CALCULATOR</p>
-            <p>Click <span style="{yellow_style}">$ PROFIT CALC</span> to open a
-            quick calculator. Enter your starting and ending aUEC balance to see
-            your session profit at a glance.</p>
-        """), "Settings")
-
-        # Tab 5: Advanced
-        tabs.addTab(_make_tab(f"""
-            <p style="{hdr_style}">COLUMN GUIDE</p>
-            <p><span style="{accent_style}">CS</span> &mdash; Container sizes
-            available at the terminal.</p>
-            <p><span style="{accent_style}">SCU</span> &mdash; Effective SCU you
-            can load (capped by ship, supply, and demand).</p>
-            <p><span style="{accent_style}">SCU-U</span> &mdash; User-reported
-            stock levels from UEX Corp.</p>
-            <p><span style="{accent_style}">Distance</span> &mdash; Quantum travel
-            distance between terminals.</p>
-            <p><span style="{accent_style}">ETA</span> &mdash; Estimated travel
-            time at standard quantum speed.</p>
-            <p><span style="{accent_style}">ROI</span> &mdash; Return on
-            investment: profit as a percentage of purchase cost.</p>
-            <p style="{hdr_style}">TIPS</p>
-            <p>\u2022 Click column headers to sort. Click again to reverse.</p>
-            <p>\u2022 Hit <span style="{accent_style}">REFRESH</span> to pull
-            fresh data from the UEX API. Data auto-refreshes every 5 minutes.</p>
-            <p>\u2022 Mixed freight shines with mid-size ships (64\u2013700 SCU)
-            where single commodities rarely fill the bay.</p>
-        """), "Advanced")
+        for title, html in self._tutorial_pages():
+            tabs.addTab(_make_tab(html), title)
 
         panel_lay.addWidget(tabs, 1)
         outer.addWidget(panel)
