@@ -3,6 +3,20 @@
 The companion itself runs whether or not this window is visible (preload: the toolbox starts it hidden). Closing the
 window hides it; `quit` from the launcher stops the core, closes the session record and stops the model service
 if this process started it.
+
+TWO RULES ABOUT WHEN THE COMPANIONS SPEAK, and how they fit together:
+
+  J 2026-10-04  "make sure that suitmk2 only have the AI's talk while it is launched": with the window hidden
+                (preloaded, closed with X, toggled off) Elah and Montaigne say nothing of their own accord.
+  J 2026-10-05  "individual push to talk buttons which also auto-route to the right ai": holding SuitMk2's talk
+                key asks them something from anywhere, the window hidden included, and they answer.
+
+The first rule is about UNPROMPTED speech; a held key is the pilot speaking to them. So the gate has two parts
+(_voice_gate): everything is muted while the window is hidden, and a push-to-talk transcript opens an ANSWER
+PASS for a short while, through which only a line that answers the pilot is let (speech.py: say(...,
+addressed=True); the core marks its answers that way and nothing else). Ambient lines, event lines, banter and
+dev facts are still refused while the window is hidden, pass or no pass. His Mute button silences answers too.
+An always-open mic never opens the pass: only a held key is an explicit request.
 """
 from __future__ import annotations
 
@@ -13,10 +27,12 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton, QSlider,
                                QVBoxLayout, QWidget)
 
+from shared import ptt_keys
+from shared.mic_floor import FLOOR, OneMicMixin
 from shared.qt.base_window import SCWindow
 from shared.qt.theme import P
 from shared.qt.title_bar import SCTitleBar
@@ -44,6 +60,30 @@ try:                                            # first-run "Set up Elah and Mon
 except Exception:                               # pragma: no cover - a broken panel must not take the window down
     log.exception("setup panel unavailable; the window runs without first-run setup")
     SetupPanel, MODEL_PREFIXES = None, ("suitmk2-", "realizer-")
+
+
+class _Ears(OneMicMixin, EarsController):
+    """SuitMk2's ears behind the process's one microphone (shared/mic_floor.py): while the Assistant's key is
+    held, this one's is refused, and the other way round."""
+
+    captureFailed = Signal(str)
+    captureBusy = Signal(str)
+
+
+# How long after a push-to-talk question the companions may answer with the window hidden. Long enough for a cold
+# speaker model (about two seconds, more with the game holding the card) and the line itself; nothing unprompted
+# can use it, so its length is not what keeps the 2026-10-04 rule.
+ANSWER_PASS_S = 45.0
+
+
+def _voice_gate(speech, user_muted: bool, tool_open: bool, answer_pass: bool) -> None:
+    """Set what *speech* will say. Everything, when the tool is open and he has not muted it. With the tool hidden:
+    nothing, except an answer to a question he asked with the talk key while *answer_pass* is open. Muted by
+    him: nothing at all."""
+    speech.mute(bool(user_muted) or not tool_open)
+    allow = getattr(speech, "allow_addressed", None)
+    if callable(allow):
+        allow(bool(answer_pass) and not user_muted)
 
 
 class _Slider(QSlider):
@@ -86,8 +126,14 @@ class _SuitBody:
     in the frame, in what "the window is open" means for the voice gate, and in who owns the microphone.
     """
 
-    # False while another tab of a shared window is the one listening; see mic_take / mic_release.
+    # False while another tab of a shared window is the one in front; see mic_take / mic_release.
     _mic_mine = True
+    # True when the window has said this tab may go on watching its talk key while it is not in front.
+    _ptt_bg = False
+    # True for a short while after a push-to-talk question: the answer may be spoken with the window hidden.
+    _ptt_pass = False
+    # What to say on this tab when the Assistant's key is the same key.
+    _ptt_clash = ""
 
     def _build(self, hotkey_text: str = "", cmd_file: Optional[str] = None, chrome: bool = True) -> None:
         self._standalone = not cmd_file or cmd_file == os.devnull
@@ -177,7 +223,10 @@ class _SuitBody:
         ctl.addWidget(self._presence)
         self._talk = QPushButton("Talk key: set...")
         self._talk.setStyleSheet(_btn_ss())
-        self._talk.setToolTip("Push-to-talk: hold it and ask Elah or Montaigne something (local speech-to-text)")
+        self._talk.setToolTip("Suit Mk2's own push-to-talk key: hold it and ask Elah or Montaigne something "
+                              "(local speech-to-text).\nIt works whichever tab is showing and with this window "
+                              "closed; they answer what you asked and say nothing else while it is closed.\n"
+                              "The Assistant has a key of its own on its tab. Click to change this one.")
         self._talk.clicked.connect(self._set_talk_key)
         ctl.addWidget(self._talk)
         # J 2026-09-26: ears are always on; the player picks how the mic listens.
@@ -358,16 +407,8 @@ class _SuitBody:
         # Direct conversation: push-to-talk -> local Whisper -> ConversationLane -> core.answer()
         self.lane = ConversationLane()
         self.store = None
-        self.ears = EarsController(self)
-        self.ears.set_mode("always" if self.s.get("talk_mode") == "always" else "push")
-        self.ears.set_model("small.en")
-        self.ears.transcript.connect(self._on_transcript)
-        self.ears.listeningChanged.connect(self._on_listening)
-        self.ears.statusChanged.connect(lambda m: self.core and self.core._note(f"ears: {m}"))
-        self.ears.needsInstall.connect(self._on_needs_install)
         self._voice_missing = []
-        if self.s.get("talk_key"):
-            self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
+        self._make_ears()
         if self.s.get("talk_key") or self.ears.mode() == "always":
             QTimer.singleShot(1500, self._arm_ears)
         self._show_talk_key()
@@ -531,6 +572,7 @@ class _SuitBody:
             self.ears.set_binding(dlg.result)
             self._show_talk_key()
             self._arm_ears()
+            self.pttChanged.emit()
 
     def _set_talk_mode(self, _index: int = 0) -> None:
         mode = self._talk_mode.currentData() or "push"
@@ -540,23 +582,59 @@ class _SuitBody:
         self.ears.set_mode(mode)
         self._show_talk_key()
         self._arm_ears()
+        self.pttChanged.emit()
+
+    def _make_ears(self) -> None:
+        """The ears, set up from the saved settings and wired to this dashboard. What they hear comes back to THIS
+        tool (_on_transcript) and to no other: that wiring, plus the one-microphone floor, is the whole of "the key
+        decides which AI hears it"."""
+        self.ears = _Ears(self)
+        self.ears.use_floor(FLOOR, ptt_keys.SUIT)
+        self.ears.set_mode("always" if self.s.get("talk_mode") == "always" else "push")
+        self.ears.set_model("small.en")
+        self.ears.transcript.connect(self._on_transcript)
+        self.ears.listeningChanged.connect(self._on_listening)
+        self.ears.statusChanged.connect(lambda m: self.core and self.core._note(f"ears: {m}"))
+        self.ears.statusChanged.connect(self._on_ears_status)
+        self.ears.needsInstall.connect(self._on_needs_install)
+        self.ears.captureFailed.connect(self._on_capture_failed)
+        self.ears.captureBusy.connect(
+            lambda _who: self.core and self.core._note("ears: the other tab's key is being held; let go of it first"))
+        if self.s.get("talk_key"):
+            self.ears.set_binding(InputBinding.from_dict(self.s["talk_key"]))
 
     # -- the microphone ---------------------------------------------------------------------------------------------
     # In its own window this dashboard always owns its microphone. As a tab of the Toolbox Assistant window it shares
     # the window with the Assistant, which has ears of its own, and two tabs must never listen at once: the same
-    # sentence would be answered twice. The window hands the microphone to the tab that is showing (mic_take) and
-    # takes it from the other (mic_release). Every place that arms the ears goes through _arm_ears, so a tab that
-    # does not hold the microphone cannot open it by a side door (a new talk key, a mode change, the start-up timer).
+    # sentence would be answered twice.
+    #
+    # An ALWAYS-OPEN mic belongs to the tab that is showing: the window hands it over with mic_take and takes it away
+    # with mic_release.
+    #
+    # The TALK KEY is different (J, 2026-10-05): each tool has its own, and holding one talks to that tool whichever
+    # tab is showing. So after mic_release the window says ptt_background(True), and this tab goes on watching its
+    # key. Two keys still cannot open the microphone twice: the ears ask shared/mic_floor.py before every capture,
+    # and the second key held is refused. The window does not say ptt_background(True) when both tools are set to
+    # the SAME key; then only the tab in front has it.
+    #
+    # Every place that arms the ears goes through _arm_ears, so a tab that may not listen cannot open the microphone
+    # by a side door (a new talk key, a mode change, the start-up timer).
+    def _may_listen(self) -> bool:
+        """In front: yes, as the saved mode says. Not in front: only the talk key, once the window has allowed it."""
+        return getattr(self, "_mic_mine", True) or (getattr(self, "_ptt_bg", False) and self.ears.mode() == "push")
+
     def _arm_ears(self) -> None:
-        """Arm the ears if this dashboard holds the microphone and there is a way to talk (a key, or always on)."""
-        if not getattr(self, "_mic_mine", True):
+        """Arm the ears if this dashboard may listen and there is a way to talk (a key, or always on)."""
+        if not self._may_listen():
             return
         if self.s.get("talk_key") or self.ears.mode() == "always":
             self.ears.arm()
 
     def mic_release(self) -> None:
-        """Another tab is listening now: close the mic and stop watching the talk key."""
+        """Another tab is in front now: close the mic and stop watching the talk key (ptt_background says
+        afterwards whether the key may be watched)."""
         self._mic_mine = False
+        self._ptt_bg = False
         if self.ears.armed() or self.ears.recording():
             self.ears.disarm()
 
@@ -564,6 +642,64 @@ class _SuitBody:
         """This tab is the one showing: listen again, the way the saved settings say."""
         self._mic_mine = True
         self._arm_ears()
+
+    def ptt_background(self, on: bool) -> None:
+        """Whether this tab may watch its talk key while another tab is in front. Says nothing to a tab in front."""
+        self._ptt_bg = bool(on)
+        if getattr(self, "_mic_mine", True):
+            return
+        if self._may_listen():
+            if not self.ears.armed():
+                self._arm_ears()
+        elif self.ears.armed() or self.ears.recording():
+            self.ears.disarm()
+
+    def ptt_binding(self) -> Optional[dict]:
+        """The talk key as a dict (shared/ptt_keys.py reads it), or None when holding a key does nothing here
+        (the mic is always open, or no key is set)."""
+        if self.ears.mode() != "push" or not self.s.get("talk_key"):
+            return None
+        return dict(self.s["talk_key"])
+
+    def ptt_clash(self, other: str) -> None:
+        """The window found the talk key is also *other*'s key ("" = it is not)."""
+        self._ptt_clash = ("This is also %s's key, so it only works for the tab that is showing. "
+                           "Give one of them a different key." % other) if other else ""
+        self._show_talk_key()
+
+    def pilot_talking(self, on: bool) -> None:
+        """The pilot is holding ANOTHER tab's key and talking: hold every non-urgent line, as for our own key."""
+        if self.core is not None:
+            self.core.gate_state.pilot_speaking = bool(on) or self.ears.recording()
+
+    def _on_capture_failed(self, why: str) -> None:
+        """The talk key was held and the microphone did not open. Said, and nothing else happens: what was meant
+        for the companions is never sent to the Assistant instead."""
+        self.pttState.emit("error", why or "the microphone did not open")
+
+    def _on_ears_status(self, msg: str) -> None:
+        if self.ears.mode() != "push":
+            return
+        if msg.startswith("ears error"):            # speech-to-text failed after the key was released
+            self.pttState.emit("error", msg)
+        elif msg == "heard nothing":
+            self.pttState.emit("note", msg)
+
+    # -- the answer pass (see the module docstring) -------------------------------------------------------------
+    def _open_answer_pass(self) -> None:
+        """He asked with the talk key: for ANSWER_PASS_S the answer may be spoken even with the window hidden."""
+        self._ptt_pass = True
+        self._apply_voice_gate()
+        t = getattr(self, "_pass_timer", None)
+        if t is None:
+            t = self._pass_timer = QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._close_answer_pass)
+        t.start(int(ANSWER_PASS_S * 1000))
+
+    def _close_answer_pass(self) -> None:
+        self._ptt_pass = False
+        self._apply_voice_gate()
 
     def _show_talk_key(self) -> None:
         """Talk button text + the hint beside it."""
@@ -579,7 +715,7 @@ class _SuitBody:
         elif not self.s.get("talk_key") and self.s.get("talk_mode") != "always":
             self._talk_hint.setText("No talk key set: click Talk key and press the key to hold while you talk.")
         else:
-            self._talk_hint.setText("")
+            self._talk_hint.setText(getattr(self, "_ptt_clash", ""))
         self._talk_hint.setVisible(bool(self._talk_hint.text()))
 
     def _on_needs_install(self, packages: list) -> None:
@@ -592,10 +728,24 @@ class _SuitBody:
     def _on_listening(self, on: bool) -> None:
         if self.core is not None:
             self.core.gate_state.pilot_speaking = bool(on)   # hold every non-urgent line while the pilot talks
+        if self.ears.mode() == "push":                       # a held key; an always-open mic is nobody holding anything
+            self.pttState.emit("listening" if on else "released", "")
 
     def _on_transcript(self, text: str) -> None:
-        if self.core is None or not text.strip():
+        if not text.strip():
             return
+        by_key = self.ears.mode() == "push"
+        if by_key:
+            self.pttState.emit("heard", text)
+        if self.core is None:
+            if by_key:
+                self.pttState.emit("note", "Suit Mk2 is still starting; ask again in a moment")
+            return
+        if by_key:
+            # He asked them something. The answer may be spoken even with the window hidden; nothing unprompted may.
+            self._open_answer_pass()
+            if self.s.get("muted"):
+                self.pttState.emit("note", "Suit Mk2 is muted: un-mute it on its tab to hear the answer")
         from dream_queue import history_facts
         state = lane_state_from_core(self.core.state, self.core.volatile)
         hist = {}
@@ -639,8 +789,11 @@ class _SuitBody:
         "Open" is isVisible(): a minimised window still counts (he launched it and it is on the taskbar); a
         hidden one (preloaded by the launcher, closed with X, or toggled off from its tile) does not. The
         Mute button keeps its own saved value in self.s["muted"] and this never writes it, so closing and
-        reopening the window cannot change what he chose."""
-        self.speech.mute(bool(self.s.get("muted")) or not self.isVisible())
+        reopening the window cannot change what he chose.
+
+        One thing gets through a hidden window: the answer to a question he asked with the talk key
+        (_open_answer_pass; see the module docstring)."""
+        _voice_gate(self.speech, bool(self.s.get("muted")), self.isVisible(), getattr(self, "_ptt_pass", False))
 
     def hideEvent(self, event) -> None:
         super().hideEvent(event)
@@ -896,6 +1049,11 @@ class _SuitBody:
 class SuitWindow(_SuitBody, SCWindow):
     """SuitMk2 in its own window (suitmk2_companion_app.py)."""
 
+    # (what, text) about the held talk key: "listening", "released", "heard", "note", "error". Nobody listens in
+    # this window; the shared window shows it on screen.
+    pttState = Signal(str, str)
+    pttChanged = Signal()
+
     def __init__(self, geometry, hotkey_text: str = "", cmd_file: Optional[str] = None) -> None:
         SCWindow.__init__(self, title="SuitMk2", width=geometry.w, height=geometry.h, min_w=420, min_h=360,
                           opacity=geometry.opacity, accent=ACCENT)
@@ -910,6 +1068,12 @@ class SuitPanel(_SuitBody, QWidget):
     one listening when it is built; the window moves the microphone afterwards with mic_take / mic_release.
     """
 
+    # (what, text) about the held talk key: "listening", "released", "heard", "note", "error". The window shows it
+    # on screen (assistant/ptt_overlay.py), because the pilot holding the key is in the game, not looking here.
+    pttState = Signal(str, str)
+    # the talk key or the mic mode changed: the window checks the two tabs' keys again
+    pttChanged = Signal()
+
     def __init__(self, parent: Optional[QWidget] = None, cmd_file: Optional[str] = None, mic: bool = True) -> None:
         QWidget.__init__(self, parent)
         self._mic_mine = bool(mic)
@@ -923,8 +1087,10 @@ class SuitPanel(_SuitBody, QWidget):
 
         Not this tab's own isVisible(): that goes False whenever the Assistant tab is the one showing, and the rule
         (J 2026-10-04) is about the tool being open, not about which tab is in front. A hidden window (preloaded by
-        the launcher, closed with X, toggled off) is silent exactly as SuitWindow is."""
-        self.speech.mute(bool(self.s.get("muted")) or not self.window().isVisible())
+        the launcher, closed with X, toggled off) is silent exactly as SuitWindow is, and lets the same one thing
+        through: the answer to a question asked with the talk key."""
+        _voice_gate(self.speech, bool(self.s.get("muted")), self.window().isVisible(),
+                    getattr(self, "_ptt_pass", False))
 
     def host_visibility_changed(self) -> None:
         """Called by the window when it is shown or hidden. A tab that is not in front gets no show/hide event of its

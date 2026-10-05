@@ -25,6 +25,15 @@ its own.
 A tool the user switched off in the launcher's Settings does not come back as a
 tab: the launcher names the disabled ones in env SC_TOOLBOX_TABS_OFF.
 
+A PUSH-TO-TALK KEY EACH (J, 2026-10-05: "individual push to talk buttons which
+also auto-route to the right ai"). Each tab has its own key (the Assistant's
+"Mic key", SuitMk2's "Talk key"; defaults in shared/ptt_keys.py), and holding
+one talks to that tool whichever tab is showing and with the window closed. A
+tab has to exist to hear its key, so a few seconds after the window is up every
+tab that was not built yet is built behind the one in front (warm_tabs). That
+is the Assistant in the hidden start described above: its agent, voice and ears
+now exist from about WARM_MS after launch instead of from its first Ctrl+3.
+
 Args: <x> <y> <w> <h> <opacity> <cmd_file>
 
 ONE PROCESS, TWO TOOLS: THE MODULE NAMES. SuitMk2 imports its core by bare
@@ -84,6 +93,10 @@ FALLBACK_NAME = "Toolbox Assistant"
 # SuitMk2: that is what was listening in that state before the two were combined (the Assistant was not running
 # until its hotkey was pressed).
 PRELOAD_TAB = TAB_SUIT
+
+# How long after start-up the tabs nobody has opened are built, so their push-to-talk keys work. Late enough that
+# the first tab's own start-up (SuitMk2 finding Game.log and waking its model service) is not competing with it.
+WARM_MS = 4000
 
 # THE SIZE. The window first shipped opening at 560x600, and on J's launcher (2026-10-04, UI scale 1.5) the Suit Mk2
 # tab was unreadable at that size: nine status rows 4 px high and drawn over each other, six button labels cut, and
@@ -254,6 +267,18 @@ def build_tabs(cmd_file):
     return [t for t in tabs if t.key not in off] or tabs
 
 
+def warm_tabs(window) -> list:
+    """Build every tab of *window* that does not exist yet, behind the one in front. Returns the keys it built.
+    One tab failing to build is the window's business (it shows why on that tab) and does not stop the next."""
+    built = []
+    for key in window.tab_keys():
+        if window.page(key) is None and window.warm(key):
+            built.append(key)
+    if built:
+        log.info("toolbox assistant: built behind the front tab, for their push-to-talk keys: %s", ", ".join(built))
+    return built
+
+
 def first_tab(preload: bool, pending: list) -> str:
     """The tab to build first.
 
@@ -269,7 +294,7 @@ def first_tab(preload: bool, pending: list) -> str:
 
 
 def main() -> int:
-    from PySide6.QtCore import QThread
+    from PySide6.QtCore import QThread, QTimer
     from PySide6.QtWidgets import QApplication
 
     from shared.crash_logger import init_crash_logging
@@ -331,6 +356,7 @@ def main() -> int:
             window.handle_ipc_command(cmd)
 
     app.aboutToQuit.connect(window._quit)
+    QTimer.singleShot(WARM_MS, lambda: warm_tabs(window))
     log.info("toolbox assistant: up (tab=%s, hidden=%s)", window.current_tab(), preload)
     return app.exec()
 

@@ -1272,7 +1272,22 @@ class CompanionCore:
         if ack:
             spec = devf.toggle_ack_spec(on, self._dev_toggles)
             self._dev_toggles += 1
-            self._say_fixed(spec, Priority.URGENT, PRIORITY_URGENT)
+            # said by voice = the pilot asked for it, so the acknowledgement is an answer to him
+            self._say_fixed(spec, Priority.URGENT, PRIORITY_URGENT, addressed=(why == "voice"))
+
+    # -- answers to the pilot (J 2026-10-05) ---------------------------------------------------------------------
+    # With the window hidden the speech is muted, and a question asked with the talk key is still answered: the
+    # window opens an answer pass and Speech lets through a line said with addressed=True (speech.py). ONLY the
+    # paths that answer something the pilot said use these two; every unprompted path still reads speech.muted and
+    # calls speech.say() plainly, so it is refused while the window is hidden whatever the pass is doing.
+    def _answer_muted(self) -> bool:
+        asks = getattr(self.speech, "muted_for", None)
+        return bool(asks(True)) if callable(asks) else bool(getattr(self.speech, "muted", False))
+
+    def _say_answer(self, text: str, speaker: str, speech_priority: int) -> bool:
+        if callable(getattr(self.speech, "muted_for", None)):
+            return self.speech.say(text, speaker, speech_priority, addressed=True)
+        return self.speech.say(text, speaker, speech_priority)      # a speech with no answer pass (tests)
 
     def voice_command(self, text: str) -> bool:
         """A spoken control the core handles itself (today: the dev-facts toggle). True = consumed."""
@@ -1283,9 +1298,10 @@ class CompanionCore:
         self.set_dev_facts(on, "voice")
         return True
 
-    def _say_fixed(self, spec: dict, gate_priority, speech_priority: int) -> bool:
-        """Say a fixed line now (no model): gate, grounding, speech. Used for the toggle acknowledgement."""
-        self.gate_state.muted = bool(getattr(self.speech, "muted", False))
+    def _say_fixed(self, spec: dict, gate_priority, speech_priority: int, addressed: bool = False) -> bool:
+        """Say a fixed line now (no model): gate, grounding, speech. Used for the toggle acknowledgement.
+        addressed: the line answers something the pilot said (see _say_answer)."""
+        self.gate_state.muted = self._answer_muted() if addressed else bool(getattr(self.speech, "muted", False))
         cand = Candidate(priority=gate_priority, speaker=spec["speaker"], text_len_words=spec["length_words"][1],
                          created_at=self.now())
         if self.gate.evaluate(self.gate_state, cand).verdict is not Verdict.ALLOW:
@@ -1293,7 +1309,9 @@ class CompanionCore:
         text = spec["fixed_text"]
         if ground(spec, text):
             return False
-        if self.speech.say(text, spec["speaker"], speech_priority):
+        said = (self._say_answer(text, spec["speaker"], speech_priority) if addressed
+                else self.speech.say(text, spec["speaker"], speech_priority))
+        if said:
             self.gate.record_spoken(self.gate_state, cand)
             self.stats["spoken"] += 1
             self._note(f"{spec['speaker']}: {text}")
@@ -1310,7 +1328,7 @@ class CompanionCore:
             self.affect.feed("pilot_spoke")
         except Exception:
             log.exception("affect")
-        self.gate_state.muted = bool(getattr(self.speech, "muted", False))
+        self.gate_state.muted = self._answer_muted()        # an answer: see _say_answer
         cand = Candidate(priority=Priority.URGENT, speaker=spec["speaker"],
                          text_len_words=spec["length_words"][1], created_at=self.now())
         d = self.gate.evaluate(self.gate_state, cand)
@@ -1329,7 +1347,7 @@ class CompanionCore:
                 return
             fails = ground_direct(spec, text)
             if not fails:
-                if self.speech.say(text, spec["speaker"], PRIORITY_URGENT):
+                if self._say_answer(text, spec["speaker"], PRIORITY_URGENT):
                     self.gate.record_spoken(self.gate_state, cand)
                     self._spoke(spec, text, cand)
                     self.stats["spoken"] += 1

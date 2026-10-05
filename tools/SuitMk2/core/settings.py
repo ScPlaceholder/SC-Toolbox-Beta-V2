@@ -8,6 +8,12 @@ from pathlib import Path
 DIR = Path.home() / ".sctoolbox" / "suitmk2"
 PATH = DIR / "settings.json"
 
+# The talk key of a SuitMk2 that has never had one set: Scroll Lock (J 2026-10-05: each tool has a push-to-talk key
+# of its own, with a default). The same dict is SUIT_DEFAULT in shared/ptt_keys.py, which also says why that key;
+# this module cannot import it (the model service loads settings in a process without the toolbox on its path), and
+# shared/tests/test_ptt_keys.py holds the two equal. kind/code/label/joy_index are voice_in.input_devices.InputBinding.
+DEFAULT_TALK_KEY = {"kind": "keyboard", "code": 145, "label": "SCROLL_LOCK", "joy_index": 0}
+
 DEFAULTS = {
     "presence": "present",            # off | occasional | present | curious (eyes cadence; only while SC is focused)
     "vision_glance": False,           # local gemma3:4b glance when the fast eyes cannot tell (headroom-gated)
@@ -27,7 +33,8 @@ DEFAULTS = {
     # Voices ship inside the tool (build_installer copies elah/montaigne.onnx here); stock Piper voices otherwise.
     "voices_dir": str(Path(__file__).resolve().parent.parent / "voices"),
     "pilot_id": "pilot",
-    "talk_key": None,                 # push-to-talk binding (InputBinding dict), set from the window
+    "talk_key": None,                 # push-to-talk binding (InputBinding dict), set from the window; load()
+                                      # gives DEFAULT_TALK_KEY to a settings file that has none
     "talk_mode": "push",              # "push" (hold the talk key) | "always" (mic open) - J 2026-09-26
     "chattiness": 2,                  # 0 silent .. 4 very chatty (pacing.py)
     "afk_minutes": 5,                 # no keyboard/mouse input this long = AFK: only urgent lines speak until input
@@ -89,6 +96,9 @@ def load() -> dict:
         s.update(json.loads(PATH.read_text(encoding="utf-8")))
     except Exception:
         pass
+    # A file from before the default existed has "talk_key": null (or no such key). Both mean "never set".
+    if not isinstance(s.get("talk_key"), dict) or s["talk_key"].get("code") is None:
+        s["talk_key"] = dict(DEFAULT_TALK_KEY)
     return s
 
 

@@ -18,6 +18,12 @@ This window is the toolbox's ONE microphone (J, 2026-10-04). The Star Map
 used to have its own ears and voice bar; they are gone, and what is said for
 the map is relayed to it from here (starmap_bridge.py, the starmap_command
 tool). The Star Map's saved mic settings are folded in once at start-up.
+
+Its own push-to-talk key (J, 2026-10-05). The mic key is the ASSISTANT's key:
+held, it opens the mic and what is said goes to this agent, whichever tab of
+the shared window is showing and with the window closed. SuitMk2 has a key of
+its own; shared/mic_floor.py keeps the two from opening the microphone at
+once. See "the microphone" below for who may listen when.
 """
 from __future__ import annotations
 
@@ -33,6 +39,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
+from shared import ptt_keys
+from shared.mic_floor import FLOOR, OneMicMixin
 from shared.qt.theme import P
 from shared.qt.base_window import SCWindow
 from shared.qt.title_bar import SCTitleBar
@@ -67,6 +75,14 @@ def _btn_ss() -> str:
         f"QPushButton:checked {{ color: {P.energy_cyan}; "
         f"border-color: {P.energy_cyan}; }}"
     )
+
+
+class _Ears(OneMicMixin, EarsController):
+    """The Assistant's ears behind the process's one microphone (shared/mic_floor.py):
+    while SuitMk2's key is held, this one's is refused, and the other way round."""
+
+    captureFailed = Signal(str)
+    captureBusy = Signal(str)
 
 
 class _AskWorker(QThread):
@@ -143,13 +159,21 @@ class _AssistantBody:
     Both get every method here. They differ in the frame, in whether a window
     position is saved, and in who owns the microphone.
 
-    The two classes each declare speakRequested / statusRequested themselves:
-    a Qt signal has to be declared on a QObject class, and this one is not.
+    The two classes each declare speakRequested / statusRequested / pttState /
+    pttChanged themselves: a Qt signal has to be declared on a QObject class,
+    and this one is not.
     """
 
-    # False while another tab of a shared window is the one listening; see
+    # False while another tab of a shared window is the one in front; see
     # mic_take / mic_release. Always True for AssistantWindow.
     _mic_mine = True
+    # True when the window has said this tab may go on watching its
+    # push-to-talk key while it is not in front; see ptt_background.
+    _ptt_bg = False
+    # What to say on this tab when the other tab's key is the same key.
+    _ptt_clash = ""
+    # True while the turn in hand was started with the push-to-talk key.
+    _ptt_turn = False
     # True when this body is a whole window, so its position is worth saving.
     _owns_window = True
 
@@ -178,16 +202,7 @@ class _AssistantBody:
             self._mouth = CharacterMouth()
         except Exception:
             self._mouth = Mouth()
-        self._ears = EarsController(self)
-        # Ears are always on (J 2026-09-26); the player picks push-to-talk
-        # (default) or always on. An old saved "toggle" becomes push-to-talk.
-        mode = self._state.get("mic_mode", "push")
-        self._ears.set_mode(mode if mode in ("push", "always") else "push")
-        if self._state.get("whisper_model"):       # carried over from the Star Map, if it had one
-            self._ears.set_model(str(self._state["whisper_model"]))
-        self._ears.statusChanged.connect(self._set_status)
-        self._ears.transcript.connect(self._on_transcript)
-        self._ears.needsInstall.connect(self._on_needs_install)
+        self._make_ears()
 
         # ── listener penguin ─────────────────────────────────────────────
         # Driven by speakingChanged, NOT listeningChanged: the latter says the MIC IS
@@ -240,6 +255,10 @@ class _AssistantBody:
 
         self._btn_key = QPushButton("Set Mic Key")
         self._btn_key.setStyleSheet(_btn_ss())
+        self._btn_key.setToolTip(
+            "The Assistant's own push-to-talk key. Hold it and talk: what you say goes to "
+            "the Assistant, whichever tab is showing and with this window closed.\n"
+            "Suit Mk2 has a key of its own on its tab. Click to change this one.")
         self._btn_key.clicked.connect(self._pick_binding)
         row.addWidget(self._btn_key)
 
@@ -359,19 +378,57 @@ class _AssistantBody:
         self._restore_binding()
         self._ensure_ears()
 
+    def _make_ears(self) -> None:
+        """The ears, set up from the saved state and wired to this HUD. What they
+        hear comes back to THIS tool (_on_transcript) and to no other: that
+        wiring, plus the one-microphone floor, is the whole of "the key decides
+        which AI hears it"."""
+        self._ears = _Ears(self)
+        self._ears.use_floor(FLOOR, ptt_keys.ASSISTANT)
+        # Ears are always on (J 2026-09-26); the player picks push-to-talk
+        # (default) or always on. An old saved "toggle" becomes push-to-talk.
+        mode = self._state.get("mic_mode", "push")
+        self._ears.set_mode(mode if mode in ("push", "always") else "push")
+        if self._state.get("whisper_model"):       # carried over from the Star Map, if it had one
+            self._ears.set_model(str(self._state["whisper_model"]))
+        self._ears.statusChanged.connect(self._set_status)
+        self._ears.statusChanged.connect(self._on_ears_status)
+        self._ears.transcript.connect(self._on_transcript)
+        self._ears.needsInstall.connect(self._on_needs_install)
+        self._ears.listeningChanged.connect(self._on_listening)
+        self._ears.captureFailed.connect(self._on_capture_failed)
+        self._ears.captureBusy.connect(self._on_capture_busy)
+
     # ── the microphone, when this HUD is one tab of a bigger window ──────
     # In its own window the assistant always owns its microphone. As a tab it
     # shares the window with SuitMk2, which has ears of its own, and two tabs
     # must never listen at once: the same sentence would be answered twice.
-    # The window hands the microphone to the tab that is showing (mic_take)
-    # and takes it from the other (mic_release). Every arm goes through the
-    # hidden Ears button (_ensure_ears checks it, _on_ears_toggled arms), and
-    # mic_release leaves it unchecked, so _on_ears_toggled is the one door:
-    # it refuses while the microphone is not this tab's, and a mode change or
-    # a new mic key cannot open it.
+    #
+    # An ALWAYS-OPEN mic belongs to the tab that is showing: the window hands
+    # it over with mic_take and takes it away with mic_release.
+    #
+    # A PUSH-TO-TALK key is different (J, 2026-10-05): each tool has its own,
+    # and holding one talks to that tool whichever tab is showing. So after
+    # mic_release the window says ptt_background(True), and this tab goes on
+    # watching its key. Two keys still cannot open the microphone twice:
+    # the ears ask shared/mic_floor.py before every capture, and the second
+    # key held is refused. The window does not say ptt_background(True) when
+    # both tools are set to the SAME key; then only the tab in front has it.
+    #
+    # Every arm goes through the hidden Ears button (_ensure_ears checks it,
+    # _on_ears_toggled arms), and mic_release leaves it unchecked, so
+    # _on_ears_toggled is the one door: it refuses unless _may_listen(), and a
+    # mode change or a new mic key cannot open it.
+    def _may_listen(self) -> bool:
+        """In front: yes, as the saved mode says. Not in front: only a
+        push-to-talk key, and only once the window has allowed it."""
+        return self._mic_mine or (self._ptt_bg and self._ears.mode() == "push")
+
     def mic_release(self) -> None:
-        """Another tab is listening now: close the mic, stop watching the key."""
+        """Another tab is in front now: close the mic, stop watching the key
+        (ptt_background says afterwards whether the key may be watched)."""
         self._mic_mine = False
+        self._ptt_bg = False
         if self._btn_ears.isChecked():
             self._btn_ears.setChecked(False)       # -> _on_ears_toggled -> disarm
         if self._ears.armed() or self._ears.recording():
@@ -381,6 +438,63 @@ class _AssistantBody:
         """This tab is the one showing: listen again, as the saved settings say."""
         self._mic_mine = True
         self._ensure_ears()
+
+    def ptt_background(self, on: bool) -> None:
+        """Whether this tab may watch its push-to-talk key while another tab is
+        in front. Says nothing to a tab that is in front."""
+        self._ptt_bg = bool(on)
+        if self._mic_mine:
+            return
+        if self._may_listen():
+            if not self._ears.armed():
+                self._ensure_ears()
+        else:
+            if self._btn_ears.isChecked():
+                self._btn_ears.setChecked(False)
+            if self._ears.armed() or self._ears.recording():
+                self._ears.disarm()
+
+    def ptt_binding(self) -> Optional[dict]:
+        """This tool's push-to-talk key as a dict (shared/ptt_keys.py reads it),
+        or None when holding a key does nothing here (mic always open, no key)."""
+        b = self._ears.binding()
+        if b is None or self._ears.mode() != "push":
+            return None
+        return {"kind": b.kind, "code": b.code}
+
+    def ptt_clash(self, other: str) -> None:
+        """The window found this key is also *other*'s key ("" = it is not)."""
+        self._ptt_clash = ("This is also %s's key, so it only works for the tab that is showing. "
+                           "Give one of them a different key." % other) if other else ""
+        self._show_mic_key()
+
+    def _on_listening(self, on: bool) -> None:
+        """The mic opened or closed. Told to the window only for a held key: an
+        always-open mic opens once and stays, and is nobody holding anything."""
+        if self._ears.mode() != "push":
+            return
+        if on:
+            self._ptt_turn = True
+        self.pttState.emit("listening" if on else "released", "")
+
+    def _on_capture_failed(self, why: str) -> None:
+        """The key was held and the microphone did not open. Said, and nothing
+        else happens: what was meant for this tool is never sent to the other."""
+        self._ptt_turn = False
+        self.pttState.emit("error", why or "the microphone did not open")
+
+    def _on_capture_busy(self, owner: str) -> None:
+        self._set_status("the other tab's key is being held - let go of it first")
+
+    def _on_ears_status(self, msg: str) -> None:
+        if self._ears.mode() != "push":
+            return
+        if msg.startswith("ears error"):          # speech-to-text failed after the key was released
+            self._ptt_turn = False
+            self.pttState.emit("error", msg)
+        elif msg in ("heard nothing", "that was me — ignored"):
+            self._ptt_turn = False
+            self.pttState.emit("note", msg)
 
     # ── ears: always on, push-to-talk or always-open mic ─────────────────
     def _ensure_ears(self) -> None:
@@ -428,6 +542,7 @@ class _AssistantBody:
         self._save_state()
         self._show_mic_key()
         self._ensure_ears()
+        self.pttChanged.emit()
 
     # ── voice plumbing ───────────────────────────────────────────────────
     def _speak(self, text: str) -> None:
@@ -444,6 +559,8 @@ class _AssistantBody:
                 raise
         self._lbl_reply.setText("AI: " + text)
         self._lbl_reply.setToolTip(text)
+        if getattr(self, "_ptt_turn", False):                         # he asked with the key: he may not be looking at this tab
+            self.pttState.emit("reply", text)
 
     def _set_status(self, msg: str) -> None:
         self._lbl_status.setText(msg)
@@ -460,6 +577,8 @@ class _AssistantBody:
 
     def _on_transcript(self, text: str) -> None:
         self._lbl_heard.setText("You: " + text)
+        if getattr(self, "_ptt_turn", False):
+            self.pttState.emit("heard", text)
         if _STOP_LISTENING.match(text or ""):
             self._stop_listening()
             return
@@ -493,6 +612,9 @@ class _AssistantBody:
         self._lbl_reply.setText("AI: " + reply)
         self._lbl_reply.setToolTip(reply)
         self._set_status("ready")
+        if getattr(self, "_ptt_turn", False):
+            self._ptt_turn = False
+            self.pttState.emit("reply", reply)
         self._sync_in_game()
 
     # ── set route: the In-Game switch and calibration ────────────────────
@@ -569,7 +691,7 @@ class _AssistantBody:
             missing = []
         if missing:
             return "Voice input is not installed (missing: " + ", ".join(missing) + ")." + use_begin
-        if not getattr(self, "_mic_mine", True):
+        if not self._may_listen():
             return "The microphone is with the other tab right now." + use_begin
         ears = self._ears
         if ears.mode() == "always":
@@ -584,6 +706,9 @@ class _AssistantBody:
     def _on_failed(self, err: str) -> None:
         self._lbl_reply.setText("AI: error — " + err)
         self._set_status("error")
+        if getattr(self, "_ptt_turn", False):
+            self._ptt_turn = False
+            self.pttState.emit("error", err)
 
     def _on_needs_install(self, packages: list) -> None:
         self._btn_ears.setChecked(False)
@@ -591,7 +716,7 @@ class _AssistantBody:
 
     def _on_ears_toggled(self, on: bool) -> None:
         if on:
-            if not self._mic_mine or not self._ears.arm():
+            if not self._may_listen() or not self._ears.arm():
                 self._btn_ears.setChecked(False)
         else:
             self._ears.disarm()
@@ -624,9 +749,13 @@ class _AssistantBody:
                          + (" (hold to talk)" if self._ears.mode() == "push" else ""))
         self._show_mic_key()
         self._ensure_ears()
+        self.pttChanged.emit()
 
     def _restore_binding(self) -> None:
-        raw = self._state.get("binding")
+        # What was saved, or the Assistant's default key when nothing ever was
+        # (shared/ptt_keys.py). The default is not written to the state file:
+        # only a key the pilot picked is.
+        raw = ptt_keys.assistant_binding(self._state)
         if raw and raw.get("code"):
             b = InputBinding(raw.get("kind", "key"), raw["code"])
             if b.refused():
@@ -653,8 +782,8 @@ class _AssistantBody:
             self._lbl_mic.setVisible(True)
         else:
             self._btn_key.setText("Mic key: " + b.describe())
-            self._lbl_mic.setText("")
-            self._lbl_mic.setVisible(False)
+            self._lbl_mic.setText(self._ptt_clash)
+            self._lbl_mic.setVisible(bool(self._ptt_clash))
 
     # ── settings ─────────────────────────────────────────────────────────
     def _edit_settings(self) -> None:
@@ -702,6 +831,10 @@ class AssistantWindow(_AssistantBody, SCWindow):
     # so all GUI mutations go through queued signals.
     speakRequested = Signal(str)
     statusRequested = Signal(str)
+    # (what, text) for whoever shows the held key: "listening", "released",
+    # "heard", "reply", "note", "error". Nobody listens in this window.
+    pttState = Signal(str, str)
+    pttChanged = Signal()
 
     def __init__(self, base_dir: str, opacity: float = 0.95,
                  parent: Optional[QWidget] = None) -> None:
@@ -726,6 +859,12 @@ class AssistantPanel(_AssistantBody, QWidget):
 
     speakRequested = Signal(str)
     statusRequested = Signal(str)
+    # (what, text): "listening", "released", "heard", "reply", "note", "error".
+    # The window shows it on screen (assistant/ptt_overlay.py), because the
+    # pilot holding the key is in the game, not looking at this tab.
+    pttState = Signal(str, str)
+    # the key or the mic mode changed: the window checks the two tabs' keys again
+    pttChanged = Signal()
 
     _owns_window = False
 

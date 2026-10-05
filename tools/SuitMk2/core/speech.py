@@ -14,6 +14,11 @@ Rules:
     they were fine-tuned from (lessac / alan), fetched once into ~/.cache/piper like Mining_Signals does. Swapping a
     trained voice in is dropping a file in; reload() picks it up.
   * mute() stops the current line and clears the queue.
+  * ANSWERS (J 2026-10-05). A line said with addressed=True is an answer to something the pilot asked with the
+    talk key. While muted, such a line is still spoken if allow_addressed(True) was called; every other line is
+    refused exactly as before. This is how SuitMk2 stays silent with its window hidden ("only have the AI's talk
+    while it is launched", J 2026-10-04) and still answers a push-to-talk question asked from the game. The window
+    decides when (ui/suit_window.py _voice_gate); nothing here opens the pass by itself, and it starts closed.
 """
 from __future__ import annotations
 
@@ -61,6 +66,7 @@ class _Item:
     created: float = field(compare=False)
     text: str = field(compare=False)
     speaker: str = field(compare=False)
+    addressed: bool = field(compare=False, default=False)     # an answer to the pilot; see allow_addressed
 
 
 def _stock_path(speaker: str, cache: Path) -> Path:
@@ -94,6 +100,8 @@ class Speech:
         self._seq = itertools.count()
         self._cv = threading.Condition()
         self._muted = False
+        self._addressed_ok = False                          # while muted: may an answer to the pilot be spoken?
+        self._current: Optional[_Item] = None               # the line being played, for mute() to judge
         self._stop = threading.Event()
         self.spoken: list[tuple[float, str, str]] = []     # (time, speaker, text) for the status window
         self.dropped_stale = 0
@@ -228,13 +236,45 @@ class Speech:
             done.wait(len(data) / sr + 5.0)
 
     # -- queue ----------------------------------------------------------------------------------------------------
-    def say(self, text: str, speaker: str = "elah", priority: int = PRIORITY_AMBIENT) -> bool:
-        if self._muted or not text or speaker not in STOCK:
+    def say(self, text: str, speaker: str = "elah", priority: int = PRIORITY_AMBIENT,
+            addressed: bool = False) -> bool:
+        """addressed=True: this line answers something the pilot asked (see allow_addressed)."""
+        if self._refuses(addressed) or not text or speaker not in STOCK:
             return False
         with self._cv:
-            heapq.heappush(self._q, _Item(priority, next(self._seq), self.now(), text, speaker))
+            heapq.heappush(self._q, _Item(priority, next(self._seq), self.now(), text, speaker, bool(addressed)))
             self._cv.notify()
         return True
+
+    def _refuses(self, addressed: bool) -> bool:
+        """Not muted: nothing is refused. Muted: everything is, except an answer while answers are allowed."""
+        return self._muted and not (addressed and self._addressed_ok)
+
+    def muted_for(self, addressed: bool) -> bool:
+        """Would a line be refused right now? muted_for(False) is `muted`; muted_for(True) asks for an answer."""
+        return self._refuses(bool(addressed))
+
+    def allow_addressed(self, on: bool) -> None:
+        """While muted, let answers to the pilot through (True) or refuse them like everything else (False).
+        Changes nothing while not muted. Closing it drops an answer that is queued or being spoken."""
+        self._addressed_ok = bool(on)
+        if not on and self._muted:
+            self._drop_refused()
+
+    def _drop_refused(self) -> None:
+        """Clear every queued line that may no longer be spoken, and stop the current one if it is such a line."""
+        with self._cv:
+            self._q = [i for i in self._q if not self._refuses(i.addressed)]
+            heapq.heapify(self._q)
+            cur = self._current
+        if cur is not None and not self._refuses(cur.addressed):
+            return                                          # an answer that is still allowed keeps playing
+        self._abort.set()
+        try:
+            import sounddevice as sd  # type: ignore
+            sd.stop()
+        except Exception:
+            pass
 
     def pending(self) -> int:
         with self._cv:
@@ -243,14 +283,7 @@ class Speech:
     def mute(self, on: bool = True) -> None:
         self._muted = on
         if on:
-            with self._cv:
-                self._q.clear()
-            self._abort.set()
-            try:
-                import sounddevice as sd  # type: ignore
-                sd.stop()
-            except Exception:
-                pass
+            self._drop_refused()
 
     @property
     def muted(self) -> bool:
@@ -273,22 +306,27 @@ class Speech:
             item = self._next()
             if item is None:
                 break
-            if not item.text or self._muted:
+            if not item.text or self._refuses(item.addressed):
                 continue
             try:
                 audio, sr = self._synth(item.text, item.speaker)
                 audio = self._level(self._character(audio, sr, item.speaker), sr, item.speaker)
-                if self.ducker is not None and not self._muted:
+                if self.ducker is not None and not self._refuses(item.addressed):
                     # The game is talking: wait for it (bounded by priority), then re-check staleness -
                     # a line that waited past its max_age is dropped like any other stale line.
                     waited = self.ducker.wait_clear(HOLD_MAX_S[item.priority],
-                                                    abort=lambda: self._muted or self._stop.is_set())
+                                                    abort=lambda: self._refuses(item.addressed)
+                                                    or self._stop.is_set())
                     self.held_s += waited
                     if self.now() - item.created > MAX_AGE_S[item.priority]:
                         self.dropped_stale += 1
                         continue
-                if not self._muted:
-                    self._play(audio, sr)
+                if not self._refuses(item.addressed):
+                    self._current = item
+                    try:
+                        self._play(audio, sr)
+                    finally:
+                        self._current = None
                     self.spoken.append((self.now(), item.speaker, item.text))
                     del self.spoken[:-50]
             except Exception as e:           # one bad line (or a missing voice) must not kill the voice thread

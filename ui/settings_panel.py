@@ -796,6 +796,38 @@ class SettingsPopup(QWidget):
         mic_lay.addWidget(self._mic_combo)
         c_lay.addWidget(mic_row)
 
+        # ── Push-to-talk: the Assistant and Suit Mk2 each have a key of their own (J, 2026-10-05: "individual
+        #    push to talk buttons which also auto-route to the right ai"). Shown here so both can be seen in one
+        #    place; each is changed on its own tab, where it is saved (shared/ptt_keys.py reads both files). ──
+        ptt_row = QWidget()
+        ptt_row.setFixedHeight(32)
+        ptt_row.setStyleSheet("background: transparent;")
+        ptt_lay = QHBoxLayout(ptt_row)
+        ptt_lay.setSpacing(8)
+        ptt_lay.setContentsMargins(0, 0, 0, 0)
+        ptt_lbl = QLabel(_t("Push-to-talk"))
+        ptt_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        ptt_lay.addWidget(ptt_lbl)
+        ptt_desc = QLabel(_t("Change each on its own tab"))
+        ptt_desc.setStyleSheet(f"""
+            font-family: Consolas; font-size: 7pt;
+            color: {P.fg_disabled}; background: transparent;
+        """)
+        ptt_lay.addWidget(ptt_desc, stretch=1)
+        self._ptt_keys = QLabel(self._ptt_keys_text())
+        self._ptt_keys.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg_bright}; background: transparent;
+        """)
+        self._ptt_keys.setToolTip(_t("Each key works whichever tab is showing, and with the window closed.\n"
+                                     "Assistant: the Mic key button on the Assistant tab.\n"
+                                     "Suit Mk2: the Talk key button on the Suit Mk2 tab."))
+        ptt_lay.addWidget(self._ptt_keys)
+        c_lay.addWidget(ptt_row)
+
         # ── Auto-hide launcher ────────────────────────────────────────────
         hide_sep = QFrame()
         hide_sep.setFixedHeight(1)
@@ -837,6 +869,18 @@ class SettingsPopup(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll)
         return page
+
+    @staticmethod
+    def _ptt_keys_text() -> str:
+        """"Assistant: Pause   Suit Mk2: Scroll Lock", from the two tools' own saved settings."""
+        try:
+            from shared import ptt_keys
+            keys = ptt_keys.saved_labels()
+            return "Assistant: %s   Suit Mk2: %s" % (keys.get(ptt_keys.ASSISTANT) or "-",
+                                                     keys.get(ptt_keys.SUIT) or "-")
+        except Exception:
+            log.exception("push-to-talk keys unavailable")
+            return ""
 
     def _make_tool_row(self, layout: QVBoxLayout, key: str, label: str, hotkey: str,
                        show_toggle: bool = True, enabled: bool = True) -> None:

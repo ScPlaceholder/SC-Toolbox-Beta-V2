@@ -10,13 +10,36 @@ tabs and no microphone, model or game log.
 
 Rules the window keeps, each with a test in tests/test_hub_window.py:
 
-  one microphone   Both tools have ears of their own. Only the tab that is
-                   showing may listen: selecting a tab takes the microphone
-                   from every other tab (mic_release) BEFORE it gives it to
-                   the new one (mic_take), so there is no moment with two.
-                   A hidden window does not move the microphone: it stays
-                   with the tab that was last in front, which is what each
-                   tool did on its own (both kept listening while hidden).
+  one microphone   Both tools have ears of their own. An always-open mic
+                   belongs to the tab that is showing: selecting a tab takes
+                   the microphone from every other tab (mic_release) BEFORE
+                   it gives it to the new one (mic_take), so there is no
+                   moment with two. A hidden window does not move the
+                   microphone: it stays with the tab that was last in front,
+                   which is what each tool did on its own (both kept
+                   listening while hidden).
+  a key each       J, 2026-10-05: "individual push to talk buttons which also
+                   auto-route to the right ai". Each tab has its own
+                   push-to-talk key, and holding it talks to THAT tab
+                   whichever one is showing: which AI hears a sentence is
+                   decided by the key, never by the tab. So a tab that is
+                   not in front is told it may go on watching its key
+                   (ptt_background(True)), right after mic_release. Two held
+                   keys still open one microphone: the tabs' ears ask
+                   shared/mic_floor.py before every capture and the second
+                   key is refused. Two tabs set to the SAME key cannot be
+                   told apart, so then only the tab in front keeps it
+                   (ptt_background(False)) and both are told to say so
+                   (ptt_clash). A tab's key is read with ptt_binding(), and
+                   pttChanged says it changed.
+  who is listening While a key is held, and for what comes of it, the tab
+                   says so (pttState) and this window puts it on screen
+                   (ptt_overlay.py): the pilot holding the key is in the
+                   game, not looking at a tab. The other tabs are told the
+                   pilot is talking (pilot_talking) so they can hold their
+                   tongues.
+  warm             warm(key) builds a tab without bringing it forward, so
+                   its key works before anyone has opened it.
   lazy tabs        A tab is built the first time it is selected. The launcher
                    starts this window hidden so SuitMk2 can follow Game.log;
                    the Assistant's agent, voice and ears are not built until
@@ -48,8 +71,10 @@ Rules the window keeps, each with a test in tests/test_hub_window.py:
   quit             Once only. Every tab that exists is shut down (shutdown),
                    then Qt is asked to exit.
 
-A tab is any QWidget. The methods above are optional: a tab that has no
-microphone simply does not define mic_take / mic_release.
+A tab is any QWidget. The methods and signals above are optional: a tab that
+has no microphone simply does not define mic_take / mic_release, and one with
+no push-to-talk key defines none of ptt_binding / ptt_background / ptt_clash /
+pilot_talking / pttState / pttChanged.
 """
 from __future__ import annotations
 
@@ -61,6 +86,7 @@ from PySide6.QtWidgets import (
     QApplication, QHBoxLayout, QLabel, QPushButton, QStackedWidget, QWidget,
 )
 
+from shared import ptt_keys
 from shared.qt.base_window import SCWindow, _save_window_state
 from shared.qt.theme import P
 from shared.qt.title_bar import SCTitleBar
@@ -120,7 +146,10 @@ class HubWindow(SCWindow):
                  width: int = 560, height: int = 560, opacity: float = 0.95,
                  accent: str = "", icon_text: str = "", standalone: bool = False,
                  parent: Optional[QWidget] = None,
-                 min_width: int = 420, min_height: int = 360) -> None:
+                 min_width: int = 420, min_height: int = 360,
+                 overlay: Optional[Callable[[], Any]] = None) -> None:
+        # overlay: makes the thing that shows who is listening (something with show_state(who, what, text, key));
+        # ptt_overlay.PttOverlay unless told otherwise. Made the first time a key is held, not before.
         # min_width / min_height: the smallest size at which every tab can still be read; whoever knows the tabs
         # says (SCWindow lowers it to the screen when the screen is smaller).
         super().__init__(title=title, width=width, height=height, min_w=min_width, min_h=min_height,
@@ -134,6 +163,8 @@ class HubWindow(SCWindow):
         self._standalone = bool(standalone)
         self._quitting = False
         self._place: Optional[Callable[[Any], Any]] = None      # see place_on_first_show
+        self._overlay_factory = overlay
+        self._overlay: Any = None
         self._launcher: Any = None                              # where the launcher last said it was
         accent = accent or P.energy_cyan
 
@@ -202,11 +233,23 @@ class HubWindow(SCWindow):
             self._call(page, "mic_take", key)
         self._current = key
         self._stack.setCurrentWidget(page)
+        self._sync_ptt()                        # the tabs behind keep their own push-to-talk keys
         return True
 
-    def _build(self, key: str) -> QWidget:
+    def warm(self, key: str) -> bool:
+        """Build tab *key* now if it does not exist yet, WITHOUT bringing it forward: it is built not holding the
+        microphone, and then told it may watch its push-to-talk key. So a tab nobody has opened still hears its
+        key. False for a key this window has no tab for."""
+        if key not in self._specs:
+            return False
+        if key not in self._pages:
+            self._build(key, mic=False)
+            self._sync_ptt()
+        return True
+
+    def _build(self, key: str, mic: bool = True) -> QWidget:
         try:
-            page = self._specs[key].build(True)
+            page = self._specs[key].build(mic)
         except Exception as exc:                # noqa: BLE001 - one tab failing must not take the other down
             log.exception("hub: tab %r could not be built", key)
             page = QLabel("%s could not be opened:\n%s: %s\n\nThe log has the details."
@@ -217,19 +260,70 @@ class HubWindow(SCWindow):
                                f"background: transparent; padding: 20px;")
         self._pages[key] = page
         self._stack.addWidget(page)
+        state = getattr(page, "pttState", None)
+        if state is not None:
+            state.connect(lambda what, text, k=key: self._on_ptt(k, what, text))
+        changed = getattr(page, "pttChanged", None)
+        if changed is not None:
+            changed.connect(self._sync_ptt)
         return page
 
     @staticmethod
-    def _call(page: QWidget, method: str, key: str) -> None:
+    def _call(page: QWidget, method: str, key: str, *args: Any) -> Any:
         """Call an optional method of a tab. A tab that raises is logged, and
         the others still get their call."""
         fn = getattr(page, method, None)
         if fn is None:
-            return
+            return None
         try:
-            fn()
+            return fn(*args)
         except Exception:                       # noqa: BLE001 - see the docstring
             log.exception("hub: tab %r failed in %s()", key, method)
+            return None
+
+    # ── a push-to-talk key each ──────────────────────────────────────────
+    def ptt_key_label(self, key: str) -> str:
+        """Tab *key*'s push-to-talk key as it is shown ("Pause"), or "" when it has none in use."""
+        page = self._pages.get(key)
+        return ptt_keys.label(self._call(page, "ptt_binding", key)) if page is not None else ""
+
+    def _sync_ptt(self) -> None:
+        """Tell every tab that is not in front whether it may go on watching its key, tell every tab whether its
+        key is also another tab's, and put each key on its tab button. Run after anything that can change the
+        answer: a tab selected or built, a key or a mic mode changed."""
+        idents = {k: ptt_keys.ident(self._call(p, "ptt_binding", k)) for k, p in self._pages.items()}
+        for k, page in self._pages.items():
+            same = [o for o in self._order if o != k and idents.get(o) is not None and idents[o] == idents[k]]
+            if k != self._current:
+                self._call(page, "ptt_background", k, not same)
+            self._call(page, "ptt_clash", k, self._specs[same[0]].label if same else "")
+        for k, b in self._buttons.items():
+            spec, held = self._specs[k], self.ptt_key_label(k)
+            b.setText(spec.label + ("  [%s]" % held if held else ""))
+            tip = [spec.tooltip] if spec.tooltip else []
+            if held:
+                tip.append("Hold %s to talk to %s, from anywhere." % (held, spec.label))
+            b.setToolTip("\n".join(tip))
+
+    def _on_ptt(self, key: str, what: str, text: str) -> None:
+        """Tab *key* says something about its held key (see ptt_overlay.py for the states)."""
+        if what in ("listening", "released"):
+            for k, page in self._pages.items():
+                if k != key:
+                    self._call(page, "pilot_talking", k, what == "listening")
+        if self._overlay is None:
+            try:
+                if self._overlay_factory is None:
+                    from .ptt_overlay import PttOverlay
+                    self._overlay_factory = PttOverlay
+                self._overlay = self._overlay_factory()
+            except Exception:                   # noqa: BLE001 - the key still works without the strip
+                log.exception("hub: nothing to show who is listening with")
+                return
+        try:
+            self._overlay.show_state(self._specs[key].label, what, text, self.ptt_key_label(key))
+        except Exception:                       # noqa: BLE001
+            log.exception("hub: could not show %r for tab %r", what, key)
 
     def _tell_tabs(self, method: str) -> None:
         for key, page in list(self._pages.items()):
@@ -314,6 +408,8 @@ class HubWindow(SCWindow):
         self._save_state()
         try:
             self._tell_tabs("shutdown")
+            if self._overlay is not None and hasattr(self._overlay, "close"):
+                self._overlay.close()
         finally:
             global _LIVE
             if _LIVE is self:
