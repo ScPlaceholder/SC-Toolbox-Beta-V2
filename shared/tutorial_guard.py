@@ -62,15 +62,21 @@ def bold_spans(markup: str) -> List[str]:
     return list(seen)
 
 
-def source_strings(paths: Iterable[str], exclude: Iterable[str] = ()) -> List[str]:
+def source_strings(paths: Iterable[str], exclude: Iterable[str] = (),
+                   skip_defs: Iterable[str] = ()) -> List[str]:
     """Every string literal in the given .py files (and every .py under a
     given folder), cleaned the same way as the tutorial text. The literal
     parts of an f-string count; what it fills in at run time does not.
 
     *exclude* names files to leave out. The tutorial's own file MUST be one
     of them when it sits under a folder given here: every name it quotes is
-    a string in it, so reading it would make every check pass."""
+    a string in it, so reading it would make every check pass.
+
+    *skip_defs* names classes and functions whose bodies are left out
+    wherever they appear, for a tutorial that lives in the same file as the
+    tool (name the class or the function that holds its text)."""
     skip = {os.path.normcase(os.path.abspath(p)) for p in exclude}
+    skip_defs = set(skip_defs)
     files: List[str] = []
     for p in paths:
         if os.path.isdir(p):
@@ -86,8 +92,13 @@ def source_strings(paths: Iterable[str], exclude: Iterable[str] = ()) -> List[st
     for f in files:
         with open(f, encoding="utf-8") as fh:
             tree = ast.parse(fh.read(), filename=f)
+        left_out = set()
+        if skip_defs:
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in skip_defs:
+                    left_out.update(id(n) for n in ast.walk(node))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in left_out:
                 t = clean(node.value)
                 if t:
                     out.append(t)
