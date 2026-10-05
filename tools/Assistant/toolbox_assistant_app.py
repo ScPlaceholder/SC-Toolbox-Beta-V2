@@ -281,6 +281,15 @@ def warm_tabs(window) -> list:
     return built
 
 
+def show_tutorial(window):
+    """The window's tutorial (assistant/tutorial.py), with a tab for each tool that has a tab in *window*."""
+    from assistant import tutorial
+    from shared.qt.theme import P
+    from shared.qt.tutorial_popup import TutorialPopup
+    return TutorialPopup.open("toolbox_assistant", window, title="Toolbox Assistant", accent=P.energy_cyan,
+                              tabs=tutorial.tabs(window.tab_keys()))
+
+
 def first_tab(preload: bool, pending: list) -> str:
     """The tab to build first.
 
@@ -332,9 +341,12 @@ def main() -> int:
     w, h = opening_size(saved)
 
     from assistant.hub import HubWindow
+    holder = {}                 # the button is made with the window; it needs the window when it is pressed
     window = HubWindow(title=tool_name(), tabs=build_tabs(cmd_file), first=first_tab(preload, pending),
                        width=w, height=h, min_width=MIN_SIZE[0], min_height=MIN_SIZE[1],
-                       opacity=args["opacity"], accent=P.energy_cyan, icon_text="🤖", standalone=standalone)
+                       opacity=args["opacity"], accent=P.energy_cyan, icon_text="🤖", standalone=standalone,
+                       extra_buttons=[("? Tutorial", lambda: show_tutorial(holder["window"]))])
+    holder["window"] = window
     window.restore_geometry_from_args(args["x"], args["y"], w, h, args["opacity"])
     if not position_is_the_users(saved):
         def place(raw):

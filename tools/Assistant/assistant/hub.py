@@ -147,7 +147,9 @@ class HubWindow(SCWindow):
                  accent: str = "", icon_text: str = "", standalone: bool = False,
                  parent: Optional[QWidget] = None,
                  min_width: int = 420, min_height: int = 360,
-                 overlay: Optional[Callable[[], Any]] = None) -> None:
+                 overlay: Optional[Callable[[], Any]] = None,
+                 extra_buttons: Optional[Sequence[tuple]] = None) -> None:
+        # extra_buttons: (text, callback) pairs for the title bar, as SCTitleBar takes them (a "? Tutorial").
         # overlay: makes the thing that shows who is listening (something with show_state(who, what, text, key));
         # ptt_overlay.PttOverlay unless told otherwise. Made the first time a key is held, not before.
         # min_width / min_height: the smallest size at which every tab can still be read; whoever knows the tabs
@@ -169,7 +171,9 @@ class HubWindow(SCWindow):
         accent = accent or P.energy_cyan
 
         tb = SCTitleBar(window=self, title=title.upper(), icon_text=icon_text,
-                        accent_color=accent, show_minimize=True)
+                        accent_color=accent, show_minimize=True,
+                        extra_buttons=list(extra_buttons or []))
+        self._title_bar = tb
         tb.minimize_clicked.connect(self.showMinimized)
         tb.close_clicked.connect(self._on_close)
         self.content_layout.addWidget(tb)
