@@ -155,7 +155,7 @@ _PREF_ASK = [
     ("dream_ship", r"\b(?:whats|what is|which is|tell me) your (?:dream|favou?rite|ideal|perfect) ship\b|"
                    r"\bwhat ship (?:do you|would you) (?:dream of|want|love|like best|pick|choose)\b|\bwhat would you (?:rather )?fly\b"),
     ("favourite_maker", r"\byour favou?rite (?:manufacturer|maker|ship ?builder|brand)\b|\bwho (?:makes|builds) the best ships\b"),
-    ("dislike", r"\b(?:what|which) (?:ships?|manufacturers?|makers?|brands?) (?:do you|dont you) (?:hate|dislike|not like|like least|cant stand)\b|"
+    ("dislike", r"\b(?:what|which) (?:ships?|manufacturers?|makers?|brands?) (?:do you|dont you|cant you|can you not) (?:hate|dislike|not like|like least|cant stand|stand|like)\b(?<!do you like)|"
                 r"\byour least favou?rite (?:ship|manufacturer|maker|brand)\b"),
 ]
 _PREF_NAMED = [
@@ -259,7 +259,8 @@ _ACTION = [
     r"engage|hail|dock|undock|take off)\b",
     # "would you rather I flew something else" and "would you take it into a fight" ask for a view, not a deed
     # (2026-10-05: both were being refused as orders).
-    r"\b(?:can|could|would|will) you (?:please )?(?!tell|remind|say|explain|repeat|hear|see|rather|ever|like|prefer|want|"
+    # (and "what would you do?" asks for a view too: a sentence that opens with a question word is not an order)
+    r"^(?!(?:and |so |but )?(?:what|how|why|when|where|who|which)\b).*\b(?:can|could|would|will) you (?:please )?(?!tell|remind|say|explain|repeat|hear|see|rather|ever|like|prefer|want|"
     r"mind|be|have|think|know|believe|agree|miss|take it into|recommend|choose|pick)(?P<v>\w+)",
     r"\bi (?:need|want) you to (?P<v>\w+)",
 ]

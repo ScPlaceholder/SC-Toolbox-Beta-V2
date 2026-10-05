@@ -601,3 +601,11 @@ def test_a_ship_at_the_end_of_a_question_is_a_thing_not_a_way_of_calling_montaig
     assert conv.route("What's your favourite ship?")[2]["text"].endswith("ship")
     assert conv.route("weren't you on my other ship")[2]["text"].endswith("ship")
     assert conv.route("thanks, ship")[0] == "montaigne" and conv.route("thanks suit")[0] == "elah"      # still a vocative
+
+
+def test_two_more_sentences_the_unseen_set_showed_were_misheard():
+    assert conv.route("What would you do?")[1] != "action"                      # a view, not an order
+    assert conv.route("would you open the doors")[1] == "action" and conv.route("can you set a route to hurston")[1] == "action"
+    r = conv.route("Which manufacturer can't you stand?")
+    assert r[2].get("topic") == "preference" and spec_for("Which manufacturer can't you stand?")["fixed_text"].startswith("Origin.")
+    assert conv.route("which manufacturer do you like")[2].get("pref", {}).get("ask") != "dislike"

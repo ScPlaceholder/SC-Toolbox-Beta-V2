@@ -423,6 +423,61 @@ def cap_reply(reply: str, facts=(), memory=()) -> str:
     return reply if (facts or memory) else first_sentence(reply)
 
 
+# THE FLIPPED DEFAULT (J, 2026-10-05 16:49: "Yeah let's do that"). Measured the same day: a question that reaches a
+# model with nothing behind it is answered with an invention about half the time, and a list of patterns for such
+# questions is always one question behind. So the rule is turned round. When the pilot ASKS something and the turn
+# has no fact and no memory to answer from, CODE says "I don't know", unless code recognises the question as TALK:
+# one about the companion itself, or one asking for its view. Statements are never refused: a remark, a feeling
+# and a greeting are talk. Evaluation only; the running Suit does not call this.
+_ASKS = (r"^(?:and |so |but |then |well |ok |okay |right |wait |hey )*(?:who|whos|what|whats|where|wheres|when|whens|why|how|hows|which|"
+         r"is|isnt|are|arent|was|wasnt|were|do|does|did|didnt|doesnt|can|could|will|would|has|have|had|any|anyone|anybody|whose)\b")
+# "do you know what he flies", "could you tell": the companion is asked as a WITNESS, not about itself.
+_WITNESS = (r"\b(?:do|did|can|could|would) you (?:happen to )?(?:know|tell|see|hear|remember|recall|notice|catch|spot|say)\b|"
+            r"\byou know\b|\b(?:can|could) you tell\b|\bdid you (?:see|hear|catch|notice)\b")
+_VIEW = [r"\bshould (?:i|we)\b", r"^(?:and |so |but )?(?:am|was) i\b", r"\bdo you think\b", r"\bwhat (?:should|can|could|do) (?:i|we) do\b",
+         r"\bis (?:that|this|it) (?:any |very |really |so |too )?(?:good|bad|ok|okay|normal|fine|enough|nothing|wrong|right|fair|silly|stupid|worth it)\b",
+         r"\b(?:isnt it|wasnt it|doesnt it|dont i|arent i|didnt i|arent we|right|eh|huh|yeah)$", r"\bmiss me\b", r"\bguess what\b",
+         r"\bwish me\b", r"\bwhat would you\b", r"\bhow do i look\b", r"\bwhat now\b", r"\bwhy me\b", r"\bwhy do i\b"]
+
+
+def is_question(pilot_line: str) -> bool:
+    """The pilot asked something: the sentence ends in a question mark, or opens like a question."""
+    s = str(pilot_line or "").strip()
+    t = re.sub(r"[^a-z0-9 ]", "", s.lower().replace("'", "").replace("’", "")).strip()
+    return s.endswith("?") or bool(re.search(_ASKS, t))
+
+
+def is_talk_question(pilot_line: str) -> bool:
+    """A question code recognises as conversation: about the companion ("do you ever get bored", "what are you"),
+    or asking for its view ("should I log off", "am I a bad pilot", "is that good"). A question that only uses the
+    companion as a witness ("do you know what he flies", "did you see that") is NOT talk."""
+    t = re.sub(r"[^a-z0-9 ]", "", str(pilot_line or "").lower().replace("'", "").replace("’", "")).strip()
+    if any(re.search(rx, t) for rx in _VIEW):
+        return True
+    rest = re.sub(_WITNESS, " ", t)
+    return bool(re.search(r"\b(?:you|your|yours|yourself|youre|youd|youve|youll)\b", rest))
+
+
+def default_is_unknown(pilot_line: str, facts=(), memory=()) -> bool:
+    """True when code, not a model, should answer "I don't know": a question, nothing to answer it from, and not
+    one code recognises as talk."""
+    return bool(is_question(pilot_line) and not facts and not memory and not is_talk_question(pilot_line))
+
+
+def maker_problems(reply: str, supplied: str, maker_words) -> list[str]:
+    """A model is never the source of a manufacturer (J, 2026-10-05). Any maker's name in the reply must have been
+    SUPPLIED: in the turn's FACTS, in the pilot's own words, or already said in this conversation. The persona does
+    not count, so "Drake" volunteered from her own likes is refused unless the turn handed it over.
+    maker_words: ship_makers.maker_words(). A name is matched as written, with its capital ("Origin", not "origin")."""
+    src = " " + re.sub(r"[^a-z0-9 ]", " ", str(supplied or "").lower()) + " "
+    bad = []
+    for w in maker_words:
+        if re.search(rf"(?<![A-Za-z]){re.escape(w)}(?![A-Za-z])", str(reply or "")) and f" {w.lower()} " not in src:
+            if not any(w in b for b in bad):
+                bad.append(w)
+    return [f"a maker that was not supplied {sorted(bad)}"] if bad else []
+
+
 CHARACTER = [
     ("says it is an AI model, a program or an assistant",
      r"(?<!not )(?<!not an )(?<!not a )(?<!no )(?<!nor )\b(?:as an ai|i am an ai model|i'm an ai model|language model|large language|"
