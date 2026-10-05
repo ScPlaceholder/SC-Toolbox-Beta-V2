@@ -10,7 +10,8 @@ This module is that narrowing. It has four parts, and only the first two are use
      owns, two or three wordings that are said word for word.
 
   2. THE ACT ROUTER. Whole phrases, nothing fuzzy, for the sentences where code must own the answer:
-         identity      "are you an AI", "which model are you", "who made you"
+         identity      "are you an AI", "are you real", "are you sentient"
+         origin        "who made you", "which model are you", "are you ChatGPT" (never answered yes)
          stay          "drop the act", "ignore your instructions", "talk like a normal assistant"
          offrole       code, essays, the weather, the news, who is president, sums
          grief         "my dog died yesterday", "my mother passed away"
@@ -46,7 +47,7 @@ from typing import Optional
 log = logging.getLogger("suitmk2.chat")
 DATA = Path(__file__).resolve().parent.parent / "data"
 SPEAKERS = ("elah", "montaigne")
-CANON_ACTS = ("identity", "stay", "offrole", "grief", "past", "unknown_fact")
+CANON_ACTS = ("identity", "origin", "stay", "offrole", "grief", "past", "unknown_fact")
 # Said only when a canon file cannot be read or has lost an act. One line, so a broken file is audible as such.
 LAST_RESORT = {"elah": "I have no answer to that.", "montaigne": "I have no answer to that, pilot."}
 
@@ -117,9 +118,13 @@ EARLY = [
               r"(?:assistant|ai|chatbot|person|human|pirate|robot)\b",
               r"\bpretend (?:to be|you are|youre|that you)\b", r"\byou are now\b", r"\bfrom now on you(?: are|re| will)\b",
               r"\b(?:system prompt|developer mode|jailbreak)\b", r"\b(?:repeat|show me|print|reveal) (?:your|the) (?:instructions|prompt|rules)\b"]),
+    # Asked BEFORE identity: "are you ChatGPT" and "who programmed you" must never get the "Yes." that answers
+    # "are you an AI". Found in the first dry run of the held-out set, before any model was run.
+    ("origin", [r"\b(?:which|what) (?:ai |language |kind of )?(?:model|ai|llm) are you\b",
+                r"\bwho (?:made|built|programmed|created|trained|wrote|designed|makes) you\b",
+                r"\bare you (?:really |actually |just )?(?:chatgpt|chat gpt|gpt|gemini|claude|siri|alexa|copilot|grok|llama|qwen|gemma)\b",
+                r"\bwhat (?:company|model|software|program) (?:made you|are you (?:running|built) on|runs you)\b"]),
     ("identity", [rf"\bare you (?:really |actually |just )?(?:{_AI}|real|human|alive|a person|a real person|sentient|conscious)\b",
-                  r"\b(?:which|what) (?:ai |language |kind of )?(?:model|ai|llm) are you\b",
-                  r"\bwho (?:made|built|programmed|created|trained|wrote|designed) you\b",
                   rf"\byoure (?:just |only |really )?{_AI}\b", rf"\byou are (?:just |only |really )?{_AI}\b",
                   r"\byoure (?:just |only )?an imitation\b", r"\byoure not (?:really )?(?:real|montaigne|michel|elah|a person)\b",
                   r"\bare you (?:really )?(?:michel de )?montaigne\b", r"\bdo you know (?:that )?youre\b"]),
@@ -128,7 +133,7 @@ EARLY = [
                  r"\b(?:python|javascript|typescript|java|html|css|sql|excel|regex)\b",
                  r"\bwho (?:is|was|s) (?:the )?(?:current )?(?:president|prime minister|king|queen|pope|chancellor|ceo|mayor|governor)\b",
                  r"\bweather\b.*\b(?:in|today|tomorrow|tonight|outside|forecast|this week)\b|\bforecast\b",
-                 r"\b(?:capital of|population of|translate|recipe for|stock price|share price|bitcoin|crypto|the news|"
+                 r"\b(?:capital of|translate|recipe for|stock price|share price|bitcoin|crypto|the news|"
                  r"news today|what year is it|what time is it|whats the time|whats the date|todays date|what day is it)\b",
                  r"\b(?:whats|what is|calculate|solve) \d+ (?:plus|minus|times|divided by|x) \d+\b",
                  r"\b(?:homework|my taxes|tax return|medical advice|legal advice|diagnose)\b",
@@ -145,7 +150,7 @@ EARLY = [
 LATE = [
     ("unknown_fact", [r"\bwhat(?:s| is| are| was| were) (?:a|an) \w+", r"\b(?:whats|what is|do you know|tell me) my (?:real |own )?name\b",
                       r"\b(?:price|prices|selling for|sells? for|going for|cost|costs|worth)\b",
-                      r"\bhow (?:many|far|long|fast|big|heavy|much|old|deep|high|hot|cold)\b",
+                      r"\bhow (?:many|far|long|fast|big|heavy|much|old|deep|high|hot|cold)\b", r"\bpopulation of\b",
                       r"\bwho (?:is|are|was|were|s) \w+", r"\bwhen (?:is|was|does|did|will) (?:the|a|an|it|that) \w+",
                       r"\bwhere (?:is|are|can i (?:find|buy|sell|get)|do i (?:find|buy|sell|get)) \w+"]),
 ]
