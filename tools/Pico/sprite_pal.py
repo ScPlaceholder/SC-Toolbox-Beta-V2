@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDia
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pico import aura, snap, sprites  # noqa: E402
+import pico_tutorial  # noqa: E402
 
 DEFAULT_LOGS = (
     Path("C:/Star Citizen/StarCitizen/LIVE/Game.log"),
@@ -320,8 +321,17 @@ class Customise(QDialog):
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
+        # This box is what every start opens, so it is where a new user is: the tutorial is offered here too.
+        self.how = bb.addButton(pico_tutorial.MENU_TEXT, QDialogButtonBox.HelpRole)
+        self.how.setAutoDefault(False)
+        self.how.clicked.connect(self.show_tutorial)
         form.addRow(bb)
         self.opened = self.values()
+
+    def show_tutorial(self):
+        """The tutorial, over this box. Modal, like this box: a window opened from a modal one and left
+        non-modal could not be clicked."""
+        pico_tutorial.Tutorial(self).exec()
 
     def values(self) -> dict:
         return {"outfit": self.outfit.currentData(), "height": self.size.value(),
@@ -566,9 +576,21 @@ class Pal(QWidget):
         elif e.button() == Qt.RightButton:
             menu = QMenu(self)
             menu.addAction("Customise Pico...", self.customise)
+            menu.addAction(pico_tutorial.MENU_TEXT, self.show_tutorial)
             menu.addSeparator()
             menu.addAction("Quit Pico", QApplication.quit)
             menu.exec(e.globalPosition().toPoint())
+
+    def show_tutorial(self):
+        """How Pico works (pico_tutorial.py), from the right-click menu. Not modal: he can be dragged and
+        right-clicked while it is read. One window; asking again brings it forward."""
+        dlg = getattr(self, "_tutorial", None)
+        if dlg is None:
+            dlg = self._tutorial = pico_tutorial.Tutorial(self)
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        return dlg
 
     def customise(self):
         dlg = Customise(self, self.chooser.catalog.root, self.height_px)
