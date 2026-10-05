@@ -80,8 +80,27 @@ SELF_FACTS = {("companion.can_act", False)}              # facts about the compa
 # ---------------------------------------------------------------------------------------------------------------
 # ROUTING (deterministic)
 # ---------------------------------------------------------------------------------------------------------------
-_STRONG = {"elah": r"\b(?:elah|ela|ella|eila|ayla|eller)\b",
-           "montaigne": r"\b(?:montaigne|montagne|montane|montaine|montain|montange|michel)\b"}
+# WHO ANSWERS (J 2026-10-05: "have it decide unless the user specifically says an ai"). The lane picks the speaker
+# from the kind of question (_DEFAULT_ADDRESSEE) unless the pilot ADDRESSES one of them by name; then that one
+# answers. A name is an address when it is where a name is put to call somebody:
+#     first word            "Montaigne how is the ship"        (after "hey", "ok", "so" ...)
+#     after a greeting      "hey Elah"                          (anywhere in the sentence)
+#     last word             "where are we Elah"
+#     beside a comma        "tell me, Montaigne, where are we"
+# Anywhere else it is a MENTION ("what did Montaigne say about cargo") and decides nothing: the lane's own choice
+# stands and the name stays in the sentence. Two of them addressed in one sentence: the first one. This costs one
+# case: an address in the middle of a sentence with no comma heard ("tell me Montaigne where are we") is read as
+# a mention. Until this change a name ANYWHERE forced the speaker and was cut out of the sentence, so "what did
+# Montaigne say about cargo" went to Montaigne as "what did say about cargo".
+#
+# The names as speech-to-text writes them. An explicit list, whole words only; nothing fuzzy, so no ordinary word
+# can become a name by being close to one. "mountain" is deliberately NOT here: it is an ordinary word, and stays
+# in _WEAK below, which only counts as the first or the last word.
+_NAMES = {"elah": ("elah", "ela", "ella", "ellah", "eila", "aila", "ayla", "eli", "eller"),
+          "montaigne": ("montaigne", "montagne", "montane", "montaine", "montain", "montange", "michel")}
+_NAME_OF = {heard: who for who, variants in _NAMES.items() for heard in variants}
+_CALL = {"hey", "hi", "hello", "yo", "oi", "ok", "okay"}        # "hey Elah": the next word is who is being called
+_FILLER_WORDS = {"hey", "hi", "hello", "ok", "okay", "so", "um", "uh", "oi", "yo", "and", "right", "listen"}   # as _FILLER
 _WEAK = {"suit": "elah", "ship": "montaigne", "mountain": "montaigne", "monty": "montaigne", "monte": "montaigne"}
 _FILLER = r"^(?:(?:hey|hi|hello|ok|okay|so|um|uh|oi|yo|and|right|listen)\s+)+"
 _DETERMINERS = {"the", "this", "my", "our", "a", "your", "her", "that", "his", "whose", "which", "what"}
@@ -151,17 +170,33 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-def _addressee(t: str) -> tuple[Optional[str], str, bool]:
+def _named(utterance: str) -> tuple[Optional[str], str]:
+    """(the companion addressed by name or None, the normalized sentence without the names used as an address).
+    See WHO ANSWERS above for what counts as an address. A name that is only mentioned is left in the sentence."""
+    s = (utterance or "").lower().replace("\u2019", "'").replace("'", "")
+    toks = re.sub(r"[^a-z0-9,\s]", " ", s).replace(",", " , ").split()      # the comma is kept as a word of its own
+    words = [i for i, w in enumerate(toks) if w != ","]
+    lead = 0                                                                 # words[lead] is the first real word
+    while lead < len(words) and toks[words[lead]] in _FILLER_WORDS:
+        lead += 1
+    who, drop = None, set()
+    for n, i in enumerate(words):
+        name = _NAME_OF.get(toks[i])
+        if name is None:
+            continue
+        addressed = (n == lead or n == len(words) - 1
+                     or (i > 0 and toks[i - 1] == ",") or (i + 1 < len(toks) and toks[i + 1] == ",")
+                     or (n > 0 and toks[words[n - 1]] in _CALL))
+        if addressed:
+            who = who or name                                                # two addressed: the first one
+            drop.add(i)
+    return who, " ".join(w for i, w in enumerate(toks) if w != "," and i not in drop)
+
+
+def _addressee(utterance: str) -> tuple[Optional[str], str, bool]:
     """(explicit addressee or None, text with the vocative removed, had a greeting filler)."""
+    who, t = _named(utterance)
     greeted = bool(re.match(r"^(?:hey|hi|hello|yo|oi)\b", t))
-    t = re.sub(_FILLER, "", t)
-    who, first_pos = None, None
-    for name, rx in _STRONG.items():
-        m = re.search(rx, t)
-        if m and (first_pos is None or m.start() < first_pos):
-            who, first_pos = name, m.start()
-    for rx in _STRONG.values():
-        t = re.sub(rx, " ", t)
     t = re.sub(r"\s+", " ", re.sub(_FILLER, "", t.strip())).strip()
     toks = t.split()
     if toks and toks[0] in _WEAK:                                   # "ship, how's the hull"
@@ -179,7 +214,7 @@ def _addressee(t: str) -> tuple[Optional[str], str, bool]:
 def route(utterance: str) -> Route:
     """utterance -> (addressee, intent, slots). Deterministic; no model. slots always carries 'text' (the
     normalized utterance minus the vocative) and, where it applies, 'topic' / 'subject' / 'request'."""
-    who, t, greeted = _addressee(_norm(utterance))
+    who, t, greeted = _addressee(utterance)
     slots: dict = {"text": t, "said": _norm(utterance)}
     intent = None
     for rx in _OPINION:

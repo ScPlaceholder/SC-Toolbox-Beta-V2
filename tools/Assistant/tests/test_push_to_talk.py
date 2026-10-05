@@ -20,6 +20,9 @@ What is pinned here:
     warm                    a tab nobody has opened is built behind the front one and hears its key
     the voice gate          with the window hidden SuitMk2 still says nothing of its own accord; the answer to a
                             question asked with its key is spoken, and only that
+    a companion named       "Oh have it decide unless the user specifically says an ai" (J, 2026-10-05): through
+                            SuitMk2's key and through its always-open mic, the companion addressed by name
+                            answers; a name said to the Assistant's key changes nothing and stays there
 
 How. Both tools' REAL panel classes, made without the constructors that boot an agent, a companion core and a
 model service (as tests/test_hub_window.py does), but with their REAL ears, built and wired by each panel's own
@@ -126,6 +129,7 @@ class Core:
 
     def __init__(self):
         self.asked = []
+        self.who = []                 # which companion each question was given to
         self.notes = []
         self.gate_state = types.SimpleNamespace(pilot_speaking=False)
         self.state = self.volatile = None
@@ -139,6 +143,7 @@ class Core:
 
     def answer(self, spec, text):
         self.asked.append(text)
+        self.who.append(spec["speaker"])
 
     def stop(self):
         pass
@@ -578,6 +583,58 @@ def test_a_tab_nobody_has_opened_is_built_behind_the_front_one_and_hears_its_key
 def test_warm_is_what_the_entry_script_schedules():
     src = Path(H.A_ROOT, "toolbox_assistant_app.py").read_text(encoding="utf-8")
     assert "QTimer.singleShot(WARM_MS, lambda: warm_tabs(window))" in src.split("def main()", 1)[1]
+
+
+# ── a companion named ────────────────────────────────────────────────────────
+
+def real_lane(rig, panel):
+    """Give the panel SuitMk2's real conversation lane (the stand-in elsewhere always says Elah)."""
+    panel.lane = rig.suit.ConversationLane()
+    return panel
+
+
+def ask_by_key(rig, s, sentence):
+    n = len(s.core.asked)
+    press(s)
+    release(s, sentence)
+    settle(rig, lambda: len(s.core.asked) > n)
+    assert s.core.asked[n:] == [sentence], "the question did not reach the companions"
+    return s.core.who[-1]
+
+
+def test_through_the_suits_key_the_companion_named_answers_and_otherwise_the_suit_decides(rig):
+    w, a, s = both(rig, front="assistant")
+    real_lane(rig, s)
+    assert ask_by_key(rig, s, "Where are we?") == "elah"                      # the Suit's own choice
+    assert ask_by_key(rig, s, "Montaigne, where are we?") == "montaigne"      # the same question, him named
+    assert ask_by_key(rig, s, "Have we been here before?") == "montaigne"     # the Suit's own choice
+    assert ask_by_key(rig, s, "Elah, have we been here before?") == "elah"
+    assert ask_by_key(rig, s, "Montane, where are we?") == "montaigne"        # as speech-to-text writes him
+    assert ask_by_key(rig, s, "What did Montaigne say about where we are?") == "elah"     # only mentioned
+    assert a.turns == []
+
+
+def test_through_the_suits_always_open_mic_it_is_the_same(rig):
+    w, a, s = both(rig, front="suitmk2", talk_mode="always")
+    real_lane(rig, s)
+    settle(rig, lambda: s.ears.recording())
+    for sentence, who in (("Where are we?", "elah"), ("Montaigne, where are we?", "montaigne"),
+                          ("Ella, have we been here before?", "elah"), ("Have we been here before?", "montaigne")):
+        s.ears.transcript.emit(sentence)           # what the open mic's transcription emits
+        assert s.core.asked[-1] == sentence and s.core.who[-1] == who, sentence
+
+
+def test_a_companions_name_said_to_the_assistants_key_stays_with_the_assistant(rig):
+    w, a, s = both(rig, front="suitmk2")
+    real_lane(rig, s)
+    press(a)
+    release(a, "Elah, where are we?")
+    settle(rig, lambda: a.turns)
+    press(a)
+    release(a, "Montaigne, how is the ship?")
+    settle(rig, lambda: len(a.turns) == 2)
+    assert a.turns == ["Elah, where are we?", "Montaigne, how is the ship?"], "the Assistant did not get its sentence whole"
+    assert s.core.asked == [] and s.core.who == [], "a name said to the Assistant's key woke a companion"
 
 
 # ── SuitMk2's voice gate ─────────────────────────────────────────────────────
