@@ -134,6 +134,13 @@ _EVENT_SUMMARIES: dict[str, str] = {
 # VolatileContext
 # ---------------------------------------------------------------------------
 
+def is_sub_zone(parent_raw: str, raw: str) -> bool:
+    """True when the log code `raw` names a part of the place `parent_raw` names: it carries the parent's whole
+    code and something after it. Two different codes that do not nest are two different places."""
+    p, r = str(parent_raw or "").strip().lower(), str(raw or "").strip().lower()
+    return bool(p) and r != p and r.startswith(p + "_")
+
+
 class VolatileContext:
     """RAM-like short-term memory for the suit AI.
 
@@ -277,18 +284,23 @@ class VolatileContext:
                 return "same"
 
             # --- Sticky location logic ---
-            # If we're at a city/station and the incoming event is a sub-zone
-            # or unknown type within the sticky window, treat as zone_change.
-            if cur and cur.location_type in STICKY_LOCATION_TYPES:
+            # At a city/station, inside the sticky window, a SUB-ZONE of it is not an arrival.
+            #
+            # A sub-zone is a code that carries its parent's code ("Stanton1_Lorville_..." under
+            # "Stanton1_Lorville"). Until 2026-10-05 the test was the TYPE: any code of unknown type, or of the
+            # same type as the current place, counted as a walk inside it. So leaving Lorville and reaching a
+            # Hathor site inside half an hour was a "sub-zone of Lorville", and so was flying from one station to
+            # the next; the name was not replaced, and a question about the place was answered with the one
+            # the pilot had left. Replayed over J's 1,114 backed-up Game.logs: 946 of 3,729 arrivals at a
+            # different place were kept as the old one (256 sessions), and every one of them was another place
+            # (the commonest: Stanton Gateway to Nyx Gateway, 70 times). Not one code in those logs is a
+            # sub-zone of another, so nothing that was rightly suppressed is announced now.
+            if cur and cur.location_type in STICKY_LOCATION_TYPES and is_sub_zone(cur.raw, raw):
                 elapsed = now - cur.arrived_at
                 if elapsed < LOCATION_STICKY_WINDOW:
-                    # Still within the sticky window for this city/station.
-                    # Heuristic: if the new location is "unknown" type or
-                    # same type as the sticky location, it's a sub-zone walk.
-                    if location_type in ("unknown", cur.location_type):
-                        cur.zone_changes += 1
-                        cur.last_seen_at = now
-                        return "zone_change"
+                    cur.zone_changes += 1
+                    cur.last_seen_at = now
+                    return "zone_change"
 
             # --- Check if returning to a recent location ---
             for prev in self._previous_locations:
@@ -383,7 +395,7 @@ class VolatileContext:
         # no ground-accessible location — NOT just because location is unknown.
         if location_type in ("city", "station"):
             return "disembark"
-        if location_type in ("moon", "planet"):
+        if location_type in ("moon", "planet", "outpost"):     # an outpost stands on one (it was typed "moon")
             return "surface_ops"
         # No known ground location — likely EVA in space
         if not location_name or location_name in ("Unknown", ""):

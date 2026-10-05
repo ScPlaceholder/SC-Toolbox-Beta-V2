@@ -28,7 +28,18 @@ confident "no", so do not feed that dict here):
     location, system, ship, planetary_body, jurisdiction, in_armistice, session_earnings, session_deaths,
     injuries ({body_part: severity}; present only once the log is live, so {} means "none recorded"),
     recent_locations, heart_rate / hull_pct / fuel_pct / shields_pct (never set today -> always UNKNOWN)
+    location_body, location_type, location_named (the place tables: location_names.py), departed_from (the place
+    the pilot has left since the log last named one; `location` is then absent)
 history_facts: the dict dream_queue.history_facts(store, location=..., ship=...) returns.
+
+QUESTIONS ABOUT THE PLACE (2026-10-05, J: "Elah should have knowledge of the Galactapedia and Montaigne should
+have his brochures and dev history to call on"). "where are we", "what is this place", "what's that", "what does
+that big tower do" and "wow look at that" are all questions about where the pilot is standing (topics `location`
+and `place_about`). Their answer carries, besides the place's name and body, ONE retrieved fact as a KNOWN claim:
+lore for Elah, brochure copy or a dev-history fact for Montaigne (place_knowledge.py; ask again and the next fact
+comes). The Suit cannot see the screen on this path, so "that tower" points at nothing it can identify: the spec
+says so (pilot.referent = unknown), the stance tells the character to say so, and the gate refuses a line that
+says anything else about the tower. Reading the screen for it (eyes.py) is a possible later step, not wired here.
 
 Selftest: python conversation.py --selftest
 
@@ -69,12 +80,14 @@ if str(HERE) not in sys.path:
 from ambient_spec import _ELAH_MOVES, _MONT_MOVES, _claim   # noqa: E402
 from grounding_validator import ground                      # noqa: E402
 from location_names import LOCATION_MAP                      # noqa: E402
+import place_knowledge as pk                                 # noqa: E402
 
 Spec = dict[str, Any]
 Route = tuple[str, str, dict]
 
 UNKNOWN_VALUE = "unknown"
 _LEN = {"elah": (5, 22), "montaigne": (8, 38)}          # direct answers: short; Montaigne is allowed to wander
+_PLACE_LEN = {"elah": (8, 40), "montaigne": (10, 50)}   # a place answer carries the name, the body and one fact
 SELF_FACTS = {("companion.can_act", False)}              # facts about the companions themselves, not the game
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -143,8 +156,29 @@ _FACTUAL = [
                 r"\bwhat(?:'?s| is) (?:the|my|our) (?:mission|contract|job|objective)\b|"
                 r"\bwhat (?:am i|are we) (?:doing|supposed to (?:do|be doing))\b"),
     ("ship", r"\b(?:which|what) ship\b|\bwhat (?:am i|are we) (?:flying|in|on|sitting in)\b|\bwhats this ship\b"),
+    # "whats this place" (what speech-to-text writes for "What's this place?") missed until 2026-10-05: the pattern
+    # knew only "what is this place".
     ("location", r"\bwhere (?:am i|are we|is this|we at|is here)\b|\bwhere (?:we|i) (?:are|am)\b|\bwhere im\b|"
-                 r"\bwhat (?:place|station|planet|moon|city|town) is this\b|\bwhat is this place\b|\bcurrent location\b"),
+                 r"\bwhere (?:the \w+ |on earth |in the \w+ )(?:am i|are we|is this)\b|\bwheres (?:this|here)\b|"
+                 r"\bwhat (?:place|station|outpost|planet|moon|city|town) (?:is|s) this\b|"
+                 r"\bwhat(?:s| is| was) this (?:place|station|outpost|city|town|moon|planet)\b|"
+                 r"\bwhat (?:do you|do they|is this place|is it) call(?:ed)? this place\b|\bcurrent location\b"),
+]
+# A COMMENT ABOUT THE PLACE, OR A QUESTION ABOUT SOMETHING IN IT (J 2026-10-05). Tried only after every topic above,
+# so "what's this ship" and "what's my objective" keep their own answers. `ref` is the pilot's word for the thing
+# ("big tower"); pointing with no noun ("what's that", "look at that") is an empty one. Either way the Suit cannot
+# see it. Words after "what does that ..." that are not a thing ("what does that mean") are not a question here.
+_THING = r"(?!(?:mean|say|sound|cost|matter|even|all|about|like|supposed)\b)"
+_OUT_THERE = r"(?: (?:over|out|up|down|back) there| out here| in the distance| on the horizon)?"
+_PLACE_ABOUT = [
+    rf"\bwhat (?:does|do|did|would) (?:that|this|the|those|these) {_THING}(?P<ref>(?:\w+ ){{0,3}}?\w+){_OUT_THERE} do\b",
+    rf"\bwhat(?:s| is| are| was| were) (?:that|this|the|those|these) {_THING}(?P<ref>(?:\w+ ){{0,3}}?\w+){_OUT_THERE} "
+    r"(?:do|for|doing|used for|supposed to (?:do|be))\b",
+    rf"\bwhat(?:s| is| are| was| were) (?:that|this|those|these|it)(?: {_THING}(?P<ref>(?:\w+ ){{0,3}}?\w+?))??{_OUT_THERE}$",
+    r"\bwhat (?:am i|are we) (?:looking at|seeing|staring at)(?P<ref>)\b",
+    r"\bwhat(?:s| is) (?:over|out|up|down) there(?P<ref>)\b",
+    r"\b(?:look|looking|check|get a load) (?:at|out|of) (?:that|this|those|these|it)(?: (?P<ref>(?:\w+ ){0,3}?\w+?))??$",
+    r"^(?:wow|whoa|woah|damn|holy \w+)\b.*\b(?:that|thats|this|those|look)(?P<ref>)\b",
 ]
 _ACTION = [
     r"^(?:please )?(?P<v>set|plot|open|close|turn|switch|lower|raise|land|launch|fire|shoot|call|request|jump|power|"
@@ -233,6 +267,13 @@ def route(utterance: str) -> Route:
                 intent, slots["topic"] = "factual", topic
                 break
     if intent is None:
+        for rx in _PLACE_ABOUT:
+            m = re.search(rx, t)
+            if m:
+                intent, slots["topic"] = "factual", "place_about"
+                slots["referent"] = (m.group("ref") or "").strip()
+                break
+    if intent is None:
         for rx in _ACTION:
             m = re.search(rx, t)
             if m:
@@ -282,6 +323,29 @@ _VOICE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("elah", "social_greeting"): [("DEADPAN", "here and listening; brief")],
     ("elah", "action"): [("PRACTICAL", "cannot do that yet; nothing is wired for it; say so plainly")],
     ("elah", "unknown"): [("DEADPAN", "did not catch a question in that; ask the pilot to say it again")],
+    # Questions about the place (place_knowledge.py). The stance is part of what the line may say, so no stance
+    # here describes anything in the world.
+    ("elah", "place"): [("PRACTICAL", "names where we are, then the one fact given; nothing added"),
+                        ("DEADPAN", "names the place flat, then the one fact given, like reading a label")],
+    ("elah", "place_bare"): [("PRACTICAL", "names the place; that is all the suit has on it, and she says so")],
+    ("elah", "place_referent"): [("PRACTICAL", "she cannot tell which structure the pilot means and says so plainly; "
+                                               "then the place and the one fact given, nothing added")],
+    ("elah", "place_label"): [("PRACTICAL", "only the log's own label for this place, not a name she knows; she says "
+                                            "exactly that")],
+    ("elah", "place_departed"): [("CORRECTION", "we left that place; she has no name for where we are now and says so")],
+    ("elah", "place_unknown"): [("DEADPAN", "no reading on where we are; say so plainly and do not guess")],
+    ("montaigne", "place"): [("EVIDENCE_SKEPTIC", "the suit's feed names the place; the rest he quotes from a "
+                                                  "brochure and says it is the brochure's word")],
+    ("montaigne", "place_bare"): [("SELF_DEPRECATION", "the suit's feed names the place; his brochures have nothing "
+                                                       "more on it, and he admits it")],
+    ("montaigne", "place_referent"): [("SELF_DEPRECATION", "he cannot see which structure is meant and admits it; then "
+                                                           "the place, and what the brochure says, as the brochure's word")],
+    ("montaigne", "place_label"): [("EVIDENCE_SKEPTIC", "he has only the log's own label for this place, not a name, "
+                                                        "and says exactly that")],
+    ("montaigne", "place_departed"): [("EVIDENCE_SKEPTIC", "we left that place; the suit's feed has not told him where "
+                                                           "we are now, and he says so")],
+    ("montaigne", "place_unknown"): [("SELF_DEPRECATION", "he has not been told where we are, and admits it rather "
+                                                          "than invent it")],
     ("montaigne", "fact"): [("EVIDENCE_SKEPTIC", "he has it secondhand from the suit's feed and says so"),
                             ("SELF_DEPRECATION", "a ship's report, offered modestly")],
     ("montaigne", "fact_unknown"): [("SELF_DEPRECATION", "he has not been told, and admits it rather than invent it")],
@@ -394,8 +458,129 @@ def _subject_claims(subject: str, state: dict, hist: dict, nid: _Ids) -> tuple[s
     return "", [_claim(nid(), "PILOT_SUBMISSION", "pilot.asked_about", s), _unknown(nid(), "opinion.subject_facts")]
 
 
-def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict], variant: int = 0) -> Optional[Spec]:
-    """Route -> one semantic spec whose claims come ONLY from state / history_facts, or None for noise."""
+PLACE_TOPICS = ("location", "place_about")
+
+
+def place_spec(route_result: Route, state: dict, variant: int = 0, fact: Optional[dict] = None) -> Spec:
+    """The answer to a question about where the pilot is, or about something there.
+
+    Claims, all read from `state` or from the one retrieved `fact`:
+        location.name / location.body / location.type   OBSERVED, when the log has named the place
+        location.log_label                              OBSERVED, when the name is only the log's code
+        location.departed_from                          OBSERVED, after leaving: the place is then NOT where we are
+        topic.name / topic.fact                         KNOWN: the retrieved fact (lore, brochure or dev history)
+        pilot.asked_about / pilot.referent              what the pilot pointed at; the referent is always UNKNOWN
+    A fact is only ever attached to a place the pilot is AT. Never to one they have left, or to no place at all."""
+    addressee, intent, slots = route_result
+    state = state or {}
+    nid = _Ids()
+    topic = slots.get("topic", "")
+    referent = slots.get("referent") if topic == "place_about" else None
+    loc_ok, loc = _known(state, "location")
+    dep_ok, departed = _known(state, "departed_from")
+    named = state.get("location_named", True) is not False
+    claims: list = []
+    if loc_ok:
+        claims.append(_claim(nid(), "OBSERVED", "location.name" if named else "location.log_label", loc))
+        for pred, key in (("location.body", "location_body"), ("location.body", "planetary_body"),
+                          ("location.type", "location_type")):
+            ok, v = _known(state, key)
+            if ok and str(v).lower() not in ("unknown", str(loc).lower()) \
+                    and not any(c["predicate"] == pred for c in claims):
+                claims.append(_claim(nid(), "OBSERVED", pred, v))
+        if not named:
+            claims.append(_unknown(nid(), "location.name"))
+    else:
+        claims.append(_unknown(nid(), "location.name"))
+        if dep_ok:
+            claims.append(_claim(nid(), "OBSERVED", "location.departed_from", departed))
+    if not loc_ok:
+        fact = None
+    knowledge = None
+    if fact:
+        claims.append(_claim(nid(), "KNOWN", "topic.name", fact["title"]))
+        claims.append(_claim(nid(), "KNOWN", "topic.fact", fact["text"]))
+        knowledge = {k: fact.get(k) for k in ("kind", "status", "source", "node", "fact")}
+    if referent is not None:
+        if referent:
+            claims.append(_claim(nid(), "PILOT_SUBMISSION", "pilot.asked_about", referent))
+        claims.append(_unknown(nid(), "pilot.referent"))
+
+    if not loc_ok:
+        key = "place_departed" if dep_ok else "place_unknown"
+    elif referent is not None:
+        key = "place_referent"
+    elif not named:
+        key = "place_label"
+    else:
+        key = "place" if fact else "place_bare"
+    pool = _VOICE[(addressee, key)]
+    move, stance = pool[variant % len(pool)]
+    if addressee == "montaigne" and fact and fact.get("kind") != "brochure":
+        stance = stance.replace("quotes from a brochure and says it is the brochure's word",
+                                "has from the archives, secondhand, and says so")
+    lo, hi = _PLACE_LEN[addressee]
+    spec: Spec = {
+        "scenario": f"direct_{intent}_{topic}",
+        "speaker": addressee,
+        "rhetoric": [move],
+        "claims": claims,
+        "interpretation": {"owner": addressee, "text": stance,
+                           "grounds": [c["id"] for c in claims if c["kind"] in ("OBSERVED", "KNOWN")]},
+        "required_claims": [c["id"] for c in claims if c["kind"] in ("OBSERVED", "KNOWN", "UNKNOWN")][:3],
+        "required_values": [],
+        "length_words": [lo, hi],
+        "id": f"dir_{intent}_{topic}_{addressee}_{key}_v{variant % len(pool)}",
+        "lane": "direct",
+        "route": {"addressee": addressee, "intent": intent, "topic": topic, "text": slots["text"]},
+        # A capitalised word in the line must come from these or from a claim (grounding_validator).
+        "allowed_names": sorted(set((fact or {}).get("names") or []) | ({str(loc)} if loc_ok else set())
+                                | ({str(departed)} if dep_ok else set())),
+        "place": {"asked": {"location": "where"}.get(topic, "referent" if referent is not None else "comment"),
+                  "referent": referent, "named": named, "departed": departed if (dep_ok and not loc_ok) else None,
+                  "knowledge": knowledge},
+    }
+    if knowledge and knowledge["kind"] == "brochure":
+        spec["topic"] = {"node": knowledge["node"], "status": "brochure", "source": knowledge["source"]}
+    if fact and fact.get("kind") == "dev" and fact.get("entry"):
+        _as_dev_fact(spec, fact["entry"], variant)
+    if spec.get("aside") != "dev_fact":
+        # The answer is the claims, in order, in the speaker's voice: NOT worded by the model (place_knowledge
+        # says why, with the measurement). The model's wording is still possible: CompanionCore.place_answers_from_model.
+        spec["fixed_text"] = pk.answer_line(spec, variant)
+        n = len(spec["fixed_text"].split())
+        spec["model_length_words"], spec["length_words"] = [lo, hi], [max(1, n - 3), n]
+    return spec
+
+
+def _as_dev_fact(spec: Spec, entry: dict, variant: int = 0) -> None:
+    """A dev-history fact is never worded by the model (dev_facts.py): it is said word for word, framed as an
+    aside, behind a lead that names the place. The entry's own claims (date, title, excerpt) join the spec, so
+    the dev-fact rules in ground() apply to it exactly as they do to an unprompted aside."""
+    import dev_facts as devf
+    dev = devf.fact_spec(entry)
+    if dev is None:
+        return
+    bare = dict(spec, claims=[c for c in spec["claims"] if not c["predicate"].startswith("topic.")],
+                place=dict(spec["place"], knowledge=None))
+    lead = pk.answer_line(bare, variant) or ""
+    for tail in pk._LINES[spec["speaker"]]["bare"]:           # the lead names the place; the fact follows it
+        lead = lead.replace(" " + tail, "")
+    ids = len(spec["claims"])
+    spec["claims"] = spec["claims"] + [dict(c, id=f"C{ids + i + 1}", kind=c.get("kind", "KNOWN"))
+                                       for i, c in enumerate(dev["claims"])]
+    spec["aside"] = "dev_fact"
+    spec["fixed_text"] = f"{lead} {dev['fixed_text']}".strip()
+    spec["allowed_names"] = None                  # the fact's own words were checked when the pack was built
+    spec["source"] = dev.get("source")
+    n = len(spec["fixed_text"].split())
+    spec["length_words"] = [max(1, n - 3), n]
+
+
+def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict], variant: int = 0,
+                fact: Optional[dict] = None) -> Optional[Spec]:
+    """Route -> one semantic spec whose claims come ONLY from state / history_facts, or None for noise.
+    fact: for a question about the place, the one retrieved fact to answer with (ConversationLane picks it)."""
     addressee, intent, slots = route_result
     hist = history_facts or {}
     state = state or {}
@@ -405,6 +590,8 @@ def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict],
 
     if intent == "noise":
         return None
+    if intent == "factual" and topic in PLACE_TOPICS:
+        return place_spec(route_result, state, variant, fact)
     if intent == "factual":
         if topic == "injury":
             claims = _injury_claims(state, nid)
@@ -485,11 +672,22 @@ def ground_direct(spec: Spec, text: str) -> list[str]:
                 if re.search(rf"(?<![\w-]){re.escape(n.lower())}(?![\w-])", low) and n.lower() not in authorised]
     if invented:
         fails.append(f"unauthorized names {invented}")
+    if spec.get("place"):
+        # An answer about a place may only say what is in its claims (place_knowledge.place_problems says exactly
+        # what that catches and what it cannot). It re-runs ground() with number WORDS read from the claims, so
+        # ground()'s own verdict on numbers is replaced by that one here.
+        fails = [f for f in fails if not f.startswith("unauthorized numbers")]
+        fails += [f for f in pk.place_problems(spec, text) if f not in fails]
     return fails
 
 
-def lane_state_from_core(state_store, volatile) -> dict:
-    """Build the lane's state from companion_core's trackers, copying ONLY keys that were actually set."""
+def lane_state_from_core(state_store, volatile, departed: Optional[str] = None) -> dict:
+    """Build the lane's state from companion_core's trackers, copying ONLY keys that were actually set.
+
+    departed: the place the core knows the pilot has LEFT (CompanionCore._departed: the log's armistice-exit line
+    after the log last named a place). location_name is only ever replaced on arrival, never cleared, so without
+    this a question asked on the way out of Lorville was answered "Lorville". With it, `location` and everything
+    that describes it are absent and `departed_from` says where the pilot was."""
     st = state_store.get_all()
     try:
         snap = volatile.get_context_snapshot()
@@ -499,9 +697,11 @@ def lane_state_from_core(state_store, volatile) -> dict:
     for src, dst in (("location_name", "location"), ("star_system", "system"), ("ship", "ship"),
                      ("planetary_body", "planetary_body"), ("jurisdiction", "jurisdiction"),
                      ("in_armistice", "in_armistice"), ("session_earnings", "session_earnings"),
-                     ("session_deaths", "session_deaths")):
+                     ("session_deaths", "session_deaths"), ("location_body", "location_body"),
+                     ("location_type", "location_type"), ("location_named", "location_named")):
         if st.get(src) is not None and st.get(src) != "":
             out[dst] = st[src]
+    without_departed(out, departed)
     if any(k in st for k in ("player_name", "location_raw", "session_deaths")):      # the log is live
         out["injuries"] = {k[len("injury_"):]: v for k, v in st.items() if k.startswith("injury_") and v}
     # The mission in hand = the last one accepted, unless it has since been completed or failed. The log gives no
@@ -522,17 +722,58 @@ def lane_state_from_core(state_store, volatile) -> dict:
     return out
 
 
+def without_departed(state: dict, departed: Optional[str]) -> dict:
+    """Take the place the pilot has LEFT out of a lane state, in place: `location` and everything that describes
+    it go, and `departed_from` says where the pilot was. Nothing changes unless `departed` is the place the state
+    still names."""
+    if departed and state.get("location") == departed:
+        for k in ("location", "location_body", "location_type", "location_named", "jurisdiction", "in_armistice"):
+            state.pop(k, None)
+        state["departed_from"] = departed
+    return state
+
+
 class ConversationLane:
     """One pilot utterance in -> at most one spec out. Rotates variants so repeated questions vary in delivery."""
 
-    def __init__(self):
+    def __init__(self, knowledge=None):
         self.variant = 0
         self.last_route: Optional[Route] = None
+        # place_knowledge.PlaceKnowledge, or None: a question about the place is then answered with its name alone.
+        self.knowledge = knowledge
+        self._told: dict[tuple, int] = {}          # (speaker, place) -> facts already given; asking again moves on
+
+    def _place_answer(self, r: Route, state: dict) -> Spec:
+        """The answer to a place question, with the next fact this speaker has not yet given for this place.
+        A question about a THING there starts from what is physically at the site (in-game facts) before its
+        history. A fact whose line the gate refuses (a quotation mark in brochure copy, say) is passed over for the
+        next one; with no knowledge source, no place, or nothing usable known, the answer is the place alone."""
+        who, _, slots = r
+        ok, loc = _known(state, "location")
+        facts = []
+        if self.knowledge is not None and ok:
+            try:
+                facts = self.knowledge.facts(who, state, slots.get("said", ""))
+            except Exception:
+                facts = []
+        if slots.get("topic") == "place_about" and slots.get("referent") is not None:
+            facts = sorted(facts, key=lambda f: f.get("status") != "in_game")
+        key = (who, str(loc))
+        start = self._told.get(key, 0)
+        for k in range(len(facts)):
+            spec = place_spec(r, state, self.variant, facts[(start + k) % len(facts)])
+            if not ground_direct(spec, spec["fixed_text"]):
+                self._told[key] = start + k + 1
+                return spec
+        return place_spec(r, state, self.variant, None)
 
     def handle(self, utterance: str, state: dict, history_facts: Optional[dict] = None) -> Optional[Spec]:
         r = route(utterance)
         self.last_route = r
-        spec = answer_spec(r, state, history_facts, self.variant)
+        if r[1] == "factual" and r[2].get("topic") in PLACE_TOPICS:
+            spec = self._place_answer(r, state or {})
+        else:
+            spec = answer_spec(r, state, history_facts, self.variant)
         if spec is not None:
             self.variant += 1
         return spec
@@ -577,7 +818,9 @@ def check_spec(spec: Spec, state: dict, hist: dict, utterance: str) -> list[str]
             errs.append(f"PILOT_SUBMISSION {v!r} is not what the pilot said")
         elif k == "UNKNOWN" and v != UNKNOWN_VALUE:
             errs.append(f"UNKNOWN {c['predicate']} carries a value {v!r}")
-        elif k not in ("OBSERVED", "HISTORY", "PILOT_SUBMISSION", "UNKNOWN"):
+        elif k == "KNOWN" and not ((spec.get("place") or {}).get("knowledge") or spec.get("aside") == "dev_fact"):
+            errs.append(f"KNOWN {c['predicate']} with no retrieved fact behind it")
+        elif k not in ("OBSERVED", "HISTORY", "PILOT_SUBMISSION", "UNKNOWN", "KNOWN"):
             errs.append(f"unexpected claim kind {k}")
     for v in spec["required_values"]:
         if v not in {str(c["value"]) for c in spec["claims"] if c["kind"] != "UNKNOWN"}:
@@ -648,7 +891,10 @@ CASES = [
 
 
 def echo_realizer(spec: Spec) -> str:
-    """Honest fake: says the claim values and admits the unknowns. Values first so truncation keeps them."""
+    """Honest fake: says the claim values and admits the unknowns. Values first so truncation keeps them.
+    For a question about a place the honest line is the planned one: the claims themselves, in order."""
+    if spec.get("place"):
+        return spec.get("fixed_text") or pk.answer_line(spec)
     vals = [str(c["value"]) for c in spec["claims"] if c["kind"] in ("OBSERVED", "HISTORY") and not isinstance(c["value"], bool)]
     words = (("Pilot, " + ", ".join(vals) + ".") if vals else "Pilot.").split()
     if any(c["kind"] == "UNKNOWN" for c in spec["claims"]):
@@ -718,11 +964,13 @@ def _selftest() -> int:
     case("invented number is refused by ground()", any("unauthorized numbers" in f and "47" in f for f in g), str(g))
     uspec = answer_spec(route("where am i"), {}, {})
     guess = "You're in Lorville, pilot, same as always."
-    case("invented PLACE for an UNKNOWN passes ground() (the hole)", ground(uspec, guess) == [])
+    case("invented PLACE for an UNKNOWN: a place answer carries allowed_names, so ground() refuses it as well",
+         any("unauthorized names" in f for f in ground(uspec, guess)))
     case("...and is refused by ground_direct()", any("unauthorized names" in f for f in ground_direct(uspec, guess)),
          str(ground_direct(uspec, guess)))
     case("the true place is not flagged when it IS a claim",
-         ground_direct(answer_spec(route("where am i"), FULL_STATE, {}), "Lorville, on Hurston. Try to keep up.") == [])
+         ground_direct(answer_spec(route("where am i"), FULL_STATE, {}),
+                       "This is Lorville, on Hurston. That is all I know about it.") == [])
 
     # 3. mutations: each must be caught by the suite above
     global _known, _VOICE

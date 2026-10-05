@@ -159,6 +159,11 @@ def find_game_log(saved: Optional[str] = None) -> Optional[Path]:
 
 
 class CompanionCore:
+    # A question about the place is answered from its claims, not worded by the model (place_knowledge.answer_line
+    # has the measurement behind that). True = let the model word it, two tries, with the planned line as the
+    # fallback. Worth trying again with a larger model or the API backend; not with the 1.5B adapters.
+    place_answers_from_model = False
+
     def __init__(self, speech, realizer: Optional[Callable[[dict], Optional[str]]] = None,
                  eyes=None, recorder=None, dreams=None, headroom: Callable[[], str] = lambda: "OK",
                  ambient_every_s: float = 90.0, now: Callable[[], float] = time.time, chattiness: int = 2,
@@ -739,9 +744,17 @@ class CompanionCore:
             except Exception:
                 log.exception("mission destination")
         if et == "armistice_zone":
-            self._departed = self.state.get("location_name") if data.get("action") == "exited" else None
+            if data.get("action") == "exited":
+                self._departed = self.state.get("location_name")
+            elif not getattr(self, "_departed_far", False):
+                self._departed = None                       # back inside the zone we walked out of
+        elif et == "qt_arrived" and self.state.get("location_name"):
+            # A quantum jump ended: wherever this is, it is not the place the log last named (2026-10-05). Entering
+            # an armistice zone after it is ANOTHER place's zone, so it no longer counts as coming back; only the
+            # log naming a place does.
+            self._departed, self._departed_far = self.state.get("location_name"), True
         elif et == "location_change":
-            self._departed = None
+            self._departed, self._departed_far = None, False
         if self.recorder is not None:
             try:
                 self.recorder.note(et, data)
@@ -1319,10 +1332,29 @@ class CompanionCore:
         return False
 
     # -- direct questions (conversation.py): the pilot asked, so this outranks everything else ---------------------
+    def lane_state(self) -> dict:
+        """What the conversation lane may answer from, right now: the trackers' own values, minus the place the
+        pilot has left (see _departed). The window calls this for every transcript."""
+        from conversation import lane_state_from_core
+        return lane_state_from_core(self.state, self.volatile, departed=getattr(self, "_departed", None))
+
+    def place_knowledge(self):
+        """What each companion knows about a place, read from data this core already holds: the topic graph the
+        walker talks from, and the dev-history pack. None when there is no graph (then a question about the place
+        is answered with its name alone). Built once."""
+        if getattr(self, "_place_knowledge", None) is None and self.walker is not None:
+            from place_knowledge import PlaceKnowledge
+            self._place_knowledge = PlaceKnowledge(
+                self.walker.g, self.dev_facts.pack if self.dev_facts is not None else None)
+        return getattr(self, "_place_knowledge", None)
+
     def answer(self, spec: dict, utterance: str = "") -> None:
         """Answer a direct question. URGENT gate (skips cooldowns, still silenced by mute), its own worker so it is
         never dropped behind ambient work, ground_direct (also refuses an invented place for an UNKNOWN), one
-        retry on refusal, then silence. Never a canned line."""
+        retry on refusal, then silence. Never a canned line, with one exception since 2026-10-05: a question about
+        the PLACE is answered from the spec's own claims (spec["fixed_text"], place_knowledge.answer_line) and
+        not worded by the model, which loses the relation between the claims it is given. It needs no realizer,
+        so it is answered with the model service down or the card busy. Still held to ground_direct."""
         self.afk.poke()                              # they spoke to us: somebody is here, whatever the keyboard says
         try:
             self.affect.feed("pilot_spoke")
@@ -1340,21 +1372,40 @@ class CompanionCore:
     def _answer_worker(self, spec: dict, cand, utterance: str) -> None:
         from conversation import ground_direct
         self.stats["questions"] = self.stats.get("questions", 0) + 1
+
+        def say(text: str, how: str) -> None:
+            if self._say_answer(text, spec["speaker"], PRIORITY_URGENT):
+                self.gate.record_spoken(self.gate_state, cand)
+                self._spoke(spec, text, cand)
+                self.stats["spoken"] += 1
+                self._note(f"{spec['speaker']} ({how}): {text}")
+
+        by_model = (self.place_answers_from_model and spec.get("place") and spec.get("aside") != "dev_fact"
+                    and self.realizer is not None)
+        if spec.get("fixed_text") and not by_model:
+            # A place answer or a dev-history fact: said as planned, never worded by a model.
+            fails = ground_direct(spec, spec["fixed_text"])
+            if not fails:
+                return say(spec["fixed_text"], "answer")
+            self.stats["ungrounded"] += 1
+            self._note(f"fixed answer REFUSED {fails}: {spec['fixed_text'][:60]!r}")
+            return
+        asked = spec
+        if by_model:                                 # the model words it; the planned line is what it falls back to
+            asked = dict(spec, fixed_text=None, length_words=spec.get("model_length_words") or spec["length_words"])
         for attempt in (1, 2):
-            text = self.realizer(spec) if self.realizer else None
+            text = self.realizer(asked) if self.realizer else None
             if not text:
                 self._note(f"question '{utterance[:40]}': no line from realizer")
-                return
-            fails = ground_direct(spec, text)
+                break
+            fails = ground_direct(asked, text)
             if not fails:
-                if self._say_answer(text, spec["speaker"], PRIORITY_URGENT):
-                    self.gate.record_spoken(self.gate_state, cand)
-                    self._spoke(spec, text, cand)
-                    self.stats["spoken"] += 1
-                    self._note(f"{spec['speaker']} (answer): {text}")
-                return
+                return say(text, "answer")
             self.stats["ungrounded"] += 1
             self._note(f"answer attempt {attempt} REFUSED {fails}: {text[:60]!r}")
+        if by_model and not ground_direct(spec, spec["fixed_text"]):
+            self.stats["answer_fallback"] = self.stats.get("answer_fallback", 0) + 1
+            say(spec["fixed_text"], "answer, from the claims")
 
     # -- banter: two characters, planned semantically up front (banter.py) ---------------------------------------
     def _try_banter(self, st: dict) -> bool:

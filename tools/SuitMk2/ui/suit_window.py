@@ -46,7 +46,7 @@ from companion_core import CompanionCore, find_game_log   # noqa: E402
 from activity_mode import os_idle_seconds, DEFAULT_AFK_MINUTES   # noqa: E402
 from speech import Speech, PRIORITY_EVENT      # noqa: E402
 from sidecar import Sidecar, health            # noqa: E402
-from conversation import ConversationLane, lane_state_from_core   # noqa: E402
+from conversation import ConversationLane, lane_state_from_core, without_departed   # noqa: E402
 from voice_in.ears import EarsController      # noqa: E402
 from voice_in.input_devices import InputBinding, BindingCaptureDialog, HotkeyMonitor   # noqa: E402
 from pacing import LEVEL_NAMES                  # noqa: E402
@@ -747,7 +747,10 @@ class _SuitBody:
             if self.s.get("muted"):
                 self.pttState.emit("note", "Suit Mk2 is muted: un-mute it on its tab to hear the answer")
         from dream_queue import history_facts
-        state = lane_state_from_core(self.core.state, self.core.volatile)
+        # The trackers' values, minus a place the pilot has left (2026-10-05: the log never clears a name, so a
+        # question asked on the way out of Lorville used to be answered "Lorville").
+        state = without_departed(lane_state_from_core(self.core.state, self.core.volatile),
+                                 getattr(self.core, "_departed", None))
         hist = {}
         if self.store is not None:
             try:
@@ -765,6 +768,9 @@ class _SuitBody:
             self.core.feedback.press(reaction)
             self.core._note(f"feedback (spoken): {reaction}")
             return
+        know = getattr(self.core, "place_knowledge", None)
+        if callable(know) and getattr(self.lane, "knowledge", True) is None:
+            self.lane.knowledge = know()         # lore, brochures and dev history the core already has in memory
         spec = self.lane.handle(text, state, hist)
         if spec is not None:
             self.core.answer(spec, text)

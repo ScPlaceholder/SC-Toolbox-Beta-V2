@@ -26,10 +26,18 @@ try:
     _loc_mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_loc_mod)
     get_location_type = _loc_mod.get_location_type
+    get_location_body = _loc_mod.get_location_body
+    location_is_named = _loc_mod.is_named
 except Exception:
     logging.getLogger(__name__).warning("Failed to load location_names.py; using fallback stub.")
     def get_location_type(raw: str) -> str:
         return "unknown"
+
+    def get_location_body(raw: str) -> str:
+        return ""
+
+    def location_is_named(raw: str) -> bool:
+        return True
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +89,8 @@ def _classify_location_flavor(name: str, raw: str) -> str:
         return "urban"
     if loc_type in ("moon", "planet"):
         return "wild"
+    if loc_type == "outpost":       # what an outpost was before it had a type of its own: Pyro rough, the rest wild
+        return "rough" if raw.upper().startswith("PYRO") else "wild"
     if loc_type == "station":
         return "orbital"
     # Pyro system is generally rough
@@ -150,11 +160,13 @@ class EventClassifier:
                     if disposition not in ("same", "zone_change"):
                         self._state.set("location_name", loc_name)
                         self._last_arrived_location = loc_name
+                        self._set_place_facts(raw)
                 else:
                     # Fallback: simple dedup by name
                     if loc_name != self._last_arrived_location:
                         self._last_arrived_location = loc_name
                         self._state.set("location_name", loc_name)
+                        self._set_place_facts(raw)
 
         elif et == "channel_change":
             if data.get("is_ship"):
@@ -330,6 +342,16 @@ class EventClassifier:
                 if name in companions:
                     companions.remove(name)
                     self._state.set("active_companions", companions)
+
+    def _set_place_facts(self, raw: str) -> None:
+        """What the place tables say about the place location_name now names (2026-10-05), set together with
+        the name so the two cannot disagree: the body it is on or around ("" when nothing says), and whether the
+        name is a real one or only the log's code with its underscores removed. The conversation lane reads both."""
+        try:
+            self._state.set("location_body", get_location_body(raw) or None)
+            self._state.set("location_named", bool(location_is_named(raw)))
+        except Exception:
+            logger.exception("place facts for %r", raw)
 
     def _emit(self, event: LogEvent) -> None:
         """Emit classified event to subscribers."""
