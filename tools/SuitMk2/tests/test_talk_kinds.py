@@ -46,6 +46,7 @@ def test_a_fact_wins_over_everything_and_a_memory_only_helps_a_question():
     ("What was he flying, could you tell?", "My sister Dana is visiting next week so I won't be flying much.", False),   # the leak
     ("What did I say I couldn't decide?", "I can't decide what to do tonight.", True),                                   # the miss
     ("Who's getting married, did I say?", "My brother's getting married next month.", True),
+    ("What did I pass, again?", "I passed my exam.", True),                                 # "pass" and "passed" are one word
     ("What did I say was freezing?", "My hands are freezing.", True),
     ("When does my sister arrive?", "My sister Dana arrives on Friday.", True),            # two shared words, one long
     ("Is the shop open?", "I went to the shop and it was shut.", False),                   # one shared word, no pointing back
@@ -186,3 +187,35 @@ def test_montaignes_cut_keeps_two_sentences_and_never_cuts_inside_a_quotation(re
 ])
 def test_a_stage_direction_is_taken_out_and_nothing_else(reply, out):
     assert cc.strip_stage(reply) == out
+
+
+@pytest.mark.parametrize("line, kind", [
+    ("What do I say to her?", "view"), ("What can you see from in there?", "view"),
+    ("My back's gone again.", "feeling"), ("I had a row with my wife.", "feeling"), ("It was my fault.", "feeling"),
+    ("I feel old today.", "feeling"), ("I won a race!", "feeling"), ("I passed my exam.", "feeling"),
+    ("My neighbour's drilling again.", "feeling"), ("Four hours and not one good rock.", "feeling"),
+    ("I got a letter from my old teacher.", "feeling"),
+    ("What was he flying, could you tell?", None), ("Can you see who it is?", None),          # still a witness question
+    ("You talk too much.", "remark"), ("Leek and potato.", "remark"),
+])
+def test_the_router_faults_the_spent_sets_showed(line, kind):
+    assert cc.talk_kind(line) == kind
+
+
+@pytest.mark.parametrize("reply, out", [
+    ("(A slight frown creases my brow, not entirely displeased.) A letter, you say?", "A letter, you say?"),
+    ("*adjusts spectacles* (Takes a slow puff from his pipe) Old? My dear pilot.", "Old? My dear pilot."),
+    ("(Only a bracket and nothing after it.)", "(Only a bracket and nothing after it.)"),
+    ("The Carrack (which I have never seen) is large.", "The Carrack (which I have never seen) is large."),
+])
+def test_anything_bracketed_that_opens_a_reply_is_taken_out_by_its_shape(reply, out):
+    assert cc.strip_stage(reply) == out
+
+
+def test_the_example_prompt_can_carry_the_whole_persona_instead_of_the_one_line():
+    for who in cc.SPEAKERS:
+        short = cc.serialize_kind(who, "remark", [], "x")
+        full = cc.serialize_kind(who, "remark", [], "x", full_persona=True)
+        assert cc.persona(who) in full and cc.persona(who) not in short
+        assert "This is how you answer when the pilot makes a remark" in full and "Rules." not in full and "[ACT" not in full
+        assert full.count(f"{who.upper()}:") == 5

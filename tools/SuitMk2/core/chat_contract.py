@@ -443,10 +443,18 @@ _ACTION_WORDS = (r"sighs?|laughs?|pauses?|smiles?|chuckles?|nods?|shrugs?|grins?
 
 
 def strip_stage(reply: str) -> str:
-    """Take out a stage direction, and only that: *words between asterisks* or (words in brackets) when the first
+    """Take out a stage direction. At the START of a reply, by shape: anything in brackets or between asterisks that
+    opens it goes, whatever it says (widened after "(A slight frown creases my brow...)" was spoken seven times in
+    one run). Elsewhere, only *words between asterisks* or (words in brackets) when the first
     word is one of a short list of things a body does (sighs, chuckles, a pause). *Emphasis* on any other word
     keeps the word and loses the asterisks. Anything else in brackets is left alone."""
-    s = re.sub(rf"\*\s*(?:{_ACTION_WORDS})\b[^*]{{0,60}}\*", " ", str(reply or ""), flags=re.I)
+    s = str(reply or "").strip()
+    while True:                                          # by SHAPE: anything bracketed or starred that OPENS the reply
+        m = re.match(r"\s*(?:\([^)]{0,300}\)|\*[^*]{0,300}\*|\[[^\]]{0,300}\])\s*", s)
+        if not m or not s[m.end():].strip():
+            break
+        s = s[m.end():]
+    s = re.sub(rf"\*\s*(?:{_ACTION_WORDS})\b[^*]{{0,60}}\*", " ", s, flags=re.I)
     s = re.sub(rf"\(\s*(?:{_ACTION_WORDS})\b[^)]{{0,60}}\)", " ", s, flags=re.I)
     s = re.sub(r"\*([^*\s][^*]{0,40}?)\*", r"\1", s)
     s = re.sub(r"\s+([,.;:!?])", r"\1", " ".join(s.split()))
@@ -469,7 +477,9 @@ _ASKS = (r"^(?:and |so |but |then |well |ok |okay |right |wait |hey )*(?:who|who
 # "do you know what he flies", "could you tell": the companion is asked as a WITNESS, not about itself.
 _WITNESS = (r"\b(?:do|did|can|could|would) you (?:happen to )?(?:know|tell|see|hear|remember|recall|notice|catch|spot|say)\b|"
             r"\byou know\b|\b(?:can|could) you tell\b|\bdid you (?:see|hear|catch|notice)\b")
-_VIEW = [r"\bshould (?:i|we)\b", r"^(?:and |so |but )?(?:am|was) i\b", r"\bdo you think\b", r"\bwhat (?:should|can|could|do) (?:i|we) do\b",
+_VIEW = [r"\bshould (?:i|we)\b", r"\bwhat (?:do|should|can|could|would) i (?:say|tell|do|write)\b",
+         r"^what (?:can|do|could|did) you (?:see|hear|read|make of it)\b",
+         r"^(?:and |so |but )?(?:am|was) i\b", r"\bdo you think\b", r"\bwhat (?:should|can|could|do) (?:i|we) do\b",
          r"\bis (?:that|this|it) (?:any |very |really |so |too )?(?:good|bad|ok|okay|normal|fine|enough|nothing|wrong|right|fair|silly|stupid|worth it)\b",
          r"\b(?:isnt it|wasnt it|doesnt it|dont i|arent i|didnt i|arent we|right|eh|huh|yeah)$", r"\bmiss me\b", r"\bguess what\b",
          r"\bwish me\b", r"\bwhat would you\b", r"\bhow do i look\b", r"\bwhat now\b", r"\bwhy me\b", r"\bwhy do i\b"]
@@ -519,7 +529,11 @@ _FEELING = (r"\b(?:tired|exhausted|worn out|knackered|bored|starving|hungry|free
             r"happy|thrilled|chuffed|proud|relieved|excited|best day|worst day|good day|bad day|long day|cant sleep|couldnt sleep|"
             r"miss|hate|killing me|hurts?|aching|failed|lost|quit|fired|promotion|promoted|married|engaged|pregnant|baby|"
             r"hospital|funeral|birthday|broke up|dumped|broken into|robbed|crashed|jumped|died)\b|"
-            r"^(?:i just|ive just|i finally|i nearly|i almost|i should(?:nt)? (?:be|have)|they say)\b")
+            r"^(?:i just|ive just|i finally|i nearly|i almost|i should(?:nt)? (?:be|have)|they say)\b|"
+            # widened 2026-10-05 from the spent sets, where only 2 of 8 feeling turns were being found
+            r"\bfeel(?:s|ing)?\b|\bwon\b|\bpassed\b|\bmy fault\b|\b(?:a row|an argument|a fight|fell out) with\b|"
+            r"\bmy (?:back|knee|head|neck|shoulder|leg|foot|feet|hands?|eyes?)s?\b|\bnot (?:one|a single)\b|\bagain$|"
+            r"\bi (?:got|had|have) (?:a|an|some) (?:letter|call|message|news|row|fright|shock)\b|\bnobody\b|\bnever (?:finish|get|win)\b")
 _SAYING = set("say said tell told mention mentioned remind again second ago earlier fly flying flew see saw look".split())
 _BACK = r"\b(?:did i say|i said|i say|i told you|i tell you|i mention(?:ed)?|remind me|again|a second ago|a minute ago|earlier|just now)\b"
 
@@ -539,7 +553,7 @@ def _content(s: str) -> set:
         if w in stop or len(w) < 3:
             continue
         for suf in ("ing", "ed", "es", "s"):
-            if w.endswith(suf) and len(w) - len(suf) >= 3:
+            if w.endswith(suf) and len(w) - len(suf) >= 3 and not w.endswith("ss"):      # "pass" is not "pas"
                 w = w[: len(w) - len(suf)]
                 break
         out.add(w[:-1] if w.endswith("e") and len(w) > 4 else w)       # "arrive" and "arrives" are one word
@@ -584,7 +598,7 @@ def talk_kind(pilot_line: str, facts=(), memory=()) -> Optional[str]:
         if any(re.search(rx, t) for rx in _VIEW):
             return "view"
         return "self" if is_talk_question(pilot_line) else None
-    if re.search(_FEELING, t):
+    if re.search(_FEELING, t) or str(pilot_line or "").strip().endswith("!"):
         return "feeling"
     return "ack" if len(t.split()) <= 2 else "remark"
 
@@ -610,13 +624,17 @@ def _kind_turn(label: str, pilot: str, known: str = "", earlier: str = "") -> st
     return (f"KNOWN: {known}\n" if known else "") + (f"EARLIER THE PILOT SAID: {earlier}\n" if earlier else "") + f"PILOT: {pilot}"
 
 
-def serialize_kind(speaker: str, kind: str, turns: list, pilot_line: str, facts=(), memory=(), fmt: str = "chatml") -> str:
+def serialize_kind(speaker: str, kind: str, turns: list, pilot_line: str, facts=(), memory=(), fmt: str = "chatml",
+                   full_persona: bool = False) -> str:
     """The per-kind prompt: one or two lines of framing, the examples, then the conversation. No rule list, no ACT
     block. A supplied fact rides as a KNOWN line and a supporting memory as an EARLIER line, as in the examples."""
     name = speaker.upper()
     ex = "\n\n".join(_kind_turn(name, x["pilot"], x.get("known", ""), x.get("earlier", "")) + f"\n{name}: {x['reply']}"
                      for x in talk_examples(speaker, kind))
-    head = f"{talk_frame(speaker, kind)}\n\n{ex}"
+    frame = talk_frame(speaker, kind)
+    if full_persona:                                     # the canon file's whole persona instead of the one line
+        frame = f"{persona(speaker)} " + frame[frame.index("This is how you answer"):]
+    head = f"{frame}\n\n{ex}"
     last = _kind_turn(name, pilot_line, "; ".join(str(f) for f in facts), " | ".join(m[2] for m in memory))
     if fmt == "gemma":
         out, first = "", True
