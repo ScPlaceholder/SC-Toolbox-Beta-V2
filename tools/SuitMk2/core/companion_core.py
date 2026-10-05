@@ -1416,8 +1416,16 @@ class CompanionCore:
         by_model = (self.place_answers_from_model and spec.get("place") and spec.get("aside") != "dev_fact"
                     and self.realizer is not None)
         if spec.get("fixed_text") and not by_model:
-            # A place answer or a dev-history fact: said as planned, never worded by a model.
+            # A place answer, a dev-history fact or a quotation from the conversation log: said as planned, never
+            # worded by a model.
             fails = ground_direct(spec, spec["fixed_text"])
+            if not fails and spec.get("recall") is not None:
+                # Checked against the ORIGINAL log line as it is on disk at this moment, never against a summary.
+                from conversation import recall_problems
+                if (spec["recall"] or {}).get("id") and self.tree is None:
+                    fails = ["a quotation with no log to check it against"]
+                else:
+                    fails = recall_problems(spec, spec["fixed_text"], self.tree)
             if not fails:
                 return say(spec["fixed_text"], "answer")
             self.stats["ungrounded"] += 1

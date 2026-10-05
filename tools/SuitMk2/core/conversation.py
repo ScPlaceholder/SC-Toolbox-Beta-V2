@@ -32,6 +32,11 @@ confident "no", so do not feed that dict here):
     the pilot has left since the log last named one; `location` is then absent)
 history_facts: the dict dream_queue.history_facts(store, location=..., ship=...) returns.
 
+WHAT THE PILOT SAID BEFORE (2026-10-05, topic `recall`). "What did I say about my sister", "do you remember that
+cargo run where we lost the ROC?". The answer QUOTES the conversation log (tree_memory.py): the day it was said and
+the pilot's own sentence, word for word, inside a short frame in the speaker's voice. No model words it and nothing
+is paraphrased. When the log has nothing that matches, the answer says so and offers nothing.
+
 QUESTIONS ABOUT THE PLACE (2026-10-05, J: "Elah should have knowledge of the Galactapedia and Montaigne should
 have his brochures and dev history to call on"). "where are we", "what is this place", "what's that", "what does
 that big tower do" and "wow look at that" are all questions about where the pilot is standing (topics `location`
@@ -134,6 +139,18 @@ _MEMORY = [
     ("first_ship", r"\bfirst (?:time )?(?:fly|flew|flown|flying|took|take|get|got|bought)\b|"
                    r"\bhow long have (?:we|i) (?:had|owned|flown|been flying)\b|\bwhen did (?:we|i) (?:get|buy|start flying)\b"),
 ]
+# What the pilot said before. Tried after the two memory topics above, so "have we been here before" keeps its
+# answer. `q` is what to look for. A bare "remember that ..." is a question only when it was heard as one (it ends in
+# a question mark): "remember that I parked at Lorville" is the pilot telling them something, not asking.
+_RECALL = [
+    r"\bwhat did i (?:say|tell you|mention) about (?P<q>.+)",
+    r"\bwhat (?:was it|was that thing) i said about (?P<q>.+)",
+    r"\b(?:did|didnt) i (?:tell you|mention|say (?:anything|something)) (?:about )?(?P<q>.+)",
+    r"\bremind me what i said about (?P<q>.+)",
+    r"\b(?:do|dont|can) you (?:still )?(?:remember|recall) (?P<q>.+)",
+    r"\bremember when (?P<q>.+)",
+]
+_RECALL_IF_ASKED = r"^(?:you )?remember (?P<q>(?:that|the|our|my|how|what) .+)"
 _FACTUAL = [
     ("heart_rate", r"\b(?:heart ?rate|pulse|bpm|heartbeat)\b"),
     ("vehicle_status", r"\b(?:hull|fuel|shields?|ammo|hydrogen)\b"),
@@ -260,6 +277,13 @@ def route(utterance: str) -> Route:
         for topic, rx in _MEMORY:
             if re.search(rx, t):
                 intent, slots["topic"] = "memory", topic
+                break
+    if intent is None:
+        asked = (utterance or "").strip().endswith("?")
+        for rx in _RECALL + ([_RECALL_IF_ASKED] if asked else []):
+            m = re.search(rx, t)
+            if m:
+                intent, slots["topic"], slots["about"] = "memory", "recall", m.group("q").strip()
                 break
     if intent is None:
         for topic, rx in _FACTUAL:
@@ -577,6 +601,102 @@ def _as_dev_fact(spec: Spec, entry: dict, variant: int = 0) -> None:
     spec["length_words"] = [max(1, n - 3), n]
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# What the pilot said before: a quotation from the conversation log, never a paraphrase
+# ---------------------------------------------------------------------------------------------------------------
+# {When} opens a sentence ("Yesterday", "12 September"); {when} sits inside one ("yesterday", "on 12 September").
+# {said} is the pilot's own sentence from the log, untouched. The frames carry no fact of their own.
+_RECALL_LINES = {
+    "elah": {"found": ["{When}. You said: {said}", "{When}, you said this: {said}"],
+             "none": ["Nothing in the log about that.", "I have no record of you saying anything about that."],
+             "off": ["I am not keeping our conversations, so there is nothing for me to look through."]},
+    "montaigne": {"found": ["The log has it, pilot. {When} you said: {said}",
+                            "I have it from the log, not from memory: {when} you said: {said}"],
+                  "none": ["My log holds no record of it, and a memory without a record is only a story.",
+                           "I find nothing of it in the log, pilot, and I will not pretend to remember."],
+                  "off": ["Our conversations are not being kept, pilot, so there is no log for me to consult."]},
+}
+RECALL_MAX_WORDS = 45
+
+
+def recall_spec(route_result: Route, found: Optional[dict], variant: int = 0, now: Optional[float] = None,
+                keeping: bool = True) -> Spec:
+    """The answer to "what did I say about ...": `found` is ONE original line of the conversation log (a pilot
+    line, as tree_memory returns it) or None. The line is quoted whole inside a fixed frame."""
+    import time as _time
+    import tree_memory as tm
+    addressee, intent, slots = route_result
+    nid = _Ids()
+    lines = _RECALL_LINES[addressee]
+    claims = [_claim(nid(), "PILOT_SUBMISSION", "pilot.asked_about", slots.get("about", ""))]
+    if found is not None:
+        when = tm.spoken_date(found["t"], _time.time() if now is None else now)
+        inside = when[0].lower() + when[1:] if when in ("Earlier today", "Yesterday") else "on " + when
+        said = found["text"] if found["text"][-1:] in ".!?" else found["text"] + "."
+        frame = lines["found"][variant % len(lines["found"])]
+        text = frame.format(When=when, when=inside, said=said)
+        claims += [_claim(nid(), "HISTORY", "memory.pilot_said", found["text"]),
+                   _claim(nid(), "HISTORY", "memory.said_when", when)]
+        recall = {"id": found["id"], "said": said, "frame": frame.format(When=when, when=inside, said="").strip()}
+        key = "found"
+    else:
+        key = "none" if keeping else "off"
+        text = lines[key][variant % len(lines[key])]
+        claims.append(_unknown(nid(), "memory.pilot_said"))
+        recall = {"id": None, "said": "", "frame": text}
+    n = len(text.split())
+    return {
+        "scenario": "direct_memory_recall", "speaker": addressee, "rhetoric": ["CALLBACK" if addressee == "elah" else "EVIDENCE_SKEPTIC"],
+        "claims": claims,
+        "interpretation": {"owner": addressee, "text": "quotes what the log holds, word for word, and adds nothing",
+                           "grounds": [c["id"] for c in claims if c["kind"] == "HISTORY"]},
+        "required_claims": [c["id"] for c in claims if c["kind"] != "PILOT_SUBMISSION"][:2],
+        "required_values": [], "length_words": [max(1, n - 3), n],
+        "id": f"dir_memory_recall_{addressee}_{key}_v{variant}", "lane": "direct",
+        "route": {"addressee": addressee, "intent": intent, "topic": "recall", "text": slots["text"]},
+        "fixed_text": text, "recall": recall,
+    }
+
+
+def recall_problems(spec: Spec, text: str, store=None) -> list[str]:
+    """Why `text` may not be said as an answer about what the pilot said before ([] = it may).
+
+    * The pilot's sentence is in the line WHOLE and unchanged. It is not grounded like a companion's own words: it
+      is a quotation, and the only test a quotation has is that it is exact.
+    * With `store` (the conversation log), the sentence must be the text of the log line the spec cites, as it
+      is on disk NOW. A summary node is never consulted: only the original line counts.
+    * Everything around it is the fixed frame: no word in it that is not in the claims or the closed vocabulary,
+      no number, no name, no quotation mark.
+    * When nothing was found, the line may not say "you said" at all."""
+    rec = spec.get("recall") or {}
+    fails = []
+    said = rec.get("said") or ""
+    if rec.get("id"):
+        if not said or said not in text:
+            fails.append("does not quote the pilot's sentence whole")
+        if store is not None:
+            orig = store.get(rec["id"])
+            if orig is None or orig.get("who") != "pilot":
+                fails.append("cites a log line that is not there")
+            elif orig["text"] not in text:
+                fails.append("the quotation is not the text of the log line it cites")
+        frame = text.replace(said, " ", 1) if said else text
+    else:
+        frame = text
+        if re.search(r"\byou (?:said|told|mentioned)\b(?! anything)", text.lower()):
+            fails.append("claims the pilot said something the log does not hold")
+    n = len(frame.split())
+    fspec = dict(spec, length_words=[max(1, n - 3), n], allowed_names=[])
+    fails += [f for f in ground(fspec, frame) if not f.startswith("unauthorized numbers")]
+    if re.search(r"\d", frame.replace(str(next((c["value"] for c in spec["claims"]
+                                                if c["predicate"] == "memory.said_when"), "")), " ")):
+        fails.append("a number outside the quotation")
+    novel = pk.novel_words(dict(spec, claims=[c for c in spec["claims"] if c["predicate"] != "memory.pilot_said"]), frame)
+    if novel:
+        fails.append(f"says more than the quotation {novel}")
+    return fails
+
+
 def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict], variant: int = 0,
                 fact: Optional[dict] = None) -> Optional[Spec]:
     """Route -> one semantic spec whose claims come ONLY from state / history_facts, or None for noise.
@@ -592,6 +712,8 @@ def answer_spec(route_result: Route, state: dict, history_facts: Optional[dict],
         return None
     if intent == "factual" and topic in PLACE_TOPICS:
         return place_spec(route_result, state, variant, fact)
+    if intent == "memory" and topic == "recall":
+        return recall_spec(route_result, None, variant, keeping=False)     # no log was handed in: ConversationLane has it
     if intent == "factual":
         if topic == "injury":
             claims = _injury_claims(state, nid)
@@ -665,6 +787,8 @@ _ENTITY_NAMES = sorted({n for info in LOCATION_MAP.values() for n in (info.name,
 def ground_direct(spec: Spec, text: str) -> list[str]:
     """ground() plus a closed-set entity check: any known place/system named in the line must be a claim value.
     Catches the realizer answering an UNKNOWN location with a real-sounding place, which ground() cannot."""
+    if spec.get("recall") is not None:
+        return recall_problems(spec, text)           # a quotation and its frame: see recall_problems
     fails = ground(spec, text)
     authorised = " | ".join(str(c["value"]).lower() for c in spec["claims"])
     low = text.lower()
@@ -742,6 +866,9 @@ class ConversationLane:
         # place_knowledge.PlaceKnowledge, or None: a question about the place is then answered with its name alone.
         self.knowledge = knowledge
         self._told: dict[tuple, int] = {}          # (speaker, place) -> facts already given; asking again moves on
+        # tree_memory.TreeStore (the conversation log), or None when conversations are not being kept.
+        self.memory = None
+        self._recalled: dict[tuple, int] = {}      # (speaker, what was asked) -> matches already given
 
     def _place_answer(self, r: Route, state: dict) -> Spec:
         """The answer to a place question, with the next fact this speaker has not yet given for this place.
@@ -767,11 +894,43 @@ class ConversationLane:
                 return spec
         return place_spec(r, state, self.variant, None)
 
+    def _recall_answer(self, r: Route) -> Spec:
+        """What the pilot said about it before: the best matching ORIGINAL line of the log that is a statement of
+        the pilot's (never one of these questions, never the sentence being asked), quoted. Asking again gives the
+        next match. Lines the gate would refuse in a frame (too long to say, a quotation mark) are passed over."""
+        who, _, slots = r
+        if self.memory is None:
+            return recall_spec(r, None, self.variant, keeping=False)
+        about = slots.get("about", "")
+        asked = set(_norm(slots.get("said", "")).split())
+        usable = []
+        try:
+            found = self.memory.recall(who, about, k=8)
+        except Exception:
+            found = []
+        for ex in found:
+            line = ex[0]
+            if line.get("who") != "pilot" or len(line["text"].split()) > RECALL_MAX_WORDS:
+                continue
+            if set(_norm(line["text"]).split()) == asked or route(line["text"])[2].get("topic") == "recall":
+                continue
+            spec = recall_spec(r, line, self.variant)
+            if not recall_problems(spec, spec["fixed_text"], self.memory):
+                usable.append(line)
+        if not usable:
+            return recall_spec(r, None, self.variant)
+        key = (who, " ".join(sorted(set(_norm(about).split()))))
+        line = usable[self._recalled.get(key, 0) % len(usable)]
+        self._recalled[key] = self._recalled.get(key, 0) + 1
+        return recall_spec(r, line, self.variant)
+
     def handle(self, utterance: str, state: dict, history_facts: Optional[dict] = None) -> Optional[Spec]:
         r = route(utterance)
         self.last_route = r
         if r[1] == "factual" and r[2].get("topic") in PLACE_TOPICS:
             spec = self._place_answer(r, state or {})
+        elif r[1] == "memory" and r[2].get("topic") == "recall":
+            spec = self._recall_answer(r)
         else:
             spec = answer_spec(r, state, history_facts, self.variant)
         if spec is not None:
@@ -814,6 +973,8 @@ def check_spec(spec: Spec, state: dict, hist: dict, utterance: str) -> list[str]
             errs.append(f"OBSERVED {c['predicate']}={v!r} is not in state")
         elif k == "HISTORY" and str(v) not in hv:
             errs.append(f"HISTORY {c['predicate']}={v!r} is not in history_facts")
+        elif k == "UNKNOWN" and c["predicate"] == "memory.pilot_said":
+            pass                                     # nothing in the log, or no log: said as such
         elif k == "PILOT_SUBMISSION" and str(v) not in said:
             errs.append(f"PILOT_SUBMISSION {v!r} is not what the pilot said")
         elif k == "UNKNOWN" and v != UNKNOWN_VALUE:
@@ -893,7 +1054,7 @@ CASES = [
 def echo_realizer(spec: Spec) -> str:
     """Honest fake: says the claim values and admits the unknowns. Values first so truncation keeps them.
     For a question about a place the honest line is the planned one: the claims themselves, in order."""
-    if spec.get("place"):
+    if spec.get("place") or spec.get("recall") is not None:
         return spec.get("fixed_text") or pk.answer_line(spec)
     vals = [str(c["value"]) for c in spec["claims"] if c["kind"] in ("OBSERVED", "HISTORY") and not isinstance(c["value"], bool)]
     words = (("Pilot, " + ", ".join(vals) + ".") if vals else "Pilot.").split()

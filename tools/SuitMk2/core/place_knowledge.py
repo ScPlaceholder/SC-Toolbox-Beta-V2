@@ -258,6 +258,8 @@ can't cannot unable able way from here
 part rest piece bit kind sort matter case
 myself yourself am philosopher
 stand stands standing sit sits sitting worth mine nobody
+memory remember story pretend keeping kept conversation conversations consult find finds earlier yesterday through
+hold holds
 """.split())
 VOCABULARY = _GRAMMAR | _VOICE
 

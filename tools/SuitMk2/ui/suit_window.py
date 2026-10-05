@@ -808,6 +808,8 @@ class _SuitBody:
             self.core.feedback.press(reaction)
             self.core._note(f"feedback (spoken): {reaction}")
             return
+        if hasattr(self.lane, "memory"):          # the conversation log, for "what did I say about ..."
+            self.lane.memory = getattr(self.core, "tree", None)
         know = getattr(self.core, "place_knowledge", None)
         if callable(know) and getattr(self.lane, "knowledge", True) is None:
             self.lane.knowledge = know()         # lore, brochures and dev history the core already has in memory
