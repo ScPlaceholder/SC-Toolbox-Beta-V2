@@ -85,7 +85,104 @@ FALLBACK_NAME = "Toolbox Assistant"
 # until its hotkey was pressed).
 PRELOAD_TAB = TAB_SUIT
 
-DEFAULT_SIZE = (560, 600)       # used until the window has a saved size of its own
+# THE SIZE. The window first shipped opening at 560x600, and on J's launcher (2026-10-04, UI scale 1.5) the Suit Mk2
+# tab was unreadable at that size: nine status rows 4 px high and drawn over each other, six button labels cut, and
+# the title cut to "TOOLBOX ASSISTANT / A". SuitMk2's dashboard is a plain column with no scroll area, and a window's
+# explicit minimum size overrides what its layout needs, so nothing stopped the window being smaller than its content.
+#
+# MIN_SIZE is the smallest window at which that tab can be read, MEASURED: the real SuitPanel laid out with the real
+# fonts and the widest row texts seen live, at each size from 520 wide upward, checking every label, button, checkbox
+# and combo for being narrower or shorter than it needs and for overlapping a neighbour:
+#       UI scale 1.5    830 x 650          UI scale 1.0    860 x 640
+# (800x740 still cuts "Keep training screenshots" and "Export training screenshots" at both scales.) 860x650 is
+# clean at both, and the whole title fits from 800 up. The window cannot be made smaller, and a saved size that is
+# smaller is raised when it is loaded. SCWindow lowers a minimum that does not fit the screen (1920x1080 at scale
+# 1.5 is 1280x720 of these units).
+MIN_SIZE = (860, 650)
+DEFAULT_SIZE = (860, 740)       # used until the window has a saved size of its own; the extra height is the log's
+
+# THE PLACE. Until it has a position the user chose, the window opens beside the launcher: both default to the
+# same corner (100,100), and it first opened exactly on top of the launcher. What the first version saved when it
+# was closed where it first appeared is that same corner at the old size, and is not a choice either.
+OLD_FIRST_OPEN = (100, 100, 560, 600)
+LAUNCHER_GAP = 12
+
+
+def _int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def opening_size(saved) -> tuple:
+    """(w, h) to open at: the saved size, each side raised to MIN_SIZE; DEFAULT_SIZE when none was saved."""
+    w, h = _int((saved or {}).get("w")), _int((saved or {}).get("h"))
+    if w is None or h is None:
+        return DEFAULT_SIZE
+    return max(w, MIN_SIZE[0]), max(h, MIN_SIZE[1])
+
+
+def position_is_the_users(saved) -> bool:
+    """False while the window has never been put anywhere by the user: nothing saved, or what the first version
+    saved at its first-open corner (OLD_FIRST_OPEN, give or take the few pixels a frame adds)."""
+    x, y, w, h = (_int((saved or {}).get(k)) for k in ("x", "y", "w", "h"))
+    if x is None or y is None:
+        return False
+    ox, oy, ow, oh = OLD_FIRST_OPEN
+    return not (abs(x - ox) <= 4 and abs(y - oy) <= 4 and (w, h) == (ow, oh))
+
+
+def as_rect(value):
+    """(x, y, w, h) from what the launcher sent, or None if it is not a rectangle on a screen (the launcher parks
+    itself at -32000,-32000 while a tool is open, when that setting is on)."""
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    r = tuple(_int(v) for v in value)
+    if None in r or r[2] <= 0 or r[3] <= 0 or r[0] <= -30000 or r[1] <= -30000:
+        return None
+    return r
+
+
+def launcher_rect(pending):
+    """Where the launcher says it is, from commands queued before this window existed (a hotkey that had to start
+    the tool); None when none says."""
+    found = None
+    for cmd in pending or []:
+        if isinstance(cmd, dict) and cmd.get("type") in ("show", "toggle"):
+            found = as_rect(cmd.get("launcher")) or found
+    return found
+
+
+def beside(launcher, size, screen, gap: int = LAUNCHER_GAP) -> tuple:
+    """(x, y) for a window of *size* on *screen* (x, y, w, h: the part of the launcher's monitor a window may use).
+
+    To the launcher's right with the tops level; to its left when the right has no room; fully on the screen
+    either way. Centred on the screen when the launcher's place is not known, or when neither side has room (a
+    small screen: the two cannot both be seen whole there, and centred is where a window is looked for)."""
+    sx, sy, sw, sh = screen
+    w, h = min(size[0], sw), min(size[1], sh)
+    centre = (sx + (sw - w) // 2, sy + (sh - h) // 2)
+    if not launcher:
+        return centre
+    lx, ly, lw, _lh = launcher
+    y = max(sy, min(ly, sy + sh - h))
+    if lx + lw + gap + w <= sx + sw:
+        return lx + lw + gap, y
+    if lx - gap - w >= sx:
+        return lx - gap - w, y
+    return centre
+
+
+def _screen_of(launcher) -> tuple:
+    """The usable rectangle of the monitor the launcher is on (the primary one when that is not known)."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QGuiApplication
+    screen = None
+    if launcher:
+        screen = QGuiApplication.screenAt(QPoint(launcher[0] + launcher[2] // 2, launcher[1] + launcher[3] // 2))
+    g = (screen or QGuiApplication.primaryScreen()).availableGeometry()
+    return g.x(), g.y(), g.width(), g.height()
 
 
 def tool_name() -> str:
@@ -202,21 +299,28 @@ def main() -> int:
         except (OSError, ValueError):
             pending = []
 
-    # The launcher passes its generic 1300x800 until this window has saved a size of its own.
-    w, h = args["w"], args["h"]
-    if not load_window_state(os.path.splitext(os.path.basename(__file__))[0]):
-        w, h = DEFAULT_SIZE
+    # The launcher passes its generic 1300x800 until this window has saved a size of its own, so the size is taken
+    # from the saved state itself (see THE SIZE and THE PLACE above).
+    saved = load_window_state(os.path.splitext(os.path.basename(__file__))[0])
+    w, h = opening_size(saved)
 
     from assistant.hub import HubWindow
     window = HubWindow(title=tool_name(), tabs=build_tabs(cmd_file), first=first_tab(preload, pending),
-                       width=w, height=h, opacity=args["opacity"], accent=P.energy_cyan,
-                       icon_text="🤖", standalone=standalone)
+                       width=w, height=h, min_width=MIN_SIZE[0], min_height=MIN_SIZE[1],
+                       opacity=args["opacity"], accent=P.energy_cyan, icon_text="🤖", standalone=standalone)
     window.restore_geometry_from_args(args["x"], args["y"], w, h, args["opacity"])
+    if not position_is_the_users(saved):
+        def place(raw):
+            launcher = as_rect(raw)
+            return beside(launcher, (window.width(), window.height()), _screen_of(launcher))
+        window.place_on_first_show(place)
     for line in check_module_names():
         log.error("toolbox assistant: %s", line)
 
     if not preload:
-        window.show()           # by hand, or a hotkey/tile press that had to start it; preload: stay hidden
+        # by hand, or a hotkey/tile press that had to start it; preload: stay hidden
+        window.place_for_first_show(launcher_rect(pending))
+        window.show()
 
     if not standalone:
         watcher = IPCWatcher(cmd_file, poll_ms=150)

@@ -707,6 +707,151 @@ def test_the_two_tools_module_names_do_not_collide_in_one_process(tmp_path):
     assert {"assistant", "suitmk2", "starmap"} <= set(out["skills"])
 
 
+# ── how big the window opens, and where ──────────────────────────────────────
+# Live on J's launcher, 2026-10-04: the window first opened at 560x600 exactly on top of the launcher (both default
+# to 100,100), and at that size the Suit Mk2 tab was unreadable: nine status rows 4 px high and drawn over each
+# other, six button labels cut (merge_live_04_suit_tab.png). The numbers in MIN_SIZE were measured, not chosen: the
+# real SuitPanel laid out with the real fonts at UI scale 1.5 and 1.0, smallest size with nothing cut or overlapping.
+
+def _overlap(a, b):
+    return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+
+def _inside(r, screen):
+    return (screen[0] <= r[0] and screen[1] <= r[1] and r[0] + r[2] <= screen[0] + screen[2]
+            and r[1] + r[3] <= screen[1] + screen[3])
+
+
+def test_the_window_opens_at_a_size_the_suit_tab_can_be_read_at():
+    e = _entry()
+    assert e.opening_size({}) == e.DEFAULT_SIZE
+    assert e.DEFAULT_SIZE[0] >= e.MIN_SIZE[0] and e.DEFAULT_SIZE[1] >= e.MIN_SIZE[1]
+    # measured: 830x650 at UI scale 1.5, 860x640 at 1.0; both hold at 860x650
+    assert e.MIN_SIZE[0] >= 860 and e.MIN_SIZE[1] >= 650, e.MIN_SIZE
+
+
+def test_a_saved_size_that_is_too_small_is_raised_to_the_minimum():
+    e = _entry()
+    mw, mh = e.MIN_SIZE
+    assert e.opening_size({"x": 101, "y": 100, "w": 560, "h": 600}) == (mw, mh), "J's saved 560x600 was kept"
+    assert e.opening_size({"w": 1200, "h": 38}) == (1200, mh)          # saved while collapsed to its title bar
+    assert e.opening_size({"w": 300, "h": 900}) == (mw, 900)
+    assert e.opening_size({"w": 1200, "h": 900}) == (1200, 900), "a size the user chose was changed"
+    assert e.opening_size({"w": "junk"}) == e.DEFAULT_SIZE
+
+
+def test_the_window_cannot_be_made_smaller_than_its_minimum(app):
+    # sizes that fit the 800x800 screen the offscreen platform has (SCWindow lowers a minimum to the screen)
+    w, _mic, _built = make_hub(first="suitmk2", width=700, height=600, min_width=640, min_height=520)
+    w.resize(400, 300)
+    assert (w.width(), w.height()) == (640, 520), (w.width(), w.height())
+    w2, _mic2, _built2 = make_hub(first="suitmk2")                      # not asked for: as it always was
+    assert (w2.minimumWidth(), w2.minimumHeight()) == (420, 360)
+
+
+def test_first_open_is_beside_the_launcher_not_on_top_of_it():
+    e = _entry()
+    screen, size = (0, 0, 2560, 1400), e.DEFAULT_SIZE
+    launcher = (100, 100, 500, 550)
+    x, y = e.beside(launcher, size, screen)
+    assert not _overlap((x, y) + size, launcher), "opened over the launcher: %r" % ((x, y),)
+    assert _inside((x, y) + size, screen)
+    assert x > launcher[0] + launcher[2] and y == launcher[1]            # to its right, tops level
+    # no room on the right: to its left
+    launcher = (1900, 300, 500, 550)
+    x, y = e.beside(launcher, size, screen)
+    assert not _overlap((x, y) + size, launcher) and _inside((x, y) + size, screen) and x < launcher[0]
+    # the launcher on a second monitor to the left of the main one: the same screen as the launcher
+    left = (-1920, 0, 1920, 1040)
+    launcher = (-1800, 400, 500, 550)
+    x, y = e.beside(launcher, size, left)
+    assert not _overlap((x, y) + size, launcher) and _inside((x, y) + size, left), (x, y)
+    # launcher low on the screen: kept fully on screen
+    x, y = e.beside((100, 1000, 500, 550), size, screen)
+    assert _inside((x, y) + size, screen)
+
+
+def test_first_open_is_centred_when_the_launcher_is_not_known_or_leaves_no_room():
+    e = _entry()
+    screen, size = (0, 0, 2560, 1400), e.DEFAULT_SIZE
+    centre = ((2560 - size[0]) // 2, (1400 - size[1]) // 2)
+    assert e.beside(None, size, screen) == centre
+    small = (0, 0, 1280, 700)                                           # 1920x1080 at UI scale 1.5
+    x, y = e.beside((400, 60, 500, 550), size, small)
+    assert _inside((x, y, min(size[0], 1280), min(size[1], 700)), small)
+    # what the launcher sends is checked before it is believed
+    assert e.as_rect([100, 100, 500, 550]) == (100, 100, 500, 550)
+    for bad in (None, [], [1, 2, 3], "100,100,500,550", [1, 2, 0, 5], [1, 2, "a", 5], [-32000, -32000, 500, 550]):
+        assert e.as_rect(bad) is None, bad
+    assert e.launcher_rect([{"type": "show", "tab": "suitmk2", "launcher": [5, 6, 500, 550]}]) == (5, 6, 500, 550)
+    assert e.launcher_rect([{"type": "show", "tab": "suitmk2"}, {"type": "hide"}]) is None
+
+
+def test_a_position_the_user_chose_is_not_the_first_open():
+    e = _entry()
+    assert e.position_is_the_users({}) is False
+    # what the first version saved the first time it was closed: the old default, on top of the launcher
+    assert e.position_is_the_users({"x": 101, "y": 100, "w": 560, "h": 600}) is False
+    assert e.position_is_the_users({"x": 100, "y": 100, "w": 560, "h": 600}) is False
+    assert e.position_is_the_users({"x": 1435, "y": 0, "w": 900, "h": 700}) is True
+    assert e.position_is_the_users({"x": 100, "y": 100, "w": 900, "h": 700}) is True      # he resized it there
+    assert e.position_is_the_users({"x": 640, "y": 100, "w": 560, "h": 600}) is True      # he moved it
+
+
+def test_the_window_is_placed_at_its_first_showing_and_never_again(app):
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)
+    asked = []
+
+    def place(launcher):
+        asked.append(launcher)
+        return (220, 40)
+
+    w.place_on_first_show(place)
+    w.move(100, 100)
+    w.handle_ipc_command({"type": "toggle", "tab": "assistant", "launcher": [100, 100, 500, 550]})
+    assert w.isVisible() and asked == [[100, 100, 500, 550]], asked
+    assert (w.x(), w.y()) == (220, 40), "the first showing left the window where it was: %r" % ((w.x(), w.y()),)
+    w.move(60, 180)                                         # the user drags it
+    w.handle_ipc_command({"type": "hide"})
+    w.handle_ipc_command({"type": "toggle", "tab": "assistant", "launcher": [100, 100, 500, 550]})
+    assert w.isVisible() and (w.x(), w.y()) == (60, 180) and len(asked) == 1, "a position the user chose was moved"
+
+
+def test_a_window_with_a_position_of_its_own_is_not_moved_by_the_launcher(app):
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)        # no place_on_first_show: saved position
+    w.move(30, 200)
+    w.handle_ipc_command({"type": "toggle", "tab": "suitmk2", "launcher": [100, 100, 500, 550]})
+    assert w.isVisible() and (w.x(), w.y()) == (30, 200)
+
+
+def test_a_window_that_was_never_shown_does_not_save_where_it_was_not_put(app, monkeypatch):
+    """Started hidden by the launcher and never opened: it still sits at the launcher's default corner. Saving that
+    on quit would make the next start take it for a position the user chose, and open over the launcher."""
+    saves, quits = [], []
+    monkeypatch.setattr(hub, "_save_window_state", lambda w: saves.append((w.x(), w.y())))
+    monkeypatch.setattr(hub.QApplication, "quit", staticmethod(lambda: quits.append(1)))
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)
+    w.place_on_first_show(lambda launcher: (220, 40))
+    w._quit()
+    assert quits == [1] and saves == [], saves
+    w2, _mic2, _built2 = make_hub(first="suitmk2", standalone=False)
+    w2.place_on_first_show(lambda launcher: (220, 40))
+    w2.handle_ipc_command({"type": "show", "tab": "suitmk2"})
+    w2._on_close()
+    assert saves == [(220, 40)], saves
+
+
+def test_the_launcher_says_where_it_is_with_the_request(app):
+    w, _mic, _built = make_hub(first="suitmk2", standalone=False)
+    mp, sent = _launcher_for(w)
+    mp.toggle_tab("assistant", near=[100, 100, 500, 550])
+    assert sent[-1] == {"type": "toggle", "tab": "assistant", "launcher": [100, 100, 500, 550]}
+    mp.show_tab("suitmk2", near=[7, 8, 500, 550])
+    assert sent[-1] == {"type": "show", "tab": "suitmk2", "launcher": [7, 8, 500, 550]}
+    mp.toggle_tab("suitmk2")                                 # not known: nothing invented
+    assert sent[-1] == {"type": "toggle", "tab": "suitmk2"}
+
+
 def test_check_module_names_says_so_when_the_wrong_ui_is_loaded(monkeypatch):
     e = _entry()
     fake = type(sys)("ui")

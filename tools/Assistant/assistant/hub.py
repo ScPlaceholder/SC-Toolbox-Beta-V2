@@ -34,6 +34,14 @@ Rules the window keeps, each with a test in tests/test_hub_window.py:
                    The choice is made HERE, from what the window really is,
                    because the launcher is not told about the X or about a
                    click on a tab.
+  first showing    A window that has no position the user chose is put
+                   somewhere sensible the first time it is shown, by the
+                   function given to place_on_first_show (the entry script's:
+                   beside the launcher, which says where it is in its "show"
+                   / "toggle" as "launcher": [x, y, w, h]). Once only; after
+                   that the window is wherever the user leaves it. Until
+                   then its position is not saved either: it has not been
+                   put anywhere yet.
   closing          The X hides the window when the launcher started it (the
                    companions keep following the game), and quits when it was
                    started by hand.
@@ -46,7 +54,7 @@ microphone simply does not define mic_take / mic_release.
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -111,8 +119,11 @@ class HubWindow(SCWindow):
     def __init__(self, title: str, tabs: Sequence[TabSpec], first: str = "",
                  width: int = 560, height: int = 560, opacity: float = 0.95,
                  accent: str = "", icon_text: str = "", standalone: bool = False,
-                 parent: Optional[QWidget] = None) -> None:
-        super().__init__(title=title, width=width, height=height, min_w=420, min_h=360,
+                 parent: Optional[QWidget] = None,
+                 min_width: int = 420, min_height: int = 360) -> None:
+        # min_width / min_height: the smallest size at which every tab can still be read; whoever knows the tabs
+        # says (SCWindow lowers it to the screen when the screen is smaller).
+        super().__init__(title=title, width=width, height=height, min_w=min_width, min_h=min_height,
                          opacity=opacity, accent=accent or P.energy_cyan, parent=parent)
         if not tabs:
             raise ValueError("a HubWindow needs at least one tab")
@@ -122,6 +133,8 @@ class HubWindow(SCWindow):
         self._current = ""
         self._standalone = bool(standalone)
         self._quitting = False
+        self._place: Optional[Callable[[Any], Any]] = None      # see place_on_first_show
+        self._launcher: Any = None                              # where the launcher last said it was
         accent = accent or P.energy_cyan
 
         tb = SCTitleBar(window=self, title=title.upper(), icon_text=icon_text,
@@ -231,9 +244,35 @@ class HubWindow(SCWindow):
         super().hideEvent(event)
         self._tell_tabs("host_visibility_changed")
 
+    # ── where the window first appears ───────────────────────────────────
+    def place_on_first_show(self, place: Optional[Callable[[Any], Any]]) -> None:
+        """Have *place* choose the window's position the first time it is shown. ``place(launcher)`` gets what the
+        launcher last sent as "launcher" (None if nothing) and returns (x, y), or None to leave the window alone.
+        Not for a window whose position the user chose."""
+        self._place = place
+
+    def place_for_first_show(self, launcher: Any = None) -> None:
+        """Place the window now if it is still waiting to be placed. Once: the function is dropped first."""
+        place, self._place = self._place, None
+        if place is None:
+            return
+        try:
+            pos = place(launcher)
+        except Exception:                       # noqa: BLE001 - a window in the wrong place still opens
+            log.exception("hub: could not choose where to open")
+            return
+        if pos:
+            self.move(int(pos[0]), int(pos[1]))
+
+    def _save_state(self) -> None:
+        if self._place is None:                 # never shown: it has no position worth remembering yet
+            _save_window_state(self)
+
     def _show_tab(self, key: str = "") -> None:
         if key:
             self.select(key)
+        if self.isHidden():
+            self.place_for_first_show(self._launcher)
         self.showNormal()
         self.raise_()
         self.activateWindow()
@@ -242,6 +281,8 @@ class HubWindow(SCWindow):
     def handle_ipc_command(self, cmd: dict) -> None:
         t = cmd.get("type", "")
         tab = str(cmd.get("tab") or "")
+        if cmd.get("launcher") is not None:
+            self._launcher = cmd.get("launcher")
         if t == "show":
             self._show_tab(tab)
         elif t == "hide":
@@ -259,7 +300,7 @@ class HubWindow(SCWindow):
         if self._standalone:
             self._quit()
         else:
-            _save_window_state(self)    # hide is not close: SCWindow only saves on closeEvent
+            self._save_state()          # hide is not close: SCWindow only saves on closeEvent
             self.hide()             # the tabs keep running; the launcher's quit ends them
 
     def _quit(self) -> None:
@@ -270,7 +311,7 @@ class HubWindow(SCWindow):
         if self._quitting:
             return
         self._quitting = True
-        _save_window_state(self)
+        self._save_state()
         try:
             self._tell_tabs("shutdown")
         finally:

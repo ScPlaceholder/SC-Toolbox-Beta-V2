@@ -341,17 +341,28 @@ class ManagedProcess:
     # can be one step behind after an X or a click on a tab, exactly as
     # ``_visible`` already is for every tool whose X hides its window.
 
-    def show_tab(self, tab: str) -> None:
+    @staticmethod
+    def _tab_cmd(kind: str, tab: str, near) -> dict:
+        """The command for a tab. *near* is the launcher window's own
+        rectangle [x, y, w, h], when the launcher could say: a window that
+        has never been placed by the user opens beside it instead of on top
+        of it (both default to the same corner). Left out when not known."""
+        cmd: dict[str, Any] = {"type": kind, "tab": tab}
+        if near:
+            cmd["launcher"] = list(near)
+        return cmd
+
+    def show_tab(self, tab: str, near=None) -> None:
         """show(), on one tab. Starts the process if needed, and the tab
         request waits in the command file until the tool reads it."""
         with self._lock:
             if not self.running and not self._start_unlocked():
                 return
-            self._send_unlocked({"type": "show", "tab": tab})
+            self._send_unlocked(self._tab_cmd("show", tab, near))
             self._visible = True
             self._tab = tab
 
-    def toggle_tab(self, tab: str) -> None:
+    def toggle_tab(self, tab: str, near=None) -> None:
         """toggle(), per tab: the window hides only when it is showing THIS
         tab; otherwise it shows itself on it. The window makes that choice
         (see the note above); a window that had to be started is told "show"
@@ -362,10 +373,10 @@ class ManagedProcess:
                 if self._proc is not None and self._proc.poll() is not None:
                     self._record_crash()
                 if self._start_unlocked():
-                    self._send_unlocked({"type": "show", "tab": tab})
+                    self._send_unlocked(self._tab_cmd("show", tab, near))
                     self._tab = tab
                 return
-            self._send_unlocked({"type": "toggle", "tab": tab})
+            self._send_unlocked(self._tab_cmd("toggle", tab, near))
             if self._visible and self._tab == tab:
                 self._visible = False
             else:

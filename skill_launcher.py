@@ -398,12 +398,27 @@ class SCToolboxApp:
         hosts_tabs = any(s.tab_of == skill_id and not self._pm.get(s.id) for s in self._skills)
         return skill_id, mp, (skill_id if hosts_tabs else None)
 
+    def _launcher_rect(self):
+        """[x, y, w, h] of the launcher window, in the units every tool's
+        window uses (the same QT_SCALE_FACTOR), or None if it cannot be had.
+
+        Sent with a tab window's show / toggle so a window the user has
+        never placed opens beside the launcher, not on top of it. While the
+        launcher has parked itself off-screen for an open tool
+        (hide_on_tool_active), this is the place it will come back to."""
+        try:
+            pos = self._autohide_pos if getattr(self, "_autohide_stashed", False) else self._window.pos()
+            size = self._window.size()
+            return [int(pos.x()), int(pos.y()), int(size.width()), int(size.height())]
+        except Exception:  # noqa: BLE001 - where to open is a nicety; opening is not
+            return None
+
     def _toggle_skill(self, skill_id: str) -> None:
         pid, mp, tab = self._process_for(skill_id)
         if not mp:
             return
         if tab:
-            mp.toggle_tab(tab)
+            mp.toggle_tab(tab, near=self._launcher_rect())
         else:
             mp.toggle()
         self._window.update_tile(pid, mp.running, mp.visible)
@@ -761,7 +776,7 @@ class SCToolboxApp:
             sid, mp, tab = self._process_for(cmd.get("skill_id", ""))
             if mp:
                 if tab:
-                    mp.show_tab(tab)
+                    mp.show_tab(tab, near=self._launcher_rect())
                 else:
                     mp.show()
                 self._window.update_tile(sid, mp.running, mp.visible)

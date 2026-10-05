@@ -76,14 +76,16 @@ class _MP:
     def toggle(self):
         self._pm.calls.append((self.skill_id, "toggle", None))
 
-    def toggle_tab(self, tab):
+    def toggle_tab(self, tab, near=None):
         self._pm.calls.append((self.skill_id, "toggle_tab", tab))
+        self._pm.near.append(near)
 
     def show(self):
         self._pm.calls.append((self.skill_id, "show", None))
 
-    def show_tab(self, tab):
+    def show_tab(self, tab, near=None):
         self._pm.calls.append((self.skill_id, "show_tab", tab))
+        self._pm.near.append(near)
 
     def stop(self):
         self._pm.calls.append((self.skill_id, "stop", None))
@@ -99,6 +101,7 @@ class _RecordingPM:
         self.registered: dict[str, dict] = {}
         self.procs: dict[str, _MP] = {}
         self.calls: list = []
+        self.near: list = []        # where the launcher said it was, per toggle_tab / show_tab
 
     def register(self, skill_id, python_exe, script, cwd, args, base_dir, env=None):
         self.registered[skill_id] = {"script": script, "env": dict(env or {})}
@@ -206,6 +209,53 @@ def test_a_tab_whose_host_is_not_installed_runs_on_its_own():
     assert "suitmk2" in app._pm.registered
     app._toggle_skill("suitmk2")
     assert app._pm.calls == [("suitmk2", "toggle", None)]
+
+
+# ── where the launcher is, sent with the request ─────────────────────────────
+# The window opens beside the launcher the first time (tools/Assistant/toolbox_assistant_app.py); only the launcher
+# knows where the launcher is, and only at the moment of the press.
+
+class _Pt:
+    def __init__(self, x, y):
+        self._x, self._y = x, y
+
+    def x(self):
+        return self._x
+
+    def y(self):
+        return self._y
+
+    width, height = x, y
+
+
+class _PlacedWindow(_NoWindow):
+    def pos(self):
+        return _Pt(100, 120)
+
+    def size(self):
+        return _Pt(500, 550)
+
+
+def test_the_launcher_tells_a_tab_window_where_the_launcher_is():
+    app = _launcher()
+    app._window = _PlacedWindow()
+    app._toggle_skill("suitmk2")                # Ctrl+2
+    app._toggle_skill("assistant")              # Ctrl+3, and the tile
+    app._dispatch({"type": "launch_skill", "skill_id": "suitmk2"})
+    assert app._pm.near == [[100, 120, 500, 550]] * 3, app._pm.near
+
+
+def test_a_launcher_stashed_off_screen_gives_the_place_it_will_come_back_to():
+    app = _launcher()
+    app._window = _PlacedWindow()
+    app._autohide_stashed, app._autohide_pos = True, _Pt(300, 40)
+    assert app._launcher_rect() == [300, 40, 500, 550]
+
+
+def test_a_launcher_that_cannot_say_where_it_is_still_opens_the_tool():
+    app = _launcher()                           # _NoWindow has no pos()
+    app._toggle_skill("suitmk2")
+    assert app._pm.calls == [("assistant", "toggle_tab", "suitmk2")] and app._pm.near == [None]
 
 
 # ── the process: show / hide per tab ─────────────────────────────────────────
