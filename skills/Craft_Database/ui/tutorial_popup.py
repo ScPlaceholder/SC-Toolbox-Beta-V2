@@ -50,30 +50,51 @@ def _html(body: str) -> str:
     return f'<div style="{_B}">{body}</div>'
 
 
-_TAB_GETTING_STARTED = _html(f"""
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_craft_db", "<shift>+7")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+7"
+
+
+_RED = f"color: {P.red};"
+
+
+def _tab_getting_started() -> str:
+    return _html(f"""
 {_h3("Welcome to the Craft Database", _C_START)}
-<p>This tool lets you browse and filter all <b>crafting blueprints</b>
-in Star Citizen, read from the game's own data files as datamined by
+<p>Use this tool to look up any <b>crafting blueprint</b> in Star Citizen:
+what it needs, how long it takes, and how you get it. The data is read from
+the game's own files, as datamined by
 <span style="{_ACC}">StarCitizenWiki/scunpacked-data</span>.</p>
+
+{_h4("Opening it", _C_START)}
+<p>Craft Database has no tile on the launcher. Open it with its hotkey,
+<span style="{_ACC}">{_hotkey()}</span>. The same key hides the window
+again, and it is shown in this window's title bar.</p>
+<p>To change the key, or to switch the tool on, open the launcher's
+<b>SETTINGS</b> and find the row marked <b>(no tile)</b> on the <b>Tools</b>
+tab. The left toggle switches the tool on or off, the right toggle switches
+its key on or off. A tool that is switched off has no hotkey.</p>
 
 {_h4("Data Loading", _C_START)}
 <p>The blueprints come from one pinned game build (shown at the top right,
 e.g. <b>Game data: 4.10.1-LIVE</b>). They are downloaded once (about 4 MB)
 with the <b>Download</b> button and kept on disk, so the tool then works
-fully offline. The stats bar shows the blueprint and ingredient counts.</p>
+fully offline. The bar at the top shows the <b>BLUEPRINTS</b> and
+<b>INGREDIENTS</b> counts.</p>
 
 {_h4("Layout", _C_START)}
 <p>The window is split into two areas:</p>
 <ul>
-  <li><b>Left panel</b> &mdash; Filter controls (category, resource,
-      obtainable toggle)</li>
+  <li><b>Left panel</b> &mdash; <b>Filters</b>: <b>Obtainable</b>,
+      <b>BLUEPRINT TYPE</b> and <b>RESOURCE NEEDED</b></li>
   <li><b>Center</b> &mdash; Search bar, blueprint grid, and pagination</li>
 </ul>
-
-{_h4("Hotkey", _C_START)}
-<p>The default global hotkey to show / hide this window is
-<b>Shift + 7</b>. You can reassign it in the SC Toolbox settings.</p>
 """)
+
 
 _TAB_BROWSING = _html(f"""
 {_h3("Browsing Blueprints", _C_BROWSE)}
@@ -96,7 +117,7 @@ debounce delay.</p>
       <b>mission reward pools</b> that give it when the individual missions
       are not known</li>
 </ul>
-<p>Click anywhere on a card (or the <span style="{_ACC}">\u2197</span> button)
+<p>Click anywhere on a card (or the <span style="{_ACC}">↗</span> button)
 to open a <b>detail popup</b> with full crafting information.</p>
 
 {_h4("Pagination", _C_BROWSE)}
@@ -114,30 +135,24 @@ known from the start, or given by at least one mission reward pool. The game
 files also hold recipes nothing hands out yet &mdash; untick it to see those
 too.</p>
 
-{_h4("Blueprint Type", _C_FILTER)}
-<p>Filter by item type, e.g. <b>Weapons / Sniper</b>,
+{_h4("Blueprint type", _C_FILTER)}
+<p><b>BLUEPRINT TYPE</b> filters by item type, e.g. <b>Weapons / Sniper</b>,
 <b>Armour / Heavy / Core</b> or <b>Ship Components / Shield</b>. Picking a
 top level (<b>Armour</b>) includes everything under it. Type to fuzzy-search
 the dropdown.</p>
 
-{_h4("Resource Needed", _C_FILTER)}
-<p>Show only blueprints that require a specific crafting material,
-e.g. <b>Tungsten</b> or <b>Taranite</b>.</p>
-
-{_h4("Mission Type / Location / Contractor", _C_FILTER)}
-<p>These three appear <b>only once mission drop data is available</b>, and
-they filter by who gives a blueprint, where, and on what kind of job.</p>
-<p>If you do not see them, the drop data has not been loaded. It is joined
-from the <b>Mission Database</b>'s own cache, so
-<b>open Mission Database once and let it fetch</b>, then reopen this tool.</p>
-<p><span style="{_YLW}">Coverage is partial</span> &mdash; roughly
-<b>645 of the 1,607</b> blueprints have known drops. A blueprint with no
-missions listed means <b>no data</b>, not "nothing drops it".</p>
+{_h4("Resource needed", _C_FILTER)}
+<p><b>RESOURCE NEEDED</b> shows only blueprints that require a specific
+crafting material, e.g. <b>Tungsten</b> or <b>Taranite</b>.</p>
 
 {_h4("Clear all filters", _C_FILTER)}
-<p>The red <span style="{_DIM}">Clear all filters</span> button at the bottom
-of the panel resets every dropdown at once and turns <b>Obtainable</b> back
-on.</p>
+<p>The red <b>Clear all filters</b> button at the bottom of the panel resets
+both dropdowns at once and turns <b>Obtainable</b> back on.</p>
+
+{_h4("Filtering by mission", _C_FILTER)}
+<p>There is no filter for mission type, location or contractor here. To
+start from a mission and see which blueprints it gives, use the
+<b>Mission Database</b>.</p>
 """)
 
 _TAB_INVENTORY = _html(f"""
@@ -150,15 +165,15 @@ changes to a greyed-out <b>Owned</b> label so you can see at a glance
 which blueprints you already have.</p>
 
 {_h4("Viewing Your Inventory", _C_INV)}
-<p>Click the <span style="{_ACC}">INVENTORY (N)</span> button in the stats
-bar at the top of the window. The number in parentheses shows how many
-blueprints you currently own. When active, the button highlights and the
-grid switches to show only your owned blueprints.</p>
+<p>Click the <b>INVENTORY (N)</b> button in the bar at the top of the
+window. The number in parentheses shows how many blueprints you currently
+own. When active, the button highlights and the grid switches to show only
+your owned blueprints.</p>
 
 {_h4("Filtering Your Inventory", _C_INV)}
-<p>All sidebar filters (category, resource) and the search bar work in
-inventory mode too, letting you
-quickly find specific blueprints among your collection.</p>
+<p>The search bar and the <b>BLUEPRINT TYPE</b> and <b>RESOURCE NEEDED</b>
+filters work in inventory mode too, so you can find one blueprint among
+your collection. <b>Obtainable</b> is not applied to your inventory.</p>
 
 {_h4("Removing a Blueprint", _C_INV)}
 <p>While viewing your inventory, each card shows an <b>Unown</b> button.
@@ -174,72 +189,75 @@ _TAB_DETAIL = _html(f"""
 {_h3("Blueprint Detail Popup", _C_DETAIL)}
 
 {_h4("Opening a Popup", _C_DETAIL)}
-<p>Click any blueprint card or its <span style="{_ACC}">\u2197</span> button.
+<p>Click any blueprint card or its <span style="{_ACC}">↗</span> button.
 Up to <b>5 detail popups</b> can be open simultaneously.</p>
 
 {_h4("Global Quality Slider", _C_DETAIL)}
-<p>Drag the slider (or type in the spinbox) to set a quality value from
-<b>0 to 1000</b>. Moving the global slider sets <em>all</em> ingredient
-sliders to the same value at once.</p>
+<p>Under <b>GLOBAL QUALITY</b>, drag the slider (or type in the spinbox) to
+set a quality value from <b>0 to 1000</b>. Moving the global slider sets
+<em>all</em> ingredient sliders to the same value at once.</p>
 
 {_h4("Parts &amp; Per-Slot Quality", _C_DETAIL)}
-<p>Each ingredient slot shows the resource name, the amount, and its own
-<b>independent quality slider</b>. Raw materials are given in <b>cSCU</b>;
-gems and parts are counted as whole pieces (<b>pcs</b>). A slot marked
-<b>(any 2 of 3)</b> means the recipe accepts a choice &mdash; you do not need
-every material listed under it.</p>
+<p>Under <b>PARTS</b>, each ingredient slot shows the resource name, the
+amount, and its own <b>QUALITY</b> slider. Raw materials are given in
+<b>cSCU</b>; gems and parts are counted as whole pieces (<b>pcs</b>). A slot
+marked <b>(any 2 of 3)</b> means the recipe accepts a choice &mdash; you do
+not need every material listed under it.</p>
 <p>Adjust each ingredient's quality individually to see how different
 combinations change the result. Quality effect tags
 (<span style="{_GRN}">+%</span> / <span style="{_YLW}">&minus;%</span>)
 update in real time as you move each slider.</p>
 
 {_h4("Craft &amp; Dismantle Time", _C_DETAIL)}
-<p><b>DISMANTLE</b> sits next to the craft time. Hover it to see what share of
-the materials you get back.</p>
+<p>The row under the title shows <b>CRAFT TIME</b>, <b>TIERS</b> and, when
+the item can be taken apart, <b>DISMANTLE</b>. Hover <b>DISMANTLE</b> to see
+what share of the materials you get back.</p>
 
 {_h4("Stat Summary", _C_DETAIL)}
-<p>A table below the parts lists every affected stat with its crafted
-modifier at the current quality value.</p>
+<p>The <b>STAT SUMMARY</b> table below the parts lists every affected stat.
+The <b>CRAFTED</b> column is its modifier at the quality you have set. When
+several parts change the same stat, the table shows their combined
+effect.</p>
 
 {_h4("Drops &mdash; which missions give it", _C_DETAIL)}
 <p>When the drops are known, the bottom of the popup has a
 <b>DROPS (N MISSIONS)</b> section, split into
-<span style="{_GRN}">LAWFUL</span> and <span style="{_ACC}">UNLAWFUL</span>
+<span style="{_GRN}">LAWFUL</span> and <span style="{_RED}">UNLAWFUL</span>
 and grouped by mission type. Each row gives the mission name, the
 <b>contractor</b> who offers it, the <b>location</b>, and the
 <b>drop chance</b>.</p>
 <p><span style="{_YLW}">Two honest caveats.</span> The chances in one reward
 pool can add up to less than 100% &mdash; some pools hold an empty slot that
 consumes probability, and it is left in rather than inflating the real
-numbers. And the drop data is from a different game build than the
-blueprints, so treat a mission list as a good guide, not a guarantee.</p>
+numbers. And the mission lists come from the Mission Database's data, which
+can be from a different game build than the blueprints, so treat a mission
+list as a good guide, not a guarantee.</p>
 
 {_h4("Obtained From &mdash; when drops are not known", _C_DETAIL)}
-<p>Only around <b>645 of the 1,607</b> blueprints have known drops, and none
-do until the <b>Mission Database</b> has fetched its cache. For the rest you
-get <b>OBTAINED FROM</b> instead: <b>Known by default</b>, or the reward pools
+<p>Not every blueprint has known drops. For the rest you get
+<b>OBTAINED FROM</b> instead: <b>Known by default</b>, or the reward pools
 that give it as named in the game files, or <b>Not given by any mission in
 this game build</b>.</p>
 <p>An empty list means <b>no data</b>, never "nothing drops it".</p>
 
 {_h4("Pin &amp; Close", _C_DETAIL)}
-<p>Click <span style="{_GRN}">Pin</span> to lock a popup in place so it
-is never auto-closed when you open a new one. Click <b>Unpin</b> to
-release it. The red <b>x</b> closes a popup immediately.</p>
-<p>Drag the title bar to reposition any popup anywhere on screen.</p>
+<p>Click <b>Pin</b> to keep a popup when you open new ones. Click
+<b>Unpin</b> to release it. The red <b>x</b> closes a popup immediately.</p>
+<p>Drag a popup anywhere on its surface to move it.</p>
 """)
 
 _TAB_TIPS = _html(f"""
 {_h3("Tips &amp; Shortcuts", _C_TIPS)}
 
 {_h4("Popup Overflow", _C_TIPS)}
-<p>When you open a 6th popup, the oldest <b>unpinned</b> one is automatically
-closed to keep the screen tidy. Pinned popups are never auto-closed.</p>
+<p>When you open a 6th popup, the oldest <b>unpinned</b> one is closed to
+keep the screen tidy. If all five are pinned, the oldest pinned one is
+closed instead.</p>
 
 {_h4("Combined Filters", _C_TIPS)}
 <p>All filters work together. For example, set
-<b>Resource Needed = Tungsten</b> and
-<b>Blueprint Type = Ship Components</b> to find components that need
+<b>RESOURCE NEEDED</b> to <b>Tungsten</b> and
+<b>BLUEPRINT TYPE</b> to <b>Ship Components</b> to find components that need
 Tungsten.</p>
 
 {_h4("Fuzzy Search in Dropdowns", _C_TIPS)}
@@ -254,22 +272,25 @@ Drag the title bar to move it out of the way.</p>
 <p>The data is pinned to one game build and does not expire. A toolbox
 update moves it to a newer build; the tool then offers the download again.</p>
 
-{_h4("Missing the mission drops?", _C_TIPS)}
-<p>The blueprints ship with the toolbox, but the <b>mission drop lists do
-not</b> &mdash; they are joined from the <b>Mission Database</b>'s own
-downloaded cache. On a fresh install, open Mission Database once and let it
-fetch, then reopen this tool and the drops, and the mission / location /
-contractor filters, will be there.</p>
+{_h4("No mission lists at all?", _C_TIPS)}
+<p>The blueprints are downloaded by this tool, but the <b>mission drop
+lists are not</b>. They are taken from the <b>Mission Database</b>'s own
+downloaded data, once, when this tool first prepares its blueprint data. If
+Mission Database had downloaded nothing on this PC at that moment, every
+popup shows <b>OBTAINED FROM</b> and none lists missions.</p>
 """)
 
-_TABS = [
-    ("Getting Started", _TAB_GETTING_STARTED),
-    ("Browsing", _TAB_BROWSING),
-    ("Filters", _TAB_FILTERS),
-    ("Inventory", _TAB_INVENTORY),
-    ("Detail Popup", _TAB_DETAIL),
-    ("Tips", _TAB_TIPS),
-]
+
+def _tabs() -> list:
+    """(title, html) per tab. Built when the popup opens, so the hotkey shown is the current one."""
+    return [
+        ("Getting Started", _tab_getting_started()),
+        ("Browsing", _TAB_BROWSING),
+        ("Filters", _TAB_FILTERS),
+        ("Inventory", _TAB_INVENTORY),
+        ("Detail Popup", _TAB_DETAIL),
+        ("Tips", _TAB_TIPS),
+    ]
 
 
 # ── Close button ─────────────────────────────────────────────────────────
@@ -436,7 +457,7 @@ class TutorialPopup(QDialog):
             }}
         """)
 
-        for tab_title, html in _TABS:
+        for tab_title, html in _tabs():
             tabs.addTab(_make_tab(html, tabs), tab_title)
 
         frame_lay.addWidget(tabs, 1)
