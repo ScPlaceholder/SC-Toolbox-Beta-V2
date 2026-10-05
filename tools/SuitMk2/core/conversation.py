@@ -53,7 +53,9 @@ and `place_about`). Their answer carries, besides the place's name and body, ONE
 lore for Elah, brochure copy or a dev-history fact for Montaigne (place_knowledge.py; ask again and the next fact
 comes). The Suit cannot see the screen on this path, so "that tower" points at nothing it can identify: the spec
 says so (pilot.referent = unknown), the stance tells the character to say so, and the gate refuses a line that
-says anything else about the tower. Reading the screen for it (eyes.py) is a possible later step, not wired here.
+says anything else about the tower. A sentence that points at something also marks the spec for ONE look at the
+screen (place.look): CompanionCore._look_for asks the eyes and, when they report something fit to say,
+with_observation below puts it at the front of the answer as an observation, word for word.
 
 Selftest: python conversation.py --selftest
 
