@@ -178,6 +178,7 @@ class BlockerWindow(SCWindow):
             icon_text="\U0001f6ab",  # 🚫
             accent_color=ACCENT,
             hotkey_text=hotkey_text,
+            extra_buttons=[("? Tutorial", self._show_tutorial)],
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
         self._title_bar.close_clicked.connect(self.user_close)
@@ -258,6 +259,24 @@ class BlockerWindow(SCWindow):
     def reset_layout(self) -> None:
         """Title-bar 'reset layout' button → re-cover the screen."""
         self._cover_primary_screen()
+
+    # ── Tutorial ──
+    def _show_tutorial(self):
+        """Open the tutorial (ui/tutorial.py).
+
+        It has NO parent on purpose. This window never takes the focus and keeps
+        pushing itself to the bottom of the topmost windows; a popup it owned
+        would be tied to that. As a topmost window of its own, the popup sits
+        above the blocker like every other toolbox window and takes clicks."""
+        from shared.qt.tutorial_popup import TutorialPopup
+        from ui import tutorial
+        popup = TutorialPopup.open("mouse_blocker", None, title="Mouse Blocker", accent=ACCENT,
+                                   tabs=tutorial.tabs())
+        screen = QGuiApplication.primaryScreen()
+        if screen is not None:
+            g = screen.availableGeometry()
+            popup.move(g.x() + (g.width() - popup.width()) // 2, g.y() + (g.height() - popup.height()) // 2)
+        return popup
 
     # ── Show / hide hooks ──
     def showEvent(self, event):
