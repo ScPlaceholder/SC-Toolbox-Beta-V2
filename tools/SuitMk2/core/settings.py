@@ -14,6 +14,13 @@ PATH = DIR / "settings.json"
 # shared/tests/test_ptt_keys.py holds the two equal. kind/code/label/joy_index are voice_in.input_devices.InputBinding.
 DEFAULT_TALK_KEY = {"kind": "keyboard", "code": 145, "label": "SCROLL_LOCK", "joy_index": 0}
 
+# CONVERSATION MEMORY (tree_memory.py, "Christmas Tree Storage", J 2026-10-05). True = what the pilot says to the
+# companions with the talk key or the Suit's open mic, and what they say back, is kept as TEXT in
+# <memory>/<pilot>/tree/ on this PC until the pilot clears it (the Suit tab says so, beside "Forget conversations").
+# Never audio, never the Assistant's traffic. This one constant is the default for a settings file that has never
+# chosen: set it to False to make keeping conversations opt-in.
+RECORD_CONVERSATIONS_DEFAULT = True
+
 DEFAULTS = {
     "presence": "present",            # off | occasional | present | curious (eyes cadence; only while SC is focused)
     "vision_glance": False,           # local gemma3:4b glance when the fast eyes cannot tell (headroom-gated)
@@ -76,6 +83,7 @@ DEFAULTS = {
     # "fun facts off") or the window's checkbox; either one saves here.
     "dev_facts": False,
     "dev_facts_max_per_hour": 2,
+    "remember_conversations": RECORD_CONVERSATIONS_DEFAULT,   # see RECORD_CONVERSATIONS_DEFAULT above
     # April-spec ideas, built 2026-09-25 (J: "You can work through those"). Each is a small optional feature with its
     # own module and --selftest; every line it adds still goes through the speak gate, pacing and grounding.
     "npc_faction_names": True,        # NPC entity codes in the log -> "Nine Tails pirates" in fight/death lines

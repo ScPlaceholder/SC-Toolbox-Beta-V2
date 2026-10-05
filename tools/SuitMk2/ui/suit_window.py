@@ -76,6 +76,22 @@ class _Ears(OneMicMixin, EarsController):
 ANSWER_PASS_S = 45.0
 
 
+# What the Suit tab says about conversation memory, beside the button that clears it.
+KEPT_NOTICE = ("What you say to Elah and Montaigne, and what they say back, is kept as text on this PC until you "
+               "clear it.")
+NOT_KEPT_NOTICE = "Conversations are not being kept."
+
+
+def forget_conversations(core, pilot_dir) -> int:
+    """Delete the conversation log and its summaries for this pilot, whether or not they are being kept right now.
+    Returns how many log lines there were."""
+    import tree_memory
+    tree = getattr(core, "tree", None) if core is not None else None
+    if tree is None:
+        tree = tree_memory.open_tree(pilot_dir)
+    return tree.clear()
+
+
 def _voice_gate(speech, user_muted: bool, tool_open: bool, answer_pass: bool) -> None:
     """Set what *speech* will say. Everything, when the tool is open and he has not muted it. With the tool hidden:
     nothing, except an answer to a question he asked with the talk key while *answer_pass* is open. Muted by
@@ -339,6 +355,27 @@ class _SuitBody:
         mem.addStretch(1)
         lay.addLayout(mem)
 
+        # Conversation memory (J 2026-10-05, tree_memory.py). What is kept is said HERE, in plain words, beside the
+        # button that removes it: the default keeps conversations, and that is only acceptable where he can see it.
+        conv = QHBoxLayout()
+        self._remember = QCheckBox("Remember conversations")
+        self._remember.setChecked(bool(self.s.get("remember_conversations", st.RECORD_CONVERSATIONS_DEFAULT)))
+        self._remember.setToolTip("Keep what you say to Elah and Montaigne, and what they say back, so they can "
+                                  "bring it up later. Text only, never audio. Included in Export memory.")
+        self._remember.toggled.connect(self._set_remember)
+        self._kept_lbl = QLabel("")
+        self._kept_lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+        self._kept_lbl.setWordWrap(True)
+        forget = QPushButton("Forget conversations")
+        forget.setStyleSheet(_btn_ss())
+        forget.setToolTip("Delete everything kept of your conversations with Elah and Montaigne from this PC")
+        forget.clicked.connect(self._forget_conversations)
+        conv.addWidget(self._remember)
+        conv.addWidget(self._kept_lbl, 1)
+        conv.addWidget(forget)
+        lay.addLayout(conv)
+        self._show_kept()
+
         # Speaker models in VRAM (J 2026-09-26). One local model per speaker, 1.83 GB of video memory each.
         # Default: only the speaker being asked stays loaded, so the companion's floor is one model, not two -
         # "not everyone will have a card that's beefy enough to do both". The price is a cold load when the speaker
@@ -484,6 +521,7 @@ class _SuitBody:
                                   dev_facts=DevFacts.from_settings(self.s),
                                   features=self.s)      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
         self.core.dev_facts_persist = self._persist_dev_facts
+        self._attach_tree()
         # Game ears for combat: the ducking meter already reads StarCitizen.exe's own output ~20x a second.
         if self.speech.ducker is not None:
             self.speech.ducker.listeners.append(self.core.combat.feed)
@@ -758,6 +796,8 @@ class _SuitBody:
             except Exception:
                 hist = {}
         self.core._note(f"heard: {text}")
+        if callable(getattr(self.core, "heard", None)):
+            self.core.heard(text)                # kept on this PC if he has "Remember conversations" on
         # "Fun facts on" / "fun facts off" (J 2026-09-25): a control, not a question. Saved; Montaigne acknowledges.
         if self.core.voice_command(text):
             return
@@ -774,6 +814,49 @@ class _SuitBody:
         spec = self.lane.handle(text, state, hist)
         if spec is not None:
             self.core.answer(spec, text)
+
+    # -- conversation memory (tree_memory.py) -------------------------------------------------------------------
+    def _tree_dir(self) -> Path:
+        return st.DIR / "memory" / self.s["pilot_id"]
+
+    def _attach_tree(self) -> None:
+        """Give the core the conversation memory, or take it away, according to the setting. Building the summary
+        nodes for finished sessions is plain code and takes milliseconds; it runs here, off the UI thread at boot."""
+        core = getattr(self, "core", None)
+        if core is None:
+            return
+        if not self.s.get("remember_conversations", st.RECORD_CONVERSATIONS_DEFAULT):
+            core.tree = None
+            return
+        try:
+            import tree_memory
+            core.tree = tree_memory.open_tree(self._tree_dir(), session=core.session_id)
+            for who in tree_memory.COMPANIONS:
+                core.tree.build(who)
+        except Exception:
+            log.exception("conversation memory unavailable; continuing without it")
+            core.tree = None
+
+    def _show_kept(self) -> None:
+        on = bool(self.s.get("remember_conversations", st.RECORD_CONVERSATIONS_DEFAULT))
+        self._kept_lbl.setText(KEPT_NOTICE if on else NOT_KEPT_NOTICE)
+
+    def _set_remember(self, on: bool) -> None:
+        self.s["remember_conversations"] = bool(on)
+        st.save(self.s)
+        self._attach_tree()
+        self._show_kept()
+
+    def _forget_conversations(self) -> None:
+        from PySide6.QtWidgets import QMessageBox
+        if QMessageBox.question(
+                self, "Forget conversations",
+                "Delete everything kept of your conversations with Elah and Montaigne from this PC?\n"
+                "This cannot be undone. (An exported memory file is not touched.)") != QMessageBox.Yes:
+            return
+        n = forget_conversations(getattr(self, "core", None), self._tree_dir())
+        if self.core is not None:
+            self.core._note(f"conversations forgotten: {n} line(s) deleted")
 
     def _export_memory(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -951,6 +1034,7 @@ class _SuitBody:
         try:
             ms.snapshot(st.DIR / "memory", self.s["pilot_id"])          # never lose the current one
             out = ms.import_pilot(path, st.DIR / "memory", overwrite=True)
+            self._attach_tree()                 # the conversations in the file replace the ones that were here
             self.core and self.core._note(f"memory imported from {Path(path).name} -> {out}")
         except Exception as e:
             self.core and self.core._note(f"memory import REFUSED: {type(e).__name__}: {e}")

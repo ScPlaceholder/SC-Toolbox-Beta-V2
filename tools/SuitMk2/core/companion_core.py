@@ -271,6 +271,11 @@ class CompanionCore:
         self._dev_resume: Optional[dict] = None        # a cut fact waiting to be picked back up
         self._dev_bit_used = False                     # the interrupted-fact bit: once per session
         self._dev_toggles = 0
+        # Conversation memory (tree_memory.TreeStore), or None when the pilot has it off. The window attaches it.
+        # Only two things ever write to it: heard() for a sentence the pilot said to the Suit, and the answer
+        # worker for the line said back. Ambient lines, events and banter are not conversation and are not logged.
+        self.tree = None
+        self._heard_x = ""                             # the exchange the last sentence heard opened
         self._last_speak_event_t = -1e9                # last event that SPEAKS (EVENT_PRIORITY), for the quiet window
         self._last_urgent_t = -1e9                     # last injury / death / respawn / combat start
         self._born_t = now()                           # no fact in the first minutes: that is the welcome's time
@@ -1331,6 +1336,32 @@ class CompanionCore:
             return True
         return False
 
+    # -- conversation memory (tree_memory.py) -------------------------------------------------------------------
+    def heard(self, text: str) -> str:
+        """The pilot said this to the Suit (talk key, or the Suit's open mic): keep it. Returns the id of the
+        exchange it opens, or "" when conversations are not being kept or the write failed. The text only."""
+        self._heard_x = ""
+        if self.tree is None or not str(text or "").strip():
+            return ""
+        try:
+            st = self.lane_state()
+            rec = self.tree.append("pilot", text, session=self.session_id,
+                                   observed={"location": st.get("location"), "ship": st.get("ship")})
+            self._heard_x = rec["id"]
+        except Exception:
+            log.exception("conversation log: could not keep what was heard")
+        return self._heard_x
+
+    def _log_reply(self, spec: dict, text: str) -> None:
+        """Keep the line a companion said back, in the exchange of the sentence it answers."""
+        x = spec.get("x") or ""
+        if self.tree is None or not x:
+            return
+        try:
+            self.tree.append(spec["speaker"], text, to="pilot", x=x, session=self.session_id)
+        except Exception:
+            log.exception("conversation log: could not keep the reply")
+
     # -- direct questions (conversation.py): the pilot asked, so this outranks everything else ---------------------
     def lane_state(self) -> dict:
         """What the conversation lane may answer from, right now: the trackers' own values, minus the place the
@@ -1356,6 +1387,7 @@ class CompanionCore:
         not worded by the model, which loses the relation between the claims it is given. It needs no realizer,
         so it is answered with the model service down or the card busy. Still held to ground_direct."""
         self.afk.poke()                              # they spoke to us: somebody is here, whatever the keyboard says
+        spec.setdefault("x", self._heard_x)          # the exchange this answers, for the conversation log
         try:
             self.affect.feed("pilot_spoke")
         except Exception:
@@ -1379,6 +1411,7 @@ class CompanionCore:
                 self._spoke(spec, text, cand)
                 self.stats["spoken"] += 1
                 self._note(f"{spec['speaker']} ({how}): {text}")
+                self._log_reply(spec, text)
 
         by_model = (self.place_answers_from_model and spec.get("place") and spec.get("aside") != "dev_fact"
                     and self.realizer is not None)

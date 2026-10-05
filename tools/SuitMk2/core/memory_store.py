@@ -69,6 +69,18 @@ STORE_FILES = [
     "moves.json",
 ]
 
+# Files that are part of a pilot's memory when they exist, and are simply absent when they do not: the
+# conversation log and its summary nodes (tree_memory.py, "Christmas Tree Storage", 2026-10-05). They are listed
+# in the manifest under "extra_files" with their own checksums, travel in the export zip, and are restored by
+# import. A fixed list of names, so an archive cannot use this to write anywhere else. They are NOT written
+# through the atomic helpers below: the log is unbounded, and _append_jsonl_atomic rewrites a whole file per line.
+# A build from before 2026-10-05 imports such a zip without error and takes the five STORE_FILES only.
+EXTRA_FILES = [
+    "tree/log.jsonl",
+    "tree/nodes_elah.jsonl",
+    "tree/nodes_montaigne.jsonl",
+]
+
 _BAD_PILOT_ID_CHARS = set('\\/:*?"<>|')
 
 _SNAPSHOT_RE = re.compile(r"^snapshot_(?P<pilot>.+)_(?P<ts>\d+)\.zip$")
@@ -210,6 +222,7 @@ def _refresh_manifest(pilot_dir: Path, pilot_id: str) -> dict:
         if not fpath.exists():
             _atomic_write_bytes(fpath, b"")
         files[fname] = _sha256_file(fpath)
+    extra = {name: _sha256_file(pilot_dir / name) for name in EXTRA_FILES if (pilot_dir / name).is_file()}
     manifest = {
         "schema_version": CURRENT_SCHEMA_VERSION,
         "pilot_id": pilot_id,
@@ -217,6 +230,8 @@ def _refresh_manifest(pilot_dir: Path, pilot_id: str) -> dict:
         "updated": _now_iso(),
         "files": files,
     }
+    if extra:
+        manifest["extra_files"] = extra
     _atomic_write_json(manifest_path, manifest)
     return manifest
 
@@ -522,10 +537,24 @@ def export_pilot(root: str | Path, pilot_id: str, out_zip: str | Path) -> Path:
     out_zip = Path(out_zip)
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_zip.parent / f".{out_zip.name}.tmp{uuid4().hex}"
+    # The conversation log can gain a line at any moment. Each extra file is read ONCE, and the checksum in the
+    # zip's manifest is the checksum of those bytes, so the archive always passes its own check.
+    extra = {}
+    for name in list(manifest.get("extra_files", {})):
+        try:
+            extra[name] = (pilot_dir / name).read_bytes()
+        except OSError:
+            del manifest["extra_files"][name]
+            continue
+        manifest["extra_files"][name] = hashlib.sha256(extra[name]).hexdigest()
+    if "extra_files" in manifest and not manifest["extra_files"]:
+        del manifest["extra_files"]
     with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(f"{pilot_id}/manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
         for fname in STORE_FILES:
             zf.write(pilot_dir / fname, arcname=f"{pilot_id}/{fname}")
+        for name, data in extra.items():
+            zf.writestr(f"{pilot_id}/{name}", data)
     os.replace(tmp, out_zip)
     return out_zip
 
@@ -634,6 +663,18 @@ def import_pilot(zip_path: str | Path, root: str | Path, *, overwrite: bool = Fa
             if actual != expected:
                 raise ValueError(f"checksum mismatch for {fname}: zip contents do not match manifest (tampered or corrupt)")
 
+        extra = manifest.get("extra_files", {})
+        if not isinstance(extra, dict):
+            raise ValueError("manifest extra_files is not a mapping")
+        for name, expected in extra.items():
+            if name not in EXTRA_FILES:
+                raise ValueError(f"manifest lists an extra file this build does not know: {name!r}")
+            entry_name = f"{top}/{name}"
+            if entry_name not in names:
+                raise ValueError(f"zip is missing file listed in manifest: {name}")
+            if hashlib.sha256(zf.read(entry_name)).hexdigest() != expected:
+                raise ValueError(f"checksum mismatch for {name}: zip contents do not match manifest (tampered or corrupt)")
+
         dest = root / pilot_id
         if dest.exists() and not overwrite:
             raise FileExistsError(f"pilot store already exists at {dest}; pass overwrite=True to replace it")
@@ -643,6 +684,9 @@ def import_pilot(zip_path: str | Path, root: str | Path, *, overwrite: bool = Fa
         try:
             for fname in ["manifest.json"] + STORE_FILES:
                 (tmp_dest / fname).write_bytes(zf.read(f"{top}/{fname}"))
+            for name in extra:
+                (tmp_dest / name).parent.mkdir(parents=True, exist_ok=True)
+                (tmp_dest / name).write_bytes(zf.read(f"{top}/{name}"))
             migrate(manifest, tmp_dest)
             # Always leave a self-consistent manifest behind (schema_version current,
             # checksums matching whatever ended up on disk after migration).
