@@ -1,4 +1,7 @@
 """Tutorial bubble popup for the Mining Loadout tool — PySide6."""
+import re
+import textwrap
+
 import shared.path_setup  # noqa: E402
 
 from PySide6.QtCore import Qt, QPoint
@@ -12,130 +15,182 @@ from shared.qt.theme import P
 
 # ── Tab content ──────────────────────────────────────────────────────────────
 
-_TABS = [
-    {
-        "label": "Overview",
-        "content": [
-            ("heading", "Mining Loadout Tool\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("value", "Plan and compare mining configurations\n"),
-            ("value", "for Star Citizen mining ships.\n\n"),
-            ("label", "The interface has three main areas:\n\n"),
-            ("section", "  LEFT SIDEBAR\n"),
-            ("label", "  Select your mining ship and access\n"),
-            ("label", "  utility buttons (reset, copy stats).\n\n"),
-            ("section", "  CENTER PANELS\n"),
-            ("label", "  Configure each turret with a laser\n"),
-            ("label", "  head and up to two modules. A gadget\n"),
-            ("label", "  slot sits below the turrets.\n\n"),
-            ("section", "  RIGHT STATS PANEL\n"),
-            ("label", "  Live statistics update as you change\n"),
-            ("label", "  your loadout. The total price is shown\n"),
-            ("label", "  at the bottom.\n\n"),
-            ("neutral", "  Use the tabs above to learn more \u2192\n"),
-        ],
-    },
-    {
-        "label": "Ship & Turrets",
-        "content": [
-            ("heading", "Ship Selection\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("label", "  Use the "),
-            ("section", "sidebar ship buttons"),
-            ("label", " to switch\n"),
-            ("label", "  between mining ships (Prospector,\n"),
-            ("label", "  MOLE, etc.). Each ship has a different\n"),
-            ("label", "  number of turrets and laser sizes.\n\n"),
-            ("heading", "Turret Panels\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("label", "  Each turret panel contains:\n\n"),
-            ("section", "  LASER HEAD\n"),
-            ("label", "  Select a mining laser from the\n"),
-            ("label", "  dropdown. Lasers are filtered by the\n"),
-            ("label", "  turret's size requirement.\n\n"),
-            ("section", "  MODULE SLOTS (x2)\n"),
-            ("label", "  Each laser supports up to 2 modules.\n"),
-            ("label", "  The number of available slots depends\n"),
-            ("label", "  on the selected laser. Passive modules\n"),
-            ("label", "  are always active. Active modules have\n"),
-            ("label", "  limited uses and duration.\n\n"),
-            ("positive", "  Tip: "),
-            ("label", "Click the "),
-            ("neutral", "\u24d8 Details"),
-            ("label", " link next to any\n"),
-            ("label", "  dropdown to pin a detail card with\n"),
-            ("label", "  full stats for that item.\n"),
-        ],
-    },
-    {
-        "label": "Stats & Gadgets",
-        "content": [
-            ("heading", "Stats Panel\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("label", "  The right panel shows live stats for\n"),
-            ("label", "  your current loadout configuration:\n\n"),
-            ("positive", "  Green"),
-            ("label", " values = beneficial modifier\n"),
-            ("negative", "  Red"),
-            ("label", "   values = detrimental modifier\n"),
-            ("neutral", "  Yellow"),
-            ("label", " values = neutral/informational\n\n"),
-            ("label", "  Stats include laser power, resistance,\n"),
-            ("label", "  instability, charge window, charge\n"),
-            ("label", "  rate, and more. All values update\n"),
-            ("label", "  instantly when you change equipment.\n\n"),
-            ("heading", "Gadget Slot\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("label", "  The "),
-            ("section", "INVENTORY \u2014 GADGET"),
-            ("label", " strip below\n"),
-            ("label", "  the turret panels lets you equip one\n"),
-            ("label", "  gadget. Gadgets apply ship-wide\n"),
-            ("label", "  modifiers to your loadout.\n\n"),
-            ("heading", "Loadout Price\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("label", "  Total cost in aUEC is shown at the\n"),
-            ("label", "  bottom of the stats panel. Stock\n"),
-            ("label", "  lasers are free.\n"),
-        ],
-    },
-    {
-        "label": "Tips",
-        "content": [
-            ("heading", "Useful Tips\n"),
-            ("divider", "\u2500" * 52 + "\n\n"),
-            ("section", "  DETAIL CARDS\n"),
-            ("label", "  Click "),
-            ("neutral", "\u24d8 Details"),
-            ("label", " next to any laser, module,\n"),
-            ("label", "  or gadget to pop out a floating card\n"),
-            ("label", "  with full stats. Pin multiple cards to\n"),
-            ("label", "  compare items side by side. Use the\n"),
-            ("value", "  \u26b2 lock"),
-            ("label", " icon to prevent auto-eviction.\n\n"),
-            ("section", "  COPY STATS\n"),
-            ("label", "  The "),
-            ("positive", "\U0001f4cb COPY STATS"),
-            ("label", " button copies your\n"),
-            ("label", "  full loadout to the clipboard in a\n"),
-            ("label", "  formatted text block \u2014 great for\n"),
-            ("label", "  sharing builds with org mates.\n\n"),
-            ("section", "  RESET LOADOUT\n"),
-            ("label", "  Reverts all turrets to the ship's\n"),
-            ("label", "  stock laser and clears all modules\n"),
-            ("label", "  and gadgets.\n\n"),
-            ("section", "  REFRESH DATA\n"),
-            ("label", "  Click the "),
-            ("neutral", "\u27f3"),
-            ("label", " icon in the title bar to\n"),
-            ("label", "  force-refresh pricing and item data\n"),
-            ("label", "  from the UEX Corp API.\n\n"),
-            ("section", "  CONFIGURATION\n"),
-            ("label", "  Your loadout is saved automatically\n"),
-            ("label", "  and restored when you reopen the tool.\n"),
-        ],
-    },
-]
+# The text is written as paragraphs and wrapped here, to the width the bubble
+# shows without a horizontal scroll bar. A name the user can read in the tool
+# (a button, a heading, a tick box) is written [[like this]]: it is drawn in
+# the "ui" colour, and tests/test_tutorial.py checks that every one of them is
+# still a string in the tool's source.
+
+_WRAP = 52
+_NAME = re.compile(r"\[\[(.+?)\]\]")
+_NBSP = " "
+
+
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_mining", "<shift>+4")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+4"
+
+
+def _fragments(line: str, tag: str = "label") -> list:
+    """One line as (tag, text) pairs, with each [[name]] as a "ui" pair."""
+    out, pos = [], 0
+    for m in _NAME.finditer(line):
+        if m.start() > pos:
+            out.append((tag, line[pos:m.start()]))
+        out.append(("ui", m.group(1).replace(_NBSP, " ")))
+        pos = m.end()
+    if pos < len(line):
+        out.append((tag, line[pos:]))
+    return out
+
+
+def _p(text: str, tag: str = "label", indent: str = "  ") -> list:
+    """A wrapped paragraph followed by a blank line. A [[name]] is never split across lines."""
+    text = _NAME.sub(lambda m: "[[" + m.group(1).replace(" ", _NBSP) + "]]", " ".join(text.split()))
+    # The brackets are not drawn, so they must not count towards the width.
+    bare = _NAME.sub(lambda m: "\x01" + m.group(1) + "\x02", text)
+    lines = textwrap.wrap(bare, width=_WRAP, initial_indent=indent, subsequent_indent=indent,
+                          break_long_words=False, break_on_hyphens=False)
+    out = []
+    for i, line in enumerate(lines):
+        line = line.replace("\x01", "[[").replace("\x02", "]]")
+        out += _fragments(line + ("\n\n" if i == len(lines) - 1 else "\n"), tag)
+    return out
+
+
+def _h(text: str) -> list:
+    return [("heading", text + "\n"), ("divider", "─" * 52 + "\n\n")]
+
+
+def _s(text: str) -> list:
+    """A sub-heading in the tutorial's own words (not a name on screen)."""
+    return [("section", "  " + text + "\n")]
+
+
+def _tabs() -> list:
+    """The tabs, built when the bubble opens so the hotkey shown is the current one."""
+    return [
+        {
+            "label": "Overview",
+            "content": (
+                _h("Mining Loadout")
+                + _p("Use this tool to build a mining ship's loadout and see what "
+                     "it does to laser power, resistance, instability and the rest, "
+                     "before you buy the parts.", "value")
+                + _s("LEFT")
+                + _p("Pick your ship under [[MINING SHIP:]]. [[RESET LOADOUT]] and "
+                     "[[COPY STATS]] are below the ship buttons.")
+                + _s("CENTER")
+                + _p("One panel for each turret, with a laser and its modules. The "
+                     "[[INVENTORY — GADGET]] strip is under the turrets.")
+                + _s("RIGHT")
+                + _p("[[LOADOUT STATS]] changes as you change parts. "
+                     "[[LOADOUT PRICE]] is at the bottom of it.")
+                + _s("HOTKEY")
+                + _p("The launcher's hotkey for this tool is " + _hotkey() + ". It "
+                     "shows and hides the window.")
+            ),
+        },
+        {
+            "label": "Turrets",
+            "content": (
+                _h("Ship")
+                + _p("Click [[PROSPECTOR]], [[MOLE]] or [[GOLEM]]. The MOLE has "
+                     "three turrets; the other two have one. Changing ship puts "
+                     "that ship's stock laser in every turret and clears the "
+                     "modules.")
+                + _h("Turret panels")
+                + _p("[[LASER HEAD]] is the mining laser. The dropdown lists only "
+                     "lasers of the turret's size, shown as [[SIZE]] in the panel "
+                     "header.")
+                + _p("[[MODULE SLOT]] 1, 2 and 3 take the laser's modules. A laser "
+                     "with fewer slots shows fewer of them.")
+                + _p("Click [[Details]] beside a laser or a module to open a card "
+                     "with all of its numbers and [[WHERE TO BUY]] it.")
+                + _h("Gadget")
+                + _p("Pick one gadget in the [[INVENTORY — GADGET]] strip. The "
+                     "ⓘ beside it opens the gadget's card.")
+            ),
+        },
+        {
+            "label": "Crafted",
+            "content": (
+                _h("Crafted lasers")
+                + _p("If you crafted the laser yourself, tick [[CRAFTED]] under "
+                     "it. A row appears for each part of the laser. Enter the "
+                     "quality of the material you used for each one.")
+                + _p("The tool then shows what the parts do, as [[Laser power]] "
+                     "and a percentage, and the stats on the right use it.")
+                + _p("Choosing a different laser clears the tick.")
+                + _s("WHEN YOU CANNOT TICK IT")
+                + _p("The tick box is greyed out when the game has no crafting "
+                     "blueprint for that laser. It is not shown at all when the "
+                     "crafting data is not on this PC; the Craft Database tool "
+                     "downloads it.")
+                + _s("HOW THE PARTS ADD UP")
+                + _p("[[CRAFTED PARTS COMBINE:]] chooses between [[Multiplied]] "
+                     "and [[Averaged]]. The game does not say which is right and "
+                     "it has not been measured, so this is a guess you can "
+                     "change. Hover it for the details.")
+                + _s("IN MINING SIGNALS")
+                + _p("A loadout you save here keeps its crafted lasers, and "
+                     "Mining Signals uses them when it loads the file.")
+            ),
+        },
+        {
+            "label": "Stats",
+            "content": (
+                _h("Stats panel")
+                + _p("[[LOADOUT STATS]] adds up the whole loadout: [[Min Power]], "
+                     "[[Max Power]], [[Resistance]], [[Instability]], "
+                     "[[Opt Chrg Wnd]], [[Opt Chrg Rate]] and more.")
+                + [("positive", "  Green"), ("label", " means the change helps you.\n"),
+                   ("negative", "  Red"), ("label", " means it works against you.\n\n")]
+                + _h("Price")
+                + _p("[[LOADOUT PRICE]] is the total in aUEC. The laser a ship "
+                     "comes with costs nothing. The same total is in the bar "
+                     "along the bottom as [[Loadout Price:]].")
+                + _h("Detail cards")
+                + _p("A card opened with [[Details]] stays open and can be "
+                     "dragged, so you can put two side by side. Up to 5 can be "
+                     "open. Opening a sixth closes the oldest. Tick the ⚲ on "
+                     "a card to keep it; if all five are kept, a new one does "
+                     "not open.")
+            ),
+        },
+        {
+            "label": "Save & Tips",
+            "content": (
+                _h("Keeping a loadout")
+                + _p("[[SAVE]] in the title bar writes the ship, lasers, modules, "
+                     "gadget and crafted parts to a file. [[LOAD]] opens one and "
+                     "switches to its ship.")
+                + _p("Save a loadout you want to keep. Do not count on the tool "
+                     "to bring back what you had when you closed it.")
+                + _h("Other buttons")
+                + _p("[[COPY STATS]] copies the loadout and its stats to the "
+                     "clipboard as text, to paste to your crew.")
+                + _p("[[RESET LOADOUT]] puts the stock laser back in every "
+                     "turret and clears the modules, the gadget and the crafted "
+                     "ticks.")
+                + _p("⟳ in the title bar fetches the items and prices again "
+                     "from UEX. The tool does this by itself once the data is a "
+                     "day old.")
+            ),
+        },
+    ]
+
+
+def tutorial_markup() -> str:
+    """The whole tutorial as markup with each on-screen name in <b>: what the tests read."""
+    import html
+    return "".join(("<b>%s</b>" % html.escape(text)) if tag == "ui" else html.escape(text)
+                   for tab in _tabs() for tag, text in tab["content"])
+
 
 _TAG_COLORS = {
     "heading": P.tool_mining,
@@ -144,6 +199,7 @@ _TAG_COLORS = {
     "positive": P.green,
     "negative": P.red,
     "neutral": P.yellow,
+    "ui": P.yellow,             # a name the user can read in the tool; see _fragments
     "divider": P.separator,
     "section": P.accent,
 }
@@ -178,6 +234,7 @@ class TutorialBubble(QWidget):
         self._current_tab = 0
         self._tab_btns: list[QPushButton] = []
 
+        self._tabs = _tabs()
         self._build_ui()
         self._select_tab(0)
         self._position_near_parent()
@@ -281,8 +338,8 @@ class TutorialBubble(QWidget):
         tab_lay.setContentsMargins(6, 4, 6, 4)
         tab_lay.setSpacing(4)
 
-        for i, tab in enumerate(_TABS):
-            btn = QPushButton(tab["label"])
+        for i, tab in enumerate(self._tabs):
+            btn = QPushButton(tab["label"].replace("&", "&&"))     # a lone & is Qt's shortcut mark
             btn.setObjectName(f"tutTab_{i}")
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFixedHeight(26)
@@ -347,7 +404,7 @@ class TutorialBubble(QWidget):
                 """)
 
         # Fill content
-        tab_data = _TABS[idx]
+        tab_data = self._tabs[idx]
         self._text_edit.clear()
         cursor = self._text_edit.textCursor()
         for tag, text in tab_data["content"]:
