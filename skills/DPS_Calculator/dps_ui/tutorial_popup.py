@@ -43,7 +43,9 @@ def _section(text: str) -> QLabel:
 
 
 def _body(text: str) -> QLabel:
+    """A paragraph. *text* is rich text: names of buttons, tabs and columns go in <b>."""
     lbl = QLabel(text)
+    lbl.setTextFormat(Qt.RichText)
     lbl.setStyleSheet(_BODY)
     lbl.setWordWrap(True)
     return lbl
@@ -51,9 +53,30 @@ def _body(text: str) -> QLabel:
 
 def _hint(text: str) -> QLabel:
     lbl = QLabel(text)
+    lbl.setTextFormat(Qt.RichText)
     lbl.setStyleSheet(_HINT)
     lbl.setWordWrap(True)
     return lbl
+
+
+def _bullets(*lines: str) -> str:
+    """Lines as a bulleted list inside a _body()."""
+    return "".join("<br>•&nbsp; " + line for line in lines)
+
+
+def _hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_dps", "<shift>+1")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+1"
+
+
+def tutorial_text() -> str:
+    """All the tutorial's text as one piece of markup (what the tests read). Needs a QApplication."""
+    pages = [getattr(TutorialPopup, name)(None) for name in _TAB_BUILDERS.values()]
+    return "<br>".join(lbl.text() for page in pages for lbl in page.findChildren(QLabel))
 
 
 def _build_tab(widgets: list[QWidget]) -> QScrollArea:
@@ -74,6 +97,16 @@ def _build_tab(widgets: list[QWidget]) -> QScrollArea:
     """)
     scroll.setWidget(page)
     return scroll
+
+
+# Tab title -> the method that builds it, in the order shown.
+_TAB_BUILDERS = {
+    "Getting Started": "_tab_getting_started",
+    "Weapons": "_tab_weapons",
+    "Systems": "_tab_defenses",
+    "Power & Sigs": "_tab_power",
+    "Tools": "_tab_tools",
+}
 
 
 class TutorialPopup(QDialog):
@@ -164,137 +197,208 @@ class TutorialPopup(QDialog):
             QTabWidget::pane {{ background-color: {BG}; border: none; }}
         """)
 
-        tabs.addTab(self._tab_getting_started(), "Getting Started")
-        tabs.addTab(self._tab_weapons(), "Weapons & DPS")
-        tabs.addTab(self._tab_defenses(), "Defenses")
-        tabs.addTab(self._tab_power(), "Power & Sigs")
+        for title, builder in _TAB_BUILDERS.items():
+            tabs.addTab(getattr(self, builder)(), title.replace("&", "&&"))    # a lone & is Qt's shortcut mark
         root.addWidget(tabs, 1)
 
     # ── Tab content ──────────────────────────────────────────────────────
 
     def _tab_getting_started(self) -> QScrollArea:
         return _build_tab([
-            _section("Ship Selector"),
+            _section("What it is for"),
             _body(
-                "Use the search box at the top to find a ship. "
-                "Type any part of the name (e.g. \"glad\" for Gladius) "
-                "and click a result to load it."
+                "Use the DPS Calculator to see what a ship's loadout does before "
+                "you buy the parts: damage, shields, power and signatures, with "
+                "any weapon or component swapped in."
             ),
-            _hint("The selector uses fuzzy matching \u2014 you can type partial names."),
 
-            _section("Three-Panel Layout"),
+            _section("Pick a ship"),
             _body(
-                "\u2022  Left panel \u2014 Weapons & Missiles with DPS stats\n"
-                "\u2022  Center panel \u2014 Defenses/Systems and Power/Propulsion tabs\n"
-                "\u2022  Right panel \u2014 Summary overview and signatures"
+                "Type part of a name in the <b>Ship</b> box at the top "
+                "(for example glad for Gladius) and click a result. The ship "
+                "loads with the parts it comes with."
             ),
+
+            _section("The three panels"),
+            _body(_bullets(
+                "Left: the ship's weapons, turrets and missile racks, one row per slot.",
+                "Center: two tabs, <b>Defenses / Systems</b> and <b>Power &amp; Propulsion</b>.",
+                "Right: the power columns, the totals and the signatures.",
+            )),
             _hint("Drag the dividers between panels to resize them."),
 
-            _section("Swapping Components"),
+            _section("Change a part"),
             _body(
-                "Click any component name (weapon, shield, cooler, etc.) "
-                "to open a picker popup. The picker shows all compatible "
-                "components for that slot size and lets you search/sort."
+                "Click a row to open the picker for that slot. It lists the "
+                "parts that fit there. Type in <b>Filter</b> to narrow the list "
+                "by name, click a column header to sort, then click a part to "
+                "fit it. <b>leave empty</b> clears the slot."
+            ),
+            _hint("Hover a column header or a number to read what it means."),
+
+            _section("Back to stock"),
+            _body(
+                "<b>RESET</b>, on the <b>POWER PLANTS</b>, <b>COOLERS</b> and "
+                "<b>RADARS</b> headers, puts the whole ship back to the parts it "
+                "comes with, not only that section."
             ),
 
-            _section("Refresh"),
+            _section("Data and hotkey"),
             _body(
-                "The \u27f3 Refresh button checks StarCitizenWiki/scunpacked-data for a newer "
-                "game-data build and switches to it. Data is stored locally between patches."
+                "<b>⟳ Refresh</b> checks StarCitizenWiki/scunpacked-data for a "
+                "newer game-data build and switches to it. The data is kept on "
+                "this PC between sessions.<br><br>"
+                f"The launcher's hotkey for this tool is {_hotkey()}. It shows "
+                "and hides the window."
             ),
         ])
 
     def _tab_weapons(self) -> QScrollArea:
         return _build_tab([
-            _section("Weapon Table"),
+            _section("Weapon rows"),
             _body(
-                "The left panel shows every weapon hardpoint on the ship. "
-                "Each row displays:\n"
-                "\u2022  Name and size (S1\u2013S7)\n"
-                "\u2022  DPS (damage per second, sustained)\n"
-                "\u2022  Alpha (damage per shot)\n"
-                "\u2022  RPS (rounds per second)\n"
-                "\u2022  Range and ammo count"
+                "The left panel groups the slots under headers such as "
+                "<b>WEAPONS</b>, <b>TURRETS</b> and <b>MISSILE &amp; BOMB RACKS</b>. "
+                "Only the groups this ship has are shown. A weapon row reads, "
+                "left to right:" + _bullets(
+                    "<b>DPS↓</b>: sustained damage per second, the figure to compare loadouts on.",
+                    "<b>Raw</b>: burst damage per second, before heat or ammo limits it.",
+                    "<b>Effic</b>: burst damage for the power the gun draws. Higher is better.",
+                    "<b>Alpha</b>: damage of one shot.",
+                    "<b>RPS</b>: shots per second.",
+                    "Then <b>Speed</b>, <b>Range</b>, <b>Spread</b>, <b>Power</b>, "
+                    "<b>Ammo</b>, <b>Pen</b> and <b>HP</b>.",
+                )
             ),
+            _hint("A green ×N badge on a turret row means N identical guns; its DPS counts all of them."),
 
-            _section("Damage Types"),
+            _section("Not in totals"),
             _body(
-                "Damage is broken down by type:\n"
-                f"\u2022  Physical \u2014 ballistic/projectile\n"
-                f"\u2022  Energy \u2014 laser/plasma\n"
-                f"\u2022  Distortion \u2014 disables components\n"
-                f"\u2022  Thermal \u2014 heat damage"
+                "Guns listed under <b>NOT IN TOTALS</b> are left out of the ship's "
+                "totals. Each row says why."
             ),
-            _hint("The color-coded bars show the damage split at a glance."),
 
             _section("Missiles"),
             _body(
-                "Missile racks appear below weapons. Stats include total "
-                "damage, tracking type (IR/EM/CS), lock time, and speed."
+                "Under <b>MISSILE &amp; BOMB RACKS</b>, each rack is followed by "
+                "the missiles on it. A missile row shows <b>Track</b>, "
+                "<b>Dmg↓</b>, <b>Speed</b>, <b>Range</b> and <b>Lock</b>."
+            ),
+
+            _section("Where to buy a part"),
+            _body(
+                "Press the \U0001f6d2 button on a filled row, or in the picker, to "
+                "look the part up on UEX without fitting it. The list shows "
+                "<b>Location</b>, <b>Terminal</b>, <b>Buy aUEC</b>, "
+                "<b>Sell aUEC</b> and <b>Updated</b>. Press <b>Pin</b> to keep a "
+                "list open. Up to 5 can be open at once."
             ),
         ])
 
     def _tab_defenses(self) -> QScrollArea:
         return _build_tab([
-            _section("Shields"),
-            _body(
-                "The Defenses tab shows shield generators with:\n"
-                "\u2022  HP (total hit points)\n"
-                "\u2022  Regen (HP/s regeneration rate)\n"
-                "\u2022  Resistances (Physical / Energy / Distortion / Thermal)"
-            ),
+            _section("Defenses / Systems tab"),
+            _body(_bullets(
+                "<b>SHIELDS</b>: <b>HP↓</b> is the shield's hit points, "
+                "<b>Reg/s</b> how fast it comes back, and <b>Phys</b>, "
+                "<b>Enrg</b> and <b>Dist</b> its resistance to physical, energy "
+                "and distortion damage.",
+                "<b>COOLERS</b>: <b>Cool↓</b> is the cooling rate.",
+                "<b>RADARS</b>: one row per radar. Click it to swap the radar.",
+            )),
 
-            _section("Coolers"),
-            _body(
-                "Coolers manage heat dissipation. Higher cooling rate = "
-                "more sustained fire before overheating."
-            ),
-
-            _section("Radars"),
-            _body(
-                "Radar stats show detection ranges for different signature "
-                "types. Larger radars detect at greater distances."
-            ),
-
-            _section("Power Plants & Quantum Drives"),
-            _body(
-                "Found under the Power & Propulsion tab:\n"
-                "\u2022  Power plants \u2014 total output, EM signature\n"
-                "\u2022  Quantum drives \u2014 speed, spool time, fuel rate, range"
-            ),
+            _section("Power & Propulsion tab"),
+            _body(_bullets(
+                "<b>POWER PLANTS</b>: <b>Output</b> is the power each plant supplies.",
+                "<b>QUANTUM DRIVES</b>: <b>Speed km/s</b>, <b>Max Dist Gm</b>, "
+                "<b>Spool s</b>, <b>Cooldown s</b> and <b>Fuel/Mm</b>.",
+                "<b>MAIN THRUSTERS</b>, <b>RETRO THRUSTERS</b> and "
+                "<b>MANEUVERING</b> are shown for reference and cannot be swapped.",
+            )),
+            _hint("Sections appear only for the kinds of slot the ship has."),
         ])
 
     def _tab_power(self) -> QScrollArea:
         return _build_tab([
-            _section("Power Allocation"),
+            _section("Power columns"),
             _body(
-                "The right panel shows the power triangle. Adjust power "
-                "distribution between weapons, shields, and thrusters to "
-                "see how it affects performance and signatures."
+                "The top of the right panel has one column of pips for each "
+                "thing that draws power: <b>WPN</b>, <b>THR</b>, <b>SHD</b>, "
+                "<b>RDR</b>, <b>LSP</b>, <b>CLR</b>, <b>QDR</b> and <b>UTL</b>. "
+                "Each cooler has a column of its own." + _bullets(
+                    "Left-click a pip to set that column to that level.",
+                    "Right-click a column, or click the icon under it, to switch it off. Do it again to switch it back on.",
+                    "Green pips are the normal level, orange pips are above it, grey means switched off.",
+                )
+            ),
+            _hint("The DPS↓ column and the totals at the bottom follow the power you give the weapons."),
+
+            _section("Too much draw"),
+            _body(
+                "The bar at the top of the power panel turns yellow, then red, as the draw "
+                "nears what the power plants supply. Past that it reads "
+                "<b>OVER CAPACITY</b> with the amount you are over."
             ),
 
-            _section("Signatures (EM / IR / CS)"),
+            _section("Flight modes"),
             _body(
-                "\u2022  EM (Electromagnetic) \u2014 affected by power plants & shields\n"
-                "\u2022  IR (Infrared) \u2014 affected by thrusters & heat\n"
-                "\u2022  CS (Cross-Section) \u2014 based on ship size"
-            ),
-            _hint("Lower signatures make you harder to detect on radar."),
-
-            _section("Flight Modes"),
-            _body(
-                "\u2022  SCM (Space Combat Maneuvering) \u2014 combat flight mode\n"
-                "\u2022  NAV (Navigation) \u2014 cruise mode, higher top speed\n\n"
-                "Toggle between them to see how signatures and "
-                "thruster performance change."
+                "<b>SCM</b> is combat flight and <b>NAV</b> is cruise. Switch "
+                "between them to see the power and signatures of each. In "
+                "<b>NAV</b> the shields are not powered."
             ),
 
-            _section("Footer Totals"),
+            _section("Signatures"),
             _body(
-                "The bar at the bottom shows aggregate stats: "
-                "total DPS, shield HP, missile damage, and hull HP."
+                "The right panel lists IR, EM and CS under <b>SIGNATURES</b>. "
+                "Lower is harder to detect. If a part has no power data the "
+                "panel says <b>Signatures not computed</b> and names the part."
+            ),
+
+            _section("Totals at the bottom"),
+            _body(
+                "The bar along the bottom adds the ship up: <b>Burst:</b>, "
+                "<b>DPS:</b>, <b>Alpha T+P:</b>, <b>Shield:</b>, <b>Hull:</b> "
+                "and <b>Cooling:</b>. Hover any of them to read what it counts."
             ),
         ])
+
+    def _tab_tools(self) -> QScrollArea:
+        return _build_tab([
+            _section("Save and load a loadout"),
+            _body(
+                "<b>⬇ Save Loadout</b> writes the ship and every part you "
+                "picked to a file. <b>⬆ Load Loadout</b> opens one, switches "
+                "to its ship and fits the parts again. If a saved part cannot "
+                "be fitted any more, the status line says how many."
+            ),
+
+            _section("Crafting"),
+            _body(
+                "<b>\U0001f527 Crafting</b> sets the crafting quality of the "
+                "weapons you have fitted. Quality 500 is a store-bought weapon "
+                "and changes nothing. Drag <b>ALL slots</b> to move every part "
+                "at once, or set each part on its own. "
+                "<b>Reset to store-bought</b> puts everything back to 500."
+            ),
+            _hint("Only weapons that can be crafted are listed."),
+
+            _section("Time to kill"),
+            _body(
+                "<b>⚔ TTK</b> asks for a <b>Target ship:</b> and shows how "
+                "long your sustained DPS takes to get through its shield and "
+                "hull, as <b>TIME TO KILL</b>. It uses the DPS you had when you "
+                "opened it, so close and reopen it after changing the loadout."
+            ),
+
+            _section("Optimize"),
+            _body(
+                "<b>\U0001f3af Optimize</b> lists the best weapon for each "
+                "hardpoint. Choose what to <b>Optimize for:</b> "
+                "<b>Sustained DPS</b>, <b>Burst DPS</b> or <b>Alpha</b>. It is a "
+                "recommendation only and does not change your loadout."
+            ),
+        ])
+
 
     # ── Drag-to-move (header only) ─────────────────────────────────────
 
