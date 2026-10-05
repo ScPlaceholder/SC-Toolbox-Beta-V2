@@ -88,7 +88,8 @@ class EverythingFinderWindow(SCWindow):
     def _build_ui(self, factories: Dict[str, Factory]) -> None:
         lay = self.content_layout
         tb = SCTitleBar(window=self, title="EVERYTHING FINDER", icon_text="\U0001f50e",
-                        accent_color=ACCENT, show_minimize=True)
+                        accent_color=ACCENT, show_minimize=True,
+                        extra_buttons=[("? Tutorial", self._show_tutorial)])
         tb.close_clicked.connect(self.close)
         tb.minimize_clicked.connect(self.showMinimized)
         lay.addWidget(tb)
@@ -166,6 +167,26 @@ class EverythingFinderWindow(SCWindow):
 
     def inner(self, key: str):
         return self._inner.get(key)
+
+    # tutorial
+    def _show_tutorial(self):
+        """This window's own tutorial (everything_finder/tutorial.py)."""
+        from shared.qt.tutorial_popup import TutorialPopup
+        from . import tutorial
+        return TutorialPopup.open("everything_finder", self, title="Everything Finder", accent=ACCENT,
+                                  tabs=tutorial.tabs(self._show_star_map_tutorial))
+
+    def _show_star_map_tutorial(self):
+        """The Star Map tool's own tutorial. Its button is in the title bar of the Star Map's own window,
+        which this window does not show, so this window's tutorial offers it instead."""
+        import importlib
+        from .tool_loader import STARMAP_ALIAS, import_starmap_package
+        try:
+            import_starmap_package()
+            return importlib.import_module(STARMAP_ALIAS + ".tutorial").TutorialPopup(self)
+        except Exception:
+            log.warning("Everything Finder: could not open the Star Map tutorial", exc_info=True)
+            return None
 
     # tab factories (each imports its tool only when called)
     def _geom(self):
