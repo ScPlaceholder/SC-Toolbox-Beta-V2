@@ -151,14 +151,21 @@ def test_a_fact_turn_must_still_carry_the_fact_after_the_cut():
     assert cc.first_sentence("26500. It's a decent return.") == "26500."
 
 
-def test_nothing_in_the_running_suit_calls_any_of_this():
+def test_only_the_talker_calls_any_of_this_and_never_the_example_prompts():
+    """Until 2026-10-05: nothing in the running Suit calls any of it. Now chat_talker.py (free talk, off by default)
+    uses the kind router, the stricter memory test and the preference-denial check, and nothing else does. The
+    per-kind example prompts lost the measurement on gemma and are still called by nobody."""
     names = {"talk_kind", "serialize_kind", "talk_examples", "lifted_from", "denies_preferences", "fact_line", "fact_missing",
              "memory_supports", "talk_frame"}
+    talker_may = {"talk_kind", "memory_supports", "denies_preferences"}
     for path in list(CORE.glob("*.py")) + list((CORE.parent / "ui").glob("*.py")):
         if path.name == "chat_contract.py":
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         used = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)} | {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+        if path.name == "chat_talker.py":
+            assert used & names == talker_may, used & names
+            continue
         assert not (used & names), (path.name, used & names)
     assert "talk_examples.json" not in "".join(p.read_text(encoding="utf-8") for p in CORE.glob("*.py") if p.name != "chat_contract.py")
 

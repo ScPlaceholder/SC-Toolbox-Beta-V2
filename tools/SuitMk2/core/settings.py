@@ -84,6 +84,14 @@ DEFAULTS = {
     "dev_facts": False,
     "dev_facts_max_per_hour": 2,
     "remember_conversations": RECORD_CONVERSATIONS_DEFAULT,   # see RECORD_CONVERSATIONS_DEFAULT above
+    # Free talk (J 2026-10-05, core/chat_talker.py): OFF by default. On = an ordinary remark, a greeting, or a question
+    # about the companion itself is worded by the local model named in chat_model (J's choice: gemma3:4b), then cut
+    # and checked in code before it is spoken. A question the Suit can answer from what it knows, and a question it
+    # cannot answer at all, are both answered exactly as with chat off. Chat cannot be on with no chat model: load()
+    # turns it off and chat_on() says no. A settings file from before these two keys has neither and is chat off,
+    # which is what it always did. Nothing in the window sets them yet; they are set in the file.
+    "chat": False,
+    "chat_model": "",                 # the Ollama model that words free talk, e.g. "gemma3:4b"; empty = none chosen
     # April-spec ideas, built 2026-09-25 (J: "You can work through those"). Each is a small optional feature with its
     # own module and --selftest; every line it adds still goes through the speak gate, pacing and grounding.
     "npc_faction_names": True,        # NPC entity codes in the log -> "Nine Tails pirates" in fight/death lines
@@ -98,6 +106,11 @@ DEFAULTS = {
 }
 
 
+def chat_on(s: dict) -> bool:
+    """Free talk is on: chat is true AND a chat model is named. Either one alone is off."""
+    return s.get("chat") is True and bool(str(s.get("chat_model") or "").strip())
+
+
 def load() -> dict:
     s = dict(DEFAULTS)
     try:
@@ -107,6 +120,8 @@ def load() -> dict:
     # A file from before the default existed has "talk_key": null (or no such key). Both mean "never set".
     if not isinstance(s.get("talk_key"), dict) or s["talk_key"].get("code") is None:
         s["talk_key"] = dict(DEFAULT_TALK_KEY)
+    if not chat_on(s):
+        s["chat"] = False                         # chat with no chat model named is off, and the file is told so
     return s
 
 

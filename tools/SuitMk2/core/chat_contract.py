@@ -3,7 +3,8 @@
 J asked for the companions to be conversational, "strictly Elah and Montaigne and in character the entire time".
 Measured the same day (elah-audio/_suit_chat_eval.md): the shipped 1.5B models cannot hold a conversation, and the
 turns every model failed most were the same few kinds. So the job is narrowed before any model is asked to talk.
-This module is that narrowing. It has four parts, and only the first two are used by the running Suit:
+This module is that narrowing. It has four parts. With chat off (the default) only the first two are used by
+the running Suit; with chat on, chat_talker.py uses the other two as well, and it is their only caller:
 
   1. THE CANON. Who each of them is, in one plain file per character that J can edit without touching code:
      data/canon_elah.json and data/canon_montaigne.json. A file holds the persona and, for every act that CODE
@@ -31,14 +32,17 @@ This module is that narrowing. It has four parts, and only the first two are use
      and with no talker `open` is exactly what it was before today: the adapter's "did not catch a question".
 
   3. THE SERIALIZER, serialize(): the prompt a talker would be given (canon in front, then the thread, then the
-     act and its content beside the new sentence). NOT USED BY THE SUIT. Built and tested here so that the
-     evaluation harness, and later any training, use the same bytes.
+     act and its content beside the new sentence). Used by chat_talker.py when chat is on, and by nothing else
+     in the Suit. Built and tested here so that the evaluation harness, the talker, and later any training, use
+     the same bytes.
 
   4. THE CHAT GATE, clean_reply() and chat_problems(): what a talker's reply must pass before it could be spoken.
-     Also evaluation only.
+     Used by chat_talker.py when chat is on, and by nothing else in the Suit.
 
-No talker is wired in and there is no chat setting. Principles 5 and 2 of companion_design/ARCHITECTURE.md are J's
-text and are not amended here; the proposed wording for him is in elah-audio/_suit_chat_design.md, section 10.
+The talker is chat_talker.py, behind the settings `chat` and `chat_model`, both off by default (J's decision of
+2026-10-05: free talk is worded by gemma3:4b from the rule-list prompt). Principles 5 and 2 of
+companion_design/ARCHITECTURE.md are J's text and are not amended here; the proposed wording for him is in
+elah-audio/_suit_chat_design.md, section 10.
 
 Selftest: python chat_contract.py --selftest
 """

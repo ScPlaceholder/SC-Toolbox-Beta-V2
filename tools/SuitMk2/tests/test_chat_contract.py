@@ -257,8 +257,9 @@ def test_open_with_no_talker_is_exactly_what_it_was(sentence):
     assert [c["kind"] for c in spec["claims"]] == ["PILOT_SUBMISSION", "UNKNOWN"]
 
 
-def test_nothing_in_the_suit_calls_the_serializer_or_the_chat_gate():
-    """No talker is wired in: the prompt builder and the chat gate exist for the evaluation harness only."""
+def test_only_the_talker_calls_the_serializer_and_the_chat_gate_and_chat_is_off_by_default():
+    """Until 2026-10-05 this test said NOTHING in the Suit calls them and that there is no chat setting. J then
+    decided free talk is worded by a model: chat_talker.py is the one caller, behind two settings that are off."""
     from pathlib import Path
     root = Path(cc.__file__).resolve().parents[1]
     users = []
@@ -268,9 +269,10 @@ def test_nothing_in_the_suit_calls_the_serializer_or_the_chat_gate():
         src = p.read_text(encoding="utf-8")
         if any(name in src for name in ("serialize(", "chat_problems(", "clean_reply(", "turn_block(")):
             users.append(p.name)
-    assert users == []
+    assert users == ["chat_talker.py"]
     import settings
-    assert not [k for k in settings.DEFAULTS if k in ("chat", "chat_model") or k.startswith("chat_") or "talker" in k]
+    chat_keys = {k: v for k, v in settings.DEFAULTS.items() if k == "chat" or k.startswith("chat_") or "talker" in k}
+    assert chat_keys == {"chat": False, "chat_model": ""}
 
 
 # ---------------------------------------------------------------------------------------------------------------

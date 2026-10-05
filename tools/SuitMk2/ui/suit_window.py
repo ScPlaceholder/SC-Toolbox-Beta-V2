@@ -522,6 +522,14 @@ class _SuitBody:
                                   features=self.s)      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
         self.core.dev_facts_persist = self._persist_dev_facts
         self._attach_tree()
+        # Free talk (core/chat_talker.py): only with "chat" on AND a "chat_model" named in the settings. Otherwise
+        # nothing is imported or attached, and every sentence is answered as it always was.
+        if st.chat_on(self.s):
+            try:
+                import chat_talker
+                self.core.talker = chat_talker.from_settings(self.s, note=self.core._note)
+            except Exception:
+                log.exception("chat talker unavailable; talk is answered as with chat off")
         # Game ears for combat: the ducking meter already reads StarCitizen.exe's own output ~20x a second.
         if self.speech.ducker is not None:
             self.speech.ducker.listeners.append(self.core.combat.feed)

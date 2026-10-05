@@ -287,6 +287,9 @@ class CompanionCore:
         # worker for the line said back. Ambient lines, events and banter are not conversation and are not logged.
         self.tree = None
         self._heard_x = ""                             # the exchange the last sentence heard opened
+        # Free talk (chat_talker.Talker), or None: chat is off (the default) or no chat model is named. The window
+        # attaches it. With None every sentence is answered exactly as it was before there was a talker.
+        self.talker = None
         self._last_speak_event_t = -1e9                # last event that SPEAKS (EVENT_PRIORITY), for the quiet window
         self._last_urgent_t = -1e9                     # last injury / death / respawn / combat start
         self._born_t = now()                           # no fact in the first minutes: that is the welcome's time
@@ -1461,6 +1464,24 @@ class CompanionCore:
         self.stats["answer_seen"] = self.stats.get("answer_seen", 0) + 1
         return seen
 
+    def _talk(self, spec: dict, utterance: str) -> Optional[tuple]:
+        """Free talk (chat_talker.py, J 2026-10-05). (the line, how it came about) when a talker is attached, the
+        sentence is talk and the model worded it, or was refused twice and the fallback line stands in. None for
+        everything else: no talker (chat off), a sentence that is not talk, Ollama not running, the model not
+        installed, no room on the card. The answer worker then goes on exactly as it does with chat off.
+        Never raises: this runs on the answer thread."""
+        talker = getattr(self, "talker", None)
+        if talker is None:
+            return None
+        try:
+            got = talker.answer(spec, utterance, self.headroom)
+        except Exception:
+            log.exception("talk: the talker failed; answered as with chat off")
+            return None
+        if got:
+            self.stats["talk"] = self.stats.get("talk", 0) + 1
+        return got
+
     def _answer_worker(self, spec: dict, cand, utterance: str) -> None:
         from conversation import ground_direct
         self.stats["questions"] = self.stats.get("questions", 0) + 1
@@ -1474,6 +1495,10 @@ class CompanionCore:
                 self._log_reply(spec, text)
 
         spec = self._look_for(spec, lambda text: say(text, "looking"))
+        talked = self._talk(spec, utterance)         # None with chat off, and for every sentence that is not talk
+        if talked:
+            # Already cut and checked by the talker's own gate (chat_talker.py); said like any other answer.
+            return say(talked[0], talked[1])
         by_model = (self.place_answers_from_model and spec.get("place") and spec.get("aside") != "dev_fact"
                     and self.realizer is not None)
         if spec.get("fixed_text") and not by_model:
