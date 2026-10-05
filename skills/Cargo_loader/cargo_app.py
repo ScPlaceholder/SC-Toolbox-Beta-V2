@@ -1692,8 +1692,27 @@ class _CargoFilterDialog(QDialog):
 
 # ── Tutorial Dialog ────────────────────────────────────────────────────────────
 
+def _tutorial_hotkey() -> str:
+    """This tool's hotkey as the launcher has it now (follows a rebind)."""
+    try:
+        from shared.hotkey_label import hotkey_label
+        return hotkey_label("hotkey_cargo", "<shift>+2")
+    except Exception:                       # noqa: BLE001 - a tutorial is not worth a failed open
+        return "Shift+2"
+
+
 class _CargoTutorialDialog(QDialog):
-    """Tabbed tutorial bubble for the Cargo Loader tool."""
+    """Tabbed tutorial bubble for the Cargo Loader tool.
+
+    In _CONTENT, "{HOTKEY}" is replaced by the launcher's current hotkey for
+    this tool when the dialog is built (tutorial_pages)."""
+
+    @classmethod
+    def tutorial_pages(cls) -> list:
+        """(tab label, html) per tab, as shown."""
+        hotkey = _tutorial_hotkey()
+        return [(label, content.strip().replace("{HOTKEY}", hotkey))
+                for label, content in zip(cls._TABS, cls._CONTENT)]
 
     # Plain labels, no emoji: an emoji falls back to a font whose advance is
     # ~4x the Consolas glyph, and the tab bar then wants 1104px for six tabs
@@ -1735,6 +1754,8 @@ crates you fill item by item.</p>
 <p style="color:#5a6480;font-size:8pt">Cargo grids are read from the game
 files shipped with the toolbox, so the ship list works offline. ↻ in the
 header re-reads them.</p>
+<p style="color:#5a6480;font-size:8pt">The launcher's hotkey for this tool is
+{HOTKEY}. It shows and hides the window.</p>
 """,
         # ── Ship & View ───────────────────────────────────────────────────────
         """
@@ -1747,15 +1768,18 @@ header re-reads them.</p>
   <li><b style="color:#5a6480">↻</b> — re-read the ship and capacity data.</li>
   <li><b>⬇ Save Plan</b> / <b>⬆ Load Plan</b> — store and restore the whole
       arrangement: every container, every item, every crate and its contents,
-      and what you painted.</li>
+      and what you painted. Both open in the <b>SC Cargo Plans</b> folder in
+      your Documents. Loading a plan switches to the ship it was made
+      for.</li>
   <li>The line on the right is the <b>status line</b>. It names the ship and
       its SCU, and afterwards reports whatever you just did.</li>
 </ul>
 
 <b style="color:#c8d4e8">Getting around the view</b>
 <ul>
-  <li><b>Scroll wheel</b> — zoom in and out.</li>
-  <li><b>Click &amp; drag</b> empty space — pan.</li>
+  <li>The view sizes itself to fit the hold; there is no zoom.</li>
+  <li><b>Click &amp; drag</b> empty space — slide the view, when the hold
+      does not all fit in the window.</li>
   <li><b>↺ ↻</b> (top toolbar) — swing the camera 90° so you can see the
       sides that were facing away. The toolbar text tells you which way it
       is pointing, and which faces are lit.</li>
@@ -1791,8 +1815,10 @@ boxes each has.</p>
       button, then click the grid; a ghost shows where it will land. Click
       the top of a box to stack on it.</li>
   <li><b>⚙ Auto</b> — you type how many of each size and the packer arranges
-      them. <b>Typing a count switches you to Auto by itself</b>, so if you
-      were mid-way through placing by hand, that is why.</li>
+      them. <b>Typing a count switches you to Auto</b>.</li>
+  <li>Auto rearranges the hold. If you have placed anything by hand, the
+      tool asks first: <b>Reorganise the hold?</b> Press <b>Reorganise</b> to
+      go ahead, or cancel and nothing is moved.</li>
 </ul>
 <p style="color:#5a6480;font-size:8pt">The yellow lines under the two buttons
 are a reminder of whichever mode you are in.</p>
@@ -1837,8 +1863,11 @@ are a reminder of whichever mode you are in.</p>
       placed things by hand it asks first; items and crates stay put and the
       containers are packed around them.</li>
   <li><b style="color:#ff5533">✕ Clear</b> — zero every container count.</li>
-  <li><b style="color:#ffaa22">↺ Reset</b> — go back to the known reference
-      loadout, for ships that have one.</li>
+  <li><b style="color:#ffaa22">↺ Reset</b> — put back the layout worked out
+      for this ship, if it has one. For a ship without one it empties the
+      counts, like Clear.</li>
+  <li>Clear and Reset do not ask, and <b>Ctrl+Z</b> does not bring the
+      containers back.</li>
 </ul>
 """,
         # ── Items & Crates ────────────────────────────────────────────────────
@@ -1870,11 +1899,13 @@ hang outside the cargo grid and cannot stick out of the top. The ghost turns
 <b style="color:#f44336">red</b> and the status line says what is in the way,
 or that the hold is full. Only an item that rests on something and overhangs
 it is placed with an <b style="color:#e0a54d">amber</b> ghost and a <b>⚠</b>.
-A plan saved before this rule loads unchanged; anything in it that breaks a
-rule is tinted amber, not moved.</p>
+When you load a plan, an item in it that breaks one of these rules is left
+out, and a box titled <b>Some items were not loaded</b> lists which and
+why.</p>
 <p style="color:#5a6480;font-size:8pt">Items are counted on their own line
 under the capacity bar and never added to your SCU.
-<b>✕ Clear items</b> removes them all (Ctrl+Z undoes it).
+<b>✕ Clear items</b> removes them all, personal crates included (Ctrl+Z
+undoes it).
 If the item list is missing, a <b>Download</b> button appears — the same
 pinned game build the DPS tool uses.</p>
 
@@ -1888,8 +1919,10 @@ item by item.</p>
   <li>Each crate you place is <b>numbered</b> and gets <b>its own tab</b>
       beside <b>Hold</b> at the top of the view. Numbers never get reused, so
       removing crate 2 does not renumber crate 3.</li>
+  <li>Click a placed crate in the hold to go to its tab.</li>
   <li><b>Pop out</b> puts that crate in its own small window so you can work
-      on it next to the hold; closing that window docks it back.</li>
+      on it next to the hold. The button then reads <b>Dock</b>; press it, or
+      close the window, to put the crate back in its tab.</li>
 </ul>
 
 <b style="color:#c8d4e8">Filling a crate</b>
@@ -1944,10 +1977,11 @@ and how many boxes carry it, in its own colour.</p>
 <b style="color:#c8d4e8">Filter</b>
 <ul>
   <li>Opens <b>CARGO FILTER</b>, listing every commodity you have painted with
-      its box count.</li>
-  <li>Untick one to <b>hide</b> those boxes — handy for seeing one contract's
-      cargo on its own. <b>Check All</b> / <b>Uncheck All</b> do it in bulk,
-      <b>Close</b> dismisses the dialog.</li>
+      its box count. Boxes with nothing painted on them are listed as
+      <b>Unidentified</b>.</li>
+  <li>Untick one to <b>fade</b> those boxes almost out — handy for seeing one
+      contract's cargo on its own. <b>Check All</b> / <b>Uncheck All</b> do it
+      in bulk, <b>Close</b> dismisses the dialog.</li>
 </ul>
 """,
         # ── See Inside ────────────────────────────────────────────────────────
@@ -2067,7 +2101,7 @@ Nothing is moved, saved or counted.</p>
             }}
         """)
 
-        for label, content in zip(self._TABS, self._CONTENT):
+        for label, content in self.tutorial_pages():
             page = QWidget()
             page_lay = QVBoxLayout(page)
             page_lay.setContentsMargins(0, 0, 0, 0)
@@ -2081,7 +2115,7 @@ Nothing is moved, saved or counted.</p>
             inner_lay = QVBoxLayout(inner)
             inner_lay.setContentsMargins(16, 12, 16, 12)
 
-            lbl = QLabel(content.strip(), inner)
+            lbl = QLabel(content, inner)
             lbl.setWordWrap(True)
             lbl.setTextFormat(Qt.RichText)
             lbl.setStyleSheet(
@@ -2094,7 +2128,7 @@ Nothing is moved, saved or counted.</p>
 
             scroll.setWidget(inner)
             page_lay.addWidget(scroll)
-            tabs.addTab(page, label)
+            tabs.addTab(page, label.replace("&", "&&"))    # a lone & is Qt's shortcut mark
 
         card_lay.addWidget(tabs)
         lay.addWidget(card)
