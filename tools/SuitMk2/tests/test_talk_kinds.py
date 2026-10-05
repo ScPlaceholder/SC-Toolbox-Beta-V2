@@ -160,3 +160,29 @@ def test_nothing_in_the_running_suit_calls_any_of_this():
         used = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)} | {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
         assert not (used & names), (path.name, used & names)
     assert "talk_examples.json" not in "".join(p.read_text(encoding="utf-8") for p in CORE.glob("*.py") if p.name != "chat_contract.py")
+
+
+@pytest.mark.parametrize("reply, out", [
+    ("One. Two. Three.", "One. Two."),
+    ("Well, pilot, I had not thought of it. Nor have I now. But ask me tomorrow.", "Well, pilot, I had not thought of it. Nor have I now."),
+    ("He said \"go. Now. At once\" and I went. I regret it. Often.", "He said \"go. Now. At once\" and I went. I regret it."),
+    ("A queue, you say? A crowd, then. I pity them.", "A queue, you say? A crowd, then."),
+    ("I asked Dr. Voss. He knew. He always does.", "I asked Dr. Voss. He knew."),
+    ("Well... I suppose. Perhaps not. Who can say.", "Well... I suppose. Perhaps not."),
+    ("Only one sentence here.", "Only one sentence here."), ("Two here. And done.", "Two here. And done."),
+])
+def test_montaignes_cut_keeps_two_sentences_and_never_cuts_inside_a_quotation(reply, out):
+    assert cc.first_sentences(reply, 2) == out
+    assert cc.first_sentences(reply, 1) == cc.first_sentence(reply) or '"' in reply
+
+
+@pytest.mark.parametrize("reply, out", [
+    ("*sighs* A long day, pilot.", "A long day, pilot."),
+    ("A long day. *A pause.* And a longer night.", "A long day. And a longer night."),
+    ("(chuckles softly) You flatter me.", "You flatter me."),
+    ("It is a matter of *being*, pilot.", "It is a matter of being, pilot."),              # emphasis keeps its word
+    ("The Carrack (which I have never seen) is large.", "The Carrack (which I have never seen) is large."),
+    ("Nothing to strip here.", "Nothing to strip here."),
+])
+def test_a_stage_direction_is_taken_out_and_nothing_else(reply, out):
+    assert cc.strip_stage(reply) == out

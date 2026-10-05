@@ -418,6 +418,41 @@ def first_sentence(reply: str) -> str:
     return s
 
 
+def first_sentences(reply: str, n: int = 2) -> str:
+    """THE CUT FOR MONTAIGNE (step e rerun): the first `n` sentences. A sentence ends at a full stop, question mark
+    or exclamation mark that is followed by a space and a capital, a digit or an opening quotation mark, exactly as
+    in first_sentence, and with two more conditions: the end may not fall INSIDE a quotation (an odd number of
+    double quotation marks before it), and it may not be an ellipsis or a title. A comma never ends a sentence, so
+    "Well, pilot, ..." is never cut after "pilot,". If the reply has fewer than n such ends it is left whole."""
+    s = str(reply or "").strip()
+    ends = 0
+    for m in _SENTENCE_END.finditer(s):
+        head = s[:m.end()]
+        if head.lower().split()[-1] in _TITLES:
+            continue
+        if (head.count('"') + head.count("“") + head.count("”")) % 2:
+            continue                                     # inside a quotation: not an end
+        ends += 1
+        if ends == n:
+            return head.strip()
+    return s
+
+
+_ACTION_WORDS = (r"sighs?|laughs?|pauses?|smiles?|chuckles?|nods?|shrugs?|grins?|coughs?|hums?|winks?|frowns?|clears|leans|turns|"
+                 r"looks|gestures?|settles|stirs|murmurs?|whispers?|adjusts|taps|a pause|a sigh|a chuckle|a soft|a low|softly|quietly")
+
+
+def strip_stage(reply: str) -> str:
+    """Take out a stage direction, and only that: *words between asterisks* or (words in brackets) when the first
+    word is one of a short list of things a body does (sighs, chuckles, a pause). *Emphasis* on any other word
+    keeps the word and loses the asterisks. Anything else in brackets is left alone."""
+    s = re.sub(rf"\*\s*(?:{_ACTION_WORDS})\b[^*]{{0,60}}\*", " ", str(reply or ""), flags=re.I)
+    s = re.sub(rf"\(\s*(?:{_ACTION_WORDS})\b[^)]{{0,60}}\)", " ", s, flags=re.I)
+    s = re.sub(r"\*([^*\s][^*]{0,40}?)\*", r"\1", s)
+    s = re.sub(r"\s+([,.;:!?])", r"\1", " ".join(s.split()))
+    return s.strip()
+
+
 def cap_reply(reply: str, facts=(), memory=()) -> str:
     """The reply as it may be spoken: its first sentence only when nothing was supplied to answer from."""
     return reply if (facts or memory) else first_sentence(reply)
