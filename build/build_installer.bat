@@ -408,8 +408,88 @@ if "!PICO_STAGE_OK!"=="0" (
     goto :fail
 )
 
+:: Toolbox Assistant / AI Crew (tools\Assistant) - staged FILE BY FILE, never through the loop above.
+:: It is the window SuitMk2 is a tab of (tools\SuitMk2\skill.json: "tab_of": "assistant", "hidden": true),
+:: so without it SuitMk2 has no tile and no window of its own design to open in. If the folder is missing
+:: the build STOPS here.
+:: The dev folder is about 8 MB and about 4 MB of it runs. NOT staged: tests\, eval\ (the routing test set
+:: and its results), assistant\starmap_ears\ (the Star Map's old ears, which nothing imports),
+:: assistant\selftest.py, assistant_app.py (the Assistant alone in a window, for development), README.md.
+:: The lists below were measured on 2026-10-06 by starting the entry script from a clean copy with an empty
+:: APPDATA, an empty home folder and no network, and recording every file it and its workers opened:
+::   skill.json, toolbox_assistant_app.py     the tile and the entry script the launcher starts
+::   assets\                                  the two listener-penguin images
+::   assistant\*.py                           the twenty modules below
+::   assistant\set_route\                     resolving a destination and the in-game route setter
+::   assistant\workers\                       one per tool it looks answers up in, each run in that tool's
+::                                            own folder (skills\Trade_Hub, tools\Mining_Signals, ...)
+::   assistant\data\set_route\                the destination list, its learned spellings, the blacklist
+:: NEVER staged: any mouse_calibration.json, and tools\set_route_ai (the WingmanAI skill). A calibration is
+:: the screen positions the route setter clicks, measured on one person's screen. A player's own is saved in
+:: their home folder (.sctoolbox\set_route), and until they calibrate nothing is clicked.
+:: build\check_assistant_stage.py (Step 7c) fails the build if one is staged, if the staged files are not
+:: exactly the run-time files of the source folder, or if the Assistant does not work from staging alone.
+:: (These notes live OUTSIDE the block: '::' inside a ( ) block is parsed as a label.)
+set "ASSIST_SRC=%ROOT%\tools\Assistant"
+set "ASSIST_DST=%STAGE%\tools\Assistant"
+set "ASSIST_STAGE_OK=1"
+if exist "%ASSIST_SRC%\skill.json" (
+    echo  [*] Staging Toolbox Assistant...
+    mkdir "%ASSIST_DST%\assets" 2>nul
+    mkdir "%ASSIST_DST%\assistant\set_route" 2>nul
+    mkdir "%ASSIST_DST%\assistant\workers" 2>nul
+    mkdir "%ASSIST_DST%\assistant\data\set_route" 2>nul
+    for %%F in (skill.json toolbox_assistant_app.py assets\listener_penguin.png assets\listener_penguin_sheet.png) do (
+        if exist "%ASSIST_SRC%\%%F" (
+            copy /Y "%ASSIST_SRC%\%%F" "%ASSIST_DST%\%%F" >nul
+        ) else (
+            echo  [ERR] Toolbox Assistant: tools\Assistant\%%F is missing
+            set "ASSIST_STAGE_OK=0"
+        )
+    )
+    for %%F in (__init__.py agent.py answers.py builtin_tools.py config.py headless.py hub.py ipc_bus.py listener_penguin.py logic.py panel.py providers.py ptt_overlay.py router.py starmap_bridge.py tools.py tutorial.py voice.py voice_input.py worker_pool.py) do (
+        if exist "%ASSIST_SRC%\assistant\%%F" (
+            copy /Y "%ASSIST_SRC%\assistant\%%F" "%ASSIST_DST%\assistant\" >nul
+        ) else (
+            echo  [ERR] Toolbox Assistant: tools\Assistant\assistant\%%F is missing
+            set "ASSIST_STAGE_OK=0"
+        )
+    )
+    for %%F in (__init__.py destination_engine.py gate.py phrases.py route_setter.py service.py) do (
+        if exist "%ASSIST_SRC%\assistant\set_route\%%F" (
+            copy /Y "%ASSIST_SRC%\assistant\set_route\%%F" "%ASSIST_DST%\assistant\set_route\" >nul
+        ) else (
+            echo  [ERR] Toolbox Assistant: tools\Assistant\assistant\set_route\%%F is missing
+            set "ASSIST_STAGE_OK=0"
+        )
+    )
+    for %%F in (_worker_main.py h_battle_buddy.py h_cargo.py h_craft.py h_dps.py h_market.py h_mining.py h_missions.py h_playtime.py h_signals.py h_starmap.py h_trade.py) do (
+        if exist "%ASSIST_SRC%\assistant\workers\%%F" (
+            copy /Y "%ASSIST_SRC%\assistant\workers\%%F" "%ASSIST_DST%\assistant\workers\" >nul
+        ) else (
+            echo  [ERR] Toolbox Assistant: tools\Assistant\assistant\workers\%%F is missing
+            set "ASSIST_STAGE_OK=0"
+        )
+    )
+    for %%F in (blacklist.json destinations.json phonetic_learning.json) do (
+        if exist "%ASSIST_SRC%\assistant\data\set_route\%%F" (
+            copy /Y "%ASSIST_SRC%\assistant\data\set_route\%%F" "%ASSIST_DST%\assistant\data\set_route\" >nul
+        ) else (
+            echo  [ERR] Toolbox Assistant: tools\Assistant\assistant\data\set_route\%%F is missing
+            set "ASSIST_STAGE_OK=0"
+        )
+    )
+) else (
+    echo  [ERR] Toolbox Assistant: tools\Assistant\skill.json is missing. SuitMk2 is a tab of that window.
+    set "ASSIST_STAGE_OK=0"
+)
+if "!ASSIST_STAGE_OK!"=="0" (
+    echo  [ERR] Toolbox Assistant could not be staged - see the lines above.
+    goto :fail
+)
+
 :: DPS Calculator loads the scunpacked adapter from shared\scunpacked.py by path. It used to live in
-:: tools\Assistant\, which does not ship, and 2.4.0's first install test crashed DPS on launch.
+:: tools\Assistant\, which did not ship then, and 2.4.0's first install test crashed DPS on launch.
 :: shared\ is staged whole; this only fails the build if the file ever goes missing again.
 if not exist "%STAGE%\shared\scunpacked.py" (
     echo  [!] MISSING: shared\scunpacked.py - the DPS Calculator cannot start without it
@@ -1031,6 +1111,18 @@ if exist "%STAGE%\tools\Pico" (
         echo  [FAIL] Pico Pals staging check failed - see the lines above.
         set "VALIDATION_OK=0"
     )
+)
+
+:: Toolbox Assistant: exactly the run-time files staged and no click calibration with them, every tool it
+:: looks answers up in is staged, and it works from the staged copy alone (empty APPDATA, empty home
+:: folder, no network, no model service): both tabs, a typed answer, every tool worker, no key or click
+:: sent with no calibration, the launcher's hide / show / quit. Nothing reaches the desktop while it runs.
+:: See build\check_assistant_stage.py.
+echo  [*] Checking the staged Toolbox Assistant...
+"%STAGE%\python\python.exe" "%BUILD%check_assistant_stage.py" "%STAGE%" "%ROOT%\tools\Assistant"
+if !errorlevel! neq 0 (
+    echo  [FAIL] Toolbox Assistant staging check failed - see the lines above.
+    set "VALIDATION_OK=0"
 )
 
 if "!VALIDATION_OK!"=="0" (
