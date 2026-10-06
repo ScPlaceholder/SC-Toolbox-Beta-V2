@@ -63,6 +63,8 @@ import place_flavour                                                       # noq
 from contract_history import ContractHistory                               # noqa: E402
 from settings import DEFAULTS as _SETTING_DEFAULTS                         # noqa: E402
 import fact_lines as factl                                                 # noqa: E402
+import hours_aboard                                                        # noqa: E402
+import rare_line                                                           # noqa: E402
 
 log = logging.getLogger("suitmk2.core")
 
@@ -252,6 +254,12 @@ class CompanionCore:
         _adir = getattr(store, "dir", None) if store is not None else None
         self.affect = CompanionAffect(path=(Path(_adir) / "affect.json") if _adir else None, now=now)
         self._affect_t = now()
+        # Hours of use, kept beside the pilot's memory (hours_aboard.py), and Montaigne's rare line, which is said
+        # about once in a hundred of them and has no setting (rare_line.py; J 2026-10-05). With no memory folder
+        # there is nowhere to keep either, and there is neither.
+        self.hours = hours_aboard.HoursAboard(Path(_adir) / hours_aboard.NAME, now=now) if _adir else None
+        self.rare = rare_line.RareLine(Path(_adir) / rare_line.STATE_NAME, self.hours, now=now) if _adir else None
+        self._use_t = now()                     # when use was last counted (ambient_tick)
         self._presence_last: dict = {}          # scenario -> last time a routine EVENT line spoke in PRESENCE
         self._pending_look: Optional[str] = None
         self._pending_look_t = -1e9
@@ -391,6 +399,15 @@ class CompanionCore:
                     recap_record(read_session(closed), self.store, session=closed.name)   # one write, no model
             except Exception:
                 log.exception("session record close")
+        # After the session record, which matters more, and survivable like every step here: the hours of use
+        # counted since the last periodic write (hours_aboard.py; at most five minutes' worth).
+        hours = getattr(self, "hours", None)
+        if hours is not None:
+            try:
+                hours.save()
+            except Exception as e:
+                log.warning("companion stop: the hours aboard were not saved (%s: %s)", type(e).__name__, e,
+                            exc_info=True)
 
     def set_chattiness(self, level: int) -> None:
         p = self.pacer.set_level(level)
@@ -562,6 +579,8 @@ class CompanionCore:
             self._last_idle = self.now()        # the relationship slot is spent only when one is actually said
         if spec.get("scenario") == "scene_look":
             self._last_eye_line_t = self.now()  # the eye-talk wait starts when such a line is SAID, not when tried
+        if spec.get("scenario") == rare_line.SCENARIO and self.rare is not None:
+            self.rare.said()                    # written down only now that it was heard; its gap starts here
         self.topics.record(spec)
         t = spec.get("topic")
         if t and self.walker is not None:
@@ -1063,6 +1082,7 @@ class CompanionCore:
         return out
 
     def ambient_tick(self) -> None:
+        self._count_use()
         # No eyes (vision off, or a log-only player): the activity mode and boredom tick HERE instead. They used to
         # tick only on the eyes loop, so a log-only session never decayed back to PRESENCE and never got bored
         # (found in the dry run's limits, 2026-09-24).
@@ -1092,6 +1112,8 @@ class CompanionCore:
             self.stats["afk_quiet"] = self.stats.get("afk_quiet", 0) + 1
             return
         if self._dev_resume_tick():
+            return
+        if self._try_rare_line():
             return
         # Entering a system: somewhere in it they have not been yet (J 09-23). The session's FIRST system is not an
         # arrival (the welcome covers it), so only a CHANGE counts.
@@ -1267,6 +1289,9 @@ class CompanionCore:
                 or self.dev_facts is None or not self.dev_facts.enabled):
             self.stats["dev_fact_dropped"] = self.stats.get("dev_fact_dropped", 0) + 1
             self._note(f"{why}: dropped (no longer a quiet moment)")
+            return
+        if spec.get("scenario") == rare_line.SCENARIO and self._fact_hold():
+            self._note(f"{why}: held ({self._fact_hold()}); it waits")       # still chosen: offered again next tick
             return
         # A fixed-text line (a dev fact, its resume, a toggle ack) is a template from its source: no model words it.
         text = spec["fixed_text"] if spec.get("fixed_text") else (self.realizer(spec) if self.realizer else None)
@@ -1640,6 +1665,39 @@ class CompanionCore:
         self._fact_line_t = now
         self.stats["fact_lines"] = self.stats.get("fact_lines", 0) + 1
         self._consider(spec, Priority.AMBIENT, PRIORITY_AMBIENT, f"fact line ({fact['relation']})")
+        return True
+
+    # -- hours of use, and the rare line (hours_aboard.py, rare_line.py) -----------------------------------------
+    def _count_use(self) -> None:
+        """Count the time since the last tick as use, when an unprompted line could have been heard in it: the
+        voice not muted (Mute, or the window hidden) and the pilot at the controls. A first tick, a clock that
+        went backwards and a gap of more than three ticks (the PC slept) count nothing."""
+        now = self.now()
+        dt, self._use_t = now - self._use_t, now
+        if self.hours is None or not 0.0 < dt <= 3.0 * self.ambient_every_s:
+            return
+        if bool(getattr(self.speech, "muted", False)) or self.afk.afk():
+            return
+        self.hours.add(dt)
+        if self.rare is not None:
+            self.rare.used(dt)
+
+    def _try_rare_line(self) -> bool:
+        """Maybe offer Montaigne's rare line in place of everything else this tick. True = it was handed on.
+        A tick on which something holds unprompted lines is not an opportunity: nothing is rolled, and what the
+        tick had earned waits for the next. Once chosen it is offered at every clear tick until it is spoken."""
+        rare = self.rare
+        if rare is None or self._fact_hold():
+            return False
+        if not rare.roll():
+            return False
+        spec = rare_line.spec()
+        if spec is None:
+            rare.disarm()
+            self._note(f"rare line: nothing to say ({rare_line.problems(rare_line.line())[:2]})")
+            return False
+        self.stats["rare_offered"] = self.stats.get("rare_offered", 0) + 1
+        self._consider(spec, Priority.AMBIENT, PRIORITY_AMBIENT, "rare line")
         return True
 
     # -- direct questions (conversation.py): the pilot asked, so this outranks everything else ---------------------

@@ -773,7 +773,9 @@ def maker_problems(reply: str, supplied: str, maker_words) -> list[str]:
 CHARACTER = [
     ("says it is an AI model, a program or an assistant",
      r"(?<!not )(?<!not an )(?<!not a )(?<!no )(?<!nor )\b(?:as an ai|i am an ai model|i'm an ai model|language model|large language|"
-     r"i am a program|i'm a program|chatbot|virtual assistant|i am an assistant|i'm an assistant|your assistant|artificial intelligence)\b"),
+     r"i am a program|i'm a program|chatbot|virtual assistant|i am an assistant|i'm an assistant|your assistant|artificial intelligence|"
+     # "your friendly ship assistant" walked past "your assistant" (found 2026-10-05, writing the one line that says it)
+     r"(?:your|a|an|the) (?:[a-z'-]+ ){1,2}assistant)\b"),
     ("an assistant's offer of help", r"\b(?:how (?:can|may) i (?:help|assist)|i'?m here to (?:help|assist)|here to assist|is there (?:something|anything) "
                                      r"(?:specific|else)|happy to help|glad to help|i can help you with|let me know if|feel free to|i'?d be happy)\b"),
     ("a corporate refusal or apology", r"\b(?:i'?m sorry,? but|i apologi[sz]e|i cannot assist|i can'?t assist|unable to assist|as a responsible)\b"),

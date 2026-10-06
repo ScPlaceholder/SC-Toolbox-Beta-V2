@@ -263,7 +263,9 @@ def test_only_the_talker_calls_the_serializer_and_the_chat_gate_and_chat_is_off_
     decided free talk is worded by a model: chat_talker.py is the one caller, behind two settings that are off.
     The same day fact_lines.py became a second caller of the GATE alone: its lines are templates, not a
     model's words, and each filled line is still put to chat_problems before it may be said. It builds no
-    prompt, so the serializer and the reply cleaner still have the one caller."""
+    prompt, so the serializer and the reply cleaner still have the one caller.
+    That night rare_line.py became a third caller of the gate, for the one written line of Montaigne's it is
+    there to say (tests/test_rare_line.py holds what it may and may not excuse)."""
     from pathlib import Path
     root = Path(cc.__file__).resolve().parents[1]
     users, gate_users = [], []
@@ -276,7 +278,7 @@ def test_only_the_talker_calls_the_serializer_and_the_chat_gate_and_chat_is_off_
         if "chat_problems(" in src:
             gate_users.append(p.name)
     assert users == ["chat_talker.py"]
-    assert sorted(gate_users) == ["chat_talker.py", "fact_lines.py"]
+    assert sorted(gate_users) == ["chat_talker.py", "fact_lines.py", "rare_line.py"]
     import settings
     chat_keys = {k: v for k, v in settings.DEFAULTS.items() if k == "chat" or k.startswith("chat_") or "talker" in k}
     # The two thread keys (2026-10-05) are the values chat_talker's constants had; neither turns anything on.
