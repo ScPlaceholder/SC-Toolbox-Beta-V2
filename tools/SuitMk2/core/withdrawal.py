@@ -85,8 +85,16 @@ _HERE_PLACE = r"(?:(?:up |in |on |back )?here|aboard|on board|(?:on|in|aboard) (
 _NOT = r"(?!not\b|never\b|no\b|dont\b|didnt\b|wont\b|wouldnt\b|cant\b|couldnt\b)"
 
 
+_COMPILED: dict = {}
+
+
 def _has(rx: str, s: str) -> bool:
-    return bool(re.search(rx, s))
+    """Each pattern is compiled once and kept here. There are over a hundred, the lane runs them on every
+    sentence it hears, and `re` keeps only its last few hundred across the whole program."""
+    c = _COMPILED.get(rx)
+    if c is None:
+        c = _COMPILED[rx] = re.compile(rx)
+    return bool(c.search(s))
 
 
 # --- shape 1: prefer ----------------------------------------------------------------------------------------------
