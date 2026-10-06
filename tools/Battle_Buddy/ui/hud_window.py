@@ -836,6 +836,15 @@ class HudWindow(QWidget):
         pos = self.pos()
         self._schedule_save({"window_x": pos.x(), "window_y": pos.y()})
 
+    def save_position_now(self) -> None:
+        """Persist the current position immediately, skipping the debounce: a
+        reset that is still waiting in the timer when the process exits is lost,
+        and the old position comes back on the next start."""
+        self._dragging = False
+        self._save_position()
+        self._save_timer.stop()
+        self._flush_save()
+
     def _on_opacity_changed(self, value: int) -> None:
         """Update window opacity from slider and persist (debounced)."""
         opacity = value / 100.0

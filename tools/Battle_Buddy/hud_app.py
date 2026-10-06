@@ -72,7 +72,25 @@ def _parse_args() -> dict:
         "x": cli["x"], "y": cli["y"], "opacity": cli["opacity"],
         "log_path": "", "orientation": "horizontal",
         "cmd_file": cli["cmd_file"] or "",
+        "ipc_read": _read_launcher_commands,
     }
+
+
+def _read_launcher_commands(cmd_file: str) -> list:
+    """Read the command file the way the launcher writes it (shared/ipc.py).
+
+    The two writers lock differently.  main.py (WingmanAI) uses core/ipc.py: the
+    lock is a file that exists only while it is held.  The launcher uses
+    shared/ipc.py: the lock file stays, and a byte of it is locked.  Reading the
+    launcher's file with core/ipc.py therefore found "the lock" held after every
+    command, waited its 2 s on the GUI thread, and only got through once the file
+    was 10 s old and it deleted it as stale: show, hide and quit from the launcher
+    each took 10 s (measured 2026-10-06: 10.02, 10.03, 10.06, 10.01, 10.03 s), with
+    the HUD frozen meanwhile."""
+    if not os.path.exists(cmd_file):
+        return []
+    from shared.ipc import ipc_read_and_clear as read
+    return read(cmd_file)
 
 
 def _place_on_screen(win, has_saved_position: bool) -> None:
@@ -92,10 +110,20 @@ def _place_on_screen(win, has_saved_position: bool) -> None:
             if seen.width() * seen.height() * 2 >= area:
                 return
         logger.info("Saved HUD position %s is off every screen; centring", rect.topLeft())
+    _centre_on_primary(win)
+
+
+def _centre_on_primary(win) -> None:
+    """Centre *win* on the primary screen's available area.  The primary one, not
+    the one the window is on: a window lost on an unplugged monitor is the case
+    this is for."""
+    from PySide6.QtGui import QGuiApplication
+
     primary = QGuiApplication.primaryScreen()
     if primary is None:
         return
     g = primary.availableGeometry()
+    rect = win.frameGeometry()
     win.move(g.center().x() - rect.width() // 2, g.center().y() - rect.height() // 2)
 
 
@@ -103,6 +131,8 @@ class BattleBuddyApp:
     def __init__(self, cfg: dict) -> None:
         self._cfg      = cfg
         self._cmd_file = cfg["cmd_file"]
+        # The reader that matches whoever writes the file: see _read_launcher_commands
+        self._ipc_read = cfg.get("ipc_read") or ipc_read_and_clear
 
         # Merge saved settings on top of launch-arg defaults
         saved = load_settings()
@@ -271,7 +301,7 @@ class BattleBuddyApp:
     def _poll_ipc(self) -> None:
         if not self._cmd_file:
             return
-        for cmd in ipc_read_and_clear(self._cmd_file):
+        for cmd in self._ipc_read(self._cmd_file):
             t = cmd.get("type", "")
             if t == "show":
                 self._hud.show()
@@ -286,8 +316,23 @@ class BattleBuddyApp:
                     self._hud.raise_()
             elif t == "report":
                 self._speak_loadout()
+            elif t == "reset_position":
+                self._reset_position()
             elif t == "quit":
                 QApplication.instance().quit()
+
+    def _reset_position(self) -> None:
+        """The launcher's Settings > "Reset position for Pico Pals and Battle Buddy":
+        the HUD goes back to the centre of the primary screen and that spot is
+        saved at once, so the next hide or exit cannot write the old one back.
+        The click-through toggle follows the HUD by itself; an Options or
+        Tutorial window that is open comes back to the centre too."""
+        _centre_on_primary(self._hud)
+        self._hud.save_position_now()
+        for popup in (OptionsPopup._instance, TutorialPopup._instance):
+            if popup is not None and popup.isVisible():
+                _centre_on_primary(popup)
+        logger.info("HUD position reset to the centre of the primary screen: %s", self._hud.pos())
 
     # ── Callbacks ─────────────────────────────────────────────────────────────
 

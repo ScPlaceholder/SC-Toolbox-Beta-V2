@@ -239,6 +239,7 @@ class SettingsPopup(QWidget):
         ui_scale: float = 1.0,
         hide_on_tool_active: bool = False,
         opacity: float = 0.95,
+        on_reset_positions: Optional[Callable[[], Dict[str, str]]] = None,
     ) -> None:
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setObjectName("settingsPopup")
@@ -261,6 +262,7 @@ class SettingsPopup(QWidget):
         self._parent_window = parent_window
         self._skills = skills
         self._on_apply = on_apply
+        self._on_reset_positions = on_reset_positions
         self._available_langs = available_languages or ["en"]
         self._current_tab = 0
         self._tab_btns: list[QPushButton] = []
@@ -443,6 +445,7 @@ class SettingsPopup(QWidget):
             font-family: Consolas; font-size: 8pt;
             color: {P.fg_dim}; background: transparent;
         """)
+        self._status_label.setWordWrap(True)
         b_lay.addWidget(self._status_label, stretch=1)
 
         cancel_btn = SCButton(_t("Cancel"), bottom, glow_color=P.red)
@@ -862,6 +865,45 @@ class SettingsPopup(QWidget):
 
         c_lay.addWidget(hide_row)
 
+        # ── Reset position: Pico Pals and Battle Buddy are small frameless windows dragged around the
+        #    desktop, so either can be left where it cannot be grabbed (J, 2026-10-06). Acts at once,
+        #    like the folder and voice rows above: it is not one of the values Apply saves. ──
+        reset_sep = QFrame()
+        reset_sep.setFixedHeight(1)
+        reset_sep.setStyleSheet(f"background-color: {P.border};")
+        c_lay.addWidget(reset_sep)
+
+        reset_row = QWidget()
+        reset_row.setFixedHeight(32)
+        reset_row.setStyleSheet("background: transparent;")
+        reset_lay = QHBoxLayout(reset_row)
+        reset_lay.setSpacing(8)
+        reset_lay.setContentsMargins(0, 0, 0, 0)
+
+        reset_tip = _t("Puts both in the centre of the main screen, "
+                       "in case one is stuck where you cannot grab it.")
+        reset_lbl = QLabel(_t("Reset position for Pico Pals and Battle Buddy"))
+        reset_lbl.setStyleSheet(f"""
+            font-family: Consolas; font-size: 9pt;
+            color: {P.fg}; background: transparent;
+        """)
+        reset_lbl.setToolTip(reset_tip)
+        reset_lay.addWidget(reset_lbl, stretch=1)
+
+        self._reset_pos_btn = QPushButton(_t("Reset"))
+        self._reset_pos_btn.setCursor(Qt.PointingHandCursor)
+        self._reset_pos_btn.setFixedHeight(24)
+        self._reset_pos_btn.setToolTip(reset_tip)
+        self._reset_pos_btn.setStyleSheet(f"""
+            QPushButton {{ background: {P.bg_input}; color: {P.fg};
+                border: 1px solid {P.border}; border-radius: 3px;
+                font-family: Consolas; font-size: 8pt; padding: 0 10px; }}
+            QPushButton:hover {{ color: {P.fg_bright}; border-color: {P.energy_cyan}; }}
+        """)
+        self._reset_pos_btn.clicked.connect(self._reset_tool_positions)
+        reset_lay.addWidget(self._reset_pos_btn)
+        c_lay.addWidget(reset_row)
+
         c_lay.addStretch(1)
         scroll.setWidget(content)
 
@@ -869,6 +911,31 @@ class SettingsPopup(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll)
         return page
+
+    def _reset_tool_positions(self) -> None:
+        """Centre Pico Pals and Battle Buddy on the main screen (core/position_reset.py) and say, per
+        tool, what was done: a running one has moved, a closed one opens centred next time."""
+        from core import position_reset
+        try:
+            if self._on_reset_positions is not None:
+                results = self._on_reset_positions()
+            else:
+                results = position_reset.reset_positions()
+        except Exception:
+            log.exception("position reset failed")
+            results = {t.skill_id: position_reset.FAILED for t in position_reset.TARGETS}
+        said = {
+            position_reset.MOVED: _t("centred now"),
+            position_reset.CLEARED: _t("centred on next start"),
+            position_reset.FAILED: _t("could not be reset"),
+        }
+        names = {s.id: str(s.name) for s in self._skills}
+        parts = [f"{names[sid]}: {said.get(state, state)}"
+                 for sid, state in results.items() if sid in names]
+        failed = any(state == position_reset.FAILED for state in results.values())
+        msg = ("\u2717 " if failed else "\u2713 ") + ("   ".join(parts) or _t("Position reset"))
+        self._show_status(msg, P.red if failed else P.green)
+        self._status_label.setToolTip(msg)
 
     @staticmethod
     def _ptt_keys_text() -> str:

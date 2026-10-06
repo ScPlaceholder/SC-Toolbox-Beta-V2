@@ -906,6 +906,19 @@ class Pal(QWidget):
         d.update({"x": self.x(), "y": self.y(), "height": self.height_px}, **extra)
         save_settings(d)
 
+    def to_the_middle(self):
+        """Back to the middle of the main screen, and remembered there: the launcher's Settings >
+        "Reset position for Pico Pals and Battle Buddy", for a Pico left where he cannot be grabbed (a
+        monitor that has been unplugged since). The MAIN screen, not the one he is on, for that reason.
+        Any box of his that is open (Customise, How Pico works, About) comes back with him."""
+        self.drag = None
+        area = QApplication.primaryScreen().availableGeometry()
+        self.move(start_position((), area, {}, self.size()))
+        self.remember()
+        for w in QApplication.topLevelWidgets():
+            if w is not self and isinstance(w, QDialog) and w.isVisible():
+                w.move(start_position((), area, {}, w.frameGeometry().size()))
+
 
 def no_window_frame(widget) -> None:
     """Windows 11 outlines every top-level window and rounds its corners, even a frameless transparent one,

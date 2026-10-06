@@ -166,6 +166,7 @@ class SCToolboxApp:
             ui_scale=self._settings.ui_scale,
             hide_on_tool_active=self._settings.hide_on_tool_active,
             on_restart=self._relaunch,
+            on_reset_positions=self._reset_tool_positions,
         )
 
         # ── Thread-safe dispatch queue ──
@@ -412,6 +413,12 @@ class SCToolboxApp:
             return [int(pos.x()), int(pos.y()), int(size.width()), int(size.height())]
         except Exception:  # noqa: BLE001 - where to open is a nicety; opening is not
             return None
+
+    def _reset_tool_positions(self) -> dict:
+        """Settings > "Reset position for Pico Pals and Battle Buddy". A running tool is told to
+        centre itself through its command file; a closed one has its saved position removed."""
+        from core import position_reset
+        return position_reset.reset_positions(self._pm.get, _skill_dir)
 
     def _toggle_skill(self, skill_id: str) -> None:
         pid, mp, tab = self._process_for(skill_id)
@@ -671,6 +678,7 @@ class SCToolboxApp:
             ui_scale=self._settings.ui_scale,
             hide_on_tool_active=self._settings.hide_on_tool_active,
             on_restart=self._relaunch,
+            on_reset_positions=self._reset_tool_positions,
         )
 
         # Restore tile states for any skills that are already running

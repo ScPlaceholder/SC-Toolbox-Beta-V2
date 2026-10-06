@@ -363,6 +363,7 @@ class LauncherWindow(SCWindow):
         ui_scale: float = 1.0,
         hide_on_tool_active: bool = False,
         on_restart: Optional[Callable[[], None]] = None,
+        on_reset_positions: Optional[Callable[[], Dict[str, str]]] = None,
     ) -> None:
         super().__init__(
             title="SC_Toolbox",
@@ -390,6 +391,7 @@ class LauncherWindow(SCWindow):
         self._ui_scale = ui_scale
         self._hide_on_tool_active = hide_on_tool_active
         self._on_restart = on_restart
+        self._on_reset_positions = on_reset_positions
         self._settings_popup: Optional[SettingsPopup] = None
         self._update_bubble: Optional[UpdateBubble] = None
 
@@ -778,6 +780,7 @@ class LauncherWindow(SCWindow):
             scroll_on_hover=self._scroll_on_hover,
             ui_scale=self._ui_scale,
             hide_on_tool_active=self._hide_on_tool_active,
+            on_reset_positions=self._on_reset_positions,
         )
         self._settings_popup.show()
 

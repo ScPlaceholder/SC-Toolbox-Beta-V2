@@ -18,7 +18,9 @@ What is done with what the launcher passes:
   custom_args        passed to sprite_pal.py unchanged, so a skill.json can say
                      "custom_args": ["--demo"] or ["--loops", "<folder>"].
   cmd_file           watched: show -> Pico appears, hide -> Pico disappears (still running, still
-                     tailing the log), quit -> Pico exits. If the file vanishes the launcher is gone
+                     tailing the log), quit -> Pico exits, reset_position -> Pico goes back to the
+                     middle of the main screen and remembers it (the launcher's Settings button, for
+                     a Pico left where he cannot be grabbed). If the file vanishes the launcher is gone
                      and Pico exits too, like every other tool (shared/qt/ipc_thread.py).
 
 Game.log: the install folder the toolbox already knows (shared/sc_install.py, the one the first-launch
@@ -129,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
                     pal.raise_()
                 elif kind == "hide":
                     pal.hide()
+                elif kind == "reset_position":
+                    pal.to_the_middle()
                 elif kind == "quit":
                     app.quit()
 
