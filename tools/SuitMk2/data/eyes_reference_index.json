@@ -1,0 +1,983 @@
+{
+ "format": 1,
+ "version": 1,
+ "date": "2026-10-06",
+ "title": "SuitMk2 eyes: ship fingerprints",
+ "notice": "Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC. This is an unofficial Star Citizen fan site, not affiliated with the Cloud Imperium group of companies. All content on this site not authored by its host or users are property of their respective owners. Free, not for sale. Official site: https://robertsspaceindustries.com",
+ "limits": "Whole-frame fingerprints cannot name a ship from one frame. Run as planned, the method gave no answer on 97.1% of exterior and 98.2% of interior test frames. Forced to answer, it finds the ship family more often than the exact ship, interiors more often than exteriors, many frames more often than one, and it names one of the covered ships for anything it has never seen. Nothing was tested on a real game screen. Read report.md before using any table.",
+ "how_it_grows": "Adding ships only appends: new files with new names, a manifest per batch, and the next version of this file. A published data file is never rewritten or renamed. Every version of this file is kept at index_history/v<NNNN>.json. 'since' is the version an entry arrived in. See index.md.",
+ "changes_in_place": [
+  "index.json",
+  "index.html",
+  "README.md",
+  "sources.md"
+ ],
+ "models": {
+  "clip_h": {
+   "name": "CLIP ViT-H/14, laion2B-s32B-b79K, vision tower with projection",
+   "where": "https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
+   "weights_sha256": "6ca9667da1ca9e0b0f75e46bb030f7e011f44f86cbfb8d5a36590fcd7507b030",
+   "input": "whole frame squashed to 224x224, bicubic",
+   "mean": [
+    0.48145466,
+    0.4578275,
+    0.40821073
+   ],
+   "std": [
+    0.26862954,
+    0.26130258,
+    0.27577711
+   ]
+  },
+  "dinov2_b": {
+   "name": "DINOv2-base, revision f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+   "where": "https://huggingface.co/facebook/dinov2-base",
+   "weights_sha256": "d73036b56966966d07975d696bde331762f37297e2f095de8cea0040c3aa0841",
+   "input": "whole frame squashed to 224x224, bicubic",
+   "mean": [
+    0.485,
+    0.456,
+    0.406
+   ],
+   "std": [
+    0.229,
+    0.224,
+    0.225
+   ]
+  },
+  "dinov2_s": {
+   "name": "DINOv2-small, revision ed25f3a31f01632728cabb09d1542f84ab7b0056",
+   "where": "https://huggingface.co/facebook/dinov2-small",
+   "weights_sha256": "ae1e99fcefd534ed978cdeb8326f08030c96e28b7a81ffcbc98a857c84d14be1",
+   "input": "whole frame squashed to 224x224, bicubic",
+   "mean": [
+    0.485,
+    0.456,
+    0.406
+   ],
+   "std": [
+    0.229,
+    0.224,
+    0.225
+   ]
+  }
+ },
+ "batches": [
+  {
+   "id": "b0001",
+   "since": 1,
+   "date": "2026-10-06",
+   "manifest": {
+    "path": "manifest.json",
+    "bytes": 321249,
+    "sha256": "81a6d49efbe24f6939c2412e7c5349cc321b4da1eca7ee29ec2d7be02d37a74d",
+    "files": 884
+   },
+   "bytes": 575922630,
+   "videos": 40,
+   "ships": [
+    "polaris",
+    "prospector",
+    "reclaimer",
+    "vulture",
+    "fortune",
+    "wolf",
+    "ironclad",
+    "ironclad_assault",
+    "apollo",
+    "hermes"
+   ],
+   "labelled_frames": 13670,
+   "frame_labels": "meta/frames_table.jsonl",
+   "sources": "sources.json",
+   "other_ship_frames": 1277,
+   "no_ship_frames": 544
+  }
+ ],
+ "tables": [
+  {
+   "id": "v1_clip_h_cap200",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "built_from": "emb/clip_h",
+   "space": "clip_h",
+   "output": "projected image embedding",
+   "centred": false,
+   "rows": 3750,
+   "width": 1024,
+   "about": "v1 as run: CLIP ViT-H/14 image_embeds 1024-d, <=200 rows per ship per view",
+   "rows_per_ship": {
+    "polaris": 400,
+    "prospector": 303,
+    "reclaimer": 400,
+    "vulture": 400,
+    "fortune": 356,
+    "wolf": 326,
+    "ironclad": 400,
+    "ironclad_assault": 400,
+    "apollo": 394,
+    "hermes": 371
+   },
+   "files": {
+    "f16_npy": {
+     "path": "fingerprint_table/v1_clip_h_cap200.f16.npy",
+     "bytes": 7680128,
+     "sha256": "0c1d79fa81d1073bae846cac2c03c9580341b51c27af3f5e7ad8b782f22d290b"
+    },
+    "f16_npz": {
+     "path": "fingerprint_table/v1_clip_h_cap200.f16.npz",
+     "bytes": 7100667,
+     "sha256": "1f9a232a5ccf254db5de1e49fe892ffaf38e911c4b96f02da9c68fc49a59684a"
+    },
+    "int8_npy": {
+     "path": "fingerprint_table/v1_clip_h_cap200.int8.npy",
+     "bytes": 3840128,
+     "sha256": "4c1435d57cf045ca4b12a5edc2280cb417828ccab69195810972a8937b28e8f3"
+    },
+    "rows": {
+     "path": "fingerprint_table/v1_clip_h_cap200.rows.json",
+     "bytes": 415454,
+     "sha256": "51f440c939a1be46eb3bfc71634f999c60fbe525e9c5f7a0d37e1721ff21fe34"
+    }
+   },
+   "subset_of": "clip_h_all"
+  },
+  {
+   "id": "clip_h_all",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "built_from": "emb/clip_h",
+   "space": "clip_h",
+   "output": "projected image embedding",
+   "centred": false,
+   "rows": 7810,
+   "width": 1024,
+   "about": "CLIP ViT-H/14 image_embeds 1024-d, every gallery row",
+   "rows_per_ship": {
+    "polaris": 1754,
+    "prospector": 312,
+    "reclaimer": 905,
+    "vulture": 512,
+    "fortune": 367,
+    "wolf": 483,
+    "ironclad": 1272,
+    "ironclad_assault": 1159,
+    "apollo": 620,
+    "hermes": 426
+   },
+   "files": {
+    "f16_npy": {
+     "path": "fingerprint_table/clip_h_all.f16.npy",
+     "bytes": 15995008,
+     "sha256": "24cc205df5413b9ed828678e98ab51d41c644a42666bdc802ebeb176f97f3097"
+    },
+    "f16_npz": {
+     "path": "fingerprint_table/clip_h_all.f16.npz",
+     "bytes": 14785562,
+     "sha256": "621c8ee132ba50271193a04257f05940a1c78d268cdd8963713d2e7ec773883f"
+    },
+    "int8_npy": {
+     "path": "fingerprint_table/clip_h_all.int8.npy",
+     "bytes": 7997568,
+     "sha256": "2fa29f135b5af6f322d035f87f19a8866786a7e701a198fbd73b20d49ec737e2"
+    },
+    "rows": {
+     "path": "fingerprint_table/clip_h_all.rows.json",
+     "bytes": 874410,
+     "sha256": "b90d3bf0ae66bb048d9ae170b5272b2f9675ead04af1f9a7736ca12717005098"
+    }
+   }
+  },
+  {
+   "id": "dinov2_s_all",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "built_from": "emb/dinov2_s",
+   "space": "dinov2_s",
+   "output": "pooled output (CLS)",
+   "centred": false,
+   "rows": 7810,
+   "width": 384,
+   "about": "DINOv2-small CLS 384-d, every gallery row",
+   "rows_per_ship": {
+    "polaris": 1754,
+    "prospector": 312,
+    "reclaimer": 905,
+    "vulture": 512,
+    "fortune": 367,
+    "wolf": 483,
+    "ironclad": 1272,
+    "ironclad_assault": 1159,
+    "apollo": 620,
+    "hermes": 426
+   },
+   "files": {
+    "f16_npy": {
+     "path": "fingerprint_table/dinov2_s_all.f16.npy",
+     "bytes": 5998208,
+     "sha256": "407dc956d2811b3a82d6fe149dc6861a369e3c32d15e043a4420497223509f03"
+    },
+    "f16_npz": {
+     "path": "fingerprint_table/dinov2_s_all.f16.npz",
+     "bytes": 5534597,
+     "sha256": "d1f8bea42ec011081ff04c0d79cad5ba6afbe488010e84dc6f59170217522c09"
+    },
+    "int8_npy": {
+     "path": "fingerprint_table/dinov2_s_all.int8.npy",
+     "bytes": 2999168,
+     "sha256": "4e279d63b6a091c413dbd6e8621652147c6beffb9bd468ce792bcf5431e7760b"
+    },
+    "rows": {
+     "path": "fingerprint_table/dinov2_s_all.rows.json",
+     "bytes": 874410,
+     "sha256": "b90d3bf0ae66bb048d9ae170b5272b2f9675ead04af1f9a7736ca12717005098"
+    }
+   }
+  },
+  {
+   "id": "v2_clip_pm_all",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "built_from": "emb/clip_h__full__pm",
+   "space": "clip_h__full__pm+centred:b0001",
+   "output": "mean over image patches",
+   "centred": true,
+   "rows": 7810,
+   "width": 1280,
+   "about": "v2: CLIP ViT-H/14 patch-mean 1280-d centred, every gallery row",
+   "rows_per_ship": {
+    "polaris": 1754,
+    "prospector": 312,
+    "reclaimer": 905,
+    "vulture": 512,
+    "fortune": 367,
+    "wolf": 483,
+    "ironclad": 1272,
+    "ironclad_assault": 1159,
+    "apollo": 620,
+    "hermes": 426
+   },
+   "files": {
+    "f16_npy": {
+     "path": "fingerprint_table/v2_clip_pm_all.f16.npy",
+     "bytes": 19993728,
+     "sha256": "0652cb650800708a114cd0d2f0d1703bde34f821293adc2e1e09ecbea175de18"
+    },
+    "f16_npz": {
+     "path": "fingerprint_table/v2_clip_pm_all.f16.npz",
+     "bytes": 18438547,
+     "sha256": "8db6fb0bbd8a8938de09fe8d5329e7704d4c3255390c4a89a8be2bea36d8f70e"
+    },
+    "int8_npy": {
+     "path": "fingerprint_table/v2_clip_pm_all.int8.npy",
+     "bytes": 9996928,
+     "sha256": "a0c44ea7291b48d5c6eb0c655dacc0d45e82aeca7130d67ecec6841ff90594f5"
+    },
+    "rows": {
+     "path": "fingerprint_table/v2_clip_pm_all.rows.json",
+     "bytes": 874410,
+     "sha256": "b90d3bf0ae66bb048d9ae170b5272b2f9675ead04af1f9a7736ca12717005098"
+    },
+    "centre": {
+     "path": "fingerprint_table/v2_clip_pm_all.gallery_mean.npy",
+     "bytes": 5248,
+     "sha256": "72eb5e7ea40e4b404c35c177328bc56f84f9c0f33576409092d5ddf84e9e06b7"
+    }
+   },
+   "centre_note": "subtract this vector from a query, then L2-normalise, before comparing; a later table in this space must be centred with this same file"
+  },
+  {
+   "id": "v2_dino_cls_all",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "built_from": "emb/dinov2_b__full__cls",
+   "space": "dinov2_b__full__cls",
+   "output": "pooled output (CLS)",
+   "centred": false,
+   "rows": 7810,
+   "width": 768,
+   "about": "v2: DINOv2-base CLS 768-d, every gallery row",
+   "rows_per_ship": {
+    "polaris": 1754,
+    "prospector": 312,
+    "reclaimer": 905,
+    "vulture": 512,
+    "fortune": 367,
+    "wolf": 483,
+    "ironclad": 1272,
+    "ironclad_assault": 1159,
+    "apollo": 620,
+    "hermes": 426
+   },
+   "files": {
+    "f16_npy": {
+     "path": "fingerprint_table/v2_dino_cls_all.f16.npy",
+     "bytes": 11996288,
+     "sha256": "3fff455a3395da09c3115986c75b362495199b7bb5d7bfa485c1c865402aded6"
+    },
+    "f16_npz": {
+     "path": "fingerprint_table/v2_dino_cls_all.f16.npz",
+     "bytes": 11066464,
+     "sha256": "40b2dd9551c8886fa5e9aa1b971b0375861ddd190c6bad5025d7af301dc2e972"
+    },
+    "int8_npy": {
+     "path": "fingerprint_table/v2_dino_cls_all.int8.npy",
+     "bytes": 5998208,
+     "sha256": "08f3723180eae829c800a72cf2e9070461b4448f08b0f6fca76a43f3f8750438"
+    },
+    "rows": {
+     "path": "fingerprint_table/v2_dino_cls_all.rows.json",
+     "bytes": 874410,
+     "sha256": "b90d3bf0ae66bb048d9ae170b5272b2f9675ead04af1f9a7736ca12717005098"
+    }
+   }
+  }
+ ],
+ "embeddings": [
+  {
+   "variant": "clip_h",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "width": 1024,
+   "files": 40,
+   "bytes": 35570688,
+   "path": "emb/clip_h/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "clip_h__cc__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "width": 1024,
+   "files": 40,
+   "bytes": 35570688,
+   "path": "emb/clip_h__cc__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "clip_h__cc__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "width": 1280,
+   "files": 40,
+   "bytes": 44462080,
+   "path": "emb/clip_h__cc__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "clip_h__full__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "width": 1024,
+   "files": 40,
+   "bytes": 35570688,
+   "path": "emb/clip_h__full__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "clip_h__full__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "clip_h",
+   "width": 1280,
+   "files": 40,
+   "bytes": 44462080,
+   "path": "emb/clip_h__full__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_b",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "width": 768,
+   "files": 40,
+   "bytes": 26679296,
+   "path": "emb/dinov2_b/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_b__cc__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "width": 768,
+   "files": 40,
+   "bytes": 26679296,
+   "path": "emb/dinov2_b__cc__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_b__cc__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "width": 768,
+   "files": 40,
+   "bytes": 26679296,
+   "path": "emb/dinov2_b__cc__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_b__full__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "width": 768,
+   "files": 40,
+   "bytes": 26679296,
+   "path": "emb/dinov2_b__full__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_b__full__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_b",
+   "width": 768,
+   "files": 40,
+   "bytes": 26679296,
+   "path": "emb/dinov2_b__full__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_s",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "width": 384,
+   "files": 40,
+   "bytes": 13342208,
+   "path": "emb/dinov2_s/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_s__cc__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "width": 384,
+   "files": 40,
+   "bytes": 13342208,
+   "path": "emb/dinov2_s__cc__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_s__cc__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "width": 384,
+   "files": 40,
+   "bytes": 13342208,
+   "path": "emb/dinov2_s__cc__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_s__full__cls",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "width": 384,
+   "files": 40,
+   "bytes": 13342208,
+   "path": "emb/dinov2_s__full__cls/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  },
+  {
+   "variant": "dinov2_s__full__pm",
+   "since": 1,
+   "batch": "b0001",
+   "model": "dinov2_s",
+   "width": 384,
+   "files": 40,
+   "bytes": 13342208,
+   "path": "emb/dinov2_s__full__pm/<video id>.npy",
+   "frame_times": "meta/frame_index/<video id>.json"
+  }
+ ],
+ "ships": [
+  {
+   "key": "polaris",
+   "name": "Polaris",
+   "family": "polaris",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 288,
+     "interior": 1466,
+     "cockpit": 119
+    },
+    "test": {
+     "exterior": 155,
+     "interior": 783,
+     "cockpit": 49
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 400,
+    "clip_h_all": 1754,
+    "dinov2_s_all": 1754,
+    "v2_clip_pm_all": 1754,
+    "v2_dino_cls_all": 1754
+   },
+   "videos": [
+    {
+     "id": "3QkAdH1cMQs",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "s5WEk84G5ps",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "zM49oOUjnDI",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "nZQHfOHyqV4",
+     "role": "test",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "prospector",
+   "name": "Prospector",
+   "family": "prospector_fortune",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 209,
+     "interior": 103,
+     "cockpit": 29
+    },
+    "test": {
+     "exterior": 103,
+     "interior": 162,
+     "cockpit": 119
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 303,
+    "clip_h_all": 312,
+    "dinov2_s_all": 312,
+    "v2_clip_pm_all": 312,
+    "v2_dino_cls_all": 312
+   },
+   "videos": [
+    {
+     "id": "pMLR_nTYCxY",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "PuA_P39130M",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "xPyhWpvc8Ik",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "oARG6OFqxT0",
+     "role": "test",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "reclaimer",
+   "name": "Reclaimer",
+   "family": "reclaimer",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 261,
+     "interior": 644,
+     "cockpit": 35
+    },
+    "test": {
+     "exterior": 74,
+     "interior": 297,
+     "cockpit": 55
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 400,
+    "clip_h_all": 905,
+    "dinov2_s_all": 905,
+    "v2_clip_pm_all": 905,
+    "v2_dino_cls_all": 905
+   },
+   "videos": [
+    {
+     "id": "9hYFAVFfriY",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "jiv-RR-MScI",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "4nLmZgJAsXc",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "vulture",
+   "name": "Vulture",
+   "family": "vulture",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 217,
+     "interior": 295,
+     "cockpit": 137
+    },
+    "test": {
+     "exterior": 62,
+     "interior": 136,
+     "cockpit": 72
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 400,
+    "clip_h_all": 512,
+    "dinov2_s_all": 512,
+    "v2_clip_pm_all": 512,
+    "v2_dino_cls_all": 512
+   },
+   "videos": [
+    {
+     "id": "Lu7RUIfdk18",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "ladfGE_T4cY",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "ZfGvyJj3FBU",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "fortune",
+   "name": "Fortune",
+   "family": "prospector_fortune",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 211,
+     "interior": 156,
+     "cockpit": 20
+    },
+    "test": {
+     "exterior": 159,
+     "interior": 189,
+     "cockpit": 57
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 356,
+    "clip_h_all": 367,
+    "dinov2_s_all": 367,
+    "v2_clip_pm_all": 367,
+    "v2_dino_cls_all": 367
+   },
+   "videos": [
+    {
+     "id": "bjMEZOp6IQ4",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "tpvFErChulA",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "xI9aoB0pyjo",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "reusCqyYFfY",
+     "role": "test",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "wolf",
+   "name": "Wolf (L-21)",
+   "family": "wolf",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 357,
+     "interior": 126,
+     "cockpit": 126
+    },
+    "test": {
+     "exterior": 59,
+     "interior": 64,
+     "cockpit": 64
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 326,
+    "clip_h_all": 483,
+    "dinov2_s_all": 483,
+    "v2_clip_pm_all": 483,
+    "v2_dino_cls_all": 483
+   },
+   "videos": [
+    {
+     "id": "gV7SnJYP4iY",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "ZbXwX6xV0uE",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "IK7l8ntSTVw",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "ironclad",
+   "name": "Ironclad",
+   "family": "ironclads",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 230,
+     "interior": 1042,
+     "cockpit": 45
+    },
+    "test": {
+     "exterior": 129,
+     "interior": 322,
+     "cockpit": 35
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 400,
+    "clip_h_all": 1272,
+    "dinov2_s_all": 1272,
+    "v2_clip_pm_all": 1272,
+    "v2_dino_cls_all": 1272
+   },
+   "videos": [
+    {
+     "id": "Hnx-k90dvU8",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "fUjErT9je7E",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "WY1-aRpmiB8",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "Zt1MIcNLA2M",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "ironclad_assault",
+   "name": "Ironclad Assault",
+   "family": "ironclads",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 297,
+     "interior": 862,
+     "cockpit": 40
+    },
+    "test": {
+     "exterior": 158,
+     "interior": 657,
+     "cockpit": 47
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 400,
+    "clip_h_all": 1159,
+    "dinov2_s_all": 1159,
+    "v2_clip_pm_all": 1159,
+    "v2_dino_cls_all": 1159
+   },
+   "videos": [
+    {
+     "id": "5Vpq_OHMN4A",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "WY1-aRpmiB8",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "yw-7dKecgAw",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "J8HKbyAAEkQ",
+     "role": "test",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "apollo",
+   "name": "Apollo",
+   "family": "apollo_hermes",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 194,
+     "interior": 426,
+     "cockpit": 41
+    },
+    "test": {
+     "exterior": 62,
+     "interior": 174,
+     "cockpit": 60
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 394,
+    "clip_h_all": 620,
+    "dinov2_s_all": 620,
+    "v2_clip_pm_all": 620,
+    "v2_dino_cls_all": 620
+   },
+   "videos": [
+    {
+     "id": "Q3FQypBA4p8",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "N_8zrHmPc3g",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "76kNfXkVj6M",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  },
+  {
+   "key": "hermes",
+   "name": "Hermes",
+   "family": "apollo_hermes",
+   "since": 1,
+   "frames": {
+    "gallery": {
+     "exterior": 171,
+     "interior": 255,
+     "cockpit": 23
+    },
+    "test": {
+     "exterior": 78,
+     "interior": 216,
+     "cockpit": 87
+    }
+   },
+   "tables": {
+    "v1_clip_h_cap200": 371,
+    "clip_h_all": 426,
+    "dinov2_s_all": 426,
+    "v2_clip_pm_all": 426,
+    "v2_dino_cls_all": 426
+   },
+   "videos": [
+    {
+     "id": "TyjzAQpp6jU",
+     "role": "gallery",
+     "batch": "b0001"
+    },
+    {
+     "id": "XRjqWeG2RkM",
+     "role": "test",
+     "batch": "b0001"
+    },
+    {
+     "id": "7615g0NdVLw",
+     "role": "gallery",
+     "batch": "b0001"
+    }
+   ]
+  }
+ ],
+ "history": [
+  {
+   "version": 1,
+   "date": "2026-10-06",
+   "batches": [
+    "b0001"
+   ],
+   "ships": [
+    "polaris",
+    "prospector",
+    "reclaimer",
+    "vulture",
+    "fortune",
+    "wolf",
+    "ironclad",
+    "ironclad_assault",
+    "apollo",
+    "hermes"
+   ],
+   "tables": [
+    "v1_clip_h_cap200",
+    "clip_h_all",
+    "dinov2_s_all",
+    "v2_clip_pm_all",
+    "v2_dino_cls_all"
+   ]
+  }
+ ]
+}

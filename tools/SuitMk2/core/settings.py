@@ -60,6 +60,13 @@ DEFAULTS = {
     # (hardware_guard.py).
     "eyes_pictures_per_hour": None,
     "eyes_look_gap_s": 20.0,
+    # THE EYES' SHIP REFERENCE (core/eyes_reference.py, EYES_REFERENCE.md). None = the built-in address of the
+    # public reference site; a string = that address instead; "" = OFFLINE, nothing is ever requested. With an
+    # address, the Suit asks the site for ONE small file (index.json, about 22 kB) when the companions start, at
+    # most once a day, and sends nothing about the pilot, the PC or the game. No table is fetched at start-up.
+    # Nothing recognises a ship with it yet (eyes_reference.RECOGNITION_CONNECTED is False). Not in the window;
+    # read when the model service starts.
+    "eyes_reference_url": None,
     "game_log": "",                   # blank = auto-detect
     "ambient_every_s": 90,
     "volume": 1.0,

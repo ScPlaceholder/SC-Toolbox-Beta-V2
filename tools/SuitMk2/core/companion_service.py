@@ -542,15 +542,26 @@ def main() -> int:
         # The pilot's own picture cap and look gap (settings.py: eyes_pictures_per_hour, eyes_look_gap_s). Read
         # here, once, like presence: a change takes effect when this service next starts.
         own = {}
+        read = None
         try:
             import settings
-            s = settings.load()
+            s = read = settings.load()
             own = {"per_hour": s.get("eyes_pictures_per_hour"), "look_gap_s": s.get("eyes_look_gap_s")}
         except Exception as e:
             log(f"settings unreadable ({type(e).__name__}: {e}); the eyes use their default cap and look gap")
         eyes = Eyes(presence=a.presence, glance=glance, headroom=realizer.headroom_state,
                     classifier=SceneClassifier(HERE / "eyes_scenes.json"), on_glance=keep, **own)
         eyes.run()
+        # The eyes' ship reference (eyes_reference.py): on a thread of its own, at most one small request a day
+        # for the site's index, none when "eyes_reference_url" is "". It fetches no table and recognises nothing;
+        # it keeps the list of covered ships current. Not started when the settings module could not be loaded:
+        # the pilot may have set it offline, and that must not turn into a request.
+        if read is not None:
+            try:
+                import eyes_reference
+                eyes_reference.start_in_background(log, read)
+            except Exception as e:
+                log(f"eyes reference unavailable ({type(e).__name__}: {e})")
     serve(Service(realizer, eyes, log), a.port)
     b = realizer.backend_info()
     log(f"companion service on 127.0.0.1:{a.port} (backend {b['backend']}{' - ' + b['note'] if b['note'] else ''}, "
