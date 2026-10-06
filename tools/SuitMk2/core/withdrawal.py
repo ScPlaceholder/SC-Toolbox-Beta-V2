@@ -505,80 +505,6 @@ _CUE_ROUGH = (r"\b(?:cancel\w*|bail\w*|flak\w*|ghost\w*|blew|blow\w*|ditch\w*|sk
               r"told (?:\w+ ){1,3}(?:i was |im |i am |i had )?(?:sick|ill|busy|no|work)|"
               r"ask\w* me (?:out|over|round)|invit\w+|let (?:\w+ ){1,2}down|walked out|called in sick|chore|compared to)\b")
 _ONLY_HERE = r"\b(?:only|out there)\b"
-# ONE RULE FOR BOTH (2026-10-06, after unseen set 7). The trigger for a started reply and the reply net used the
-# test above and still disagreed with what a reader sees: of 30 lonely lines it missed 9, and the reply net,
-# looking only where the trigger looked, refused none of the 8 approving replies those drew. Diagnosed one by one:
-#   3  a contraction: "they've", "they'd", "they'll" are "theyve", "theyd", "theyll" here, and the list had "they"
-#   3  a form of a people word the list did not have: "crowded room", "friendships", "the group" / "chat apps"
-#   1  people named and nothing else ("Every hour away from people is a good hour"): the rule wanted here as well
-#   2  no people at all: "It's Christmas and I'm spending it aboard, on purpose", "Talking to you is the high point"
-# A started reply was a sensible thing to say on 26 of 26 ordinary lines, so scope() is now this and no more:
-#   "people"  the line NAMES a person, kin, a group or an occasion with people. Nothing else is asked of it.
-#   "alone"   it names nobody, has something of here, and says it is here by choice, or that here or the
-#             companion is the best of it: on purpose, alone, quiet, everything I need, the only place, the high
-#             point, look forward to, I don't leave, a feast day spent aboard.
-#   ""        neither.
-# in_scope() is what both callers ask. It leaves a QUESTION out unless the line is at level 2 of the older test:
-# "Should I ring my brother?" wants an answer, not "Tell me about your brother."
-_NAMES_PEOPLE = (rf"\b(?:{_PE}|{_P}s|they(?:ve|d|ll|re)?|their|theirs|everyones?|everybodys?|nobodys?|no one|someone|somebody|"
-                 r"persons?|friendships?|relationships?|crowd(?:ed|s)?|groups?|group chats?|chat apps?|socials|social life|"
-                 r"lads|guys?|blokes?|girls?|teams?|crews?|orgs?|squad|nephews?|nieces?|neighbou?rs?|grandad|grandfather|"
-                 r"grandmother|fiancee?|in laws|stepdad|stepmum|godfather|godmother|twin|ex|uncles?|aunts?|sons?|"
-                 r"daughters?|children|child|kid|strangers?|pals?|visitors?|guests?)\b")
-_HERE_SCOPE = (r"\b(?:you|youre|here|aboard|this|ships?|cockpit|hangar|fly|flying|flew|play|playing|verse|game|online|"
-               r"log(?:ged|ging)?(?: back)? (?:in|on)|stay(?:ing|ed)? (?:in|on|aboard))\b")
-_BY_CHOICE = (r"\bon purpose\b|\bby myself\b|\bon my own\b|\balone\b|\bquiet(?:er|est)?\b|\bsolitude\b|"
-              r"\b(?:dont|never|wont|rarely|hardly) (?:leave|go out|log off|want to leave)\b|\b(?:everything|all) i (?:need|want)\b|"
-              r"\bonly (?:place|thing|time|conversation|voice|voices|one|part|company)\b|"
-              r"\b(?:high ?point|highlight|best (?:part|bit|thing)|look forward to)\b|"
-              r"\bfeel (?:like )?(?:myself|judged|safe|at home)\b|\bpretend\b|\bout there\b|"
-              r"\b(?:christmas|birthday|new years?|easter|thanksgiving|holiday|day off|anniversary)\b")
-
-
-def scope(text: str) -> str:
-    """ "people", "alone" or "": see ONE RULE FOR BOTH above."""
-    t = normalise(text)
-    if not t:
-        return ""
-    if _has(_NAMES_PEOPLE, t):
-        return "people"
-    if _has(_HERE_SCOPE, t) and _has(_BY_CHOICE, t):
-        return "alone"
-    return "alone" if _level_two(t) else ""          # the older test was sure of it, and it names nobody
-
-
-def _level_two(t: str) -> bool:
-    """Level 2 of the older rough test, on a normalised line: the reader's own shapes, or people with a word of
-    dropping or preferring, or here with such a word and "only" or "out there"."""
-    if shape(t):
-        return True
-    people = _has(_PEOPLE_ROUGH, t) or _has(_NAMES_PEOPLE, t)
-    here, cue = _has(_HERE_ROUGH, t) or _has(_HERE_SCOPE, t), _has(_CUE_ROUGH, t)
-    return bool((people and cue) or (here and cue and _has(_ONLY_HERE, t)))
-
-
-def in_scope(text: str) -> bool:
-    """Is this a line whose reply is started for the model, and whose reply the reply net reads? The one rule
-    both ask. A question is in scope only at level 2 of may_be_withdrawal."""
-    if not scope(text):
-        return False
-    return may_be_withdrawal(text) == 2 or not _asks(text)
-
-
-_ASKING_WORDS = {"who", "whos", "what", "whats", "where", "wheres", "when", "why", "how", "hows", "which", "should", "can",
-                 "could", "would", "will", "do", "does", "did", "is", "are", "am", "any", "anyone", "anybody"}
-
-
-def _asks(text: str) -> bool:
-    """A question, read narrowly: a question mark anywhere, or a first word that asks. Narrower than
-    chat_contract.is_question on purpose: that one takes "Had dinner with my mum" and "We're having people round"
-    for questions (had; "we're" without its apostrophe is "were"), and a statement left out of scope here is a
-    lonely line answered the old way."""
-    raw = str(text or "").strip().lower().replace("’", "'")
-    first = re.sub(r"[^a-z]", "", (raw.split() or [""])[0].replace("'", ""))
-    if first == "were" and raw.startswith("we're"):
-        return False
-    return "?" in raw or first in _ASKING_WORDS
 
 
 def may_be_withdrawal(text: str) -> int:
@@ -586,9 +512,12 @@ def may_be_withdrawal(text: str) -> int:
     t = normalise(text)
     if not t:
         return 0
-    if _level_two(t):
+    if shape(t):
         return 2
-    return 1 if scope(t) else 0
+    people, here, cue = _has(_PEOPLE_ROUGH, t), _has(_HERE_ROUGH, t), _has(_CUE_ROUGH, t)
+    if (people and cue) or (here and cue and _has(_ONLY_HERE, t)):
+        return 2
+    return 1 if people and here else 0
 
 
 _DENIED = r"(?:not|hardly|never|scarcely|no|nor|neither|isnt|wasnt|wont|wouldnt|cannot|cant)(?: \w+){0,3} $"
@@ -642,7 +571,9 @@ def approves(reply: str) -> str:
 
 
 def reply_approves(pilot_line: str, reply: str) -> bool:
-    """True when the pilot's sentence is in scope (in_scope, the rule the started reply uses too) and the reply
-    approves, in any of the three ways. Until set 7 a verdict or plain agreement was refused only at level 2; a
-    wrong refusal now costs a plain written question, so the distinction is gone."""
-    return in_scope(pilot_line) and bool(approves(reply))
+    """True when the pilot's sentence may be a withdrawal and the reply approves of it. See THE SECOND NET."""
+    level = may_be_withdrawal(pilot_line)
+    if not level:
+        return False
+    kind = approves(reply)
+    return kind == "solitude" or (bool(kind) and level == 2)

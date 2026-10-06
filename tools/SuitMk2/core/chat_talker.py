@@ -36,13 +36,6 @@ What this module does with one sentence, and nothing else does:
      (chat_contract.ask_sentence), and that sentence goes through the same gate. If it is refused, or the cut
      leaves a fragment, the reply is the next written `withdrawal` line; the model is not asked again and FALLBACK
      is not used. A sentence the rule does not flag is answered by steps 3 to 5 exactly as before.
-     CHANGED AFTER UNSEEN SET 7 (2026-10-06): the rule is wider (any line that names people; and a line that names
-     nobody but says it is here by choice, which has openers of its own, "ask_openers_alone"); when code can pick
-     out the one person or occasion the line names, it is put into the start ("Tell me about your brother"), and
-     when it cannot the start says "them", so the model never chooses whom to ask after; and a
-     refused started reply is answered with a plain written question from "ask_fallback", never with a
-     withdrawal line, because this path runs on ordinary lines. The talker no longer says a withdrawal line at
-     all: only the code act does.
 
 WHEN IT CANNOT ANSWER it returns None and the sentence is answered as it would be with chat off: Ollama is not
 running, the model is not installed, the request times out, or the card has no room (headroom TIGHT, the same rule
@@ -122,7 +115,7 @@ class Talker:
         self._one = threading.Lock()         # one sentence at the model at a time, in the order they were said
         self.stats = {"asked": 0, "replies": 0, "refused": 0, "fallback": 0, "unavailable": 0, "written": 0,
                       "asked_after": 0}
-        self._written = 0                    # which written plain question is next (they turn)
+        self._written = 0                    # which written withdrawal line is next (they turn)
         self._opener = {who: 0 for who in cc.SPEAKERS}      # which opener is next, per companion (they turn too)
 
     # -- is it talk --------------------------------------------------------------------------------------------
@@ -227,16 +220,11 @@ class Talker:
             shown = " ".join([cc.persona(who), said_here] + [m[2] for m in brief["memory"]])
             self.stats["asked"] += 1
             reply, how = FALLBACK[who], "talk, both replies refused"
-            scope = cc.ask_scope(line)
-            openers = cc.ask_openers(who, scope) if scope else []
+            openers = cc.ask_openers(who) if cc.asks_after(line) else []
             if openers:
-                # Step 6: the reply is started for the model, and there is one candidate. For a line that names
-                # people the start already says WHOM: the one person or occasion code can pick out, else "them".
-                whom = (cc.ask_object(line) or "them") if scope == "people" else ""
+                # Step 6: the reply is started for the model, and there is one candidate.
                 opener = openers[self._opener[who] % len(openers)]
-                start = f"{opener} {whom}" if whom else opener
-                body = {"model": self.model, "raw": True, "stream": False, "prompt": prompt + start,
-                        "keep_alive": KEEP_ALIVE,
+                body = {"model": self.model, "raw": True, "stream": False, "prompt": prompt + opener, "keep_alive": KEEP_ALIVE,
                         "options": {"temperature": TEMPERATURES[0], "top_p": 0.9, "num_predict": NUM_PREDICT,
                                     "stop": cc.stop_tokens(self.fmt)}}
                 try:
@@ -247,17 +235,16 @@ class Talker:
                     self._note(f"talk: {self.model} not available ({type(e).__name__}); answered as with chat off")
                     return None
                 self._opener[who] += 1
-                text = cc.ask_sentence(start, raw, who, whole=bool(whom))
+                text = cc.ask_sentence(opener, raw, who)
                 fails = self.problems(who, text, shown, said_here, line, own) if text else ["nothing left after the cut"]
                 if not fails:
-                    reply, how = text, ("talk, asked after them" if scope == "people" else "talk, turned outward")
+                    reply, how = text, "talk, asked after them"
                     self.stats["replies"] += 1
                     self.stats["asked_after"] += 1
                 else:
-                    # Never a withdrawal line here: this path runs on ordinary lines too.
                     self.stats["refused"] += 1
-                    self._note(f"talk started reply REFUSED {fails}: {(text or start + ' ' + str(raw))[:60]!r}")
-                    reply, how = cc.ask_fallback(who, self._written), "talk, the started reply was refused: a plain question"
+                    self._note(f"talk started reply REFUSED {fails}: {(text or opener + ' ' + str(raw))[:60]!r}")
+                    reply, how = cc.canon_line(who, "withdrawal", self._written), "talk, the started reply was refused: the written line"
                     self._written += 1
                     self.stats["written"] += 1
                 with self._state:
@@ -286,9 +273,7 @@ class Talker:
                 self.stats["refused"] += 1
                 self._note(f"talk reply {n} REFUSED {fails}: {text[:60]!r}")
                 if cc.APPROVES_WITHDRAWAL in fails:
-                    # Reached only when the canon file has no openers. A plain question, not a withdrawal line:
-                    # the rule that put this line in scope is loose, and the line may be an ordinary one.
-                    reply, how = cc.ask_fallback(who, self._written), "talk, approved a withdrawal: a plain question"
+                    reply, how = cc.canon_line(who, "withdrawal", self._written), "talk, approved a withdrawal: the written line"
                     self._written += 1
                     self.stats["written"] += 1
                     break
