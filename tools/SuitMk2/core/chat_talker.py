@@ -83,8 +83,17 @@ class Talker:
 
     def __init__(self, model: str, url: str = OLLAMA_URL, post: Callable[[str, dict, float], dict] = _post_json,
                  now: Callable[[], float] = time.time, timeout: float = TIMEOUT_S,
-                 note: Optional[Callable[[str], None]] = None):
+                 note: Optional[Callable[[str], None]] = None,
+                 thread_exchanges: int = THREAD_EXCHANGES, thread_ends_after_s: float = THREAD_ENDS_AFTER_S,
+                 fit: Optional[Callable[[], tuple]] = None):
         self.model, self.url, self.timeout = str(model).strip(), url.rstrip("/"), timeout
+        # The pilot's own numbers (settings chat_thread_exchanges / chat_thread_ends_after_s); the constants are
+        # the defaults, not a ceiling.
+        self.thread_exchanges = max(1, int(thread_exchanges))
+        self.thread_ends_after_s = float(thread_ends_after_s)
+        # fit() -> (ok, why): does this model still fit in the memory that is free NOW (chat_models.UseCheck). It was
+        # checked when it was picked, and the game may have started since. None = no check (the tests' own talkers).
+        self._fit = fit
         self.fmt = prompt_format(self.model)
         self._post, self._now = post, now
         self._note = note or (lambda msg: log.info(msg))
@@ -148,7 +157,7 @@ class Talker:
     # -- one sentence ------------------------------------------------------------------------------------------
     def _expire(self) -> None:
         now = self._now()
-        if self._last_t is not None and now - self._last_t > THREAD_ENDS_AFTER_S:
+        if self._last_t is not None and now - self._last_t > self.thread_ends_after_s:
             for who in self._thread:
                 self._thread[who] = []
             self._heard = []
@@ -176,6 +185,18 @@ class Talker:
             self.stats["unavailable"] += 1
             self._note("talk: no room on the card (headroom TIGHT); answered as with chat off")
             return None
+        if self._fit is not None:
+            try:
+                fits, why = self._fit()
+            except Exception:
+                log.exception("talk: the fit check failed; the model is not asked")
+                fits, why = False, "the fit check failed"
+            if not fits:
+                # The model no longer fits beside what is running. Like every other time it cannot be asked: the
+                # sentence is answered as with chat off, and nothing is loaded.
+                self.stats["unavailable"] += 1
+                self._note(f"talk: {self.model} is not asked ({why}); answered as with chat off")
+                return None
         with self._one:
             with self._state:
                 thread = list(self._thread[who])
@@ -210,10 +231,19 @@ class Talker:
             else:
                 self.stats["fallback"] += 1
             with self._state:
-                self._thread[who] = (self._thread[who] + [(line, reply)])[-THREAD_EXCHANGES:]
+                self._thread[who] = (self._thread[who] + [(line, reply)])[-self.thread_exchanges:]
             return reply, how
 
 
 def from_settings(s: dict, **kw) -> Optional[Talker]:
     """The talker the saved settings ask for, or None: chat is off, or no chat model is named (settings.chat_on)."""
-    return Talker(str(s["chat_model"]).strip(), **kw) if st.chat_on(s) else None
+    if not st.chat_on(s):
+        return None
+    model = str(s["chat_model"]).strip()
+    kw.setdefault("thread_exchanges", s.get("chat_thread_exchanges", THREAD_EXCHANGES))
+    kw.setdefault("thread_ends_after_s", s.get("chat_thread_ends_after_s", THREAD_ENDS_AFTER_S))
+    if "fit" not in kw:
+        # Every talker the settings build checks the fit before each use. There is no setting that leaves it out.
+        import chat_models
+        kw["fit"] = chat_models.UseCheck(model, url=kw.get("url"))
+    return Talker(model, **kw)

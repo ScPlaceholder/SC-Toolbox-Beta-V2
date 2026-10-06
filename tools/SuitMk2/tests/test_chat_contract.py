@@ -272,7 +272,8 @@ def test_only_the_talker_calls_the_serializer_and_the_chat_gate_and_chat_is_off_
     assert users == ["chat_talker.py"]
     import settings
     chat_keys = {k: v for k, v in settings.DEFAULTS.items() if k == "chat" or k.startswith("chat_") or "talker" in k}
-    assert chat_keys == {"chat": False, "chat_model": ""}
+    # The two thread keys (2026-10-05) are the values chat_talker's constants had; neither turns anything on.
+    assert chat_keys == {"chat": False, "chat_model": "", "chat_thread_exchanges": 6, "chat_thread_ends_after_s": 600.0}
 
 
 # ---------------------------------------------------------------------------------------------------------------

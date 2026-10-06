@@ -267,6 +267,22 @@ def _sample_ram() -> Tuple[Optional[int], Optional[int], Optional[str]]:
     return stat.ullTotalPhys, stat.ullAvailPhys, None
 
 
+def read_commit_bytes() -> Tuple[Optional[int], Optional[int], Optional[str]]:
+    """Returns (commit_limit_bytes, commit_avail_bytes, reason): RAM plus page file, and how much of it is still
+    free to be promised to a process. reason is None on success. The same GlobalMemoryStatusEx call as _sample_ram
+    (its ullTotalPageFile / ullAvailPageFile fields); Task Manager shows the pair as "Committed".
+    Not part of Sample: the headroom controller does not use it. hardware_guard.fits() does, because a model that
+    does not fit in video memory spills into RAM and then into the page file, and a PC that runs out of commit
+    is the one that crashes the game."""
+    stat = MEMORYSTATUSEX()
+    stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+    ok = kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+    if not ok:
+        err = ctypes.get_last_error()
+        return None, None, f"GlobalMemoryStatusEx failed, GetLastError={err}"
+    return stat.ullTotalPageFile, stat.ullAvailPageFile, None
+
+
 TH32CS_SNAPPROCESS = 0x00000002
 
 

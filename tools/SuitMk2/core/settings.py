@@ -125,9 +125,15 @@ DEFAULTS = {
     # and checked in code before it is spoken. A question the Suit can answer from what it knows, and a question it
     # cannot answer at all, are both answered exactly as with chat off. Chat cannot be on with no chat model: load()
     # turns it off and chat_on() says no. A settings file from before these two keys has neither and is chat off,
-    # which is what it always did. Nothing in the window sets them yet; they are set in the file.
+    # which is what it always did.
     "chat": False,
     "chat_model": "",                 # the Ollama model that words free talk, e.g. "gemma3:4b"; empty = none chosen
+    # The window now sets both: a drop-down of the models Ollama has on this PC and a checkbox. A model is only ever
+    # written here by the window after it passed the fit check (chat_models.choose); one typed in by hand is checked
+    # the same way before each use, and not used if it does not fit.
+    # The conversation the chat model is shown (were constants in chat_talker.py; the same values, and no ceiling):
+    "chat_thread_exchanges": 6,       # exchanges kept per companion
+    "chat_thread_ends_after_s": 600.0,   # the pilot silent this long: the conversation is over and is dropped
     # April-spec ideas, built 2026-09-25 (J: "You can work through those"). Each is a small optional feature with its
     # own module and --selftest; every line it adds still goes through the speak gate, pacing and grounding.
     "npc_faction_names": True,        # NPC entity codes in the log -> "Nine Tails pirates" in fight/death lines
@@ -159,6 +165,15 @@ def load() -> dict:
     if not chat_on(s):
         s["chat"] = False                         # chat with no chat model named is off, and the file is told so
     _clean_eyes(s)
+    try:
+        s["chat_thread_exchanges"] = max(1, int(s.get("chat_thread_exchanges")))
+    except (TypeError, ValueError):
+        s["chat_thread_exchanges"] = DEFAULTS["chat_thread_exchanges"]
+    try:
+        ends = float(s.get("chat_thread_ends_after_s"))
+        s["chat_thread_ends_after_s"] = ends if ends > 0.0 else DEFAULTS["chat_thread_ends_after_s"]
+    except (TypeError, ValueError):
+        s["chat_thread_ends_after_s"] = DEFAULTS["chat_thread_ends_after_s"]
     return s
 
 

@@ -162,7 +162,7 @@ def test_disabled_the_window_builds_and_boot_starts_nothing(app, monkeypatch, tm
     w = h.panel()
     w._boot()                                                # even called directly, it starts nothing
     w._arm_ears()                                            # the talk key's 1.5 s timer would do this
-    assert h.made == [] and h.threads == []
+    assert h.made == [] and h.threads == []                  # not even the request for Ollama's list of models
     assert w.core is None and w.sidecar is None and isinstance(w.speech, h.mod._NoSpeech)
     assert w._sidecar_ready is False                         # so first-run setup never checks or installs anything
     assert w._disable.isChecked() and w._off_lbl.text() == h.mod.COMPANIONS_OFF_NOTICE
@@ -176,7 +176,7 @@ def test_enabled_the_same_harness_sees_everything_start(app, monkeypatch, tmp_pa
     h = _Harness(monkeypatch, tmp_path, companions_enabled=True)
     w = h.panel()
     assert h.made == ["ducking monitor", "voices", "feedback key"]
-    assert h.threads == ["suitmk2_voice_preload", "suitmk2_boot"] and not w._disable.isChecked()
+    assert h.threads == ["suitmk2_voice_preload", "suitmk2_chat_models", "suitmk2_boot"] and not w._disable.isChecked()
     w._boot()
     assert h.made[3:] == ["model service", "core", "core started"] and w.core.started
     assert w._off_lbl.text() == ""
@@ -207,7 +207,8 @@ def test_ticking_the_box_stops_what_runs_and_unticking_starts_it_again_without_a
     w._disable.setChecked(False)
     assert h.saved[-1]["companions_enabled"] is True
     assert h.made == ["ducking monitor", "voices", "feedback key", "microphone armed"]
-    assert h.threads == ["suitmk2_disable", "suitmk2_voice_preload", "suitmk2_boot"] and w._off_lbl.text() == ""
+    assert h.threads == ["suitmk2_disable", "suitmk2_voice_preload", "suitmk2_boot", "suitmk2_chat_models"]
+    assert w._off_lbl.text() == ""
 
 
 def test_disabled_while_the_model_service_was_still_starting_builds_no_core(app, monkeypatch, tmp_path):

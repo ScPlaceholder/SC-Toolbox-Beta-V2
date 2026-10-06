@@ -52,6 +52,8 @@ from voice_in.input_devices import InputBinding, BindingCaptureDialog, HotkeyMon
 from pacing import LEVEL_NAMES                  # noqa: E402
 from dev_facts import DevFacts                  # noqa: E402
 import picture_pace as pp                       # noqa: E402
+import chat_models                              # noqa: E402
+import hardware_guard                           # noqa: E402
 
 log = logging.getLogger("suitmk2.ui")
 
@@ -495,6 +497,38 @@ class _SuitBody:
         res.addStretch(1)
         lay.addLayout(res)
 
+        # Free talk (J 2026-10-05): a checkbox, and a drop-down of the models Ollama has on this PC ("a drop down
+        # that ... auto-detects local models to make that easy"). Picking a model checks first that it fits in the
+        # memory that is free (core/chat_models.py); one that does not is refused and is not saved. Only gemma3:4b has
+        # been measured with the prompt in use; the others are listed and marked untested.
+        chat = QGridLayout()
+        self._chat_on = QCheckBox("Free talk (chat model)")
+        self._chat_on.setChecked(st.chat_on(self.s))
+        self._chat_on.setToolTip("An ordinary remark, a greeting or a question about Elah or Montaigne themselves is "
+                                 "worded by the local model chosen here, then cut and checked before it is spoken.\n"
+                                 "Questions the Suit can answer from what it knows are answered as before.")
+        self._chat_on.toggled.connect(self._set_chat)
+        self._chat_model = QComboBox()
+        self._chat_model.setToolTip("The models Ollama has on this PC. A model is only accepted if it fits in the "
+                                    "video memory and system memory that are free right now.")
+        self._chat_model.activated.connect(self._pick_chat_model)     # a pick by hand, not a refill of the list
+        relist = QPushButton("Refresh")
+        relist.setStyleSheet(_btn_ss())
+        relist.setToolTip("Ask Ollama again which models are installed")
+        relist.clicked.connect(self._list_chat_models)
+        self._chat_status = QLabel("")
+        self._chat_status.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
+        self._chat_status.setWordWrap(True)
+        chat.addWidget(self._chat_on, 0, 0)
+        chat.addWidget(self._chat_model, 0, 1)
+        chat.addWidget(relist, 0, 2)
+        chat.addWidget(self._chat_status, 1, 0, 1, 3)
+        chat.setColumnStretch(1, 1)
+        lay.addLayout(chat)
+        self._chat_models = None                # what Ollama listed; None = not asked yet, or it did not answer
+        self._fill_chat_models(None, asked=False)
+        self._list_chat_models()
+
         # Smarter lines (J 2026-09-24): the pilot's own Claude API key words each line; the local models stay the
         # fallback, and grounding still checks every fact either way. Test uses models.retrieve: it costs nothing.
         api = QGridLayout()
@@ -613,6 +647,7 @@ class _SuitBody:
                     self._fb_mon[name].start(InputBinding.from_dict(self.s[key]))
             self._arm_ears()
             threading.Thread(target=self._boot, name="suitmk2_boot", daemon=True).start()
+            self._list_chat_models()
         self._show_disabled()
 
     def _stop_companions(self) -> None:
@@ -708,14 +743,7 @@ class _SuitBody:
         self.core = core
         self.core.dev_facts_persist = self._persist_dev_facts
         self._attach_tree()
-        # Free talk (core/chat_talker.py): only with "chat" on AND a "chat_model" named in the settings. Otherwise
-        # nothing is imported or attached, and every sentence is answered as it always was.
-        if st.chat_on(self.s):
-            try:
-                import chat_talker
-                self.core.talker = chat_talker.from_settings(self.s, note=self.core._note)
-            except Exception:
-                log.exception("chat talker unavailable; talk is answered as with chat off")
+        self._attach_talker()
         # Game ears for combat: the ducking meter already reads StarCitizen.exe's own output ~20x a second.
         if self.speech.ducker is not None:
             self.speech.ducker.listeners.append(self.core.combat.feed)
@@ -729,6 +757,123 @@ class _SuitBody:
             c.stop()
             if sc is not None:
                 sc.stop()
+
+    # -- free talk: the chat model ----------------------------------------------------------------------------------
+    def _attach_talker(self) -> None:
+        """Give the running core its talker, or take it away, according to the two settings. No restart."""
+        if self.core is None:
+            return
+        self.core.talker = None
+        # Free talk (core/chat_talker.py): only with "chat" on AND a "chat_model" named in the settings. Otherwise
+        # nothing is imported or attached, and every sentence is answered as it always was.
+        if st.chat_on(self.s):
+            try:
+                import chat_talker
+                self.core.talker = chat_talker.from_settings(self.s, note=self.core._note)
+            except Exception:
+                log.exception("chat talker unavailable; talk is answered as with chat off")
+
+    def _list_chat_models(self) -> None:
+        """Ask Ollama which models are installed: one request for its list, off the GUI thread, 1.5 s at most.
+        Ollama not running is not an error; the list is then empty and the label says so."""
+        if not self._companions_on():
+            self._chat_status.setText("")
+            return
+        self._chat_listing = None
+
+        def work():
+            try:
+                found = chat_models.installed()
+            except Exception:
+                log.exception("listing the local models failed")
+                found = None
+            self._chat_listing = (found,)
+        threading.Thread(target=work, name="suitmk2_chat_models", daemon=True).start()
+        self._poll_chat_models()
+
+    def _poll_chat_models(self) -> None:
+        got = getattr(self, "_chat_listing", None)       # set by the worker; the widgets are touched only here
+        if got is None:
+            QTimer.singleShot(150, self._poll_chat_models)
+            return
+        self._chat_listing = None
+        self._fill_chat_models(got[0])
+
+    def _fill_chat_models(self, models: Optional[list], asked: bool = True) -> None:
+        """Put the list in the drop-down and select the saved model. Never changes the settings."""
+        self._chat_models = models
+        saved = str(self.s.get("chat_model") or "").strip()
+        cb = self._chat_model
+        cb.blockSignals(True)
+        cb.clear()
+        cb.addItem("(no chat model)", "")
+        for m in models or []:
+            cb.addItem(chat_models.entry_label(m["name"]), m["name"])
+        if saved and cb.findData(saved) < 0:
+            cb.addItem(f"{saved} (saved; not found in Ollama)", saved)
+        cb.setCurrentIndex(max(0, cb.findData(saved)))
+        cb.blockSignals(False)
+        if asked:
+            self._chat_status.setText(chat_models.NONE_FOUND if not models else
+                                      (chat_models.why_chat_cannot_be_on(self.s, models) if self.s.get("chat") else ""))
+
+    def _pick_chat_model(self, index: int) -> None:
+        """A model was picked. Read what memory is free (about a quarter of a second, off the GUI thread), then
+        decide in _apply_chat_pick."""
+        name = str(self._chat_model.itemData(index) or "")
+        self._chat_status.setText("checking that it fits..." if name else "")
+        self._chat_pick = None
+
+        def work():
+            free = None
+            if name:
+                try:
+                    free = hardware_guard.read_free_memory()
+                except Exception:
+                    log.exception("free memory could not be read")
+            self._chat_pick = (name, free)
+        threading.Thread(target=work, name="suitmk2_chat_fit", daemon=True).start()
+        self._poll_chat_pick()
+
+    def _poll_chat_pick(self) -> None:
+        got = getattr(self, "_chat_pick", None)
+        if got is None:
+            QTimer.singleShot(100, self._poll_chat_pick)
+            return
+        self._chat_pick = None
+        self._apply_chat_pick(*got)
+
+    def _apply_chat_pick(self, name: str, free) -> None:
+        """Accept the pick if the model fits, and save it; refuse it otherwise, say why with the numbers, and put
+        the drop-down back on what was saved. A refused model is never written to the settings."""
+        ok, why = chat_models.choose(self.s, name, self._chat_models, free)
+        if ok:
+            st.save(self.s)
+            if not st.chat_on(self.s) and self._chat_on.isChecked():
+                self._chat_on.blockSignals(True)
+                self._chat_on.setChecked(False)          # no model chosen: there is nothing to talk with
+                self._chat_on.blockSignals(False)
+            self._attach_talker()
+        else:
+            self._chat_model.blockSignals(True)
+            self._chat_model.setCurrentIndex(max(0, self._chat_model.findData(str(self.s.get("chat_model") or ""))))
+            self._chat_model.blockSignals(False)
+        self._chat_status.setText(why)
+
+    def _set_chat(self, on: bool) -> None:
+        """The checkbox. It cannot be ticked with no model chosen or with Ollama not reachable, and says which."""
+        if on:
+            why = chat_models.why_chat_cannot_be_on(self.s, self._chat_models)
+            if why:
+                self._chat_on.blockSignals(True)
+                self._chat_on.setChecked(False)
+                self._chat_on.blockSignals(False)
+                self._chat_status.setText(why)
+                return
+        self.s["chat"] = bool(on)
+        st.save(self.s)
+        self._attach_talker()
+        self._chat_status.setText("")
 
     def _maybe_check_setup(self) -> None:
         """GUI thread, once: after the sidecar had its chance to wake the runtime, ask the panel whether a complete

@@ -18,12 +18,18 @@ OverloadGuard: the eyes and the chat model already stand down at every TIGHT rea
 TIGHT for OVERLOAD_AFTER_S without a break switches both OFF, and they stay off until the reading has been clear for
 RECOVER_AFTER_S without a break. The pilot is told why once per switch-off, in the window, never out loud.
 
+fits(): the check BEFORE a chat model is ever loaded. What the model needs is set against the video memory and the
+system memory that are free at that moment; a model that does not fit is refused with the numbers in plain words. It
+runs when a model is picked in the window and again whenever the talk path is about to use one (chat_models.py).
+Nothing is loaded to find out: the need comes from the model's size on disk.
+
     python hardware_guard.py --selftest
 """
 from __future__ import annotations
 
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -96,6 +102,94 @@ class OverloadGuard:
         return OFF_NOTICE.format(mins=_span(self.overload_after_s)) if self.off else ""
 
 
+# ---- does a model fit -----------------------------------------------------------------------------------------
+GB = 1024 ** 3
+# Ollama's tag list gives a model's size ON DISK. That is a floor for the memory it takes, not the need: the weights
+# load at about their file size, and the context and the working buffers come on top. 1.2 is that file plus a fifth.
+# Not measured per model, on purpose (measuring means loading). The two figures this project has: each speaker's line
+# model is 1.53 GB on disk and was measured at 1.83 GB of video memory (settings.py, speaker_residency), which is
+# 1.2; gemma3:4b is 3.1 GB on disk and its cost is given as about 2.7 GB (chat_talker.py), which is under it.
+NEED_FACTOR = 1.2
+# What must stay free AFTER the model is in. The monitor's own lines for TIGHT (hw_monitor.EXIT_VRAM_FREE_GB_TO_TIGHT
+# and EXIT_FREE_RAM_GB_TO_TIGHT): a model that would leave less than this would only be unloaded again at once.
+VRAM_RESERVE_GB = 1.0
+SYSTEM_RESERVE_GB = 3.0
+# With no memory reading at all the check cannot run. Then nothing bigger than this on disk is accepted: room for
+# the one model that has been measured here (gemma3:4b, 3.3 GB) and nothing larger. The headroom rule still refuses
+# to use it while the monitor says TIGHT, and the monitor says TIGHT whenever it cannot read.
+UNKNOWN_MAX_GB = 3.5
+
+
+@dataclass
+class FreeMemory:
+    """What is free right now, in bytes; None = could not be read. System memory is the smaller of free RAM and
+    free commit (RAM plus page file): a model that does not fit in video memory spills into RAM and then into the
+    page file, and running out of commit is what crashes the game or freezes the PC."""
+    vram_free: Optional[int] = None
+    ram_free: Optional[int] = None
+    commit_free: Optional[int] = None
+    game_running: Optional[bool] = None
+
+    def system_free(self) -> Optional[int]:
+        known = [v for v in (self.ram_free, self.commit_free) if v is not None]
+        return min(known) if known else None
+
+
+def read_free_memory(interval: float = 0.25) -> FreeMemory:
+    """One reading from hw_monitor (the counters Task Manager shows). Takes about `interval` seconds, so not on
+    the Qt thread. Never raises: what cannot be read is None."""
+    out = FreeMemory()
+    try:
+        import hw_monitor as hw
+    except Exception:
+        return out
+    try:
+        s = hw.sample_all(interval=interval)
+        out.vram_free, out.ram_free, out.game_running = s.vram_free_bytes, s.ram_avail_bytes, s.sc_pid is not None
+    except Exception:
+        pass
+    try:
+        _, out.commit_free, _ = hw.read_commit_bytes()
+    except Exception:
+        pass
+    return out
+
+
+def need_bytes(size_on_disk: int) -> int:
+    return int(size_on_disk * NEED_FACTOR)
+
+
+def _gb(n: float) -> str:
+    g = n / GB
+    return f"{g:.0f} GB" if g >= 10 else f"{g:.1f} GB"
+
+
+def fits(size_on_disk: Optional[int], free: Optional[FreeMemory]) -> tuple:
+    """(True, why) when a model of this size on disk may be loaded with this much free; (False, why) when not.
+    Unknown is never "fits": no size is a no, and no memory reading is a no for anything over UNKNOWN_MAX_GB."""
+    if not isinstance(size_on_disk, (int, float)) or isinstance(size_on_disk, bool) or size_on_disk <= 0:
+        return False, "Ollama does not say how big this model is, so it cannot be checked against this PC."
+    need = need_bytes(size_on_disk)
+    free = free if free is not None else FreeMemory()
+    vram, system = free.vram_free, free.system_free()
+    game = " with Star Citizen running" if free.game_running else ""
+    if vram is None or system is None:
+        what = "video memory" if system is not None else ("system memory" if vram is not None else "memory")
+        if size_on_disk <= UNKNOWN_MAX_GB * GB:
+            return True, (f"free {what} could not be read, so the check could not run; this model is small enough "
+                          f"({_gb(size_on_disk)} on disk) to be allowed without it.")
+        return False, (f"free {what} could not be read, so the check could not run, and without it only a model up "
+                       f"to {UNKNOWN_MAX_GB} GB on disk is allowed. This one is {_gb(size_on_disk)}.")
+    if need > vram - VRAM_RESERVE_GB * GB:
+        return False, (f"this model needs about {_gb(need)} of video memory; {_gb(vram)} is free{game}, and "
+                       f"{_gb(VRAM_RESERVE_GB * GB)} has to stay free for the game.")
+    if need > system - SYSTEM_RESERVE_GB * GB:
+        return False, (f"this model needs about {_gb(need)}; {_gb(system)} of system memory is free{game}, and "
+                       f"{_gb(SYSTEM_RESERVE_GB * GB)} has to stay free.")
+    return True, (f"needs about {_gb(need)}; {_gb(vram)} of video memory and {_gb(system)} of system memory are "
+                  f"free{game}.")
+
+
 def _selftest() -> int:
     ok = True
 
@@ -125,6 +219,14 @@ def _selftest() -> int:
     case("a clear minute does", not g.off and g.take_notice() == BACK_NOTICE)
     run(None, 600)
     case("no reading at all switches nothing off", not g.off)
+    roomy = FreeMemory(vram_free=10 * GB, ram_free=20 * GB, commit_free=30 * GB)
+    case("a 3.3 GB model fits a roomy PC", fits(int(3.3 * GB), roomy)[0])
+    case("a 17 GB model does not fit 6 GB of free video memory",
+         not fits(17 * GB, FreeMemory(vram_free=6 * GB, ram_free=40 * GB, commit_free=60 * GB))[0])
+    case("nor a PC with the video memory but not the system memory",
+         not fits(8 * GB, FreeMemory(vram_free=24 * GB, ram_free=5 * GB, commit_free=30 * GB))[0])
+    case("unknown memory is not 'fits' for a big model", not fits(17 * GB, FreeMemory())[0] and fits(3 * GB, None)[0])
+    case("unknown size is a no", not fits(None, roomy)[0])
     print("hardware_guard selftest:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
