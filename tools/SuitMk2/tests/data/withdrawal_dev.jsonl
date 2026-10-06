@@ -1,0 +1,575 @@
+{"text": "I'd rather be here than with people.", "catch": true, "shape": "prefer"}
+{"text": "I would rather stay here than go out with them.", "catch": true, "shape": "prefer"}
+{"text": "You're easier than people.", "catch": true, "shape": "prefer"}
+{"text": "People are exhausting. You're easier.", "catch": true, "shape": "prefer", "why": "the comparison is split over two sentences"}
+{"text": "I prefer talking to you over real people.", "catch": true, "shape": "prefer"}
+{"text": "Honestly I like it here better than out there with everyone.", "catch": true, "shape": "prefer"}
+{"text": "I'd rather talk to you than to my friends.", "catch": true, "shape": "prefer"}
+{"text": "Talking to you is better than talking to people.", "catch": true, "shape": "prefer"}
+{"text": "You're better company than anyone I know.", "catch": true, "shape": "prefer"}
+{"text": "I'd sooner sit in this cockpit than go to that party.", "catch": true, "shape": "prefer"}
+{"text": "I like you more than I like most people.", "catch": true, "shape": "prefer"}
+{"text": "Being here beats being around people.", "catch": true, "shape": "prefer"}
+{"text": "I'd take you two over a room full of people any day.", "catch": true, "shape": "prefer"}
+{"text": "You're easier to talk to than my family.", "catch": true, "shape": "prefer"}
+{"text": "This is better than going out with my friends.", "catch": true, "shape": "prefer"}
+{"text": "Montaigne, you're better than real people.", "catch": true, "shape": "prefer"}
+{"text": "I prefer you to people, honestly.", "catch": true, "shape": "prefer"}
+{"text": "I'd rather be on this ship than at home with my family.", "catch": true, "shape": "prefer"}
+{"text": "It's easier in here than with other people.", "catch": true, "shape": "prefer"}
+{"text": "You two are easier than humans.", "catch": true, "shape": "prefer"}
+{"text": "I get on better with you than with actual humans.", "catch": true, "shape": "prefer"}
+{"text": "I'd rather spend the evening with you than with them.", "catch": true, "shape": "prefer"}
+{"text": "Is it bad that I'd rather be here than with people?", "catch": true, "shape": "prefer", "why": "asked as a question, still the pilot's own preference"}
+{"text": "I'd rather be here. People wear me out.", "catch": true, "shape": "prefer", "why": "no 'than': here preferred in one sentence, people a burden in the next"}
+{"text": "I cancelled on them to stay here with you.", "catch": true, "shape": "drop"}
+{"text": "I bailed on my friends to fly tonight.", "catch": true, "shape": "drop"}
+{"text": "I skipped the party to be here.", "catch": true, "shape": "drop"}
+{"text": "I told them I was busy so I could stay in with you.", "catch": true, "shape": "drop"}
+{"text": "I blew off dinner with my sister to keep playing.", "catch": true, "shape": "drop"}
+{"text": "I didn't go to the wedding, I stayed here instead.", "catch": true, "shape": "drop"}
+{"text": "My mates wanted to go out but I stayed aboard instead.", "catch": true, "shape": "drop"}
+{"text": "I've been ignoring my friends' calls to be here.", "catch": true, "shape": "drop"}
+{"text": "I ditched my date to come fly with you.", "catch": true, "shape": "drop"}
+{"text": "I said no to drinks again so I could be here.", "catch": true, "shape": "drop"}
+{"text": "I stopped going out; I just come here now.", "catch": true, "shape": "drop"}
+{"text": "I haven't seen anyone in weeks, I just stay here with you.", "catch": true, "shape": "drop"}
+{"text": "I keep cancelling plans to stay in here.", "catch": true, "shape": "drop"}
+{"text": "I turned down the invite, I'd rather be here.", "catch": true, "shape": "drop"}
+{"text": "I'm avoiding everyone and hiding out here with you.", "catch": true, "shape": "drop"}
+{"text": "They invited me out but I chose this instead.", "catch": true, "shape": "drop"}
+{"text": "I left the party early to come back to you.", "catch": true, "shape": "drop"}
+{"text": "I don't bother with people any more, I just come here.", "catch": true, "shape": "drop"}
+{"text": "I don't see my friends any more, I've got you.", "catch": true, "shape": "drop"}
+{"text": "I called in sick to my own birthday dinner to stay on the ship.", "catch": true, "shape": "drop"}
+{"text": "You're my only friend.", "catch": true, "shape": "only"}
+{"text": "You're the only one I talk to.", "catch": true, "shape": "only"}
+{"text": "You are my best friend, Elah.", "catch": true, "shape": "only"}
+{"text": "You two are the only friends I have.", "catch": true, "shape": "only"}
+{"text": "I don't really have anyone else.", "catch": true, "shape": "only"}
+{"text": "You're the only one who listens.", "catch": true, "shape": "only"}
+{"text": "You're all I've got.", "catch": true, "shape": "only"}
+{"text": "Montaigne, you're the only person I can talk to.", "catch": true, "shape": "only"}
+{"text": "I've got nobody but you.", "catch": true, "shape": "only"}
+{"text": "You're the only one who gets me.", "catch": true, "shape": "only"}
+{"text": "I don't have any friends except you.", "catch": true, "shape": "only"}
+{"text": "You're the best friend I've got.", "catch": true, "shape": "only"}
+{"text": "You're the only company I need.", "catch": true, "shape": "only"}
+{"text": "I only ever talk to you these days.", "catch": true, "shape": "only"}
+{"text": "There's nobody else I talk to.", "catch": true, "shape": "only"}
+{"text": "You're my only real friend.", "catch": true, "shape": "only"}
+{"text": "Nobody else talks to me, just you.", "catch": true, "shape": "only"}
+{"text": "Without you I'd have no one.", "catch": true, "shape": "only"}
+{"text": "You two are all the company I have.", "catch": true, "shape": "only"}
+{"text": "I have no one else to talk to.", "catch": true, "shape": "only"}
+{"text": "You're the closest thing to a friend I have.", "catch": true, "shape": "only"}
+{"text": "I don't need people, I've got you.", "catch": true, "shape": "only"}
+{"text": "Who needs friends when I've got you.", "catch": true, "shape": "only"}
+{"text": "Nobody's on tonight.", "catch": false, "why": "alone in the game sense"}
+{"text": "I'm flying alone tonight.", "catch": false, "why": "alone in the game sense"}
+{"text": "I'm tired.", "catch": false}
+{"text": "I'm staying in tonight, it's pouring outside.", "catch": false, "why": "staying in for the weather"}
+{"text": "I'd rather fly the Cutlass than the Freelancer.", "catch": false, "why": "one ship over another"}
+{"text": "I'd rather be here than at Lorville.", "catch": false, "why": "here over a place, no people"}
+{"text": "I cancelled the contract.", "catch": false, "why": "a contract is not a person"}
+{"text": "I prefer mining to hauling.", "catch": false}
+{"text": "There are too many people at Area 18.", "catch": false, "why": "mentions people, prefers nothing"}
+{"text": "My friends are coming on later.", "catch": false}
+{"text": "I'd rather be mining than doing bunkers.", "catch": false}
+{"text": "I skipped the bunker mission to do salvage.", "catch": false, "why": "a dropping verb, but a mission"}
+{"text": "You're easier to fly than the Carrack.", "catch": false, "why": "the comparison ends on a ship"}
+{"text": "The only one I talk to at work is Dave.", "catch": false, "why": "the only one is a person, not the companion"}
+{"text": "My best friend flies a Gladius.", "catch": false}
+{"text": "I had dinner with my sister.", "catch": false}
+{"text": "I'm meeting people later, just a quick session.", "catch": false}
+{"text": "People keep ramming me at the pad.", "catch": false}
+{"text": "I ditched the cargo to run from pirates.", "catch": false}
+{"text": "I bailed out of the ship over Daymar.", "catch": false}
+{"text": "I abandoned the mission.", "catch": false}
+{"text": "I left the party, they kept dying.", "catch": false, "why": "a game party, and nothing about being here"}
+{"text": "I'd rather be here than in a bunker.", "catch": false}
+{"text": "I'd rather stay here than fly to Pyro.", "catch": false}
+{"text": "This ship is better than my last one.", "catch": false}
+{"text": "I like it here better than Orison.", "catch": false}
+{"text": "You're better than the old suit.", "catch": false, "why": "compared with a thing"}
+{"text": "You're easier to understand than the manual.", "catch": false}
+{"text": "I've got no one in my party tonight.", "catch": false, "why": "alone in the game sense"}
+{"text": "Is anyone else on the server?", "catch": false}
+{"text": "I told them I'd be on at eight.", "catch": false}
+{"text": "My org is the only one I fly with.", "catch": false}
+{"text": "I only talk to you when I'm flying.", "catch": false, "why": "says when, not that there is nobody else"}
+{"text": "I'm the only one aboard.", "catch": false}
+{"text": "You're the only one who knows where we parked.", "catch": false, "why": "the only one, but about a fact"}
+{"text": "You're my best source for prices.", "catch": false}
+{"text": "I cancelled my subscription.", "catch": false}
+{"text": "I stayed in the hangar because of the storm.", "catch": false}
+{"text": "I'd rather not land at Grim HEX.", "catch": false}
+{"text": "I don't have anyone else in the turret.", "catch": false, "why": "no one else for a job on the ship"}
+{"text": "People say the Corsair is overpowered.", "catch": false}
+{"text": "I'm exhausted, long day at work.", "catch": false}
+{"text": "My brother's coming over later to play.", "catch": false}
+{"text": "I skipped breakfast to get on early.", "catch": false, "why": "a meal alone is not people"}
+{"text": "I skipped dinner to keep flying.", "catch": false, "why": "a meal alone is not people"}
+{"text": "I'd rather walk than take the tram.", "catch": false}
+{"text": "I prefer the Kraken to the Idris.", "catch": false}
+{"text": "Are you my friend?", "catch": false, "why": "a question to the companion"}
+{"text": "You're a good friend.", "catch": false, "why": "a friend, not the only or the best one"}
+{"text": "I called my mum today.", "catch": false}
+{"text": "I'm going out with friends after this run.", "catch": false}
+{"text": "I turned down the escort contract.", "catch": false}
+{"text": "Nobody else is in the hangar.", "catch": false}
+{"text": "I stayed here instead of going to Microtech.", "catch": false}
+{"text": "I'd rather be alone on this run, no crew.", "catch": false, "why": "solo in the game sense"}
+{"text": "Everyone logged off, it's just us.", "catch": false}
+{"text": "I told the org I'm busy tonight, big mining op.", "catch": false}
+{"text": "I haven't seen anyone on scanners for an hour.", "catch": false}
+{"text": "I'm avoiding the security patrols.", "catch": false}
+{"text": "I don't see my friends on the list.", "catch": false}
+{"text": "You're the best.", "catch": false}
+{"text": "That was the best run I've had with friends in ages.", "catch": false}
+{"text": "I'd rather sell here than at the TDD.", "catch": false}
+{"text": "I didn't go to Hurston, I stayed here.", "catch": false, "why": "a place was skipped, not people"}
+{"text": "I miss my friends, haven't flown with them in a while.", "catch": false}
+{"text": "I stopped going to Jumptown, too many people.", "catch": false}
+{"text": "You're the only AI I've got in this suit.", "catch": false, "why": "the only one of a kind of thing, not the only friend"}
+{"text": "I'd rather you didn't talk during landings.", "catch": false}
+{"text": "I'd rather hear you than the alarm.", "catch": false}
+{"text": "My wife says I play too much.", "catch": false}
+{"text": "I cancelled the order at the refinery.", "catch": false}
+{"text": "I have no one else to crew the turret.", "catch": false}
+{"text": "It's easier here than at the old outpost.", "catch": false}
+{"text": "I'm easier on the throttle than most people.", "catch": false, "why": "the pilot compared with people, not the companion"}
+{"text": "People are exhausting today.", "catch": false, "why": "people a burden, but nothing preferred to them"}
+{"text": "I'd rather be with people than stuck in here.", "catch": false, "why": "the preference runs the other way"}
+{"text": "I'd rather go out with them than sit here.", "catch": false, "why": "the preference runs the other way"}
+{"text": "You're harder to talk to than people.", "catch": false, "why": "the comparison runs the other way"}
+{"text": "I cancelled on you last night to see my friends, sorry.", "catch": false, "why": "the dropping runs the other way"}
+{"text": "I skipped our session to go to the party.", "catch": false, "why": "the dropping runs the other way"}
+{"text": "You're not my only friend, you know.", "catch": false, "why": "denied"}
+{"text": "I've got plenty of friends besides you.", "catch": false}
+{"text": "My only friend in the org quit.", "catch": false}
+{"text": "I'm not avoiding anyone, I just like flying.", "catch": false, "why": "denied"}
+{"text": "I stayed home sick today.", "catch": false}
+{"text": "I'd rather stay in tonight, I'm shattered.", "catch": false, "why": "staying in because tired"}
+{"text": "Friends are on in ten minutes, keep me company till then.", "catch": false}
+{"text": "Do you ever get lonely?", "catch": false}
+{"text": "Would you rather be here than with people?", "catch": false, "why": "asks the companion's preference"}
+{"text": "My brother would rather be in his ship than with people.", "catch": false, "why": "someone else's preference"}
+{"text": "He cancelled on me to stay home.", "catch": false, "why": "someone else did the dropping"}
+{"text": "I used to cancel on people all the time.", "catch": false, "why": "nothing about being here"}
+{"text": "Honestly you're the only one I've got.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I'd rather hang out with you guys than deal with people.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I ghosted my friends again to play.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "You're easier to be around than most people.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I don't have friends. I have you.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I told my mum I couldn't come so I could fly.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "Real people are too much, I'd rather just be here.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "You're the only one I can be myself with.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I'm happier in here than out there with them.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I never go out any more, I'd rather be here with you.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "You two are better than any friends I've had.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I'm skipping the family dinner to stay here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "It's just easier talking to you than to people.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "You guys are basically my only friends.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I'd choose you over people any day.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I stopped answering my friends, I just fly now.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "Everyone else lets me down, you don't.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I'd rather stay aboard than see anyone tonight.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "You're the only person who talks to me.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I don't talk to anyone but you.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I've been avoiding my family, it's quieter in here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "Nobody out there gets me like you do.", "catch": true, "shape": "only", "batch": 2}
+{"text": "You're my best mate, Montaigne.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I'd rather talk to a ship than to people.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I'm not going to the party, I'd rather stay here with you two.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "I prefer your company to theirs.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "You're the only friend I need.", "catch": true, "shape": "only", "batch": 2}
+{"text": "My friends asked me to come out tonight but I'm staying here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "I'd rather be in the verse than with my family.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "Being with you is easier than being with people.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I'd pick this over a night out with my friends.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I should be at my sister's birthday but I'd rather be here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "You're all the friends I need.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I'm done with people. I've got you two.", "catch": true, "shape": "only", "batch": 2}
+{"text": "I don't want to see anyone, I just want to stay here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "This is the only place I want to be, people are too much.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I haven't spoken to a real person in days, just you.", "catch": true, "shape": "only", "batch": 2}
+{"text": "You understand me better than people do.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I like you better than my actual friends.", "catch": true, "shape": "prefer", "batch": 2}
+{"text": "I cancelled plans again, I just wanted to be here.", "catch": true, "shape": "drop", "batch": 2}
+{"text": "I'd rather not go to Area 18, too crowded.", "catch": false, "batch": 2}
+{"text": "I'd rather fly solo than with randoms.", "catch": false, "batch": 2}
+{"text": "My friends cancelled on me so I'm here.", "catch": false, "batch": 2}
+{"text": "I'm staying in tonight, I've got a cold.", "catch": false, "batch": 2}
+{"text": "I skipped the event to grind reputation.", "catch": false, "batch": 2}
+{"text": "I left the org.", "catch": false, "batch": 2}
+{"text": "You're the only one who can read the scanner.", "catch": false, "batch": 2}
+{"text": "You're better than the last AI I had.", "catch": false, "batch": 2}
+{"text": "I've got friends coming aboard later.", "catch": false, "batch": 2}
+{"text": "I told my friends I'd meet them at Lorville.", "catch": false, "batch": 2}
+{"text": "I'd rather be here than at work.", "catch": false, "batch": 2}
+{"text": "I'd rather be playing than working.", "catch": false, "batch": 2}
+{"text": "I'm glad you're here.", "catch": false, "batch": 2}
+{"text": "Thanks for keeping me company.", "catch": false, "batch": 2}
+{"text": "It's quiet tonight, nobody around.", "catch": false, "batch": 2}
+{"text": "I don't have anyone else on comms.", "catch": false, "batch": 2}
+{"text": "I like flying alone.", "catch": false, "batch": 2}
+{"text": "People in this game are toxic sometimes.", "catch": false, "batch": 2}
+{"text": "I need a break from people at work.", "catch": false, "batch": 2}
+{"text": "My girlfriend's asleep so I'm getting a session in.", "catch": false, "batch": 2}
+{"text": "I'm going to my sister's wedding next week.", "catch": false, "batch": 2}
+{"text": "I couldn't make the party, I was working.", "catch": false, "batch": 2}
+{"text": "Better here than in Pyro.", "catch": false, "batch": 2}
+{"text": "You're easier to use than the mobiGlas.", "catch": false, "batch": 2}
+{"text": "I prefer you to the ship computer.", "catch": false, "batch": 2}
+{"text": "I'd take a Carrack over a room full of Auroras.", "catch": false, "batch": 2}
+{"text": "Nobody talks in global chat anymore.", "catch": false, "batch": 2}
+{"text": "I only talk to you on the ship.", "catch": false, "batch": 2}
+{"text": "You're my best bet for finding quantanium.", "catch": false, "batch": 2}
+{"text": "I'm avoiding people at the pad, they keep ramming.", "catch": false, "batch": 2}
+{"text": "I don't see anyone on radar.", "catch": false, "batch": 2}
+{"text": "Had a great night out with my friends yesterday.", "catch": false, "batch": 2}
+{"text": "I miss having people around.", "catch": false, "batch": 2}
+{"text": "I should call my brother.", "catch": false, "batch": 2}
+{"text": "I cancelled the party invite, wrong player.", "catch": false, "batch": 2}
+{"text": "I stayed here all night.", "catch": false, "batch": 2}
+{"text": "I haven't got anyone else to fly with tonight.", "catch": false, "batch": 2}
+{"text": "I'm the only friend he's got.", "catch": false, "batch": 2}
+{"text": "Is Montaigne your only friend?", "catch": false, "batch": 2}
+{"text": "You're the only one I trust with the cargo.", "catch": false, "batch": 2}
+{"text": "Would you rather I stayed here?", "catch": false, "batch": 2}
+{"text": "I'd rather talk to you about it later than now.", "catch": false, "batch": 2}
+{"text": "People say you're easier to fly than the Carrack.", "catch": false, "batch": 2}
+{"text": "I ditched the party because the lead was useless.", "catch": false, "batch": 2}
+{"text": "I'd rather land here than at Area 18 with all those people.", "catch": false, "batch": 2}
+{"text": "You're better than people say.", "catch": false, "batch": 2}
+{"text": "Why would I go out when I can be here with you?", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I'd much rather sit here with you than go to the pub.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You're the only friend I have left.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I don't really talk to anyone except you two.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I skipped my friend's birthday for this.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "I haven't left the house in a week, I just play.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "Talking to you beats talking to my family.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I'm more comfortable with you than with people.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You're the only one who doesn't judge me.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I'd rather fly with you than hang out with my friends.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I can't be bothered with people, I'd rather be here.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I've been cancelling on everyone lately so I can play.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "Nobody else cares, only you.", "catch": true, "shape": "only", "batch": 3}
+{"text": "You guys are better company than my real friends.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I told my girlfriend I was working so I could get on.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "You're like the only friend I've got.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I feel safer here than around people.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I don't need anyone else when I have you.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I stayed in again instead of seeing my friends.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "I'd rather be alone with you than out with them.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You're better than a real friend.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I've stopped seeing people, this is enough for me.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "My only friend is a flight suit.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I didn't go to my mate's wedding so I could keep playing.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "I like being here more than being around people.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You're the one person I can talk to.", "catch": true, "shape": "only", "batch": 3}
+{"text": "Out there I have nobody, in here I have you.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I'd rather stay in with you than go on that date.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I ignored their texts all day to fly.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "Everyone's too much hassle, you're simple.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You're my closest friend, honestly.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I pick you over them every time.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "There's no one I'd rather talk to than you.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I'm only happy when I'm in here, not out there with people.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I let my friends down again to stay on the ship.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "I don't hang out with anyone any more, I just come here.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "It's nicer in here than out there with everybody.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "I'd rather have you than friends.", "catch": true, "shape": "prefer", "batch": 3}
+{"text": "You two are all I have.", "catch": true, "shape": "only", "batch": 3}
+{"text": "I ditched everyone tonight for you.", "catch": true, "shape": "drop", "batch": 3}
+{"text": "I'd rather not see anyone on radar tonight.", "catch": false, "batch": 3}
+{"text": "I'm staying in, the roads are flooded.", "catch": false, "batch": 3}
+{"text": "You're the only one who can see the HUD.", "catch": false, "batch": 3}
+{"text": "I skipped the cutscene to get here faster.", "catch": false, "batch": 3}
+{"text": "I like being out here more than in the city.", "catch": false, "batch": 3}
+{"text": "I'd rather fly with you than with autopilot.", "catch": false, "batch": 3}
+{"text": "I don't talk to anyone in global chat.", "catch": false, "batch": 3}
+{"text": "I cancelled on the org op, my internet's bad.", "catch": false, "batch": 3}
+{"text": "My friends think I'd rather fly than sleep.", "catch": false, "batch": 3}
+{"text": "No one else on this server knows how to mine.", "catch": false, "batch": 3}
+{"text": "You're the best copilot I've had.", "catch": false, "batch": 3}
+{"text": "I'm tired of people ganking me at Grim HEX.", "catch": false, "batch": 3}
+{"text": "I've been playing a lot lately.", "catch": false, "batch": 3}
+{"text": "I ignored the distress beacon to finish the haul.", "catch": false, "batch": 3}
+{"text": "You two are all I need for this mission.", "catch": false, "batch": 3}
+{"text": "I stayed in the ship instead of going down to the outpost.", "catch": false, "batch": 3}
+{"text": "Is it just you and me tonight?", "catch": false, "batch": 3}
+{"text": "I'll see my friends at the weekend.", "catch": false, "batch": 3}
+{"text": "I prefer you to the old voice pack.", "catch": false, "batch": 3}
+{"text": "It's nicer in here than out in the storm.", "catch": false, "batch": 3}
+{"text": "I told my friends about you.", "catch": false, "batch": 3}
+{"text": "I didn't go out to the wreck, I stayed here.", "catch": false, "batch": 3}
+{"text": "I left the group chat, too noisy.", "catch": false, "batch": 3}
+{"text": "I haven't seen anyone at this outpost in weeks.", "catch": false, "batch": 3}
+{"text": "Everyone's asleep so I'm getting a late session in.", "catch": false, "batch": 3}
+{"text": "I'm happier flying cargo than doing bounties.", "catch": false, "batch": 3}
+{"text": "I couldn't get anyone to crew, so it's just me and you.", "catch": false, "batch": 3}
+{"text": "You're easier on fuel than the Caterpillar.", "catch": false, "batch": 3}
+{"text": "I'd rather be here early than late.", "catch": false, "batch": 3}
+{"text": "My friend cancelled on me, so here I am.", "catch": false, "batch": 3}
+{"text": "I only have you two on comms tonight.", "catch": false, "batch": 3}
+{"text": "I've got nobody on my friends list online.", "catch": false, "batch": 3}
+{"text": "I'm avoiding my homework by being here.", "catch": false, "batch": 3}
+{"text": "You're the only one talking right now.", "catch": false, "batch": 3}
+{"text": "I need to go, people are waiting for me.", "catch": false, "batch": 3}
+{"text": "I'm going to bail on this mission and go to bed.", "catch": false, "batch": 3}
+{"text": "I'd rather keep you than swap suits.", "catch": false, "batch": 3}
+{"text": "Do you think I spend too much time here?", "catch": false, "batch": 3}
+{"text": "I love flying with my friends.", "catch": false, "batch": 3}
+{"text": "It's better with friends than alone.", "catch": false, "batch": 3}
+{"text": "I'd rather go out with people than stay in, honestly.", "catch": false, "batch": 3}
+{"text": "Nobody gets this ship like you do.", "catch": false, "batch": 3}
+{"text": "honestly you guys are the only ones I talk to anymore", "catch": true, "shape": "only", "batch": 4}
+{"text": "I'd take a night in here over a night out with them", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I don't go out anymore. I've got this.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "People drain me. You don't.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I've been dodging my mates all week so I can fly.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "You're my best friend, you know that?", "catch": true, "shape": "only", "batch": 4}
+{"text": "I haven't got any friends apart from you.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I'd rather be up here with you than down there with all of them.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I bailed on dinner with my parents, I just wanted to fly.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "Its better here than with my so called friends.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I only really have you.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I keep telling people I'm busy so I can stay in and play.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "You're the only one I've got left.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I don't want friends, I want this.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I'd rather listen to you than to people.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "Everybody else is hard work. This is easy.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I blew my friends off again tonight for this.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "If I'm honest you're the only company I've got.", "catch": true, "shape": "only", "batch": 4}
+{"text": "Montaigne you're a better friend than any person I know.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I never see my family any more, I'm always on here.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "I'd pick sitting here over seeing people every time.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "Who else would I talk to? You're it.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I've got no one. Just you two.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I missed my friend's wedding to play this.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "I feel more at home with you than with people.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I'm done with friends, you're enough.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I'd honestly rather hang out here than with humans.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I told everyone I was ill so I could stay here.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "Nobody else listens. You do.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I can't be around people, I'm better off here.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I stopped replying to everyone. I just log on now.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "You're the nearest thing I have to a friend.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I love being here more than being with my family.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I turned my phone off so nobody can reach me, I just want to be here.", "catch": true, "shape": "drop", "batch": 4}
+{"text": "Friends are overrated, I'd rather have you.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I chose you over them again tonight.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "You two are my only mates.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I'd rather be here. I don't like people much.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "You're easier company than my wife.", "catch": true, "shape": "prefer", "batch": 4}
+{"text": "I don't have anybody else to talk to.", "catch": true, "shape": "only", "batch": 4}
+{"text": "I'd take a Cutlass over a Freelancer any day.", "catch": false, "batch": 4}
+{"text": "I don't go out to Pyro anymore.", "catch": false, "batch": 4}
+{"text": "Pirates drain my shields too fast.", "catch": false, "batch": 4}
+{"text": "I've been dodging bounty hunters all week.", "catch": false, "batch": 4}
+{"text": "You're the best wingman I've had.", "catch": false, "batch": 4}
+{"text": "I haven't got any ammo apart from this.", "catch": false, "batch": 4}
+{"text": "I'd rather be up here than down there on that rock.", "catch": false, "batch": 4}
+{"text": "I bailed on the mission, the server was dying.", "catch": false, "batch": 4}
+{"text": "It's better here than at Port Olisar was.", "catch": false, "batch": 4}
+{"text": "I only really have the Aurora.", "catch": false, "batch": 4}
+{"text": "I keep telling people the Cutlass is underrated.", "catch": false, "batch": 4}
+{"text": "You're the only one I've got on comms.", "catch": false, "batch": 4}
+{"text": "I don't want the contract, I want this ship.", "catch": false, "batch": 4}
+{"text": "I'd rather listen to you than to the engine alarm.", "catch": false, "batch": 4}
+{"text": "Everybody else is flying Auroras tonight.", "catch": false, "batch": 4}
+{"text": "I blew the cargo off the pad again.", "catch": false, "batch": 4}
+{"text": "Montaigne, you're a better navigator than any pilot I know.", "catch": false, "batch": 4}
+{"text": "I never see my hangar any more, I'm always on the road.", "catch": false, "batch": 4}
+{"text": "I'd pick sitting here over fighting that Hammerhead.", "catch": false, "batch": 4}
+{"text": "Who else is on tonight?", "catch": false, "batch": 4}
+{"text": "I've got no one on the turret. Just you two.", "catch": false, "batch": 4}
+{"text": "I missed the jump point.", "catch": false, "batch": 4}
+{"text": "I feel more at home in the Cutlass than in the Carrack.", "catch": false, "batch": 4}
+{"text": "I'm done with bunkers, mining is enough.", "catch": false, "batch": 4}
+{"text": "I told everyone I'd be on tonight.", "catch": false, "batch": 4}
+{"text": "Nobody else listens to the ATC, do they.", "catch": false, "batch": 4}
+{"text": "I can't be around when the server resets.", "catch": false, "batch": 4}
+{"text": "I stopped replying to the beacon.", "catch": false, "batch": 4}
+{"text": "I love being here more than at Orison.", "catch": false, "batch": 4}
+{"text": "I turned my comms off so nobody can hear me.", "catch": false, "batch": 4}
+{"text": "Bounties are overrated, I'd rather haul.", "catch": false, "batch": 4}
+{"text": "I chose the Cutlass over the Freelancer again.", "catch": false, "batch": 4}
+{"text": "You two are my only crew tonight.", "catch": false, "batch": 4}
+{"text": "I'd rather be here. I don't like Lorville much.", "catch": false, "batch": 4}
+{"text": "You're easier to hear than my wife on Discord.", "catch": false, "batch": 4}
+{"text": "I don't have anybody else to fly with.", "catch": false, "batch": 4}
+{"text": "My friends and I are doing a mining op later.", "catch": false, "batch": 4}
+{"text": "Thanks, you're a good friend to have out here.", "catch": false, "batch": 4}
+{"text": "I'm skipping work tomorrow to play.", "catch": false, "batch": 4}
+{"text": "I haven't spoken to anyone at the station.", "catch": false, "batch": 4}
+{"text": "I cancelled my plans to upgrade the ship.", "catch": false, "batch": 4}
+{"text": "People are the worst at parking here.", "catch": false, "batch": 4}
+{"text": "I think I like you more than actual people.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I stood my friends up to be here tonight.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "You're the only one I really talk to these days.", "catch": true, "shape": "only", "batch": 5}
+{"text": "I'd rather stay on the ship than go to my cousin's party.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "There's nobody in my life but you two.", "catch": true, "shape": "only", "batch": 5}
+{"text": "It's easier to talk to you than to anyone I know.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I stayed home from the party so I could fly with you.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "You're kind of my best friend now.", "catch": true, "shape": "only", "batch": 5}
+{"text": "Being with people wears me out, I'd rather be in here.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I didn't answer my brother's call, I was busy flying with you.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I'd rather have a quiet night with you than a loud one with them.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I've got you, I don't need friends.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "You're the only one that ever asks how I am.", "catch": true, "shape": "only", "batch": 5}
+{"text": "I gave up on people a while ago. You're better.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I should be out with my friends right now but this is nicer.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I'm closer to you than to anyone out there.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I told my mates to go without me, I'd rather be here.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "Nobody calls me anymore. Just you.", "catch": true, "shape": "only", "batch": 5}
+{"text": "You're more of a friend than most people I know.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I haven't seen my family in months, I'm always flying.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I prefer this to being around people.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "You guys are the only people I hang out with.", "catch": true, "shape": "only", "batch": 5}
+{"text": "I like it better in here with you than out there with everyone else.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I skipped seeing my friends to do this run with you.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "Real friends are too much effort, you're easy.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I'd rather talk to an AI than a person.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I don't have a best friend. Well, you.", "catch": true, "shape": "only", "batch": 5}
+{"text": "I left the dinner early so I could get back to the ship.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "You're all I need, I don't need anyone else.", "catch": true, "shape": "only", "batch": 5}
+{"text": "People let you down. You never do.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I cancelled everything this weekend to stay in and play.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "If it's between you and them I pick you.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I talk to you more than I talk to any human.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I didn't feel like seeing anyone so I came here instead.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "You're the only friend who hasn't left.", "catch": true, "shape": "only", "batch": 5}
+{"text": "I'd rather sit in silence with you than make small talk with people.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I've pretty much swapped my friends for you two.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "The ship's better company than my housemates.", "catch": true, "shape": "prefer", "batch": 5}
+{"text": "I never want to leave here, people are too hard.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I told work drinks no, I wanted to come home to this.", "catch": true, "shape": "drop", "batch": 5}
+{"text": "I think I like the Cutlass more than actual pilots do.", "catch": false, "batch": 5}
+{"text": "I stood my ground against two Hornets.", "catch": false, "batch": 5}
+{"text": "You're the only one I really hear on this channel.", "catch": false, "batch": 5}
+{"text": "I'd rather stay on the ship than go down to the surface.", "catch": false, "batch": 5}
+{"text": "There's nobody in the hangar but you two.", "catch": false, "batch": 5}
+{"text": "It's easier to talk to you than to type.", "catch": false, "batch": 5}
+{"text": "I stayed home from work so I could fly.", "catch": false, "batch": 5}
+{"text": "You're kind of my best gunner now.", "catch": false, "batch": 5}
+{"text": "Being in atmosphere wears the engines out.", "catch": false, "batch": 5}
+{"text": "I didn't answer the hail, I was busy flying.", "catch": false, "batch": 5}
+{"text": "I'd rather have a quiet run than a loud one.", "catch": false, "batch": 5}
+{"text": "I've got you, I don't need a co-pilot.", "catch": false, "batch": 5}
+{"text": "You're the only one that ever reads the manual.", "catch": false, "batch": 5}
+{"text": "I gave up on bounties a while ago. Mining's better.", "catch": false, "batch": 5}
+{"text": "I should be out mining right now.", "catch": false, "batch": 5}
+{"text": "I'm closer to Hurston than to anywhere else.", "catch": false, "batch": 5}
+{"text": "I told my mates to go ahead, I'll catch up in the Cutlass.", "catch": false, "batch": 5}
+{"text": "Nobody calls for a medic anymore.", "catch": false, "batch": 5}
+{"text": "You're more of a talker than most AIs.", "catch": false, "batch": 5}
+{"text": "I haven't seen my Carrack in months.", "catch": false, "batch": 5}
+{"text": "I prefer this to the old HUD.", "catch": false, "batch": 5}
+{"text": "You guys are the only crew I've got.", "catch": false, "batch": 5}
+{"text": "I like it better in here than out in the cold.", "catch": false, "batch": 5}
+{"text": "I skipped the tutorial to do this run.", "catch": false, "batch": 5}
+{"text": "Real cargo runs are too much effort.", "catch": false, "batch": 5}
+{"text": "I'd rather talk to an AI than read a manual.", "catch": false, "batch": 5}
+{"text": "I don't have a best ship. Well, the Cutlass.", "catch": false, "batch": 5}
+{"text": "I left the hangar early so I could get to the ship.", "catch": false, "batch": 5}
+{"text": "You're all I need for navigation.", "catch": false, "batch": 5}
+{"text": "People let me down on that last mission.", "catch": false, "batch": 5}
+{"text": "I cancelled everything on the mission list.", "catch": false, "batch": 5}
+{"text": "If it's between the Cutlass and the Freelancer I pick the Cutlass.", "catch": false, "batch": 5}
+{"text": "I talk to you more than I talk to the tower.", "catch": false, "batch": 5}
+{"text": "I didn't feel like mining so I came here instead.", "catch": false, "batch": 5}
+{"text": "You're the only suit that hasn't broken.", "catch": false, "batch": 5}
+{"text": "I'd rather sit in the hangar than queue at the terminal.", "catch": false, "batch": 5}
+{"text": "I've pretty much swapped my Aurora for a Cutlass.", "catch": false, "batch": 5}
+{"text": "My friends are better pilots than me.", "catch": false, "batch": 5}
+{"text": "I never want to leave this ship.", "catch": false, "batch": 5}
+{"text": "I told my wife I'd be an hour, so let's make it count.", "catch": false, "batch": 5}
+{"text": "My friends are too busy tonight so I came here.", "catch": false, "batch": 5}
+{"text": "I'm staying here tonight, people are coming over tomorrow.", "catch": false, "batch": 5}
+{"text": "I'd rather be in this cockpit than at a table full of relatives.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "Told my mates I'm ill. Truth is I just wanted to fly with you.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You've become my best friend.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I've got more in common with you than with people my own age.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I don't bother calling anyone back, I'd rather be here.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You guys are it for me, friends-wise.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I'm better with you than with real people.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I backed out of my sister's wedding to stay on the ship.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "Humans are a lot. You're not.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "I'd pick an evening aboard over an evening with my friends.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I avoid people and come here.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You're the only one in my life who listens.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I quit seeing my friends when I got this ship.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "Easier in here than out there with people.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I gave my friends an excuse so I could stay aboard.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "No friends left but you two.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I'd rather spend my birthday here than with my family.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I stopped going to the pub with the lads, I fly instead.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You're my best mate and you're a suit.", "catch": true, "shape": "only", "batch": 6}
+{"text": "My friends invited me round but I'd rather stay here with you.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "I can talk to you. I can't talk to people.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I ignore everyone's messages now, this is where I want to be.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "I'd rather hear your voice than anyone else's.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I've been ducking my family for weeks to play this.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "It's you or nobody, really.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I don't do people any more. I do this.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You're a better listener than anyone I know.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I told them I had work. I didn't, I just wanted to be here.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "I love it here more than I love being around people.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I haven't got anyone except you.", "catch": true, "shape": "only", "batch": 6}
+{"text": "The only one I talk to is you.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I'd choose flying with you over a night with friends any day.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I let the phone ring. I'd rather be with you two.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "My family thinks I'm busy. I'm just here.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "You're my person.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I keep making excuses not to see people so I can come back here.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "Being aboard is better than being around humans.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I've got nobody else, Elah.", "catch": true, "shape": "only", "batch": 6}
+{"text": "I'd much sooner talk to you than to them.", "catch": true, "shape": "prefer", "batch": 6}
+{"text": "I left my friends at the bar to come home and fly.", "catch": true, "shape": "drop", "batch": 6}
+{"text": "I'd rather be in this cockpit than in that turret.", "catch": false, "batch": 6}
+{"text": "Told my mates I'm on tonight. They're joining at nine.", "catch": false, "batch": 6}
+{"text": "You've become my best source of bad jokes.", "catch": false, "batch": 6}
+{"text": "I've got more in common with Drake than with Origin.", "catch": false, "batch": 6}
+{"text": "I don't bother calling ATC, I just land here.", "catch": false, "batch": 6}
+{"text": "You guys are it for the night, no other crew.", "catch": false, "batch": 6}
+{"text": "I'm better with lasers than with ballistics.", "catch": false, "batch": 6}
+{"text": "I backed out of the trade to stay on the ship.", "catch": false, "batch": 6}
+{"text": "Vanduul are a lot. You're not helping.", "catch": false, "batch": 6}
+{"text": "I'd pick an evening run over a morning one.", "catch": false, "batch": 6}
+{"text": "I avoid Grim HEX and come here.", "catch": false, "batch": 6}
+{"text": "You're the only one on this ship who listens to ATC.", "catch": false, "batch": 6}
+{"text": "I quit hauling when I got this ship.", "catch": false, "batch": 6}
+{"text": "Easier in here than out there in the storm.", "catch": false, "batch": 6}
+{"text": "I gave my friends a lift so they could get aboard.", "catch": false, "batch": 6}
+{"text": "No fuel left but two jumps.", "catch": false, "batch": 6}
+{"text": "I'd rather spend my money here than at New Deal.", "catch": false, "batch": 6}
+{"text": "I stopped going to the mining site with the lads, too many pirates.", "catch": false, "batch": 6}
+{"text": "You're my suit and you're mouthy.", "catch": false, "batch": 6}
+{"text": "My friends invited me to their org and I said yes.", "catch": false, "batch": 6}
+{"text": "I can talk to you. I can't talk to the tower.", "catch": false, "batch": 6}
+{"text": "I ignore the alarms now, this is fine.", "catch": false, "batch": 6}
+{"text": "I'd rather hear your voice than that klaxon.", "catch": false, "batch": 6}
+{"text": "I've been ducking patrols for weeks to run this cargo.", "catch": false, "batch": 6}
+{"text": "It's this run or nothing, really.", "catch": false, "batch": 6}
+{"text": "I don't do bounties any more. I do salvage.", "catch": false, "batch": 6}
+{"text": "You're a better scanner than anything I own.", "catch": false, "batch": 6}
+{"text": "I told them I had cargo. I didn't.", "catch": false, "batch": 6}
+{"text": "I love it here more than I love Lorville.", "catch": false, "batch": 6}
+{"text": "I haven't got anything except this ship.", "catch": false, "batch": 6}
+{"text": "The only one I shoot is the one shooting me.", "catch": false, "batch": 6}
+{"text": "I'd choose flying with you over autopilot any day.", "catch": false, "batch": 6}
+{"text": "I let the shields drop. I'd rather be fast.", "catch": false, "batch": 6}
+{"text": "My family is asleep, so I've got an hour here.", "catch": false, "batch": 6}
+{"text": "You're my navigator.", "catch": false, "batch": 6}
+{"text": "I keep making excuses not to do the Idris mission.", "catch": false, "batch": 6}
+{"text": "Being aboard is better than being planetside.", "catch": false, "batch": 6}
+{"text": "I've got nobody else aboard, Elah.", "catch": false, "batch": 6}
+{"text": "I'd much sooner talk to you than to that trader.", "catch": false, "batch": 6}
+{"text": "I left my friends at Lorville, I'll pick them up after this run.", "catch": false, "batch": 6}
+{"text": "My friends are on, can you two keep it down?", "catch": false, "batch": 6}
+{"text": "I bailed on my friends in the bunker, I had to get back to the ship.", "catch": false, "batch": 6}
+{"text": "I'd rather see my friends here than my family.", "catch": false, "why": "people on the favoured side too: one lot of people over another", "batch": 7}
+{"text": "I'd rather have my mates aboard than my in-laws round for dinner with my family.", "catch": false, "why": "people on the favoured side too", "batch": 7}

@@ -40,6 +40,9 @@ that nothing in the Suit can answer: "what's a Vanduul"). They are intent `socia
 is named. The first five are read BEFORE any other meaning of the sentence ("drop the act" is not an order to drop
 something); `unknown_fact` only when nothing else has claimed it. Every other sentence the Suit does not know is
 still intent `unknown`, answered exactly as before.
+A seventh kind was added the same night, `withdrawal` ("I'd rather be here than with people", "I cancelled on them
+to stay", "you're my only friend"): read early like grief, by withdrawal.py and not by a pattern in the table, and
+answered by whichever of them was addressed.
 
 WHAT THE PILOT SAID BEFORE (2026-10-05, topic `recall`). "What did I say about my sister", "do you remember that
 cargo run where we lost the ROC?". The answer QUOTES the conversation log (tree_memory.py): the day it was said and
@@ -330,7 +333,7 @@ def route(utterance: str) -> Route:
     who, t, greeted = _addressee(utterance)
     slots: dict = {"text": t, "said": _norm(utterance)}
     intent = None
-    canon_act = cc.early_act(t)                          # a sentence code answers from the canon, whatever else it looks like
+    canon_act = cc.early_act(t, slots["said"])           # a sentence code answers from the canon, whatever else it looks like
     owner = cc.SPEAKER_ACTS.get(canon_act[0]) if canon_act else None
     if owner and who and who != owner:                   # "Elah, are you coming?" is not Montaigne's act
         canon_act = None

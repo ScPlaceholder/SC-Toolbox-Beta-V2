@@ -88,7 +88,8 @@ def test_the_provisional_lines_are_the_ones_proposed_and_are_marked_as_not_appro
     assert m["lines"]["grief"][0] == "I am sorry. If you wish to tell me about your {who}, I would gladly listen."
     for c in (e, m):
         assert "PROVISIONAL" in c["_provisional"] and "J has NOT approved" in c["_provisional"]
-        assert all(2 <= len(c["lines"][a]) <= 3 for a in cc.CANON_ACTS)      # not a recording
+        assert all(2 <= len(c["lines"][a]) <= 3 for a in cc.CANON_ACTS if a not in cc.MORE_WORDINGS)      # not a recording
+        assert all(len(c["lines"][a]) >= n for a, n in cc.MORE_WORDINGS.items())      # said often: more ways to say it
 
 
 def test_are_you_chatgpt_is_never_answered_yes():

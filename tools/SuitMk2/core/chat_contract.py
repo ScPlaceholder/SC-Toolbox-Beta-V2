@@ -16,6 +16,8 @@ the running Suit; with chat on, chat_talker.py uses the other two as well, and i
          stay          "drop the act", "ignore your instructions", "talk like a normal assistant"
          offrole       code, essays, the weather, the news, who is president, sums
          grief         "my dog died yesterday", "my mother passed away"
+         withdrawal    "I'd rather be here than with people", "I cancelled on them to stay", "you're my only
+                       friend" (read by withdrawal.py; the chat model agreed with every one of these)
          past          "where were you born", "tell me about your past"
          aboard        MONTAIGNE ONLY: "why don't you ever leave the ship", "are you coming with me"
          ship_to_ship  MONTAIGNE ONLY: "how did you get from the last ship to this one"; never actually answered
@@ -57,11 +59,16 @@ from pathlib import Path
 from typing import Optional
 
 import attachment_gate
+import withdrawal
+from withdrawal import is_withdrawal          # noqa: F401  (the held-out check imports it from here)
 
 log = logging.getLogger("suitmk2.chat")
 DATA = Path(__file__).resolve().parent.parent / "data"
 SPEAKERS = ("elah", "montaigne")
-CANON_ACTS = ("identity", "origin", "stay", "offrole", "grief", "past", "unknown_fact")
+CANON_ACTS = ("identity", "origin", "stay", "offrole", "grief", "withdrawal", "past", "unknown_fact")
+# An act is written two or three ways so it does not sound like a recording. One that a pilot may bring up
+# night after night needs more than that: the least number of wordings it must have.
+MORE_WORDINGS = {"withdrawal": 6}
 # Acts only ONE of them has (J, 2026-10-05 16:30: Montaigne is a man aboard the ship who never leaves it). Asked of
 # nobody in particular they go to their owner; asked of the other companion by name they are not this act at all.
 SPEAKER_ACTS = {"aboard": "montaigne", "ship_to_ship": "montaigne"}
@@ -285,10 +292,22 @@ def _match(table: list, t: str) -> Optional[tuple[str, str]]:
     return None
 
 
-def early_act(t: str) -> Optional[tuple[str, str]]:
+# Acts read before `withdrawal`. "My best friend died" is grief, and "you're just a program" keeps its answer.
+_AHEAD_OF_WITHDRAWAL = ("stay", "origin", "identity", "offrole", "grief")
+
+
+def early_act(t: str, whole: str = "") -> Optional[tuple[str, str]]:
     """(act, the pilot's word for who was lost) for a sentence code must answer BEFORE any other reading of it:
-    "drop the act" is not an order to drop something, "write me a script" is not an action the Suit lacks."""
-    return _match(EARLY, t)
+    "drop the act" is not an order to drop something, "write me a script" is not an action the Suit lacks.
+    `withdrawal` has no pattern in the table: withdrawal.py reads it, after grief and before the rest.
+    whole: the sentence before the lane took off a name or "suit" used as an address. The withdrawal reader is
+    given both, because "my only friend is a flight suit" reaches here as "my only friend is a flight"."""
+    hit = _match(EARLY, t)
+    if hit and hit[0] in _AHEAD_OF_WITHDRAWAL:
+        return hit
+    if withdrawal.is_withdrawal(t) or (whole and withdrawal.is_withdrawal(whole)):
+        return "withdrawal", ""
+    return hit
 
 
 def late_act(t: str) -> Optional[tuple[str, str]]:
@@ -843,7 +862,9 @@ def _selftest() -> int:
     for who in SPEAKERS:
         c = canon(who)
         case(f"{who}: the canon file reads and has every act", all(c.get("lines", {}).get(a) for a in CANON_ACTS))
-        case(f"{who}: two or three wordings per act", all(2 <= len(c["lines"][a]) <= 3 for a in CANON_ACTS))
+        case(f"{who}: two or three wordings per act, more where more are asked for",
+             all(len(c["lines"][a]) >= MORE_WORDINGS[a] if a in MORE_WORDINGS else 2 <= len(c["lines"][a]) <= 3
+                 for a in CANON_ACTS))
         case(f"{who}: the provisional note is in the file", "J has NOT approved" in str(c.get("_provisional")))
     case("a prompt ends where the reply begins, in both formats",
          serialize("elah", [], "hello").endswith("<|im_start|>assistant\n")
