@@ -99,7 +99,7 @@ class _Worker:
         self.key = key
         self.tool_dir = os.path.join(root, folder)
         if not os.path.isdir(self.tool_dir):
-            raise ToolError(f"{key}: tool folder missing ({self.tool_dir})")
+            raise ToolError("%s: that tool is not installed (%s)" % (key, folder.replace(os.sep, "/")))
         env = dict(os.environ)
         env["PYTHONDONTWRITEBYTECODE"] = "1"     # no __pycache__ into the tools
         env["PYTHONIOENCODING"] = "utf-8"

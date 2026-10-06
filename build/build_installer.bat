@@ -488,6 +488,59 @@ if "!ASSIST_STAGE_OK!"=="0" (
     goto :fail
 )
 
+:: Everything Finder and Star Map (skills\Everything_Finder, skills\Starmap) - staged here, by file pattern,
+:: never through the skills loop above (an xcopy /s also ships tests\, README.md and whatever backup or
+:: scratch file is lying in the folder).
+:: Everything Finder is a launcher tile: Item Finder, Trade Hub and the Star Map as three tabs of one window.
+:: Its Star Map tab IS skills\Starmap, loaded from that folder, so the two ship together or not at all. The
+:: Star Map has no tile of its own (skill.json: "hidden": true); it keeps its hotkey, and the Toolbox
+:: Assistant's "jump route" and map commands open it. Item Finder and Trade Hub (skills\Market_Finder,
+:: skills\Trade_Hub) come from the loop above and the shared shopping list from shared\.
+:: Staged, about 0.6 MB in 42 files:
+::   skills\Everything_Finder    skill.json, everything_finder_app.py, everything_finder\*.py
+::   skills\Starmap              skill.json, starmap_app.py, starmap\*.py, starmap\data\*.json (the galaxy)
+:: Neither folder holds anything of one person's: what the Star Map remembers (home system, prices seen,
+:: lookups) is written under the user's own .sctoolbox\starmap. Neither sends a key or a click: "navigate
+:: to ..." with In-Game on goes to the Assistant's route setter, which refuses without the player's own
+:: calibration.
+:: If either folder is missing the build STOPS here. build\check_finder_starmap_stage.py (Step 7c) fails the
+:: build if the staged files are not exactly the run-time files of the two source folders, or if either
+:: window does not work from staging alone.
+:: (These notes live OUTSIDE the block: '::' inside a ( ) block is parsed as a label.)
+set "EF_SRC=%ROOT%\skills\Everything_Finder"
+set "EF_DST=%STAGE%\skills\Everything_Finder"
+set "SM_SRC=%ROOT%\skills\Starmap"
+set "SM_DST=%STAGE%\skills\Starmap"
+set "FINDER_STAGE_OK=1"
+for %%F in (skill.json everything_finder_app.py everything_finder\__init__.py everything_finder\window.py) do (
+    if not exist "%EF_SRC%\%%F" (
+        echo  [ERR] Everything Finder: skills\Everything_Finder\%%F is missing
+        set "FINDER_STAGE_OK=0"
+    )
+)
+for %%F in (skill.json starmap_app.py starmap\__init__.py starmap\panel.py starmap\data\systems.json starmap\data\bodies.json) do (
+    if not exist "%SM_SRC%\%%F" (
+        echo  [ERR] Star Map: skills\Starmap\%%F is missing
+        set "FINDER_STAGE_OK=0"
+    )
+)
+if "!FINDER_STAGE_OK!"=="1" (
+    echo  [*] Staging Everything Finder and Star Map...
+    mkdir "%EF_DST%\everything_finder" 2>nul
+    mkdir "%SM_DST%\starmap\data" 2>nul
+    copy /Y "%EF_SRC%\skill.json" "%EF_DST%\" >nul
+    copy /Y "%EF_SRC%\everything_finder_app.py" "%EF_DST%\" >nul
+    copy /Y "%EF_SRC%\everything_finder\*.py" "%EF_DST%\everything_finder\" >nul
+    copy /Y "%SM_SRC%\skill.json" "%SM_DST%\" >nul
+    copy /Y "%SM_SRC%\starmap_app.py" "%SM_DST%\" >nul
+    copy /Y "%SM_SRC%\starmap\*.py" "%SM_DST%\starmap\" >nul
+    copy /Y "%SM_SRC%\starmap\data\*.json" "%SM_DST%\starmap\data\" >nul
+)
+if "!FINDER_STAGE_OK!"=="0" (
+    echo  [ERR] Everything Finder and Star Map could not be staged - see the lines above.
+    goto :fail
+)
+
 :: DPS Calculator loads the scunpacked adapter from shared\scunpacked.py by path. It used to live in
 :: tools\Assistant\, which did not ship then, and 2.4.0's first install test crashed DPS on launch.
 :: shared\ is staged whole; this only fails the build if the file ever goes missing again.
@@ -1122,6 +1175,19 @@ echo  [*] Checking the staged Toolbox Assistant...
 "%STAGE%\python\python.exe" "%BUILD%check_assistant_stage.py" "%STAGE%" "%ROOT%\tools\Assistant"
 if !errorlevel! neq 0 (
     echo  [FAIL] Toolbox Assistant staging check failed - see the lines above.
+    set "VALIDATION_OK=0"
+)
+
+:: Everything Finder and Star Map: exactly the run-time files staged, and both windows work from the staged
+:: copy alone (empty APPDATA, empty home folder, no network): the tile is found, all three tabs build, the
+:: map answers a typed command, "navigate to ..." with In-Game on and no calibration sends no key or click,
+:: the tutorials open, the launcher's hide / show / quit. Also: every folder in skills\ and tools\ that has
+:: a skill.json is staged, or is named in that script's NOT_SHIPPED list with the reason.
+:: See build\check_finder_starmap_stage.py.
+echo  [*] Checking the staged Everything Finder and Star Map...
+"%STAGE%\python\python.exe" "%BUILD%check_finder_starmap_stage.py" "%STAGE%" "%ROOT%"
+if !errorlevel! neq 0 (
+    echo  [FAIL] Everything Finder / Star Map staging check failed - see the lines above.
     set "VALIDATION_OK=0"
 )
 

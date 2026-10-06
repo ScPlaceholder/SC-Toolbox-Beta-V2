@@ -15,7 +15,7 @@ direction, or when the staged copy would not behave for somebody who has just in
      staged either;
   3. a staged .py or .json holds a home-folder path or a developer's working note;
   4. a tool the Assistant looks answers up in is not staged (each one in assistant/worker_pool.py TOOLS, apart
-     from the ones named in NOT_SHIPPED below);
+     from any named in NOT_SHIPPED below), or the Star Map's jump route is not answered from the staged copy;
   5. the Assistant does not work from the staged copy ALONE: a fresh interpreter with an empty APPDATA, an
      empty home folder and an empty temp folder, no network and no model service, started on the entry script
      with the launcher's own arguments, must
@@ -53,8 +53,9 @@ SOURCE_ONLY_DIRS = ("tests", "eval", "assistant/starmap_ears")
 SOURCE_ONLY_FILES = ("README.md", "assistant_app.py", "assistant/selftest.py")
 CALIBRATION = "mouse_calibration.json"
 # Tools the Assistant can look answers up in that the installer does not ship. Asking for one of these gets a
-# sentence saying the tool is missing; every other tool in worker_pool.TOOLS must be staged.
-NOT_SHIPPED = {"starmap"}
+# sentence saying the tool is missing; every other tool in worker_pool.TOOLS must be staged. Empty: the Star
+# Map (skills/Starmap) ships, so "jump route from Stanton to Pyro" must be answered from the staged copy.
+NOT_SHIPPED: set = set()
 HOME_PATH = re.compile(rb"[A-Za-z]:[\\/]+Users[\\/]")
 # A developer's working folders and note links, and comments that say who asked for something and when
 # instead of what the rule is (the shipped files were reworded; this keeps them that way).
@@ -228,6 +229,13 @@ def scenario():
     yield 2.0
     OUT["macro_said"] = macro
     OUT["input_after_route"] = list(OUT["input"])
+
+    # the Star Map's jump graph, through the same call the "jump_route" tool makes
+    if os.path.isdir(os.path.join(stage, "skills", "Starmap")):
+        try:
+            OUT["jump_route"] = builtin_tools._w(p._agent.ctx, "starmap", "jump_route", from_system="Stanton", to_system="Pyro")
+        except Exception as exc:
+            OUT["jump_route"] = "%s: %s" % (type(exc).__name__, exc)
 
     heard = []
     p._ears.statusChanged.connect(heard.append)
@@ -493,6 +501,11 @@ def main() -> int:
                 bad("the in-game macro itself did not refuse with no calibration: %s" % got.get("macro_said"))
             if got.get("input"):
                 bad("keys, clicks or clipboard text were sent with no calibration: %s" % got["input"][:6])
+            if "starmap" not in NOT_SHIPPED:
+                jr = got.get("jump_route")
+                if not isinstance(jr, dict) or jr.get("jumps") != 1 or jr.get("route") != ["Stanton", "Pyro"]:
+                    bad("'jump route from Stanton to Pyro' was not answered from the staged Star Map (one jump, "
+                        "Stanton to Pyro): %r" % (jr,))
             if not any("mic error" in str(m) for m in got.get("no_mic") or []):
                 bad("with no microphone the status line should say so; it said %s" % got.get("no_mic"))
             if got.get("after_hide") is not False or got.get("after_show") != [True, "suitmk2"]:
