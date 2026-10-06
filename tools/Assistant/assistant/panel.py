@@ -641,9 +641,10 @@ class _AssistantBody:
 
         It needs the game's own star map on screen (the pilot clicks its search
         bar, a result and its centre) and pynput to see those clicks. It needs
-        nothing from the toolbox's Star Map tool. The positions are saved where
-        they always were (tools/set_route_ai/data/mouse_calibration.json, shared
-        with the WingmanAI skill), so an existing calibration keeps working."""
+        nothing from the toolbox's Star Map tool. The positions are saved in the
+        pilot's own folder (~/.sctoolbox/set_route/mouse_calibration.json), which
+        an update leaves alone. Until then a calibration made with the WingmanAI
+        set-route skill is read, where that skill's folder exists."""
         open_dlg = getattr(self, "_cal_dlg", None)
         if open_dlg is not None:            # already open (a second request queued behind the first)
             if begin:

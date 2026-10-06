@@ -201,10 +201,11 @@ def test_the_window_sets_a_route_with_no_star_map_and_obeys_its_in_game_switch(t
     assert got["real_dialog"] == ["assistant.set_route.route_setter", "RouteCalibrationDialog"]
     assert got["calibrate_opened"] == [True]
     assert got["calibrate_status"] == "route setter calibrated"
-    # ... and it saves where calibration always was, so an existing one keeps working
+    # ... its positions are read from the pilot's own folder, or, until they calibrate here, from the
+    # WingmanAI skill's file where that skill sits beside the toolbox; never from beside the code
     live = os.path.join(ROOT, "tools", "set_route_ai", "data", "mouse_calibration.json")
-    packaged = os.path.join(A_ROOT, "assistant", "data", "set_route", "mouse_calibration.json")
-    assert got["calibration_file"] == os.path.normpath(live if os.path.isfile(live) else packaged)
+    own = os.path.join(str(tmp_path), ".sctoolbox", "set_route", "mouse_calibration.json")
+    assert got["calibration_file"] == os.path.normpath(live if os.path.isfile(live) else own)
     # J had In-Game on in the Star Map: it comes up on here, from the map's saved state
     assert got["starts_on"] is True
 

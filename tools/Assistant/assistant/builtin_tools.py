@@ -351,12 +351,21 @@ def _routes(ctx: ToolContext):
     return _default_route_service
 
 
+#: Said when In-Game is on and the pilot has never calibrated. It does not contain the words that start a
+#: calibration by voice, so the microphone hearing this line from the speakers cannot start one.
+NOT_CALIBRATED = ("I don't know where the star map's search bar is on your screen yet. "
+                  "Open Star Citizen and press Calibrate Route in this window: it takes three clicks. "
+                  "Nothing was sent to the game.")
+
+
 def _spoken_problem(problem: str, dest: str) -> str:
     """A RouteService status text as a sentence for the pilot."""
     if problem == route_service.in_game_off(dest):
         return IN_GAME_OFF
     if problem == route_service.NEEDS_PYNPUT:
         return "I can't set routes in the game on this machine: the pynput package is not installed."
+    if problem == route_service.NOT_CALIBRATED:
+        return NOT_CALIBRATED
     if problem == route_service.BUSY:
         return "I'm already setting a route. Give me a moment."
     if problem == route_service.SETTER_UNAVAILABLE:

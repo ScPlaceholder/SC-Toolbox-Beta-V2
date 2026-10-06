@@ -11,7 +11,8 @@ Two steps, kept apart on purpose:
   * :meth:`RouteService.plot`    - run the in-game macro. This is the only
     place the macro is started, and it checks the In-Game switch (gate.py)
     itself, every time, before anything else. A caller cannot pass the answer
-    in, so a caller cannot get it wrong.
+    in, so a caller cannot get it wrong. It also refuses until the pilot has
+    calibrated: there are no default click positions.
 
 The engine and the macro are built lazily through factories. Tests hand in
 fakes; nothing here imports pynput or PySide6 until a real route is plotted.
@@ -31,6 +32,7 @@ log = logging.getLogger(__name__)
 ENGINE_UNAVAILABLE = "destination engine unavailable"
 SETTER_UNAVAILABLE = "route setter unavailable"
 NEEDS_PYNPUT = "in-game plotting needs pynput (pip install pynput)"
+NOT_CALIBRATED = "in-game plotting is not calibrated (press Calibrate Route)"
 BUSY = "already setting a route"
 
 
@@ -147,6 +149,8 @@ class RouteService:
             return SETTER_UNAVAILABLE
         if not setter.available():
             return NEEDS_PYNPUT
+        if not setter.calibrated():
+            return NOT_CALIBRATED
         if setter.busy():
             return BUSY
         return ""

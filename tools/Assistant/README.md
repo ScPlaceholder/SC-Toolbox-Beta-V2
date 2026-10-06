@@ -155,9 +155,13 @@ What happens, in order:
 saved switch (`~/.sctoolbox/set_route/settings.json`) shared with the Star
 Map's In-Game button; until it is first set here, the Star Map's old saved
 choice is used. Calibrate Route is the 3-click calibration that used to be the
-Star Map's "Calibrate Star Map"; it is only here now. It writes the same file
-as before (`tools/set_route_ai/data/mouse_calibration.json`, shared with the
-WingmanAI skill), so an existing calibration keeps working.
+Star Map's "Calibrate Star Map"; it is only here now. It saves the three click
+positions in the pilot's own folder (`~/.sctoolbox/set_route/mouse_calibration.json`),
+which an update leaves alone. Until the pilot calibrates here, a calibration
+made with the WingmanAI skill is read from `tools/set_route_ai/data/` where that
+folder exists (a developer's checkout; an installed toolbox has none). There
+are no default positions: with no calibration nothing is clicked, and the
+Assistant says to press Calibrate Route. No calibration file ships.
 
 What it needs: pynput, the Windows clipboard, Star Citizen in the foreground
 with its star map on F2, and calibrated click positions. It does not check

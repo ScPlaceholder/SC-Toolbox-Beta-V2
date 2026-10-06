@@ -24,10 +24,12 @@ skills/Starmap/starmap/set_route_link.py, and there is no other.
 
 destination_engine.py and route_setter.py are J's code, moved byte-identical
 (decision 2026-09-25: kept as it is). They sit five folders below the toolbox
-root, the same depth as before, which their data-path lookups rely on: they
-prefer the live tools/set_route_ai/data (shared with the WingmanAI skill) and
-fall back to the copy packaged at assistant/data/set_route/. The folder names
-in their path comments are from two homes ago; the depth is what matters.
+root, the same depth as before, which their data-path lookups rely on: the
+destination list is the live tools/set_route_ai/data (shared with the WingmanAI
+skill) where that folder exists, else the copy packaged at
+assistant/data/set_route/. The folder names in their path comments are from two
+homes ago; the depth is what matters. The click calibration is not packaged:
+it is the pilot's own, in ~/.sctoolbox/set_route/ (route_setter.py).
 
 What set-route needs, and does not need: pynput, the Win32 clipboard, the
 calibration file and Star Citizen in the foreground. It needs nothing from a

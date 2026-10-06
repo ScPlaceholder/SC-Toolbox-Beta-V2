@@ -8,9 +8,10 @@ dependency) instead of Wingman's internal mouse/keyboard services:
   paste destination (Win32 clipboard, same as the original) ->
   click the result -> click map -> R x6 (set route) -> F2 (close)
 
-Coordinates come from the same ``mouse_calibration.json`` the Wingman
-skill uses (version 1 schema: starmap.search_bar / destination /
-map_center); safe defaults apply when the file is missing.
+Coordinates come from the pilot's own calibration (``mouse_calibration.json``,
+version 1 schema: starmap.search_bar / destination / map_center; see
+calibration_path). There are no default positions: until the pilot has
+calibrated, nothing is clicked.
 
 Everything runs on a daemon thread with plain sleeps, mirroring the
 original timing. Status strings are reported through a callback so the
@@ -42,43 +43,60 @@ SUPPORTED_CALIBRATION_VERSION = 1
 _HOLD = 0.15
 _PAUSE = 1.0
 
-# Safe defaults (original's out-of-box values).
-_DEFAULTS = {
-    "search_bar": (1500, 200),
-    "destination": (365, 335),
-    "map_center": (1769, 814),
-}
+# The three positions a calibration holds. There are NO default values for them: where the game's star map
+# puts its search bar depends on the pilot's screen and resolution, and a click at coordinates measured on
+# another screen lands on whatever happens to be there.
+_POSITIONS = ("search_bar", "destination", "map_center")
+
+#: What the macro reports instead of running when there is no calibration. RouteService says the same thing
+#: before it ever starts the macro (service.NOT_CALIBRATED); this is the macro's own refusal.
+NOT_CALIBRATED = "the route setter is not calibrated: press Calibrate Route first"
+
+
+def user_calibration_path() -> str:
+    """Where a calibration is saved: ~/.sctoolbox/set_route/, beside the In-Game switch (gate.py).
+
+    Not beside the code. An installed toolbox's folder is replaced whole by every update, so a file kept
+    there is lost each time, and a file shipped there is somebody else's screen."""
+    return os.path.join(os.path.expanduser("~"), ".sctoolbox", "set_route", "mouse_calibration.json")
+
+
+def shared_calibration_path() -> str:
+    """The WingmanAI set-route skill's own file, when that skill's folder sits beside the toolbox.
+
+    Only ever READ here, and only until the pilot calibrates from this window: a calibration made with that
+    skill keeps working. An installed toolbox has no such folder."""
+    return os.path.join(_TOOLBOX_ROOT, "tools", "set_route_ai", "data", "mouse_calibration.json")
 
 
 def calibration_path() -> str:
-    """Same file the Wingman skill writes, so calibration is shared."""
-    live = os.path.join(_TOOLBOX_ROOT, "tools", "set_route_ai", "data",
-                        "mouse_calibration.json")
-    if os.path.isfile(live):
-        return live
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "..", "data", "set_route", "mouse_calibration.json")
+    """The file the positions are read from: the pilot's own once it exists, else the WingmanAI skill's;
+    with neither, the pilot's own, which is where the first calibration will be written."""
+    own = user_calibration_path()
+    if os.path.isfile(own):
+        return own
+    shared = shared_calibration_path()
+    return shared if os.path.isfile(shared) else own
 
 
-def load_calibration() -> dict:
-    """Return {search_bar: (x, y), destination: (x, y), map_center: (x, y)}."""
-    out = dict(_DEFAULTS)
+def load_calibration() -> Optional[dict]:
+    """{search_bar: (x, y), destination: (x, y), map_center: (x, y)}, or None when there is no usable
+    calibration: no file, a file of another version, or any of the three positions missing or not a number.
+
+    None means nothing may be clicked. InGameRouteSetter refuses to run, and RouteService says why."""
     try:
         with open(calibration_path(), "r", encoding="utf-8") as f:
             data = json.load(f)
         if int(data.get("version", -1)) != SUPPORTED_CALIBRATION_VERSION:
-            return out
-        starmap = data.get("starmap") or {}
-        for key in out:
-            node = starmap.get(key) or {}
-            x, y = int(node.get("x", out[key][0])), int(node.get("y", out[key][1]))
-            out[key] = (x, y)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        pass
-    return out
+            return None
+        starmap = data["starmap"]
+        return {key: (int(starmap[key]["x"]), int(starmap[key]["y"])) for key in _POSITIONS}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
 
 
 def save_calibration(search_bar, destination, map_center) -> None:
+    """Write the pilot's calibration to their own folder (user_calibration_path), never beside the code."""
     data = {
         "version": SUPPORTED_CALIBRATION_VERSION,
         "starmap": {
@@ -87,7 +105,7 @@ def save_calibration(search_bar, destination, map_center) -> None:
             "map_center": {"x": int(map_center[0]), "y": int(map_center[1])},
         },
     }
-    path = calibration_path()
+    path = user_calibration_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
@@ -187,6 +205,10 @@ class InGameRouteSetter:
         except ImportError:
             return False
 
+    def calibrated(self) -> bool:
+        """True when the pilot's three click positions are known (load_calibration)."""
+        return load_calibration() is not None
+
     def set_route(self, destination: str,
                   status_cb: Optional[Callable[[str], None]] = None,
                   done_cb: Optional[Callable[[str], None]] = None) -> bool:
@@ -228,7 +250,12 @@ class InGameRouteSetter:
             finish("error: route setter needs pynput (pip install pynput)")
             return
 
+        # Checked here as well as in RouteService.why_not: this is the function that moves the mouse, and it
+        # must not depend on every caller having asked first.
         ctl = load_calibration()
+        if ctl is None:
+            finish("error: " + NOT_CALIBRATED)
+            return
         search_x, search_y = ctl["search_bar"]
         dest_x, dest_y = ctl["destination"]
         map_x, map_y = ctl["map_center"]

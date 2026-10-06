@@ -54,13 +54,17 @@ class _Gate:
 class _Setter:
     """Stands in for InGameRouteSetter: records, sends nothing."""
 
-    def __init__(self, has_pynput=True):
+    def __init__(self, has_pynput=True, calibrated=True):
         self.plotted = []
         self._has_pynput = has_pynput
+        self._calibrated = calibrated
         self.is_busy = False
 
     def available(self):
         return self._has_pynput
+
+    def calibrated(self):
+        return self._calibrated
 
     def busy(self):
         return self.is_busy
@@ -531,8 +535,9 @@ def test_there_is_one_set_route_implementation_and_everything_imports_it():
         "DestinationPhoneticEngine": [_HOME + "destination_engine.py"],
         "RouteCalibrationDialog": [_HOME + "route_setter.py"],
     }, where
-    # outside the package, only the Assistant's own window (its Calibrate button) and tests
-    allowed = {"tools/Assistant/assistant/panel.py"}
+    # outside the package, only the Assistant's own window (its Calibrate button), tests, and the installer
+    # build's check of the staged copy (it proves that nothing is clicked with no calibration)
+    allowed = {"tools/Assistant/assistant/panel.py", "build/check_assistant_stage.py"}
     stray = [f for f in importers if f not in allowed and "/tests/" not in f]
     assert stray == [], "set-route code is imported around the service / the link: %s" % stray
     assert not os.path.exists(os.path.join(TOOLBOX, "skills", "Starmap", "starmap", "set_route"))
@@ -555,8 +560,7 @@ def test_only_the_service_starts_the_macro():
 
 
 def test_the_packaged_data_moved_with_the_code():
-    for name in ("destinations.json", "phonetic_learning.json", "blacklist.json",
-                 "mouse_calibration.json"):
+    for name in ("destinations.json", "phonetic_learning.json", "blacklist.json"):
         assert os.path.isfile(os.path.join(PACKAGED_DATA, name)), name
     from assistant.set_route import destination_engine, route_setter
     # five folders up from the module is the toolbox root, as its data lookups assume
@@ -565,3 +569,116 @@ def test_the_packaged_data_moved_with_the_code():
     live = os.path.join(TOOLBOX, "tools", "set_route_ai", "data")
     expect = live if os.path.isdir(live) else PACKAGED_DATA
     assert os.path.normpath(destination_engine.default_data_dir()) == os.path.normpath(expect)
+
+
+# ── calibration: the pilot's own file, and nothing is clicked without one ────
+
+@pytest.fixture
+def new_install(monkeypatch, home, tmp_path):
+    """An empty home folder and no WingmanAI skill beside the toolbox: what an installed copy starts with.
+    The real macro on a fake input layer; load_calibration is the real one."""
+    pytest.importorskip("PySide6.QtWidgets")
+    from assistant.set_route import route_setter
+    monkeypatch.setattr(route_setter, "shared_calibration_path",
+                        lambda: str(tmp_path / "no_wingman_skill" / "mouse_calibration.json"))
+    fake = _FakeInput().install(monkeypatch)
+    fake.clipboard = []
+    monkeypatch.setattr(route_setter.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(route_setter, "_set_clipboard", fake.clipboard.append)
+    fake.route_setter = route_setter
+    fake.own = os.path.join(str(home), ".sctoolbox", "set_route", "mouse_calibration.json")
+    return fake
+
+
+def test_with_no_calibration_the_service_refuses_and_nothing_is_sent(new_install):
+    from assistant.set_route import service
+    rs = new_install.route_setter
+    assert rs.load_calibration() is None
+    svc = RouteService(engine_factory=_engine, gate=_Gate(True))
+    assert svc.why_not("area18") == service.NOT_CALIBRATED
+    started, msg, _said = _plot_and_wait(svc, "area18")
+    assert started is False and msg == service.NOT_CALIBRATED
+    assert new_install.events == [] and new_install.clipboard == []
+
+
+def test_with_no_calibration_the_macro_itself_refuses(new_install):
+    """Past the service: the function that moves the mouse does not run without the pilot's positions."""
+    rs = new_install.route_setter
+    done, said = threading.Event(), []
+
+    def _done(msg):
+        said.append(msg)
+        done.set()
+    assert rs.InGameRouteSetter().set_route("area18", status_cb=said.append, done_cb=_done) is True
+    assert done.wait(5), "the macro thread did not finish"
+    assert said == ["error: " + rs.NOT_CALIBRATED]
+    assert new_install.events == [] and new_install.clipboard == []
+
+
+def test_with_no_calibration_the_pilot_is_told_to_calibrate_and_not_asked_yes_or_no(no_star_map):
+    a = _agent(in_game=True, setter=_Setter(calibrated=False))
+    reply = a.handle_user_text("Navigate to Area 18")
+    assert "Calibrate Route" in reply and "Nothing was sent to the game" in reply
+    assert "yes or no" not in reply.lower()
+    a.handle_user_text("yes")
+    out = a.registry.get("plot_route_in_game").run(a.ctx, {"destination": "area18"})
+    assert out["started"] is False and "Calibrate Route" in out["reply"]
+    assert a.setter.plotted == []
+    # the line is spoken with the microphone possibly open: it must not be the phrase that starts a calibration
+    assert not phrases.is_calibrate(builtin_tools.NOT_CALIBRATED)
+
+
+def test_a_calibration_is_saved_in_the_pilots_folder_and_then_the_macro_runs(new_install):
+    rs = new_install.route_setter
+    before = sorted(os.listdir(PACKAGED_DATA))
+    rs.save_calibration((11, 12), (21, 22), (31, 32))
+    assert os.path.isfile(new_install.own)
+    assert os.path.normpath(rs.calibration_path()) == os.path.normpath(new_install.own)
+    assert rs.load_calibration() == {"search_bar": (11, 12), "destination": (21, 22), "map_center": (31, 32)}
+    assert sorted(os.listdir(PACKAGED_DATA)) == before, "the calibration was written beside the code"
+    svc = RouteService(engine_factory=_engine, gate=_Gate(True))
+    started, _msg, said = _plot_and_wait(svc, "area18")
+    assert started and said[-1] == "route to area18 plotted in game"
+    assert [e for e in new_install.events if e[0] == "click"] == [
+        ("click", (31, 32)), ("click", (11, 12)), ("click", (21, 22)), ("click", (31, 32))]
+
+
+@pytest.mark.parametrize("content", [
+    "not json",
+    {"version": 2, "starmap": {"search_bar": {"x": 1, "y": 2}, "destination": {"x": 3, "y": 4},
+                               "map_center": {"x": 5, "y": 6}}},
+    {"version": 1, "starmap": {"search_bar": {"x": 1, "y": 2}, "destination": {"x": 3, "y": 4}}},
+    {"version": 1, "starmap": {"search_bar": {"x": 1, "y": 2}, "destination": {"x": 3},
+                               "map_center": {"x": 5, "y": 6}}},
+    {"version": 1, "starmap": {"search_bar": {"x": "left", "y": 2}, "destination": {"x": 3, "y": 4},
+                               "map_center": {"x": 5, "y": 6}}},
+    {"version": 1},
+    [1, 2, 3],
+])
+def test_a_calibration_that_is_not_whole_is_no_calibration(new_install, content):
+    """No position is ever filled in from a default: a file missing one is the same as no file."""
+    _write(new_install.own, content)
+    assert new_install.route_setter.load_calibration() is None
+
+
+def test_the_wingman_skills_calibration_is_read_until_the_pilot_has_their_own(new_install, monkeypatch, tmp_path):
+    rs = new_install.route_setter
+    shared = str(tmp_path / "wingman" / "mouse_calibration.json")
+    _write(shared, {"version": 1, "starmap": {"search_bar": {"x": 1, "y": 2}, "destination": {"x": 3, "y": 4},
+                                              "map_center": {"x": 5, "y": 6}}})
+    monkeypatch.setattr(rs, "shared_calibration_path", lambda: shared)
+    with open(shared, "rb") as fh:
+        before = fh.read()
+    assert rs.load_calibration() == {"search_bar": (1, 2), "destination": (3, 4), "map_center": (5, 6)}
+    rs.save_calibration((7, 8), (9, 10), (11, 12))
+    assert rs.load_calibration() == {"search_bar": (7, 8), "destination": (9, 10), "map_center": (11, 12)}
+    with open(shared, "rb") as fh:
+        assert fh.read() == before, "the WingmanAI skill's file was written"
+
+
+def test_no_calibration_is_packaged_with_the_assistant():
+    """A calibration is one screen's click positions. None travels with the code."""
+    assert not os.path.exists(os.path.join(PACKAGED_DATA, "mouse_calibration.json"))
+    from assistant.set_route import route_setter
+    assert not os.path.normcase(os.path.abspath(route_setter.user_calibration_path())).startswith(
+        os.path.normcase(TOOLBOX) + os.sep)
