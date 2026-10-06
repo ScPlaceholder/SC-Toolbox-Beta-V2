@@ -40,7 +40,7 @@ COMPOSITION (the contract's rule, implemented literally)
     post-rotation space.
 
 REST POSE, AND WHY THE JSON NEEDS CONVERTING
-    `pico_skeleton.json` gives every bone an ABSOLUTE canvas x/y (J's file says
+    `pico_skeleton.json` gives every bone an ABSOLUTE canvas x/y (the file says
     "Reference coordinates for initial rig construction"), not an offset from
     its parent. A `rotation` field is read as the bone's LOCAL rest rotation
     relative to its parent.
@@ -74,8 +74,8 @@ POSE
 
 CONSTRAINTS
     Clamped at pose time, on the LOCAL TOTAL rotation (rest_rot + drot), not on
-    the delta alone. See `ConstraintPolicy` for why, and for the switch if J
-    decides otherwise. `flipper` is deliberately ASYMMETRIC, [-55, +70]. Do not
+    the delta alone. See `ConstraintPolicy` for why, and for the switch if that
+    is decided otherwise. `flipper` is deliberately ASYMMETRIC, [-55, +70]. Do not
     tidy it.
 """
 
@@ -217,8 +217,8 @@ class Bone(NamedTuple):
 
     `rest_x`/`rest_y` are ABSOLUTE canvas coordinates as authored in
     `pico_skeleton.json`. `rest_rot` is degrees, LOCAL to the parent.
-    `rest_scale` is not present in J's rig pack at all and defaults to 1.0 —
-    reported to J as a contract/data gap rather than invented.
+    `rest_scale` is not present in the rig pack at all and defaults to 1.0 —
+    a contract/data gap, recorded as one rather than invented.
     """
 
     name: str
@@ -249,7 +249,7 @@ class Canvas(NamedTuple):
 
 
 class Constraints(NamedTuple):
-    """Rotation limits in degrees, plus J's non-numeric viewport note.
+    """Rotation limits in degrees, plus the rig pack's non-numeric viewport note.
 
     `flipper` is ASYMMETRIC by design: [-55, +70]. A previous draft of the
     contract had no constraints at all; a later reader's instinct will be to
@@ -266,12 +266,12 @@ class Constraints(NamedTuple):
 
 #: Which bones each named rotation limit governs.
 #:
-#: MY DECISION, not J's data. `pico_skeleton.json` names four limits and does
+#: A DECISION MADE HERE, not rig-pack data. `pico_skeleton.json` names four limits and does
 #: NOT say which of the 23 bones each one covers. Exact-name-only would leave
 #: `neck` and the two spine bones unlimited, so a `look_left` that rotated
 #: `neck` by 40 degrees would sail past a limit called `head_rotation_deg`.
 #: Extending each limit to its obvious anatomical group is the least-surprising
-#: reading. It is data, in one place, so J can overrule it without a code edit.
+#: reading. It is data, in one place, so it can be overruled without a code edit.
 #: Reported as OPEN in the handback.
 DEFAULT_CONSTRAINT_GROUPS: Mapping[str, tuple[str, ...]] = {
     "head": ("head", "neck"),
@@ -296,7 +296,7 @@ class ConstraintPolicy:
     THE COST, stated because it is real: rest rotations are mirrored (+12 / -12)
     and the limit is not, so a mirrored wave does not clamp symmetrically.
     flipper_L can take drot +58 before clamping; flipper_R can take -43.
-    CANNOT TELL which J intended. Flip this flag, do not edit the code.
+    CANNOT TELL which was intended. Flip this flag, do not edit the code.
     """
 
     clamp_local_total: bool = True
@@ -331,7 +331,7 @@ class ClampEvent(NamedTuple):
 class Skeleton:
     """Loaded `pico_skeleton.json`. Immutable once constructed.
 
-    J's file is "the stable naming contract" and OUTRANKS PICO_CONTRACT.md on
+    The file is "the stable naming contract" and OUTRANKS PICO_CONTRACT.md on
     anything structural. Nothing here restates a bone list; it is all read from
     the JSON, because a copied list is a fork waiting to drift.
     """
@@ -435,7 +435,7 @@ class Skeleton:
                     rest_x=float(b["x"]),
                     rest_y=float(b["y"]),
                     rest_rot=float(b.get("rotation", 0.0)),
-                    # J's rig pack has no scale field on bones at all.
+                    # The rig pack has no scale field on bones at all.
                     rest_scale=float(b.get("scale", 1.0)),
                 )
                 for b in d["bones"]
@@ -930,7 +930,7 @@ def default_skeleton_path() -> Path:
 def verify_skeleton_provenance() -> tuple[str, str]:
     """`(verdict, detail)` where verdict is PASS / FAIL / CANNOT-TELL.
 
-    `pico_skeleton.json` is J's stable naming contract and lives in his rig
+    `pico_skeleton.json` is the stable naming contract and lives in the rig
     pack. This tool ships a byte copy so it can run without the pack, and a
     copy is a fork waiting to drift — which is the exact failure mode
     PICO_CONTRACT.md section 2 was written about.
@@ -956,12 +956,12 @@ def verify_skeleton_provenance() -> tuple[str, str]:
     if not src.exists():
         return ("CANNOT-TELL",
                 "copy is self-consistent (sha256 %s) but the upstream source "
-                "%s is not on this disk, so drift from J's pack cannot be "
+                "%s is not on this disk, so drift from the rig pack cannot be "
                 "ruled out" % (local_hash[:12], src))
     src_hash = hashlib.sha256(src.read_bytes()).hexdigest()
     if src_hash != local_hash:
         return ("FAIL",
-                "UPSTREAM HAS DRIFTED: pack sha256 %s != shipped copy %s. J's "
+                "UPSTREAM HAS DRIFTED: pack sha256 %s != shipped copy %s. The pack's "
                 "file is the authority; re-copy it."
                 % (src_hash[:12], local_hash[:12]))
     return ("PASS", "shipped copy is byte-identical to %s" % src)

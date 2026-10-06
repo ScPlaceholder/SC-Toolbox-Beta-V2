@@ -14,16 +14,16 @@ has the loop folders. Nothing is requested from the network at start-up.
 From the toolbox launcher he is the "Pico Pals" tile, which runs pico_pals_app.py: the launcher passes
 window geometry and a command file, which this CLI rejects, so that file adapts them and calls main().
 
-Moods pick his idle animations; between them he stands still (sprites.REST_S; J 2026-10-04). Game.log
+Moods pick his idle animations; between them he stands still (sprites.REST_S). Game.log
 EVENTS (docking, quantum, injury, contract complete...) play a one-shot gesture from sprites.EVENT_LOOPS
 at once, rest or not, then he goes back to his mood. Drawing a weapon in game (slot 1, slot 2, multitool)
 makes him hold the matching prop until you holster (sprites.HAND_LOOPS), with an idle now and then.
 
 A frameless, transparent, always-on-top window. Drag it with the left button. Right-click Pico for
-Customise / How Pico works / About Pico Pals / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
-the box opens on FIRST LAUNCH, EVERY app start ("so users can't forget how to customize their pico").
-Not a one-time "don't show again" flag; that is his call to make later.
-Hover over Pico to see what he is feeling and WHY (the MoodReading). J asked for no caption on screen;
+Customise / How Pico works / About Pico Pals / Quit. Right-click on Pico re-opens the customise box, and
+the box opens on FIRST LAUNCH, EVERY app start, so that users cannot forget how to customise their Pico.
+There is no one-time "don't show again" flag.
+Hover over Pico to see what he is feeling and WHY (the MoodReading). There is no caption on screen;
 the reason stays one hover away, because a face with no stated reason is where debugging starts.
 
 Layer B for the sprite path (see pico/sprites.py). Logic stays in pico/; this file only draws.
@@ -58,7 +58,7 @@ MARGIN = 0.75         # transparent room around Pico, as a fraction of his frame
                       # prop held out to the side (a sign) is not cut off at the window edge
 POLL_MS = 1000
 DEMO_S = 8.0
-# ⚠ MY PICK, OPEN FOR J. events.FeedState leaves staleness undecided on purpose ("observed once
+# ⚠ A CHOICE MADE HERE. events.FeedState leaves staleness undecided on purpose ("observed once
 # counts as live forever"), and its stale test uses when PICO read a line, so a fresh read of an old
 # log is never stale. First live run, 2026-10-01: a Game.log last written 4.8 DAYS earlier showed
 # "mood=happy feed=live" and a dancing penguin. That is the lying dashboard face.py forbids.
@@ -68,7 +68,7 @@ DEMO_S = 8.0
 GAME_QUIET_S = 15 * 60
 
 
-# Where he sat, how big, which outfit - remembered between launches (J's polish list, 2026-10-01).
+# Where he sat, how big, which outfit - remembered between launches.
 SETTINGS = Path(os.environ.get("APPDATA", str(Path.home()))) / "PicoPal" / "settings.json"
 
 
@@ -448,7 +448,7 @@ class Customise(QDialog):
             self.often.addItem(label, mins)
             if mins == cur:
                 self.often.setCurrentIndex(self.often.count() - 1)
-        # J 2026-10-04: he rests between animations. One control for how long (sprites.LIVELINESS).
+        # He rests between animations. One control for how long (sprites.LIVELINESS).
         self.lively = QComboBox()
         for label, key in (("Calm (long rests)", "calm"), ("Normal", "normal"), ("Lively (short rests)", "lively")):
             self.lively.addItem(label, key)
@@ -567,8 +567,8 @@ class Customise(QDialog):
 class Pal(QWidget):
     def __init__(self, chooser: sprites.LoopChooser, source=None, tail=None, demo=False, pinned=None):
         # NoDropShadowWindowHint: his window is transparent and much wider than he is (MARGIN), and without
-        # it Windows draws a shadow round that empty rectangle. J 2026-10-04: "why is pico pals have a
-        # giant square".
+        # it Windows draws a shadow round that empty rectangle, which showed
+        # as a giant square behind him.
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
                          | Qt.NoDropShadowWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -587,10 +587,10 @@ class Pal(QWidget):
         self.why.setStyleSheet("color: #cfd6e4; background: rgba(20,22,30,170); padding: 2px 6px;"
                                "border-radius: 6px; font: 9pt 'Segoe UI';")
         self.why.setAlignment(Qt.AlignCenter)
-        # J 2026-10-01: "We don't need the caption showing." The reason still travels with the face,
+        # The caption is not shown. The reason still travels with the face,
         # as a hover tooltip, because a face with no stated reason is where debugging starts.
         self.why.hide()
-        # SNAP STATES (J 19:42): a prop is drawn by this label over (or under) the loop, moved every
+        # SNAP STATES: a prop is drawn by this label over (or under) the loop, moved every
         # frame to the loop's grip point from <loop>.anchors.json. One loop serves every prop.
         self.prop_lbl = QLabel(self)
         self.prop_lbl.hide()
@@ -602,7 +602,7 @@ class Pal(QWidget):
         self.anchors = None
         self.prop_rec = None
         self.prop_pix = None
-        # OUTFIT AURA (J 2026-10-01: Origin sparkles on every frame). Its own child widget and clock,
+        # OUTFIT AURA (Origin sparkles on every frame). Its own child widget and clock,
         # sized to the whole window; which outfit gets one is aura.AURAS, not a branch here.
         self.aura_layer = AuraLayer(self)
         lay = QVBoxLayout(self)
@@ -694,7 +694,7 @@ class Pal(QWidget):
         mx = int(sz.width() * MARGIN)
         self.layout().setContentsMargins(mx, int(sz.height() * 0.15), mx, 0)
         if self.chooser.resting:
-            # J 2026-10-04: "He can [stand] still at times". The chooser asked for a rest: show frame 0 of
+            # He can stand still at times. The chooser asked for a rest: show frame 0 of
             # this loop (his standing pose, or the held pose with a weapon out) and do not run it. The
             # chooser's on_tick() ends the rest. Drawn as a still picture, not as a started-then-paused
             # movie: start() steps straight on to frame 1, which is not the standing pose.
@@ -739,8 +739,8 @@ class Pal(QWidget):
 
     def refresh_frame(self):
         """Windows forgets the no-outline request when the window is minimised and restored, or hidden and
-        shown, and paints a pale rounded panel behind him (J 2026-10-04: "When you minimise the pico and
-        bring him back up he has the square around him again"). Ask again, then repaint."""
+        shown, and paints a pale rounded panel behind him: minimise Pico, bring
+        him back up, and the square is round him again. Ask again, then repaint."""
         no_window_frame(self)
         self.update()
 
@@ -766,7 +766,8 @@ class Pal(QWidget):
             return
         frames = self.anchors["frames"]
         f = frames[min(n, len(frames) - 1)]
-        r = snap.place(self.prop_rec, f, self.anchors["belly_w"], (self.prop_pix.width(), self.prop_pix.height()))
+        r = snap.place(self.prop_rec, f, self.anchors["belly_w"],
+                       snap.authored_size(self.prop_rec, (self.prop_pix.width(), self.prop_pix.height())))
         if r is None:
             self.prop_lbl.hide()
             return
@@ -940,16 +941,16 @@ def no_window_frame(widget) -> None:
 
 def pico_on_a_screen(screens, top_left: QPoint, size: QSize) -> bool:
     """True when PICO HIMSELF would be on a screen with the window at top_left. He is drawn in the middle of
-    a window 2.5x his width, so the window's corner can be on screen while he is past the edge (J 2026-10-04:
-    "also the pico is off screen"). The old check asked about the corner."""
+    a window 2.5x his width, so the window's corner can be on screen while he is past the edge
+    and off screen. The old check asked about the corner."""
     centre = QPoint(top_left.x() + size.width() // 2, top_left.y() + size.height() // 2)
     return any(s.availableGeometry().contains(centre) for s in screens)
 
 
 def start_position(screens, main_area: QRect, saved: dict, size: QSize) -> QPoint:
     """Where his window goes at start-up. The spot he was last dragged to, if he would be on a screen
-    there; otherwise the MIDDLE of the main screen (J 2026-10-04: "spawn pico in the middle of the screen
-    and allow the user to drag him around"). The middle means him, so the window is centred on it."""
+    there; otherwise the MIDDLE of the main screen, from where the
+    user can drag him around. The middle means him, so the window is centred on it."""
     if "x" in saved and "y" in saved:
         try:
             pos = QPoint(int(saved["x"]), int(saved["y"]))
@@ -1012,7 +1013,7 @@ def main(argv=None, on_ready=None) -> int:
     pal.move(pos)
     pal.show()
     no_window_frame(pal)
-    QTimer.singleShot(300, pal.customise)     # first launch, every app start (J, PICO_CONTRACT.md)
+    QTimer.singleShot(300, pal.customise)     # first launch, every app start (PICO_CONTRACT.md)
     if on_ready is not None:
         on_ready(app, pal)
     return app.exec()

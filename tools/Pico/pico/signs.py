@@ -1,11 +1,10 @@
-# pico/signs.py - copied from elah-audio/sign_picker.py (2026-09-28, J: "Can you write up a program for RNG
-# for what sign gets pulled out? And also ... the qualifier of how the engine would decide to pull out a
-# sign"), so the desktop Pico can use it. Wired in 2026-10-01 for the 25 signs on J's sheet, held up as
+# pico/signs.py - the sign picker: the RNG for which sign gets pulled out, and the qualifier for
+# whether one is pulled out at all. Wired in for the 25 signs on the sign sheet, held up as
 # snap props (pico/snap.py). EVENT_ALIASES maps Game.log parser names onto this module's event vocabulary.
 """sign_picker.py — WHEN Pico pulls out a sign, and WHICH one.
 
-J, 2026-09-28: "Can you write up a program for RNG for what sign gets pulled out? And also can you
-decide on the qualifier of how the engine would decide to pull out a sign."
+The brief: an RNG for what sign gets pulled out, and the qualifier of how the engine decides to
+pull out a sign at all.
 
 So: two jobs, and the QUALIFIER is the harder and more important one. A picker that answers "which
 sign" is twenty lines of weighted random. A picker that answers "should there be a sign at all" is
@@ -39,7 +38,7 @@ the difference between a character and a slot machine.
 ⚠ AND THE HONEST LIMIT: I chose 8 minutes, 6, and 0.35 by taste, not measurement. Nobody has
   watched this run yet. They are CONSTANTS AT THE TOP so they can be moved in one place once
   somebody has, and I would rather say "these are guesses" than have a future reader mistake them
-  for findings. [[a-single-sample-cannot-license-a-claim-about-a-trend]]
+  for findings.
 
 ## WHICH sign: weighted, not uniform
 
@@ -71,14 +70,14 @@ COOLDOWN_S = 8 * 60          #: hard floor between any two signs
 NOVELTY_WINDOW = 6           #: do not repeat a sign shown within the last N
 FIRE_CHANCE = 0.35           #: probability once every other gate has passed
 TAG_BONUS = 2.5              #: weight multiplier per matching tag
-# J 2026-10-04: "Can we make the signs come up randomly regardless of tasks". Until then a sign needed a
+# Signs also come up at random, whatever the game is doing. A sign from pick() needs a
 # game event (gate 1 of pick). An IDLE sign needs none: it is offered each time a rest ends. It keeps the
 # mood veto and the no-repeat window, has its own shorter floor, and a low chance per offer so it stays
 # an occasional thing. With rests of 10-20 s that works out to roughly one sign every four to five minutes.
 IDLE_COOLDOWN_S = 3 * 60     #: floor between an idle sign and ANY sign before it
 IDLE_CHANCE = 0.20           #: chance per offer (one offer each time a rest ends)
 
-#: The 25 signs, read off pico_signs_transparent.png. `text` is verbatim from the art — J's
+#: The 25 signs, read off pico_signs_transparent.png. `text` is verbatim from the art — the
 #: corrections are in it ("IT'S NOT A PROBLEM, IT'S A FLEET!" with no doubled word, "IN SPACE"
 #: not "IN PACE"). Tags are mine.
 SIGNS = [

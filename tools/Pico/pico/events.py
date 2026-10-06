@@ -58,7 +58,7 @@ AND "everything decayed to zero". Verified by running it, 2026-09-28:
 
     a = CompanionAffect(path=None)
     a.dominant("pico")   -> (None, 0.0)     # no such speaker, nothing is known
-    a.dominant("elah")   -> (None, 0.0)     # a real speaker, genuinely at rest
+    a.dominant(SPEAKERS[0]) -> (None, 0.0)  # a real speaker, genuinely at rest
 
 Identical return values; *unknown* and *calm*; flat dashes versus a smile.
 
@@ -68,7 +68,7 @@ Identical return values; *unknown* and *calm*; flat dashes versus a smile.
 
       upstream_ok     did the SuitMk2 modules load at all
       speaker_known   is there a record for this speaker  (`affect.levels.get(speaker)`,
-                      which is `None` for "pico" and a dict of nine zeros for "elah" —
+                      which is `None` for "pico" and a dict of nine zeros for a real one —
                       the distinction dominant() throws away)
       observed        has a log source actually been read (lines_seen > 0)
 
@@ -86,7 +86,7 @@ WHY PICO IS NOT A SPEAKER, AND WHOSE AFFECT IT READS
 ──────────────────────────────────────────────────────────────────────────────────────────
 `face.py` already found the trap and it is honoured here rather than rediscovered:
 `emotion.hushed()` is `any(... for s in SPEAKERS)` and hushing means idle talk waits, so
-adding "pico" to `SPEAKERS` would let a frightened penguin SILENCE ELAH.
+adding "pico" to `SPEAKERS` would let a frightened penguin SILENCE THE COMPANIONS.
 
 ⇒ Pico owns its OWN `CompanionAffect` instance, constructed with `path=None`, and reads an
   EXISTING speaker from it. `path=None` makes `_save()` and `_load()` no-ops — verified in
@@ -355,7 +355,6 @@ def scrape_parser_event_types(core: Path) -> frozenset[str]:
       finds nothing, and "found nothing" would otherwise read as "the parser emits nothing",
       which would make every wiring comparison fail with a wrong diagnosis — or, worse, make
       a set-difference check pass vacuously. Zero names raises.
-      [[i-nearly-reported-two-absences-my-own-tool-manufactured]]
     """
     src = (core / "event_parser.py").read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
@@ -595,13 +594,13 @@ def _epoch_of(ts: Any) -> Optional[float]:
 
 
 # The client writes this line on its own, over and over, whenever a ship has no route loaded. Upstream
-# reads it as `qt_error` (a failed jump) worth 0.35 irritation each time. Measured on J's logs (see
+# reads it as `qt_error` (a failed jump) worth 0.35 irritation each time. Measured on saved game logs (see
 # sprites.EVENT_LOOPS): 352 of these against 21 real arrivals, median gap 17.8s. On 2026-10-04 six of
-# them in two and a half minutes took Pico from happy to irritation 1.00 while J simply sat in a ship
-# ("Why is the pico mad when I'm in a ship?"). The mood source therefore does not feed it to the
+# them in two and a half minutes took Pico from happy to irritation 1.00 while the player simply sat in a ship,
+# a Pico who is angry for no visible reason. The mood source therefore does not feed it to the
 # affect model. A real failed jump, the HUD's "Quantum Travel: ... obstructed", is a different line
 # and is not filtered here. (Upstream's parser emits no event for that line today, checked against a
-# real one from J's logs, so at present nothing about quantum travel moves his mood.)
+# real one from saved logs, so at present nothing about quantum travel moves his mood.)
 ROUTE_NOISE = "Failed to get starmap route data"
 
 

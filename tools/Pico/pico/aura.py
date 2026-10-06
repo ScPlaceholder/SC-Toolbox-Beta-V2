@@ -1,7 +1,7 @@
 """pico/aura.py — OUTFIT AURAS: an effect that rides on Pico on every frame of every loop, per outfit.
 
-J 2026-10-01: "add a special rule for Origin to have the sparkle animations on the character on every
-frame". Origin is the luxury house (white top hat, gold trim, cream tailcoat), so Pico in Origin
+The special rule: Origin has the sparkle animation on the character on every
+frame. Origin is the luxury house (white top hat, gold trim, cream tailcoat), so Pico in Origin
 twinkles constantly; no other outfit does.
 
 The rule is DATA: AURAS maps an outfit name to an Aura. Origin is the only entry today; giving another

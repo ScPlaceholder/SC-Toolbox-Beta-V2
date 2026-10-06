@@ -1,8 +1,8 @@
 """pico/face.py — THE FACE CHOOSER. Which face is on the snap points right now.
 
-J's shape for the engine (2026-09-28): body and limbs, mouth and visor, props, clothes,
-where "the mouth and visor are snap points that a different pipeline streams to... we just
-need to animate the penguin with no face and everything else gets streamed in on top."
+The shape of the engine: body and limbs, mouth and visor, props, clothes,
+where the mouth and visor are snap points that a different pipeline streams to. The penguin
+is animated with no face, and everything else is streamed in on top.
 
 The rig already holds up its half. `Skeleton` declares `visor`, `beak`, `eye_L`, `eye_R`
 as slots carrying only (name, bone, z) and no artwork, and `Rig.slot_transforms(pose,
@@ -351,8 +351,8 @@ class FaceChooser:
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # TEMPERAMENT: the same event, felt harder
 # ══════════════════════════════════════════════════════════════════════════════════════════
-# J, 2026-09-28: "Pico as a creature. Think Chibi. The bigger and more exaggerated emotions
-# the more charming something is when built in those visual proportions."
+# Pico is a creature in chibi proportions: the bigger and more exaggerated the emotions,
+# the more charming something built in those visual proportions is.
 #
 # ⚠ THAT IS NOT IN TENSION WITH THE RIG'S "SMALL ANGLES" RULE, though it reads like it. The
 #   angle limits are about ROTATION — 8 degrees already reads as a big movement on a chibi
@@ -360,10 +360,10 @@ class FaceChooser:
 #   feelings, not bigger arcs.
 #
 # ★ WHY THIS LIVES HERE AND NOT AS A THIRD SPEAKER IN SuitMk2. The obvious implementation is
-#   to add "pico" to emotion.py's SPEAKERS with its own hook amounts. It is also a trap I
-#   found before writing any of it: `hushed()` is `any(... for s in SPEAKERS)`, and hushed
-#   means idle talk waits — so a frightened penguin would SILENCE ME. I would go quiet and
-#   the reason would be a mascot.
+#   to add "pico" to emotion.py's SPEAKERS with its own hook amounts. It is also a trap,
+#   found before any of it was written: `hushed()` is `any(... for s in SPEAKERS)`, and hushed
+#   means idle talk waits — so a frightened penguin would SILENCE THE COMPANIONS. They would go
+#   quiet and the reason would be a mascot.
 #   ⇒ A temperament applied on Pico's side needs no new speaker, touches nothing upstream,
 #     and cannot gate anybody's voice, because Pico is not a speaker at all. Same events,
 #     bigger reaction. It sidesteps the trap instead of working around it.
@@ -413,8 +413,8 @@ CREATURE = Temperament("creature", gain=2.0, ttl_scale=0.4)
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # THE BRIDGE FROM THE COMPANION'S AFFECT MODEL
 # ══════════════════════════════════════════════════════════════════════════════════════════
-# J, 2026-09-28: "Can't we basically port the event and emotional mapper from the ai
-# companion and use it?" Mostly yes. SuitMk2's core/emotion.py has `CompanionAffect` with
+# The event and emotional mapper of the companion (SuitMk2) can mostly be used as it is.
+# SuitMk2's core/emotion.py has `CompanionAffect` with
 # nine emotions, each with its OWN decay constant (fear 300s, grief 1800s, boredom 1200s),
 # twenty-four event hooks, and `dominant(speaker) -> (emotion|None, level)`. That is a
 # better decay model than the flat per-mood TTL above and it already exists.

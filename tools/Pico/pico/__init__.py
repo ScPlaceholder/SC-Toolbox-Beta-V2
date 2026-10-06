@@ -64,7 +64,7 @@ POSING  — the one call the renderer needs per frame
         | b  d  ty |      .inverse()  .origin  .rotation_deg  .close_to()
 
 ===============================================================================
-DECISIONS THIS LAYER OWNED AND MADE (for J to fold into the contract)
+DECISIONS THIS LAYER OWNED AND MADE (to be folded into the contract)
 ===============================================================================
 
 TRANSFORM SPACE      world[child] = world[parent] @ local[child],

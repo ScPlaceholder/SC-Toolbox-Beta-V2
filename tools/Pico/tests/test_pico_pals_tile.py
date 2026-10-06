@@ -18,7 +18,7 @@ probe beside this file has to.
 
 NOTHING HERE TOUCHES THE USER'S FILES OR DESKTOP.  Every child runs on Qt's offscreen platform (no
 window can appear), with USERPROFILE / HOME / APPDATA pointed into tmp_path: Pico's settings
-(%APPDATA%/PicoPal), the toolbox's shared settings (~/.sctoolbox), the loops (~/BrAi/...) and the
+(%APPDATA%/PicoPal), the toolbox's shared settings (~/.sctoolbox), the loops (PICO_LOOPS_DIR) and the
 Game.log are all fakes built under tmp_path, and the launcher's per-tool log goes there too.
 """
 from __future__ import annotations
@@ -107,7 +107,7 @@ def fake_home(tmp_path):
     """A home folder holding everything Pico reads, all fake: loops, the toolbox's saved game
     folder with a Game.log in it, and an empty APPDATA."""
     home = tmp_path / "home"
-    loops = home / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
+    loops = home / "loops" / "pico_anim_sequences"            # child_env points PICO_LOOPS_DIR here
     loops.mkdir(parents=True)
     for pool in sprites.MOOD_LOOPS.values():
         for name in pool:
@@ -130,6 +130,10 @@ def child_env(home: Path, state: Path | None = None) -> dict:
         "USERPROFILE": str(home), "HOME": str(home), "APPDATA": str(home / "AppData"),
         "HOMEDRIVE": "", "HOMEPATH": "",
         "PYTHONIOENCODING": "utf-8",
+        # The developer's loop folders are found through this variable and nothing else. Always set here,
+        # so a PICO_LOOPS_DIR in the tester's own environment never reaches a child: fake_home has loops
+        # at this path, an empty home has none.
+        "PICO_LOOPS_DIR": str(home / "loops" / "pico_anim_sequences"),
     }
     if state is not None:
         env["PICO_PROBE_STATE"] = str(state)

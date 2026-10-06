@@ -32,7 +32,7 @@ tool's stderr in logs/pico.log and shows that log when a tool dies with a non-ze
 reaches the user instead of a tile that silently does nothing:
 
     3  no animation loops on disk: no outfit pack in tools/Pico/packs (pico/packs.py) and no loop
-       folders (sprites.DEFAULT_DIR)
+       folders (sprites.DEFAULT_DIR, which only a developer's PC has: PICO_LOOPS_DIR)
     4  an import failed on this interpreter (PySide6, or a file missing from the tool)
 
 By hand, flags go straight through:   py pico_pals_app.py --demo
@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     pal_args, cmd_file = split_launcher_argv(argv)
     # The launcher starts every tool with its UI scale in QT_SCALE_FACTOR. Pico has his own size setting and
     # saves his position in unscaled pixels, so the scale both enlarged him and multiplied his saved spot
-    # off the edge of the screen (J 2026-10-04, ui_scale 1.5). Qt reads it when the application is created.
+    # off the edge of the screen (seen at ui_scale 1.5). Qt reads it when the application is created.
     os.environ.pop("QT_SCALE_FACTOR", None)
 
     if HERE not in sys.path:
@@ -146,9 +146,11 @@ def main(argv: list[str] | None = None) -> int:
         return sprite_pal.main(pal_args, on_ready=on_ready)
     except sprites.SpriteError as exc:
         from pico import packs
+        where = "an outfit pack in %s" % packs.BUNDLED_DIR
+        if os.environ.get(sprites.LOOPS_ENV):       # a developer's loop folders: named only when asked for
+            where += ", or as loop folders under %s" % sprites.DEFAULT_DIR
         return _fail(EXIT_NO_ART, "%s. Pico's animation loops are not installed on this machine (they are "
-                     "expected as an outfit pack in %s, or as loop folders under %s)."
-                     % (exc, packs.BUNDLED_DIR, sprites.DEFAULT_DIR))
+                     "expected as %s)." % (exc, where))
 
 
 if __name__ == "__main__":

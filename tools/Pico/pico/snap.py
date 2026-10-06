@@ -1,8 +1,8 @@
 """pico/snap.py — SNAP STATES: draw a prop onto a loop at runtime instead of baking it into a copy.
 
-J 2026-10-01 19:42: "can we have snap states for props to reduce amount of saved animations?" One
+Snap states exist to cut down the number of saved animations. One
 loop + its <loop>.anchors.json (grip points per desktop frame) + a small prop PNG replaces a whole
-baked animation per prop. Bomb gags stay their own baked animations (J 19:45) because the POSE changes.
+baked animation per prop. Bomb gags stay their own baked animations because the POSE changes.
 
 Pure logic, no Qt: given a frame's anchors and a prop's record from out/snap_props/snap_props.json,
 return the rectangle to draw the prop in, in the loop's own pixel space. The window scales it.
@@ -24,7 +24,7 @@ class SnapError(Exception):
 def load_props(folder: Path = PROPS_DIR) -> dict:
     path = Path(folder) / "snap_props.json"
     if not path.exists():
-        raise SnapError("no snap props at %s (run elah-audio/pico_snap_export.py)" % path)
+        raise SnapError("no snap props at %s" % path)
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -34,9 +34,24 @@ def load_anchors(loop_path: Path) -> Optional[dict]:
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
+def authored_size(rec: dict, png_size: tuple[int, int]) -> tuple[int, int]:
+    """The (w, h) a prop is placed by: the size its art was authored at.
+
+    That is the PNG's own size, unless the record carries "src_size". The installer build ships each prop
+    PNG no larger than it can ever be drawn (build/shrink_pico_props.py) and writes the authored size into
+    the record, because a resized PNG's aspect ratio is off by a rounding step, and place() turns that
+    into a prop that sits a pixel off the flipper. With "src_size" the rectangle is the same to the last
+    digit whichever PNG is on disk."""
+    src = rec.get("src_size")
+    if src and len(src) == 2 and src[0] > 0 and src[1] > 0:
+        return (int(src[0]), int(src[1]))
+    return (int(png_size[0]), int(png_size[1]))
+
+
 def place(rec: dict, frame: dict, belly_w: float, prop_size: tuple[int, int]) -> Optional[tuple]:
     """Rectangle (x, y, w, h) for the prop on this frame, in loop pixels, or None if the frame has no
-    usable anchor. prop_size is the prop PNG's (w, h); only its aspect ratio matters."""
+    usable anchor. prop_size is the prop's authored (w, h), from authored_size(); only its aspect ratio
+    matters."""
     pt = frame.get(rec["anchor"])
     if not pt:
         return None
@@ -68,6 +83,11 @@ def selftest() -> int:
     rec2 = dict(rec, offset=[0.1, -0.1])
     r2 = place(rec2, {"tip": [100.0, 200.0]}, 200.0, (200, 100))
     ck("offset moves it in belly units", abs(r2[0] - r[0] - 20) < 1e-6 and abs(r2[1] - r[1] + 20) < 1e-6)
+    ck("a record with no src_size is placed by its PNG", authored_size(rec, (200, 100)) == (200, 100))
+    small = dict(rec, src_size=[1024, 333])
+    ck("a smaller PNG is placed by the size it was authored at", authored_size(small, (400, 130)) == (1024, 333)
+       and place(small, {"tip": [100.0, 200.0]}, 200.0, authored_size(small, (400, 130)))
+       == place(rec, {"tip": [100.0, 200.0]}, 200.0, (1024, 333)))
     return 1 if fails else 0
 
 

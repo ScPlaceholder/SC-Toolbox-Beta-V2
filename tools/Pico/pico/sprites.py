@@ -1,8 +1,8 @@
 """pico/sprites.py — WHOLE-BODY SPRITE LOOPS, chosen by mood. The Drake Pico, wired in.
 
-J, 2026-10-01: after the bone-driven tweens kept glitching, J picked rendered key-frame loops
-("Left is better") and asked to wire the Drake Pico into the Pico Pals tool. 89 Drake loops
-exist (BrAi/_forJ/VNCCS/pico_anim_sequences/<anim>_<expr>.gif), each with its expression baked in.
+The bone-driven tweens kept glitching, so Pico is drawn from rendered key-frame loops instead.
+An outfit is a folder of loops (pico_anim_sequences/<anim>_<expr>.webp or .gif), each with its
+expression baked in; a user gets one as an outfit pack (pico/packs.py).
 
 This is a SECOND renderer path beside the bone rig, not a replacement for it. The rig, face.py
 and the skin format are untouched. Both consume the same MoodReading from events.MoodSource, so
@@ -13,7 +13,7 @@ Pure logic, no Qt, headless-testable, same rule as layer A. The window lives in 
 WHAT IT REFUSES, CARRIED OVER FROM face.py:
   1. UNKNOWN never falls back to a happy or calm loop. A mascot that idles contentedly while the
      feed is dead is a dashboard that lies. UNKNOWN gets its own pool.
-     ⚠ MY PICK, OPEN FOR J: the art has no blank-faced loop, so UNKNOWN plays `confused` —
+     ⚠ A CHOICE, NOT A REQUIREMENT: the art has no blank-faced loop, so UNKNOWN plays `confused` —
        "I can't tell" is the honest claim. Overrule in MOOD_LOOPS["unknown"].
   2. A mood whose whole pool is missing from the catalog is an error at load time, not a silent
      substitute at play time.
@@ -34,28 +34,28 @@ UNKNOWN = "unknown"
 # mood (face.DEFAULT_MOODS names) -> loop names (<anim>_<expr>, no extension).
 # Pools are small on purpose, per face.py: "a few readable stages, not a tour through the library".
 MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
-    # J 2026-10-01 16:15 "Sure go ahead": drift, look_up, peek and scratch added for variety.
-    # J 2026-10-03 11:43: "Settle he grows extra flippers" -- out of the pool until it is re-rendered.
+    # drift, look_up, peek and scratch are here for variety.
+    # idle_settle is out of the pool until it is re-rendered: he grows extra flippers in it.
     "calm": ("idle_look_default", "idle_shuffle_default",
              "idle_stargaze_default", "idle_preen_default", "idle_tap_foot_default",
              "idle_drift_default", "idle_look_up_default", "idle_peek_default",
              "idle_scratch_default",
-             # J 19:15 prop idles: a handheld console (his gaming idea) and a scanner sweep
+             # prop idles: a handheld console and a scanner sweep
              "weapon_reload_happy+console", "scan_ping_default+scanner",
-             # J 2026-10-02 06:36 "Sure!": more snapped idles from the unused half of the prop sheet
-             # J 06:53 "several aren't snapped onto the fins": each now sits on a pose where a flipper is
+             # more snapped idles from the unused half of the prop sheet;
+             # each sits on a pose where a flipper is
              # actually out for it, checked on every frame of the loop
-             "weapon_draw_focused+wrench", "scan_ping_default_held+binoculars_salute",   # J 07:03/07:09: salute pose, binoculars at the END of the raised flipper (held frames only)
+             "weapon_draw_focused+wrench", "scan_ping_default_held+binoculars_salute",   # salute pose, binoculars at the END of the raised flipper (held frames only)
             
              "weapon_draw_focused+pickaxe", "idle_peek_default+flashlight", "scan_ping_default+camera_out",
-             # J 2026-10-03 13:13: toy ships "during any idle animation even in mid combat". A toy, not a gag:
+             # Toy ships come up during any idle animation, even in mid combat. A toy, not a gag:
              # in the plain pools, no RARE roll and no shared cooldown. Held aloft at the END of the raised
-             # flipper on the two poses that raise one -- J ruled out reload and proud ("he's not holding it"),
+             # flipper on the two poses that raise one -- not reload or proud (he is not holding it there),
              # and grab/release are left out because the flipper is down there and the ship would float.
              "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan",
-             # J 2026-10-03 15:22: the Banu skin's merchant stall ("I'M THE REAL BMM"), Banu only (BRAND_ONLY)
+             # the Banu skin's merchant stall ("I'M THE REAL BMM"), Banu only (BRAND_ONLY)
              "idle_shuffle_default+bmm_table",
-             # J 2026-10-04 17:35: "the gags should also happen when he's happy" (he saw one gag all day).
+             # Gags happen when he is happy as well as when he is calm (one gag in a whole day was too few).
              # Every gag is now in BOTH the calm and the happy pool; before, the stall was calm-only and
              # the other three happy-only, and he is calm most of a session.
              "ship_claim_star_grab+huckaby", "weapon_reload_happy_grab+chrisroberts_hold",
@@ -64,17 +64,17 @@ MOOD_LOOPS: Mapping[str, tuple[str, ...]] = {
               "ship_claim_star_held+ship_gladius_claim"),
     "hurt": ("sad_sad", "disappointed_sad", "sulk_sad", "cry_sad"),
     "happy": ("happy_happy", "cheer_happy", "giggle_happy", "proud_happy", "idle_dance_happy",
-              "ship_claim_star_grab+huckaby",    # J's Huckaby puppet: "WHERE IS MY JALOPY?!" (GAG_SEQS)
+              "ship_claim_star_grab+huckaby",    # the Huckaby puppet: "WHERE IS MY JALOPY?!" (GAG_SEQS)
               "weapon_reload_happy_grab+chrisroberts_hold",    # the Chris Roberts action figure (GAG_SEQS)
               "proud_happy_grab+whale_hold",    # the Chairman's Club WHALE certificate (GAG_SEQS)
-              "idle_shuffle_default+bmm_table"),   # the Banu stall, Banu only (BRAND_ONLY); J 2026-10-04
+              "idle_shuffle_default+bmm_table"),   # the Banu stall, Banu only (BRAND_ONLY)
     "startled": ("startled_surprised", "shocked_surprised", "scared_surprised"),
     "irritated": ("annoyed_angry", "angry_angry", "disgust_angry"),
     UNKNOWN: ("confused_confused",),
 }
 
-# Gag props show up only SOMETIMES. J 2026-10-01 19:28, on the Huckaby puppet: "Like other gag props it
-# shouldn't always spawn but sometimes." When the pool draws one of these, it plays with this probability;
+# Gag props show up only SOMETIMES: a gag that always spawns stops being one.
+# When the pool draws one of these, it plays with this probability;
 # otherwise a regular loop from the same pool is drawn instead.
 RARE_LOOPS: Mapping[str, float] = {
     "ship_claim_star_grab+huckaby": 0.15,
@@ -82,7 +82,7 @@ RARE_LOOPS: Mapping[str, float] = {
     "proud_happy_grab+whale_hold": 0.15,
     "idle_shuffle_default+bmm_table": 0.15,
 }
-# Toy-ship poses (J 2026-10-03, "a toy of every ship"): when the pool draws a ship pose, ANY ship in the snap manifest
+# Toy-ship poses (a toy of every ship): when the pool draws a ship pose, ANY ship in the snap manifest
 # held in that pose (ship_<name>_<suffix>) can be swapped in, so the whole fleet is reachable from two pool entries.
 TOY_POSES: Mapping[str, str] = {
     "ship_claim_star_held": "_claim",
@@ -100,9 +100,9 @@ def brand_allows(name: str, root: Path) -> bool:
     """False when this loop is another outfit's gag. Drake's base folder has no brand suffix, so it gets none."""
     brand = BRAND_ONLY.get(name)
     return brand is None or Path(root).name.endswith("_" + brand)
-# J 2026-10-01 21:47: "maybe once an hour at the most for the puppet and the action figure". One SHARED
+# Gag props are capped so they stay a surprise. One SHARED
 # cooldown: after any gag prop plays, none can play again for this long, whatever the roll says.
-# J 2026-10-04 17:35, after seeing one gag in a day of play: "Yeah let's do that" to about four an hour.
+# It was an hour at first; one gag in a day of play was too few, so it is about four an hour.
 GAG_COOLDOWN_S = 900.0
 
 
@@ -118,40 +118,40 @@ def gag_cooldown_s(prefs: Mapping) -> float:
     return max(60.0, m * 60)
 
 # A gag that is more than one loop. When the pool draws the FIRST step, the rest follow in order, each
-# repeating for its seconds, and then he goes back to his mood. J 2026-10-01 20:58, on the Chris Roberts
-# action figure: "keep the whole package. Have him hold it then wave it around."
-# A step of 0 seconds plays ONCE. J 21:18: "he grabs it too much. Should be one grab then the rest of the
-# animation then grab it again" -> the reload loop is cut (elah-audio/pico_loop_slice.py) into _grab, _held
-# and _release, so he reaches for it once, holds it through the waves, and puts it away once.
+# repeating for its seconds, and then he goes back to his mood. The Chris Roberts action figure keeps
+# its whole package: he holds it, then waves it around.
+# A step of 0 seconds plays ONCE. Looping the whole reload made him grab the figure again on every
+# pass, so the reload loop is cut into _grab, _held
+# and _release: he reaches for it once, holds it through the waves, and puts it away once.
 GAG_SEQS: Mapping[str, list] = {
     "weapon_reload_happy_grab+chrisroberts_hold": [("weapon_reload_happy_grab+chrisroberts_hold", 0),
                                                    ("weapon_reload_happy_held+chrisroberts_hold", 1.5),
                                                    ("cheer_happy+chrisroberts_wave", 3.5),
-                                                   # J 21:03: "also move it into the other hand as well"
+                                                   # and once more in the other hand
                                                    ("celebrate_happy+chrisroberts_wave_r", 3.5),
                                                    ("weapon_reload_happy_release+chrisroberts_hold", 0)],
-    # J 2026-10-02: "another prop for Pico to show off on occasion" -- grab it once, hold it up, put it away
+    # a prop for Pico to show off on occasion -- grab it once, hold it up, put it away
     # the puppet, raised once and held, not re-raised every cycle (audit 2026-10-02)
     "ship_claim_star_grab+huckaby": [("ship_claim_star_grab+huckaby", 0), ("ship_claim_star_held+huckaby", 3.0),
                                      ("ship_claim_star_release+huckaby", 0)],
     "proud_happy_grab+whale_hold": [("proud_happy_grab+whale_hold", 0), ("proud_happy_held+whale_hold", 4.0),
                                     ("proud_happy_release+whale_hold", 0)],
-    # the Banu merchant behind his stall, then hawking with both flippers (J 15:4x: "the animation where he also
-    # waves around both his hands"). idle_dance keeps his feet planted and shares shuffle's chest, so the table,
+    # the Banu merchant behind his stall, then hawking with both flippers (the loop where he waves
+    # both hands). idle_dance keeps his feet planted and shares shuffle's chest, so the table,
     # anchored there, stays on the same spot of floor across both steps.
     "idle_shuffle_default+bmm_table": [("idle_shuffle_default+bmm_table", 3.0), ("idle_dance_happy+bmm_table", 4.0)],
 }
 
 # Game.log event type (SuitMk2 event_parser) -> a loop played ONCE, then Pico returns to his mood.
 # An event is something that HAPPENED; a mood is how he feels about it. The mood engine already turns
-# events into feelings, so this layer only adds the gesture. MY PICKS, OPEN FOR J, like MOOD_LOOPS.
+# events into feelings, so this layer only adds the gesture. Choices made here, like MOOD_LOOPS.
 EVENT_LOOPS: Mapping[str, str] = {
     "docking_ready": "docking_focused",
     "docking_detached": "undock_default",
     "qt_route_calculated": "nav_plot_focused+datapad",   # plotting a route on a datapad
     "qt_target_selected": "quantum_spool_default",
     "qt_arrived": "quantum_drop_default",
-    # qt_error is NOT here, on evidence. Measured over J's last 20 logs (2026-08-02..09-26, 161k
+    # qt_error is NOT here, on evidence. Measured over 20 saved game logs (2026-08-02..09-26, 161k
     # lines): 352 qt_error against 21 qt_arrived, median gap 17.8s, 112 under 5s apart. The line is
     # "Failed to get starmap route data! ... No Route loaded!" - background noise, not a failed jump.
     # Mapped, Pico would spin dizzily every 18 seconds of every session.
@@ -174,50 +174,50 @@ EVENT_LOOPS: Mapping[str, str] = {
     "session_end": "idle_yawn_sleepy",
 }
 
-# What is in the player's right hand -> the loop Pico holds while it is there (J 2026-10-01: "red and
-# white alternate between the users 1 & 2 weapons"). Read from Game.log, measured over J's last 20
+# What is in the player's right hand -> the loop Pico holds while it is there (the red and
+# white pistols stand for the player's weapon slots 1 and 2). Read from Game.log, measured over 20
 # sessions: every draw is an <AttachmentReceived> into Port[weapon_attach_hand_right], and the item's
 # PREVIOUS port says which slot it came from (wep_stocked_2 = slot 1, LMG, 118 draws; wep_stocked_3 =
-# slot 2, sniper, 147; utility_attach_N = multitool, 87; wep_sidearm = J's medgun, 148, and medPen
+# slot 2, sniper, 147; utility_attach_N = multitool, 87; wep_sidearm = a medgun, 148, and medPen
 # ports = med pens -> "medical"). There is no detach line: putting it away is the same item arriving
 # back in its port. Grenades and drinks are deliberately unmapped for now.
 HAND_LOOPS: Mapping[str, str] = {
     # Audit 2026-10-02: a held item sat on the FULL loop, which dips to the empty-handed rest pose every
-    # cycle, so he re-grabbed his pistol / kit / drink every ~1.4 s (what J objected to on the action
+    # cycle, so he re-grabbed his pistol / kit / drink every ~1.4 s (the same re-grab as on the action
     # figure). Held items use the loop's _held cut (pico_loop_slice.py): the steady part only.
-    # "loop+prop" = a SNAP STATE (J 19:42): the plain loop, with the prop drawn on at runtime from the
+    # "loop+prop" = a SNAP STATE: the plain loop, with the prop drawn on at runtime from the
     # loop's .anchors.json and out/snap_props. No baked copy per prop.
     "slot1": "weapon_draw_focused_held+pistol_white",
     "slot2": "weapon_draw_focused_held+pistol_red",
     "utility": "weapon_draw_focused_held+utility_gun",   # the utility gun, for the multitool
-    # J 2026-10-01 18:16: "For a medgun or med pen he should pull out a first aid kit." Prop 07, held in
-    # front with both flippers (the reload pose). J's sidearm slot holds a medgun, so it maps here too.
+    # For a medgun or a med pen he pulls out a first aid kit. Prop 07, held in
+    # front with both flippers (the reload pose). A sidearm slot can hold a medgun, so it maps here too.
     "medical": "weapon_reload_focused_held+med_kit",
-    # J 2026-10-01 18:19: "Bomb should make him do the reload animation except holding a big bomb."
+    # A grenade makes him do the reload animation, holding a big bomb.
     "bomb": "weapon_reload_focused_prop17",
-    "gadget": "weapon_draw_focused_held+drill",      # mining gadget -> the drill (12 draws in J's logs)
+    "gadget": "weapon_draw_focused_held+drill",      # mining gadget -> the drill (12 draws in the measured logs)
     "drink": "weapon_reload_happy_held+drink",       # a drink bottle -> sipping from a canister
-    # J 06:36: "Do we have a fish? Because that would make for a hilarious melee weapon." Melee items
-    # (banu_melee_01 etc.) sit in a utility port, so they are told apart by NAME (108 hand draws in J's logs).
+    # A melee weapon is a fish, for the joke. Melee items
+    # (banu_melee_01 etc.) sit in a utility port, so they are told apart by NAME (108 hand draws in the measured logs).
     "melee": "weapon_draw_focused_held+fish_club",
 }
-# A held key with no holster line in this long is assumed gone. J asked whether the log says a grenade
-# was thrown: it does not, directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
+# A held key with no holster line in this long is assumed gone. The log does not say when a grenade
+# is thrown, not directly. Measured over 20 logs: of 30 grenades that reached the hand, 19
 # were never mentioned again (thrown) and 11 went back to a grenade_attach port (put away). Without a
 # cap a thrown grenade leaves Pico hugging the bomb forever.
 HAND_MAX_S: Mapping[str, float] = {"bomb": 8.0,
                                    "drink": 6.0,   # a finished drink never goes back to a pocket
                                    "food": 6.0}    # nor does an eaten hot dog
-# A hand key with several looks: one is drawn at random each time it comes out. J 2026-10-02 07:39,
-# "Here's food": eight hot dogs, held in the hands-together pose.
-# The game's eight hot dogs match J's eight pictures one-for-one (checked 2026-10-02 against the hand
-# draws in his saved logs: Food_hotdog_01_<kind>_a). Other food draws a random hot dog.
+# A hand key with several looks: one is drawn at random each time it comes out.
+# Food: eight hot dogs, held in the hands-together pose.
+# The game's eight hot dogs match the eight pictures one-for-one (checked 2026-10-02 against the hand
+# draws in saved logs: Food_hotdog_01_<kind>_a). Other food draws a random hot dog.
 HOTDOG_BY_KIND: Mapping[str, int] = {"": 1, "breakfast": 2, "chili": 3, "cruiser": 4, "double": 5,
                                      "melty": 6, "veggie": 7, "yakisoba": 8}
 _HOTDOG = re.compile(r"food_hotdog_\d+(?:_([a-z]+))?_[a-z]$")
 
 
-# J 2026-10-03 10:28, "Did you wire in all the foodstuffs": the 43 other foods J had Picofied, keyed by the
+# The 43 other foods with Pico art, keyed by the
 # game's entity name (from Data.p4k, the same Food_<kind>_<nn>_<variant>_a shape the log hands us). Held in
 # the same hands-together pose as the hot dogs. A food with no entry here still falls back to a hot dog.
 FOOD_HOLD = "weapon_reload_happy_held"
@@ -284,32 +284,32 @@ def food_variant(item: str) -> Optional[str]:
 HAND_VARIANTS: Mapping[str, tuple] = {
     "food": tuple("weapon_reload_happy_held+hotdog_%d" % i for i in range(1, 9)),
 }
-# J's bomb gag, 2026-10-01 18:29-18:32: hold it; at 4 s his eyes become "!"; at 8 s one of FIVE random
-# endings plays ("aim for 5 random bomb animation sequences"). A step is (loop, seconds): 0 = play it
+# The bomb gag: hold it; at 4 s his eyes become "!"; at 8 s one of FIVE random
+# endings plays. A step is (loop, seconds): 0 = play it
 # once, N = keep repeating it for N seconds. Endings whose FIRST loop is missing for an outfit are
 # skipped, and missing later steps are dropped, so a half-built outfit still does something sensible.
-# The explosions are baked into the *_boom loops by elah-audio/pico_bomb_gag.py.
+# The explosions are baked into the *_boom loops.
 BOMB_ALERT_S = 4.0
-# J 2026-10-02 12:39, the eating gag: hold it, then "use opacity from top down to make it look like he's
-# eating it". A food whose bite stages are in the manifest (<prop>_eat_1..N, from pico_snap_export) stays
+# The eating gag: hold it, then it fades from the top down so that it looks like he is
+# eating it. A food whose bite stages are in the manifest (<prop>_eat_1..N, from pico_snap_export) stays
 # whole for EAT_START_S, then steps through them, finishing EAT_END_S before the food cap puts it away.
 EAT_STAGES = 5
 EAT_START_S = 1.5
 EAT_END_S = 0.5
 BOMB_ALERT_LOOP = "weapon_reload_exclaim_prop17"
 BOMB_ENDINGS = [
-    # J 18:39: "the bomb should physically fall to the ground" -> bomb_drop first wherever he lets go
+    # the bomb physically falls to the ground: bomb_drop first wherever he lets go
     [("bomb_drop", 0), ("celebrate_exclaim_boom", 0), ("idle_settle_spiral", 4.0)],   # 1 panic jump
-    # 2 the throw, VISIBLE now (J 2026-10-02): the bomb rides his flipper up, flies an arc out to the frame
+    # 2 the throw, VISIBLE: the bomb rides his flipper up, flies an arc out to the frame
     #   edge and goes off there (pico_bomb_gag.make_throw; every finished outfit has it).
     [("cheer_happy_throw", 0)],                                      # 2 toss it; it blows up off to
-                                                                     #   the side (J 18:36)
+                                                                     #   the side
     [("crash_X_X_boom", 0), ("idle_settle_spiral", 3.0)],            # 3 goes off in his hands
     [("bomb_drop", 0), ("scared_surprised_boom", 0), ("sulk_sad", 4.0)],   # 4 flinch, then sulk
     [("bomb_drop", 0), ("confused_confused", 3.0), ("relieved_happy", 0)],   # 5 a dud
-    # 6 the love-bomb, J 18:36: "blows up in his hands as confetti and hearts and he does a few poses
+    # 6 the love-bomb: it blows up in his hands as confetti and hearts and he does a few poses
     #   with heart eyes like dancing and some cute pose before shaking himself free from the spell and
-    #   stomps angrily and then returns to normal"
+    #   stomps angrily and then returns to normal
     [("love_heart_confetti", 0), ("idle_dance_heart", 4.0), ("shy_heart", 0),
      ("startled_surprised", 0), ("annoyed_angry", 0)],
 ]
@@ -333,7 +333,7 @@ def _slot_of(port: str, item: str = "") -> Optional[str]:
     if port.startswith("gadget_attach"):
         return "gadget"
     if item.lower().startswith(("food_", "consumable_food")):
-        return "food"                                   # a hot dog, not the drink canister (J 10-02)
+        return "food"                                   # a hot dog, not the drink canister
     if item.lower().startswith(("drink_", "consumable_drink")):
         return "drink"                                  # comes out of inventory_pocket
     return None
@@ -375,9 +375,9 @@ class HandTracker:
 # monitored-space flips) is one thing that happened, not a reason to restart the gesture.
 EVENT_COOLDOWN_S = 45.0
 
-# RESTS (J 2026-10-04: "He also doesn't need to do an animation every second. He can be idle at times",
-# "He also doesn't need to loop an animation 8,000 times. He can [stand] still at times", "if you pull out
-# a weapon he should still periodically idle"). Until today one mood loop repeated for a DWELL_S of 8-14 s
+# RESTS. He does not need to do an animation every second, or to loop one thousands of times: he can
+# stand still at times, and with a weapon out he still idles now and then.
+# Before this, one mood loop repeated for a DWELL_S of 8-14 s
 # (six to ten passes of a 1.4 s loop) and the next loop started on the very next frame, so he was never
 # still; and a held weapon looped its held cut until the holster line. Now:
 #   an animation plays ACT_PASSES times (a loop is 0.8-1.4 s), then he STANDS STILL for REST_S seconds,
@@ -388,8 +388,8 @@ EVENT_COOLDOWN_S = 45.0
 # 19 outfit folders: the nine idle_*_default loops share frame 0 exactly, and a mood loop's frame 0 differs
 # only by its face). The window pauses the loop on that frame (LoopChooser.resting).
 ACT_PASSES = (1, 3)            # how many times one animation plays before he rests
-REST_S = (10.0, 20.0)          # how long he stands still between animations, in seconds (J 2026-10-04:
-                               # "Let's try an animation every 10-20 seconds"; was 10-25)
+REST_S = (10.0, 20.0)          # how long he stands still between animations, in seconds
+                               # (an animation every 10-20 seconds; was 10-25)
 HOLD_STILL_S = (10.0, 20.0)    # how long a drawn weapon is held still between idle breaks
 # The Customise dialog's "How lively" choice: a multiplier on REST_S and HOLD_STILL_S.
 LIVELINESS: Mapping[str, float] = {"calm": 2.0, "normal": 1.0, "lively": 0.4}
@@ -402,7 +402,14 @@ REST_LOOPS: Mapping[str, str] = {
 }
 _CUT = re.compile(r"_(held|grab|release)$")    # a slice of a loop: its frame 0 is not the standing pose
 
-DEFAULT_DIR = Path(os.path.expanduser("~")) / "BrAi" / "_forJ" / "VNCCS" / "pico_anim_sequences"
+# A developer's own rendered loop folders, if this machine has any: set PICO_LOOPS_DIR to the folder that
+# holds Drake's loops. It has to be NAMED pico_anim_sequences (sprite_pal.outfit_name() and brand_allows()
+# read the name), and the other outfits sit beside it as pico_anim_sequences_<brand>. Unset, as on a
+# user's PC, DEFAULT_DIR is a folder inside the tool that no installer creates, so nothing outside the
+# toolbox is looked at and Pico wears outfit packs only (pico/packs.py).
+LOOPS_ENV = "PICO_LOOPS_DIR"
+DEFAULT_DIR = (Path(os.environ[LOOPS_ENV]) if os.environ.get(LOOPS_ENV)
+               else Path(__file__).resolve().parent.parent / "loops" / "pico_anim_sequences")
 
 
 class SpriteError(Exception):
@@ -440,9 +447,9 @@ class Catalog:
 
 SNAP_SEP = "+"
 
-# J 2026-10-03 11:53: "add a bunch of the props for those animations to keep them interesting and diverse like
-# the average user won't notice us reusing the same animation for different props if we cycle them correctly
-# with other animations". Each idle keeps ONE slot in its pool; when the pool draws it, PROP_IDLE_P of the time
+# Props keep these idles interesting and diverse: the same animation with a different prop, cycled
+# with other animations, does not read as a repeat.
+# Each idle keeps ONE slot in its pool; when the pool draws it, PROP_IDLE_P of the time
 # it comes out holding a random prop that suits the pose. Listing every combo as its own pool entry would have
 # made props ~80% of all calm picks and drowned the plain loops.
 PROP_IDLE_P = 0.7
@@ -455,12 +462,12 @@ PROP_IDLES: Mapping[str, tuple[str, ...]] = {
     "idle_peek_default": ("flashlight", "datapad", "walkie", "wrench", "tool_04", "tool_05", "tool_08",
                           "tool_10", "tool_12", "tool_14", "tool_35", "tool_38", "tool_47", "binoculars",
                           "scanner"),
-    # J: "Tap foot would work for a small prop"
+    # tap foot suits a small prop
     "idle_tap_foot_default": ("drink", "walkie", "datapad", "console", "tool_03", "tool_06", "tool_29",
                               "tool_30", "tool_47", "tool_50"),
 }
 
-# SIGNS (J's 25 on pico_signs_transparent.png): held up in the ship-claim pose as snap props. pico/signs.py
+# SIGNS (the 25 on pico_signs_transparent.png): held up in the ship-claim pose as snap props. pico/signs.py
 # decides WHETHER and WHICH (event-driven, 8 min cooldown, mood veto, no repeat of the last 6, 35% roll).
 SIGN_LOOP = "ship_claim_star"
 SIGN_HOLD_S = 4.0                      # long enough to read the slogan
@@ -552,7 +559,7 @@ class LoopChooser:
         self.recent_signs: list = []
         self.last_sign: Optional[dict] = None   # the picker's last decision, with its reason
         self.last_gag_at: Optional[float] = None   # when a gag prop last played (GAG_COOLDOWN_S)
-        # User preferences (the Customise dialog, J 2026-10-02 "run through those"): defaults = as built.
+        # User preferences (the Customise dialog): defaults = as built.
         self.gags_on = True
         self.signs_on = True
         self.gag_cooldown_s = GAG_COOLDOWN_S
@@ -757,8 +764,8 @@ class LoopChooser:
         return self._raise_sign(d, at)
 
     def maybe_idle_sign(self, at: float) -> Optional[Path]:
-        """A sign with no game event behind it, offered each time a rest ends (J 2026-10-04: "make the signs
-        come up randomly regardless of tasks"). Never while he holds something or is mid-sequence."""
+        """A sign with no game event behind it, offered each time a rest ends, so signs
+        come up at random whatever the game is doing. Never while he holds something or is mid-sequence."""
         if not self.signs_on or self.held or self.in_seq:
             return None
         if self.mood in (None, UNKNOWN):                # no readable game log: he only stands confused
@@ -786,7 +793,7 @@ class LoopChooser:
         self.last_sign_at = at
         self.recent_signs = (self.recent_signs + [d["sign"]])[-signs.NOVELTY_WINDOW:]
         # Audit 2026-10-02: the full ship-claim loop drops his arm to rest every ~1.4 s, so a 4 s sign was
-        # raised and lowered three times - the re-grab J objected to on the action figure. Use the cuts.
+        # raised and lowered three times - the same re-grab as on the action figure. Use the cuts.
         cut = [(SIGN_LOOP + p + SNAP_SEP + "sign_" + d["sign"], secs)
                for p, secs in (("_grab", 0), ("_held", SIGN_HOLD_S), ("_release", 0))]
         if all(n in self.catalog.loops for n, _ in cut):
@@ -851,7 +858,7 @@ class LoopChooser:
         if (self.held_key == "bomb" and BOMB_ALERT_S <= age < HAND_MAX_S["bomb"]
                 and self.held != BOMB_ALERT_LOOP and BOMB_ALERT_LOOP in self.catalog.loops):
             self.held = self.current = BOMB_ALERT_LOOP
-            # Only the eyes change (J 18:39: "the clip starts again when it switches to ! eyes"): the
+            # Only the eyes change (the clip must not start again when it switches to ! eyes): the
             # alert loop is the same pose frame for frame, so the window carries the frame across.
             self.carry_frame = True
             return self.catalog.loops[self.held]
@@ -1035,7 +1042,7 @@ def selftest() -> int:
             (Path(d) / (n + ".gif")).write_bytes(b"GIF89a")
         c3 = LoopChooser(Catalog.scan(d), rng=random.Random(3)); c3.on_mood("calm")
         ht = HandTracker()
-        L = "<t> [Notice] <AttachmentReceived> Player[J] Attachment[%s, item, 1] Status[x] Port[%s] Elapsed[0]"
+        L = "<t> [Notice] <AttachmentReceived> Player[Tester] Attachment[%s, item, 1] Status[x] Port[%s] Elapsed[0]"
         ht.feed_line(L % ("lmg_7", "wep_stocked_2"))
         ch = ht.feed_line(L % ("lmg_7", HAND_PORT))
         ck("slot-1 weapon into the hand reads as a slot1 draw", ch == ("draw", "slot1"))
@@ -1053,11 +1060,11 @@ def selftest() -> int:
         ck("a magazine attaching elsewhere changes nothing", ht.feed_line(L % ("mag_1", "magazine_attach")) is None)
         ht.feed_line(L % ("med_3", "wep_sidearm"))
         ck("the sidearm medgun reads as medical", ht.feed_line(L % ("med_3", HAND_PORT)) == ("draw", "medical"))
-        LF = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[food_hotdog_9, food_hotdog_basic, 9] "
+        LF = ("<t> [Notice] <AttachmentReceived> Player[Tester] Attachment[food_hotdog_9, food_hotdog_basic, 9] "
               "Status[x] Port[%s] Elapsed[0]")
         ht.feed_line(LF % "inventory_pocket")
         ck("a hot dog reads as food, not drink", ht.feed_line(LF % HAND_PORT) == ("draw", "food"))
-        ck("the game's chili dog is J's chili dog",
+        ck("the game's chili dog is the chili dog prop",
            food_variant("Food_hotdog_01_chili_a") == "weapon_reload_happy_held+hotdog_3"
            and food_variant("Food_hotdog_01_a") == "weapon_reload_happy_held+hotdog_1"
            and food_variant("Food_hotdog_01_yakisoba_a") == "weapon_reload_happy_held+hotdog_8")
@@ -1067,7 +1074,7 @@ def selftest() -> int:
            and food_variant("FOOD_SKEWERED_RAT_1_A") == FOOD_HOLD + "+aloprat-skewer")
         ck("every Picofied food is in the snap manifest",
            not _snap_props() or all(v in _snap_props() for v in FOOD_BY_ENTITY.values()))
-        LM = ("<t> [Notice] <AttachmentReceived> Player[J] Attachment[banu_melee_01_77, banu_melee_01, 77] "
+        LM = ("<t> [Notice] <AttachmentReceived> Player[Tester] Attachment[banu_melee_01_77, banu_melee_01, 77] "
               "Status[x] Port[%s] Elapsed[0]")             # the real shape: uid, then the item name
         ht.feed_line(LM % "utility_attach_2")
         ck("a knife from a utility port reads as melee, not utility",
@@ -1076,7 +1083,7 @@ def selftest() -> int:
         ck("a grenade reads as bomb", ht.feed_line(L % ("gren_5", HAND_PORT)) == ("draw", "bomb"))
         ht.feed_line(L % ("gad_8", "gadget_attach_1"))
         ck("a mining gadget reads as gadget", ht.feed_line(L % ("gad_8", HAND_PORT)) == ("draw", "gadget"))
-        LD = "<t> [Notice] <AttachmentReceived> Player[J] Attachment[%s, Drink_bottle_cruz_01_lux_a, 1] Status[x] Port[%s] Elapsed[0]"
+        LD = "<t> [Notice] <AttachmentReceived> Player[Tester] Attachment[%s, Drink_bottle_cruz_01_lux_a, 1] Status[x] Port[%s] Elapsed[0]"
         ht.feed_line(LD % ("drk_2", "inventory_pocket"))
         ck("a drink bottle reads as drink", ht.feed_line(LD % ("drk_2", HAND_PORT)) == ("draw", "drink"))
         c3.on_hand(("draw", "bomb"))
@@ -1120,8 +1127,8 @@ def selftest() -> int:
             fair = 1.0 / len(cg.pools[mood])
             ck("a gag prop is rare (%.1f%% vs %.1f%% for a regular loop)" % (100 * share, 100 * fair),
                0 < share < fair * 0.5)
-        # the cap: once a gag has played, none plays again within GAG_COOLDOWN_S. J asked for an hour on
-        # 2026-10-01 and for about four an hour on 2026-10-04; the 900 below is his number, written out.
+        # the cap: once a gag has played, none plays again within GAG_COOLDOWN_S. It was an hour at first
+        # and is about four an hour now; the 900 below is that number, written out.
         ch = LoopChooser(Catalog.scan(d), rng=random.Random(5))
         gags = set(RARE_LOOPS)
         mood = next((m for m, pool in ch.pools.items() if gags & set(pool)), None)
@@ -1130,7 +1137,7 @@ def selftest() -> int:
             for _ in range(5000):                       # picks every 10 s for ~14 hours
                 ch.current = None
                 if ch._pick(mood, at=t) in gags:
-                    if first is not None and t - first < 900.0:    # J's quarter hour, not the constant under test
+                    if first is not None and t - first < 900.0:    # the quarter hour itself, not the constant under test
                         first = -1.0; break
                     first = t
                 t += 10.0
@@ -1170,7 +1177,7 @@ def selftest() -> int:
             ck("then goes back to his mood", not cq.in_seq and cq.current in MOOD_LOOPS["happy"])
         else:
             ck("the Chris Roberts gag resolves (needs out/snap_props)", False)
-        # wrapped foods (J 2026-10-03 "start them wrapped"): shown closed, then the opened art, then eaten
+        # wrapped foods start wrapped: shown closed, then the opened art, then eaten
         cw = LoopChooser(Catalog.scan(d), rng=random.Random(4))
         wrapped = FOOD_HOLD + SNAP_SEP + "ma-s-ready-to-eat-fish-home-stew"
         if wrapped + "_eat_1" in cw.catalog.loops:
@@ -1204,7 +1211,7 @@ def selftest() -> int:
            [st[0] for st in GAG_SEQS.get(bmm, [])] == [bmm, "idle_dance_happy+bmm_table"])
         cdr = LoopChooser(Catalog.scan(d), rng=random.Random(9))
         ck("Drake's chooser never draws the BMM stall", bmm not in cdr.pools["calm"])
-        # the toy Gladius (J 2026-10-03): any idle, even in combat, so a plain pool entry -- never gated by the gag
+        # the toy Gladius: any idle, even in combat, so a plain pool entry -- never gated by the gag
         # roll or the shared cooldown -- and only on HELD frames, where the raised flipper is out to hold it
         sc, ss = "ship_claim_star_held+ship_gladius_claim", "scan_ping_default_held+ship_gladius_scan"
         ck("the toy ship is in the calm AND alert pools, and is not a rare gag",
@@ -1236,7 +1243,7 @@ def selftest() -> int:
            and cs.last_sign["why"] == "cooldown")
         ck("a sad Pico holds up no sign", (cs.on_mood("hurt") or True)
            and cs.maybe_sign("contract_complete", at=1e7) is None and cs.last_sign["why"] == "mood_veto")
-        # idle signs (J 2026-10-04): no event needed; offered when a rest ends
+        # idle signs: no event needed; offered when a rest ends
         from pico import signs as _sg
         ck("a sad Pico holds up no idle sign either",
            cs.maybe_idle_sign(at=2e7) is None and cs.last_sign["why"] == "mood_veto")
@@ -1284,7 +1291,7 @@ def selftest() -> int:
            len(picks) == len(BOMB_ENDINGS))
         c3.on_hand(("draw", "slot1"))
         ck("a weapon has no cap and is kept", c3.expire(at=c3.held_since + 3600) is None and c3.held)
-        # ---- RESTS (J 2026-10-04). Everything below runs on a fake clock. ----
+        # ---- RESTS. Everything below runs on a fake clock. ----
         clk = [1000.0]
         cr = LoopChooser(Catalog.scan(d), rng=random.Random(21), clock=lambda: clk[0])
         cr.apply_prefs({"signs": False, "gags": False})   # these checks are about idles; a sign or a gag is a held

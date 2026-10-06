@@ -50,8 +50,8 @@ CHANNELS
     asserted at `Clip` load. Those two assertions together mean the contract's
     "precedence by specificity, FACE beats HEAD beats BASE" has nothing left to
     adjudicate — blending is a disjoint union. `PRECEDENCE` below is kept as
-    the documented tiebreak and is, by construction, unreachable. Reported to J
-    as a simplification his own disjointness rule already earned.
+    the documented tiebreak and is, by construction, unreachable: a
+    simplification the disjointness rule already earned.
 
     `SKIN` is NOT a channel and never produces bone deltas.
 """
@@ -256,7 +256,7 @@ class ChannelMap:
 #: PROP owns `prop_anchor` ONLY. A `hold_mobiglas` clip that also wanted to pose
 #: `hand_L`/`hand_R` cannot have them, because `wave` (BASE) uses the hands and
 #: the disjointness assertion would fire. That is the assertion doing its job,
-#: and it is an OPEN question for J rather than something to quietly resolve by
+#: and it is an OPEN question rather than something to quietly resolve by
 #: widening PROP.
 DEFAULT_CHANNEL_BONES: Mapping[str, tuple[str, ...]] = {
     "HEAD": ("neck", "head"),
