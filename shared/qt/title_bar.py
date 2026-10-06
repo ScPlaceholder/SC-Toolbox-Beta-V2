@@ -58,6 +58,10 @@ class SCTitleBar(QWidget):
     collapse_clicked = Signal()
 
     TITLE_HEIGHT = 36
+    # (point size, letter spacing in px), largest first. The first is what every title bar uses;
+    # the rest are only ever reached by a bar built with fit_title=True. Spacing goes before size,
+    # and nothing here is below 8pt.
+    TITLE_FONTS = ((11, 3), (11, 2), (11, 1), (10, 1), (9, 1), (8, 1), (8, 0))
 
     def __init__(
         self,
@@ -69,6 +73,7 @@ class SCTitleBar(QWidget):
         show_minimize: bool = True,
         extra_buttons: Optional[List[Tuple[str, Callable]]] = None,
         parent: Optional[QWidget] = None,
+        fit_title: bool = False,
     ):
         super().__init__(parent or window)
         self._window = window
@@ -98,15 +103,14 @@ class SCTitleBar(QWidget):
 
         # Title
         title_label = QLabel(title.upper(), self)
-        title_label.setStyleSheet(f"""
-            font-family: Electrolize, Consolas, monospace;
-            font-size: 11pt;
-            font-weight: bold;
-            color: {self._accent};
-            letter-spacing: 3px;
-            background: transparent;
-        """)
+        title_label.setStyleSheet(self._title_style(*self.TITLE_FONTS[0]))
         layout.addWidget(title_label)
+        self._title_label = title_label
+        # Opt-in (the launcher): when the bar is too narrow for the whole title, the title's
+        # font steps down TITLE_FONTS until it fits, instead of the layout cutting its tail off.
+        self._fit_title = fit_title
+        self._title_font = self.TITLE_FONTS[0]
+        self._title_widths: dict = {}
 
         # Hotkey badge
         if hotkey_text:
@@ -242,6 +246,53 @@ class SCTitleBar(QWidget):
         btn_close.clicked.connect(self._on_close_btn)
         layout.addWidget(btn_close)
 
+    def _title_style(self, pt: int, spacing: int) -> str:
+        return f"""
+            font-family: Electrolize, Consolas, monospace;
+            font-size: {pt}pt;
+            font-weight: bold;
+            color: {self._accent};
+            letter-spacing: {spacing}px;
+            background: transparent;
+        """
+
+    def _title_width(self, font: Tuple[int, int]) -> int:
+        """How wide the title is in this (point size, letter spacing), measured once each."""
+        if font not in self._title_widths:
+            probe = QLabel(self._title_label.text(), self)
+            probe.hide()
+            probe.setStyleSheet(self._title_style(*font))
+            self._title_widths[font] = probe.sizeHint().width()
+            probe.deleteLater()
+        return self._title_widths[font]
+
+    def _fit_title_font(self) -> None:
+        """Give the title the largest TITLE_FONTS entry that leaves every other control its width.
+
+        A bar narrower than its contents is not refused by the layout: it takes the shortfall from
+        the widest widget, which is the title, and the end of the text is simply not drawn.
+        """
+        lay = self.layout()
+        margins = lay.contentsMargins()
+        others = margins.left() + margins.right()
+        for i in range(lay.count()):
+            w = lay.itemAt(i).widget()
+            if w is None or w.isHidden():
+                continue
+            others += lay.spacing() if w is not self._title_label else 0
+            if w is not self._title_label:
+                others += max(w.minimumWidth(), min(w.maximumWidth(), w.sizeHint().width()))
+        room = self.width() - others
+        font = next((f for f in self.TITLE_FONTS if self._title_width(f) <= room), self.TITLE_FONTS[-1])
+        if font != self._title_font:
+            self._title_font = font
+            self._title_label.setStyleSheet(self._title_style(*font))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._fit_title:
+            self._fit_title_font()
+
     def _on_reset_btn(self) -> None:
         """Reset the window to its default size and centre on screen."""
         if hasattr(self._window, "reset_layout"):
@@ -295,6 +346,8 @@ class SCTitleBar(QWidget):
     def set_hotkey(self, text: str) -> None:
         if self._hotkey_label:
             self._hotkey_label.setText(text)
+            if self._fit_title:
+                self._fit_title_font()      # a longer key leaves the title less room
 
     def paintEvent(self, event):
         """Paint the glowing header background."""

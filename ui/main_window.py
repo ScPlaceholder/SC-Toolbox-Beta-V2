@@ -421,6 +421,7 @@ class LauncherWindow(SCWindow):
             accent_color=P.accent,
             hotkey_text=get_hotkey_display(launcher_hotkey),
             show_minimize=True,
+            fit_title=True,     # the whole version is shown: the title's font gives way, not its tail
         )
         self._title_bar.minimize_clicked.connect(self.showMinimized)
         self._title_bar.close_clicked.connect(self._on_close)
