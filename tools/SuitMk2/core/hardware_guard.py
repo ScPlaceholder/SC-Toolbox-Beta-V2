@@ -14,6 +14,15 @@ It reads NO temperature: Windows has no counter for it without a vendor library,
 hard" therefore means what the monitor's own verdict means: headroom TIGHT, which is free system memory under 3 GB,
 graphics load over 85 %, free video memory under 1 GB, or Star Citizen alone over 80 % of the card.
 
+TEMPERATURE (J 2026-10-05: do not assume the card protects itself; a user may have flashed its firmware or lifted
+its power limit, and that cannot be detected). So the Suit has a ceiling of its OWN, TEMP_CEILING_C, and never asks
+the card what its limit is. A reading at or over the ceiling counts exactly as TIGHT does. A reading that is absent,
+zero or nonsense is "cannot check": it is never "fine", it relaxes nothing, and the window says temperature is not
+being watched.
+TODAY NOTHING SUPPLIES A READING. read_gpu_temperature_c() returns None on every PC, because hw_monitor cannot read
+one and nothing here runs a vendor tool. The ceiling and its tests are in place for the day a reader exists; until
+then every PC is in the "cannot check" branch, and says so.
+
 OverloadGuard: the eyes and the chat model already stand down at every TIGHT reading. This adds the second step:
 TIGHT for OVERLOAD_AFTER_S without a break switches both OFF, and they stay off until the reading has been clear for
 RECOVER_AFTER_S without a break. The pilot is told why once per switch-off, in the window, never out loud.
@@ -49,6 +58,41 @@ CLEAR = ("OK", "ROOMY")
 OFF_NOTICE = ("Eyes and chat are off: the PC has had no room to spare for {mins} (graphics load, video memory or "
               "system memory). They come back on their own when it has.")
 BACK_NOTICE = "Eyes and chat are back: the PC has room to spare again."
+
+
+# OUR ceiling for the graphics card's temperature, in degrees Celsius. It is a limit on the load the companions
+# ADD, not a statement about any card: at or over it they take no picture and ask no chat model, whatever the card
+# itself would tolerate. 80 is chosen to sit under where stock cards begin to throttle, which their makers publish
+# as roughly the mid 80s to low 90s; those figures are from memory of the makers' pages and were not measured here.
+# A card that runs Star Citizen at 80 or more by itself simply gets no pictures and no chat model while it does.
+# Never replaced by a value the card reports, and not a setting.
+TEMP_CEILING_C = 80.0
+TEMP_SANE_C = (1.0, 150.0)       # a reading outside this is a broken sensor (0 is what a missing one often says)
+HOT, NOT_HOT, CANNOT_CHECK = "HOT", "OK", "CANNOT_CHECK"
+TEMP_NOT_WATCHED = "temperature is not being watched (this PC gives no reading)"
+
+
+def read_gpu_temperature_c() -> Optional[float]:
+    """The graphics card's temperature, or None when it cannot be read. It cannot be read: hw_monitor has no
+    temperature counter, and reading one needs a vendor tool or library this project does not ship. Kept as the one
+    place a reader would go."""
+    return None
+
+
+def temperature_state(reading) -> str:
+    """HOT at or over TEMP_CEILING_C, OK under it, CANNOT_CHECK for anything that is not a believable reading
+    (None, zero, a negative, NaN, text, a bool, a number over 150)."""
+    if isinstance(reading, bool) or not isinstance(reading, (int, float)):
+        return CANNOT_CHECK
+    if reading != reading or not (TEMP_SANE_C[0] <= reading <= TEMP_SANE_C[1]):
+        return CANNOT_CHECK
+    return HOT if reading >= TEMP_CEILING_C else NOT_HOT
+
+
+def with_temperature(reading: Optional[str], temperature) -> Optional[str]:
+    """The monitor's verdict with the temperature folded in. HOT makes it TIGHT. OK and CANNOT_CHECK leave it
+    exactly as it was: a temperature that is fine, or unknown, never turns a TIGHT into anything better."""
+    return "TIGHT" if temperature_state(temperature) == HOT else reading
 
 
 def _span(seconds: float) -> str:
@@ -227,6 +271,12 @@ def _selftest() -> int:
          not fits(8 * GB, FreeMemory(vram_free=24 * GB, ram_free=5 * GB, commit_free=30 * GB))[0])
     case("unknown memory is not 'fits' for a big model", not fits(17 * GB, FreeMemory())[0] and fits(3 * GB, None)[0])
     case("unknown size is a no", not fits(None, roomy)[0])
+    case("temperature: at the ceiling is HOT, under it is not", temperature_state(80) == HOT and temperature_state(79.9) == NOT_HOT)
+    case("temperature: absent, zero and nonsense are 'cannot check'",
+         [temperature_state(v) for v in (None, 0, -40, 900, "72", float("nan"), True)] == [CANNOT_CHECK] * 7)
+    case("temperature: unknown never improves the verdict",
+         with_temperature("TIGHT", None) == "TIGHT" and with_temperature("OK", 95) == "TIGHT" and with_temperature(None, 40) is None)
+    case("nothing supplies a temperature today", read_gpu_temperature_c() is None)
     print("hardware_guard selftest:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

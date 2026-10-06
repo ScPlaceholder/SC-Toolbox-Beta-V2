@@ -27,13 +27,16 @@ from pathlib import Path
 from typing import Callable, Optional
 
 MAX_SHOTS = 500
-NOTICE_VERSION = 1          # bump when NOTICE changes, so every pilot sees the new wording once
+NOTICE_VERSION = 2          # bump when NOTICE changes, so every pilot sees the new wording once
+                            # 2 (2026-10-05): the sentence about unmodified hardware and large models
 NOTICE_TITLE = "SuitMk2 - what the companion is, and what it is not"
 NOTICE = (
     "Elah and Montaigne are NARRATORS. They watch and listen, and they talk. That is all they can do.\n\n"
     "They have no way to press keys, move the mouse, use a controller, inject input, read or change game memory or "
     "files, or alter the game in any way. They give no unfair advantage: everything they know comes from the game's "
     "own log file, the game's sound, and what is on your screen, which you can already see and hear.\n\n"
+    "The limits that keep them from overloading this PC assume unmodified hardware, and running a large model beside "
+    "the game is your choice.\n\n"
     "Training screenshots (optional, off unless you tick the box):\n"
     "When the companion's eyes look closely at the screen, SuitMk2 can keep that small screenshot and what the eyes "
     "thought it showed, on this PC only, up to {max} of them. Nothing is uploaded. You can export them as a zip from "

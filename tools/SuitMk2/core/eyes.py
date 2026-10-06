@@ -71,7 +71,7 @@ TRANSITION_EMA = 0.15        # weight of each new changed frame in the rolling b
 TRANSITION_MIN_GAP_S = 20.0
 LOOK_MIN_GAP_S = 20.0        # a deliberate look (Eyes.look) waits this long after the last one. The default of
                              # the settings key eyes_look_gap_s (Eyes(look_gap_s=...)), not a floor
-HOLDS = ("", "combat", "overload")   # why no picture may be taken at all right now (Eyes.set_pace)
+HOLDS = ("", "combat", "overload", "hot")   # why no picture may be taken at all right now (Eyes.set_pace)
 THUMB = (32, 18)             # classifier features: 32x18 RGB = 1728 bytes per example
 SEED = Path(__file__).resolve().parent.parent / "data" / "eyes_seed.json"   # companion_design/seed_eyes.py
 MAX_PER_LABEL = 40

@@ -233,6 +233,130 @@ def test_a_reading_that_cannot_be_taken_switches_nothing_off():
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# L. temperature: a ceiling of the Suit's own, and "cannot check" is never "fine"
+# ---------------------------------------------------------------------------------------------------------------
+def test_the_ceiling_is_the_suits_own_fixed_number():
+    assert hg.TEMP_CEILING_C == 80.0
+    assert hg.temperature_state(80.0) == hg.HOT and hg.temperature_state(95) == hg.HOT
+    assert hg.temperature_state(79.9) == hg.NOT_HOT and hg.temperature_state(35) == hg.NOT_HOT
+    src = (ROOT / "core" / "hardware_guard.py").read_text(encoding="utf-8")
+    assert src.count("TEMP_CEILING_C =") == 1                # set once, here, and from nothing the card reports
+
+
+@pytest.mark.parametrize("reading", [None, 0, 0.0, -40, 151, 900, float("nan"), float("inf"), "72", "hot", True, [70], {}])
+def test_a_reading_that_is_absent_zero_or_garbage_is_cannot_check(reading):
+    assert hg.temperature_state(reading) == hg.CANNOT_CHECK
+    for verdict in ("TIGHT", "OK", "ROOMY", None):           # and it leaves the monitor's verdict exactly as it was
+        assert hg.with_temperature(verdict, reading) == verdict
+
+
+def test_a_temperature_that_is_fine_never_improves_a_tight_reading():
+    assert hg.with_temperature("TIGHT", 40.0) == "TIGHT" and hg.with_temperature(None, 40.0) is None
+    assert hg.with_temperature("OK", 40.0) == "OK"
+    assert [hg.with_temperature(v, 85.0) for v in ("OK", "ROOMY", None, "TIGHT")] == ["TIGHT"] * 4
+
+
+def test_nothing_supplies_a_temperature_today_and_the_window_is_given_that_reader():
+    assert hg.read_gpu_temperature_c() is None
+    src = (ROOT / "ui" / "suit_window.py").read_text(encoding="utf-8")
+    assert "temperature_reading=hardware_guard.read_gpu_temperature_c" in src
+    assert "hardware_guard.TEMP_NOT_WATCHED" in src          # and says so on the Hardware line
+
+
+def test_a_hot_card_takes_no_picture_and_asks_no_chat_model_at_the_loudest_settings():
+    clock, eyes, temp = [1000.0], FakeEyes(), [85.0]
+    core = make_core(eyes, clock, headroom=lambda: "ROOMY", hardware_reading=lambda: "ROOMY",
+                     temperature_reading=lambda: temp[0], **LOUDEST)
+    core.pace.configure({pp.every_key(a): pp.MIN_EVERY_S for a in pp.ACTIVITIES})
+    core.talker = ct.Talker("gemma3:4b", post=_never_post)
+    core._hardware_tick()
+    assert core.temperature_state == hg.HOT and core._picture_hold() == "hot"
+    for _ in range(10):
+        clock[0] += 5.0
+        core._hardware_tick()
+        tick(core)
+    assert eyes.looks == [] and eyes.paces[-1][2] == "hot"
+    assert core._talk(_talk_spec(core), "Rough day.") is None and core.talker.stats["asked"] == 0
+    temp[0] = 60.0                                           # the control: cooler, and the picture is taken
+    clock[0] += 5.0
+    core._hardware_tick()
+    tick(core)
+    assert core.temperature_state == hg.NOT_HOT and eyes.looks == ["interval"]
+
+
+def test_a_card_that_stays_hot_switches_eyes_and_chat_off_like_any_other_overload():
+    clock = [1000.0]
+    core = make_core(None, clock, hardware_reading=lambda: "ROOMY", temperature_reading=lambda: 91.0)
+    for _ in range(26):                                      # 130 s at 91 degrees, every other reading fine
+        clock[0] += 5.0
+        core._hardware_tick()
+    assert core.overload.off and core.overload.trips == 1 and "Eyes and chat are off" in core.hardware_notice
+
+
+@pytest.mark.parametrize("reader", [None, lambda: None, lambda: 0, lambda: "warm", lambda: 1 / 0])
+def test_no_temperature_reading_is_cannot_check_and_relaxes_nothing(reader):
+    clock, eyes, head = [1000.0], FakeEyes(), ["ROOMY"]
+    core = make_core(eyes, clock, headroom=lambda: head[0], hardware_reading=lambda: head[0],
+                     temperature_reading=reader, **LOUDEST)
+    core._hardware_tick()
+    assert core.temperature_state == hg.CANNOT_CHECK and core._picture_hold() == ""      # not hot: not known
+    tick(core)
+    assert eyes.looks == ["interval"]                        # with room to spare, an unknown temperature stops nothing
+    head[0] = "TIGHT"                                        # and it excuses nothing: TIGHT still trips the switch-off
+    for _ in range(26):
+        clock[0] += 5.0
+        core._hardware_tick()
+    assert core.overload.off and core._picture_hold() == "overload"
+    core.gate_state.in_combat = True
+    assert core._picture_hold() in ("overload", "combat")
+
+
+def test_the_window_says_when_temperature_is_not_being_watched(monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QApplication
+    from test_disable_companions import _Harness
+    QApplication.instance() or QApplication([])
+    h = _Harness(monkeypatch, tmp_path)
+    w = h.panel()
+    w.core = core = make_core(FakeEyes())
+    try:
+        w._refresh()
+        assert w._rows["Hardware"].text() == "room to spare | " + hg.TEMP_NOT_WATCHED
+        assert hg.TEMP_NOT_WATCHED == "temperature is not being watched (this PC gives no reading)"
+        core.temperature_state = hg.NOT_HOT
+        w._refresh()
+        assert w._rows["Hardware"].text() == "room to spare"
+        core.temperature_state = hg.HOT
+        w._refresh()
+        assert w._rows["Hardware"].text() == "the graphics card is hot: no pictures, chat model not asked"
+    finally:
+        w.core = None
+
+
+def test_the_eyes_treat_a_hot_hold_as_a_hold():
+    assert "hot" in eyes_mod.HOLDS
+    e, calls, clock = _real_eyes(lambda: "OK")
+    e.set_pace(pp.MIN_EVERY_S, hold="hot")
+    clock[0] += 60.0
+    e.tick()
+    assert e.look("pilot_asked") is None and calls == [] and e.state()["pictures_held"] == "hot"
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# L3. the first-launch notice says the limits assume unmodified hardware
+# ---------------------------------------------------------------------------------------------------------------
+def test_the_first_launch_notice_carries_the_hardware_sentence_and_is_shown_once_more():
+    import training_shots as ts
+    sentence = ("The limits that keep them from overloading this PC assume unmodified hardware, and running a large "
+                "model beside the game is your choice.")
+    assert ts.NOTICE.count(sentence) == 1 and ts.NOTICE_VERSION == 2
+    # the wording that was there is still there, around it
+    assert ts.NOTICE.startswith("Elah and Montaigne are NARRATORS. They watch and listen, and they talk.")
+    assert "which you can already see and hear.\n\n" + sentence + "\n\nTraining screenshots (optional" in ts.NOTICE
+    assert ts.NOTICE.endswith("never used to train a bot to play the game for you or for anyone else.")
+    assert st.DEFAULTS["notice_ack"] < ts.NOTICE_VERSION     # so a pilot who accepted the old wording sees this once
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # no setting, key or checkbox gets past any of it
 # ---------------------------------------------------------------------------------------------------------------
 BYPASS = re.compile(r"overrid|bypass|force|unsafe|ignore|skip|disable_(?:guard|limit|headroom|hardware)|"
@@ -242,7 +366,7 @@ ROOT = Path(hg.__file__).resolve().parents[1]
 
 def test_no_setting_names_a_way_past_the_hardware_limit():
     assert [k for k in st.DEFAULTS if BYPASS.search(k)] == []
-    assert not any(k.startswith(("hardware", "headroom", "overload", "guard")) for k in st.DEFAULTS)
+    assert not any(k.startswith(("hardware", "headroom", "overload", "guard", "temp_", "temperature")) for k in st.DEFAULTS)
 
 
 def test_the_guard_reads_no_setting_and_the_core_does_not_hand_it_one():

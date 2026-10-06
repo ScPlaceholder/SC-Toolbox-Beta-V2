@@ -377,6 +377,15 @@ def test_a_saved_model_ollama_no_longer_has_is_shown_as_such_and_the_setting_is_
     assert "is not installed in Ollama any more" in w._chat_status.text() and h.saved == []
 
 
+def test_a_saved_model_is_not_called_missing_before_ollama_has_answered(app, monkeypatch, tmp_path):
+    h, w = _panel(monkeypatch, tmp_path, chat_model="gemma3:4b")
+    assert w._chat_model.currentText() == "gemma3:4b (saved)"            # the list has not come back yet
+    w._fill_chat_models(None)                                            # Ollama did not answer
+    assert w._chat_model.currentText() == "gemma3:4b (saved)" and w._chat_status.text() == cm.NONE_FOUND
+    w._fill_chat_models([QWEN])                                          # it answered, and does not have it
+    assert w._chat_model.currentText() == "gemma3:4b (saved; not found in Ollama)"
+
+
 def test_picking_a_model_that_does_not_fit_is_refused_shown_and_not_saved(app, monkeypatch, tmp_path):
     h, w = _panel(monkeypatch, tmp_path, chat_model="gemma3:4b")
     w._fill_chat_models(MODELS)

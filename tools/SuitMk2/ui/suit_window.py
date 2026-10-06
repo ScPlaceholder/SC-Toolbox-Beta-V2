@@ -737,7 +737,8 @@ class _SuitBody:
                              features=self.s,      # the optional April-spec features (CompanionCore.FEATURE_KEYS)
                              pace=pp.PicturePace(self.s),      # a picture every N, per activity (the sliders)
                              eye_chattiness=int(self.s.get("eyes_chattiness", 2)),
-                             hardware_reading=hardware_reading)
+                             hardware_reading=hardware_reading,
+                             temperature_reading=hardware_guard.read_gpu_temperature_c)
         if gen != self._boot_gen:               # disabled while this was being built: it never starts
             return
         self.core = core
@@ -809,8 +810,8 @@ class _SuitBody:
         cb.addItem("(no chat model)", "")
         for m in models or []:
             cb.addItem(chat_models.entry_label(m["name"]), m["name"])
-        if saved and cb.findData(saved) < 0:
-            cb.addItem(f"{saved} (saved; not found in Ollama)", saved)
+        if saved and cb.findData(saved) < 0:      # "not found" only when Ollama answered and does not have it
+            cb.addItem(f"{saved} (saved; not found in Ollama)" if models is not None else f"{saved} (saved)", saved)
         cb.setCurrentIndex(max(0, cb.findData(saved)))
         cb.blockSignals(False)
         if asked:
@@ -953,8 +954,12 @@ class _SuitBody:
                                        + doing if c.eyes is not None else "off")
             # The hard limit (core/hardware_guard.py). Said here, never out loud, and there is nothing to untick.
             hold = c._picture_hold()
-            self._rows["Hardware"].setText(c.hardware_notice or ("a fight is on: no pictures, chat model not asked"
-                                                                 if hold == "combat" else "room to spare"))
+            now = c.hardware_notice or {"combat": "a fight is on: no pictures, chat model not asked",
+                                        "hot": "the graphics card is hot: no pictures, chat model not asked"
+                                        }.get(hold, "room to spare")
+            if c.temperature_state == hardware_guard.CANNOT_CHECK:
+                now += " | " + hardware_guard.TEMP_NOT_WATCHED
+            self._rows["Hardware"].setText(now)
 
     def _set_talk_key(self) -> None:
         dlg = BindingCaptureDialog(self)

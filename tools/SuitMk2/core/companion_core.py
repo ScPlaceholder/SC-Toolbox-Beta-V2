@@ -37,6 +37,7 @@ from activity_mode import ActivityMode, PRESENT, PRESENCE, build_look_spec   # n
 from activity_mode import names_something_there                              # noqa: E402
 from picture_pace import ActivityTracker, PicturePace                        # noqa: E402
 from hardware_guard import OverloadGuard                                     # noqa: E402
+import hardware_guard                                                        # noqa: E402
 import pacing                                                                # noqa: E402
 from activity_mode import AfkWatch, DEFAULT_AFK_MINUTES                      # noqa: E402
 from emotion import CompanionAffect                                          # noqa: E402
@@ -186,7 +187,8 @@ class CompanionCore:
                  sound=None, idle_source: Optional[Callable[[], Optional[float]]] = None,
                  afk_after_s: float = DEFAULT_AFK_MINUTES * 60.0, dev_facts=None,
                  features: Optional[dict] = None, pace: Optional[PicturePace] = None, eye_chattiness: int = 2,
-                 hardware_reading: Optional[Callable[[], Optional[str]]] = None):
+                 hardware_reading: Optional[Callable[[], Optional[str]]] = None,
+                 temperature_reading: Optional[Callable[[], Optional[float]]] = None):
         self.speech, self.realizer, self.eyes = speech, realizer, eyes
         self.features = {k: (features or {}).get(k, _SETTING_DEFAULTS.get(k)) for k in FEATURE_KEYS}
         self.sound = sound                   # sound_classifier.SoundClassifier or None (game ears that know WHAT)
@@ -272,6 +274,10 @@ class CompanionCore:
         self.overload = OverloadGuard(now=now)
         self._hardware_reading = hardware_reading
         self.hardware_notice = ""               # what the window shows while eyes and chat are switched off
+        # The card's temperature against the Suit's OWN ceiling (hardware_guard.TEMP_CEILING_C). No reader, or a
+        # reading that cannot be believed, is CANNOT_CHECK: it changes nothing and the window says it is not watched.
+        self._temperature_reading = temperature_reading
+        self.temperature_state = hardware_guard.CANNOT_CHECK
         self._seen_transitions = 0
         self.lifecycle, self.session_id = lifecycle, session_id or time.strftime("%Y%m%d_%H%M%S")
         self.store = store
@@ -679,6 +685,8 @@ class CompanionCore:
         "combat" (a fight is on), or "" (neither). No setting changes the answer."""
         if self.overload.off:
             return "overload"
+        if self.temperature_state == hardware_guard.HOT:
+            return "hot"
         if self.gate_state.in_combat or self.combat.active:
             return "combat"
         return ""
@@ -689,7 +697,15 @@ class CompanionCore:
         except Exception:
             log.exception("hardware reading")
             reading = None                       # no reading: nothing is switched off, nothing is switched back on
-        self.overload.feed(reading)
+        temperature = None
+        if self._temperature_reading is not None:
+            try:
+                temperature = self._temperature_reading()
+            except Exception:
+                log.exception("temperature reading")     # cannot check; never "fine"
+        self.temperature_state = hardware_guard.temperature_state(temperature)
+        # At or over the ceiling counts as TIGHT, for the switch-off too. Unknown leaves the reading as it was.
+        self.overload.feed(hardware_guard.with_temperature(reading, temperature))
         notice = self.overload.take_notice()
         if notice:                               # once per switch-off and once per recovery; never spoken
             self.hardware_notice = notice if self.overload.off else ""
