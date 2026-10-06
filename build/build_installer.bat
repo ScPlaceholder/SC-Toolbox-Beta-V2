@@ -342,6 +342,72 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History)
     )
 )
 
+:: Pico Pals (tools\Pico) - staged FILE BY FILE, never through the loop above.
+:: The dev folder is about 675 MB and about 50 MB of it runs: the rest is working material
+:: (out\ renders, reference sheets, generators, tests) and an xcopy /s ships all of it.
+:: The list below was measured on 2026-10-06 by running Pico from a clean copy with an empty
+:: APPDATA and an empty home folder and recording every file it opened:
+::   skill.json, the entry script, the window, the notice and the tutorial
+::   pico\*.py           the ten modules below; NOT clips\, rigdata\, tests\ or selftest.py
+::   packs\              packs.json and the default outfit pack (Drake); the other outfits
+::                       download from the pack site the first time a user picks them
+::   out\snap_props\     the props he holds (weapons, food, signs, toys, gags) and their
+::                       snap_props.json. Not copied: build\shrink_pico_props.py writes each PNG
+::                       at twice the largest size it is ever drawn (306 MB becomes 36 MB),
+::                       only the props a loop uses, and the source folder is only read
+::   fx_play.py, vfx_clips.json, vfx_map.json, sheets\pico_fx_star.png
+::                       the sparkle on the Origin outfit; without them he runs, with no sparkle
+:: Pico also loads tools\SuitMk2\core\emotion.py and event_parser.py, which the loop above
+:: stages. Without them he does not start.
+:: Two things here are NOT in git, so a fresh clone does not have them:
+::   the default pack    copied from PICO_PACKS_SRC (default: the dev folder), else downloaded
+::                       from the pack site. build\check_pico_stage.py (Step 7c) compares it
+::                       with the sha256 in packs.json and fails the build on any difference.
+::   out\snap_props      tools\Pico\out is ignored. If it is missing the build STOPS here: a
+::                       Pico that can hold nothing is never packaged quietly.
+:: (These notes live OUTSIDE the block: '::' inside a ( ) block is parsed as a label.)
+set "PICO_SRC=%ROOT%\tools\Pico"
+set "PICO_DST=%STAGE%\tools\Pico"
+set "PICO_DEFAULT_PACK=o08.tar.xz"
+set "PICO_PACKS_URL=https://pico-pals.pages.dev/packs"
+set "PICO_STAGE_OK=1"
+if not defined PICO_PACKS_SRC set "PICO_PACKS_SRC=%PICO_SRC%\packs"
+if exist "%PICO_SRC%\skill.json" (
+    echo  [*] Staging Pico Pals...
+    mkdir "%PICO_DST%\pico" 2>nul
+    mkdir "%PICO_DST%\packs" 2>nul
+    mkdir "%PICO_DST%\out\snap_props" 2>nul
+    mkdir "%PICO_DST%\assets\reference\sheets" 2>nul
+    for %%F in (skill.json pico_pals_app.py sprite_pal.py pico_notice.py pico_tutorial.py fx_play.py vfx_clips.json vfx_map.json) do (
+        copy /Y "%PICO_SRC%\%%F" "%PICO_DST%\" >nul
+    )
+    for %%F in (__init__.py anim.py aura.py events.py face.py packs.py rig.py signs.py snap.py sprites.py) do (
+        copy /Y "%PICO_SRC%\pico\%%F" "%PICO_DST%\pico\" >nul
+    )
+    copy /Y "%PICO_SRC%\packs\packs.json" "%PICO_DST%\packs\" >nul
+    if exist "!PICO_PACKS_SRC!\%PICO_DEFAULT_PACK%" (
+        copy /Y "!PICO_PACKS_SRC!\%PICO_DEFAULT_PACK%" "%PICO_DST%\packs\" >nul
+        echo  [OK] Pico default outfit pack staged from !PICO_PACKS_SRC!
+    ) else (
+        echo  [*] Pico default outfit pack not found locally - downloading %PICO_DEFAULT_PACK%...
+        curl -L -f -s -A "SC-Toolbox-PicoPals/1" -o "%PICO_DST%\packs\%PICO_DEFAULT_PACK%" "%PICO_PACKS_URL%/%PICO_DEFAULT_PACK%"
+        if !errorlevel! neq 0 echo  [WARN] Pico default outfit pack download failed
+    )
+    copy /Y "%PICO_SRC%\assets\reference\sheets\pico_fx_star.png" "%PICO_DST%\assets\reference\sheets\" >nul
+    if not exist "%PICO_SRC%\out\snap_props\snap_props.json" (
+        echo  [ERR] Pico Pals: tools\Pico\out\snap_props is missing. The props he holds are not in git.
+        echo        Copy out\snap_props from the art machine into tools\Pico, then build again.
+        set "PICO_STAGE_OK=0"
+    ) else (
+        "%STAGE%\python\python.exe" "%BUILD%shrink_pico_props.py" "%PICO_SRC%" "%PICO_DST%\out\snap_props"
+        if !errorlevel! neq 0 set "PICO_STAGE_OK=0"
+    )
+)
+if "!PICO_STAGE_OK!"=="0" (
+    echo  [ERR] Pico Pals could not be staged - see the lines above.
+    goto :fail
+)
+
 :: DPS Calculator loads the scunpacked adapter from shared\scunpacked.py by path. It used to live in
 :: tools\Assistant\, which does not ship, and 2.4.0's first install test crashed DPS on launch.
 :: shared\ is staged whole; this only fails the build if the file ever goes missing again.
@@ -952,6 +1018,19 @@ echo  [*] Running staging import smoke test...
 if !errorlevel! neq 0 (
     echo  [!] Staging import smoke test FAILED — see tracebacks above.
     set "VALIDATION_OK=0"
+)
+
+:: Pico Pals: only run-time files staged, the default outfit pack is the one packs.json
+:: describes, the props are the staged size and the ones the loops use, and Pico starts from
+:: the staged copy alone (empty APPDATA, empty home folder, no network).
+:: See build\check_pico_stage.py.
+if exist "%STAGE%\tools\Pico" (
+    echo  [*] Checking the staged Pico Pals...
+    "%STAGE%\python\python.exe" "%BUILD%check_pico_stage.py" "%STAGE%" "%ROOT%\tools\Pico"
+    if !errorlevel! neq 0 (
+        echo  [FAIL] Pico Pals staging check failed - see the lines above.
+        set "VALIDATION_OK=0"
+    )
 )
 
 if "!VALIDATION_OK!"=="0" (
