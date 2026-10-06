@@ -1,0 +1,165 @@
+{"text": "I fly a Cutlass Black.", "set": "plain", "facts": [{"relation": "flies", "thing": "Cutlass Black", "thing_kind": "ship"}]}
+{"text": "My daily is the C1.", "set": "plain", "facts": [{"relation": "flies", "thing": "C1", "thing_kind": "ship"}]}
+{"text": "I want a Carrack.", "set": "plain", "facts": [{"relation": "wants", "thing": "Carrack", "thing_kind": "ship"}]}
+{"text": "I always land at Area18.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Area18", "thing_kind": "place"}]}
+{"text": "I'm saving for a Polaris.", "set": "plain", "facts": [{"relation": "plans", "thing": "Polaris", "thing_kind": "ship"}]}
+{"text": "I love the Gladius.", "set": "plain", "facts": [{"relation": "likes", "thing": "Gladius", "thing_kind": "ship"}]}
+{"text": "I hate mining.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "mining", "thing_kind": "activity"}]}
+{"text": "I'd never fly a Mustang.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Mustang", "thing_kind": "ship"}]}
+{"text": "I use the Coda for bunkers.", "set": "plain", "facts": [{"relation": "uses", "thing": "Coda", "thing_kind": "gun"}]}
+{"text": "I wear the Pembroke armor on Daymar.", "set": "plain", "facts": [{"relation": "uses", "thing": "Pembroke", "thing_kind": "armor"}]}
+{"text": "My favourite place is Orison.", "set": "plain", "facts": [{"relation": "likes", "thing": "Orison", "thing_kind": "place"}]}
+{"text": "I mostly do bounty hunting.", "set": "plain", "facts": [{"relation": "does", "thing": "bounty hunting", "thing_kind": "activity"}]}
+{"text": "I'm going mining tonight.", "set": "plain", "facts": [{"relation": "plans", "thing": "mining", "thing_kind": "activity"}]}
+{"text": "I own a Vulture and a Prospector.", "set": "plain", "facts": [{"relation": "owns", "thing": "Vulture", "thing_kind": "ship"}, {"relation": "owns", "thing": "Prospector", "thing_kind": "ship"}]}
+{"text": "I've got a Reclaimer.", "set": "plain", "facts": [{"relation": "owns", "thing": "Reclaimer", "thing_kind": "ship"}]}
+{"text": "I just bought a Caterpillar.", "set": "plain", "facts": [{"relation": "owns", "thing": "Caterpillar", "thing_kind": "ship"}]}
+{"text": "I can't stand Lorville.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Lorville", "thing_kind": "place"}]}
+{"text": "I'm based out of New Babbage.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "New Babbage", "thing_kind": "place"}]}
+{"text": "I'm at Area18.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Area18", "thing_kind": "place"}]}
+{"text": "I'm flying the Gladius tonight.", "set": "plain", "facts": [{"relation": "flies", "thing": "Gladius", "thing_kind": "ship"}]}
+{"text": "My dream ship is the Kraken Privateer.", "set": "plain", "facts": [{"relation": "wants", "thing": "Kraken Privateer", "thing_kind": "ship"}]}
+{"text": "I want to try salvage.", "set": "plain", "facts": [{"relation": "plans", "thing": "salvage", "thing_kind": "activity"}]}
+{"text": "I love Drake ships.", "set": "plain", "facts": [{"relation": "likes", "thing": "Drake", "thing_kind": "maker"}]}
+{"text": "I hate the Nine Tails.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Nine Tails", "thing_kind": "faction"}]}
+{"text": "I run a Fresnel and a Coda.", "set": "plain", "facts": [{"relation": "uses", "thing": "Fresnel", "thing_kind": "gun"}, {"relation": "uses", "thing": "Coda", "thing_kind": "gun"}]}
+{"text": "The Cutlass Black is my daily driver.", "set": "plain", "facts": [{"relation": "flies", "thing": "Cutlass Black", "thing_kind": "ship"}]}
+{"text": "I'm a miner.", "set": "plain", "facts": [{"relation": "does", "thing": "mining", "thing_kind": "activity"}]}
+{"text": "I haul out of Everus Harbor.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Everus Harbor", "thing_kind": "place"}]}
+{"text": "Honestly I love Orison.", "set": "plain", "facts": [{"relation": "likes", "thing": "Orison", "thing_kind": "place"}]}
+{"text": "I think I want a Zeus.", "set": "plain", "facts": [{"relation": "wants", "thing": "Zeus", "thing_kind": "ship"}]}
+{"text": "I'm heading to microTech.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "microTech", "thing_kind": "place"}]}
+{"text": "My home is Lorville.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Lorville", "thing_kind": "place"}]}
+{"text": "I'm thinking about buying a Constellation Andromeda.", "set": "plain", "facts": [{"relation": "plans", "thing": "Constellation Andromeda", "thing_kind": "ship"}]}
+{"text": "I've been flying the Avenger Titan a lot.", "set": "plain", "facts": [{"relation": "flies", "thing": "Avenger Titan", "thing_kind": "ship"}]}
+{"text": "I really like the Arrow.", "set": "plain", "facts": [{"relation": "likes", "thing": "Arrow", "thing_kind": "ship"}]}
+{"text": "I'm not a fan of Area18.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Area18", "thing_kind": "place"}]}
+{"text": "I love racing.", "set": "plain", "facts": [{"relation": "likes", "thing": "racing", "thing_kind": "activity"}]}
+{"text": "I do a lot of hauling.", "set": "plain", "facts": [{"relation": "does", "thing": "hauling", "thing_kind": "activity"}]}
+{"text": "I always refuel at Port Tressler.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Port Tressler", "thing_kind": "place"}]}
+{"text": "I fly the Cutlass because I love Drake.", "set": "plain", "facts": [{"relation": "flies", "thing": "Cutlass", "thing_kind": "ship"}, {"relation": "likes", "thing": "Drake", "thing_kind": "maker"}]}
+{"text": "I hate the Cutlass since they nerfed it.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Cutlass", "thing_kind": "ship"}]}
+{"text": "I love the Gladius, it turns on a dime.", "set": "plain", "facts": [{"relation": "likes", "thing": "Gladius", "thing_kind": "ship"}]}
+{"text": "I fly a Freelancer MAX for cargo runs.", "set": "plain", "facts": [{"relation": "flies", "thing": "Freelancer MAX", "thing_kind": "ship"}]}
+{"text": "I'm in the Carrack.", "set": "plain", "facts": [{"relation": "flies", "thing": "Carrack", "thing_kind": "ship"}]}
+{"text": "I use a P4-AR.", "set": "plain", "facts": [{"relation": "uses", "thing": "P4-AR", "thing_kind": "gun"}]}
+{"text": "I need a Prospector.", "set": "plain", "facts": [{"relation": "wants", "thing": "Prospector", "thing_kind": "ship"}]}
+{"text": "I'll buy the Polaris eventually.", "set": "plain", "facts": [{"relation": "plans", "thing": "Polaris", "thing_kind": "ship"}]}
+{"text": "Yeah, I main the Sabre.", "set": "plain", "facts": [{"relation": "flies", "thing": "Sabre", "thing_kind": "ship"}]}
+{"text": "I live at Grim HEX.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Grim HEX", "thing_kind": "place"}]}
+{"text": "I like Daymar.", "set": "plain", "facts": [{"relation": "likes", "thing": "Daymar", "thing_kind": "place"}]}
+{"text": "I adore the 890 Jump.", "set": "plain", "facts": [{"relation": "likes", "thing": "890 Jump", "thing_kind": "ship"}]}
+{"text": "I'm going to buy a Vulture.", "set": "plain", "facts": [{"relation": "plans", "thing": "Vulture", "thing_kind": "ship"}]}
+{"text": "I fly a Cutlass and I hate Lorville.", "set": "plain", "facts": [{"relation": "flies", "thing": "Cutlass", "thing_kind": "ship"}, {"relation": "dislikes", "thing": "Lorville", "thing_kind": "place"}]}
+{"text": "I enjoy salvage.", "set": "plain", "facts": [{"relation": "likes", "thing": "salvage", "thing_kind": "activity"}]}
+{"text": "My go-to is the Karna.", "set": "plain", "facts": [{"relation": "uses", "thing": "Karna", "thing_kind": "gun"}]}
+{"text": "I carry a Demeco.", "set": "plain", "facts": [{"relation": "uses", "thing": "Demeco", "thing_kind": "gun"}]}
+{"text": "I'm a huge fan of Aegis.", "set": "plain", "facts": [{"relation": "likes", "thing": "Aegis", "thing_kind": "maker"}]}
+{"text": "I prefer the Vulture.", "set": "plain", "facts": [{"relation": "likes", "thing": "Vulture", "thing_kind": "ship"}]}
+{"text": "I keep going back to Yela.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Yela", "thing_kind": "place"}]}
+{"text": "I fly to Brio's when the station gets busy.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Brio's", "thing_kind": "place"}]}
+{"text": "I'm docked at Seraphim.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Seraphim", "thing_kind": "place"}]}
+{"text": "I want an M50.", "set": "plain", "facts": [{"relation": "wants", "thing": "M50", "thing_kind": "ship"}]}
+{"text": "I mine on Daymar.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Daymar", "thing_kind": "place"}]}
+{"text": "I've been mining a lot.", "set": "plain", "facts": [{"relation": "does", "thing": "mining", "thing_kind": "activity"}]}
+{"text": "I'm sick of Hurston.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Hurston", "thing_kind": "place"}]}
+{"text": "I love my Carrack.", "set": "plain", "facts": [{"relation": "likes", "thing": "Carrack", "thing_kind": "ship"}]}
+{"text": "I would love a Hammerhead.", "set": "plain", "facts": [{"relation": "wants", "thing": "Hammerhead", "thing_kind": "ship"}]}
+{"text": "My favourite ship is the Cutlass Red.", "set": "plain", "facts": [{"relation": "likes", "thing": "Cutlass Red", "thing_kind": "ship"}]}
+{"text": "The Vulture is my favourite.", "set": "plain", "facts": [{"relation": "likes", "thing": "Vulture", "thing_kind": "ship"}]}
+{"text": "I dislike trading.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "trading", "thing_kind": "activity"}]}
+{"text": "I fly a cutlass.", "set": "plain", "facts": [{"relation": "flies", "thing": "Cutlass", "thing_kind": "ship"}]}
+{"text": "i'm saving up for a carrack", "set": "plain", "facts": [{"relation": "plans", "thing": "Carrack", "thing_kind": "ship"}]}
+{"text": "I always hang out at Orison.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Orison", "thing_kind": "place"}]}
+{"text": "I wouldn't touch a Mustang.", "set": "plain", "facts": [{"relation": "dislikes", "thing": "Mustang", "thing_kind": "ship"}]}
+{"text": "I always land at Orison just to watch the clouds.", "set": "plain", "facts": [{"relation": "goes_to", "thing": "Orison", "thing_kind": "place"}]}
+{"text": "I've been running the Geist armor lately.", "set": "plain", "facts": [{"relation": "uses", "thing": "Geist", "thing_kind": "armor"}]}
+{"text": "My main is the Hornet and my sidearm is the Coda.", "set": "plain", "facts": [{"relation": "flies", "thing": "Hornet", "thing_kind": "ship"}, {"relation": "uses", "thing": "Coda", "thing_kind": "gun"}]}
+{"text": "If I had a Kraken I'd never log off.", "set": "plain", "facts": []}
+{"text": "I don't fly the Aurora.", "set": "plain", "facts": []}
+{"text": "What should I fly, the Cutlass?", "set": "plain", "facts": []}
+{"text": "Do I own a Carrack?", "set": "plain", "facts": []}
+{"text": "Set a route to Lorville.", "set": "plain", "facts": []}
+{"text": "The Cutlass is ugly.", "set": "plain", "facts": []}
+{"text": "I named my Cutter the Tin Can.", "set": "plain", "facts": []}
+{"text": "I fly the Tin Can.", "set": "plain", "facts": []}
+{"text": "I wish I had a Kraken.", "set": "plain", "facts": []}
+{"text": "I might buy a Carrack if the price drops.", "set": "plain", "facts": []}
+{"text": "I love the Cutlass plushie.", "set": "plain", "facts": []}
+{"text": "I was at Area18 yesterday.", "set": "plain", "facts": []}
+{"text": "I rarely fly the Gladius.", "set": "plain", "facts": []}
+{"text": "I never land at Lorville.", "set": "plain", "facts": []}
+{"text": "I park at Grim HEX and just sit, it's quieter than home.", "set": "mixed", "facts": [{"relation": "goes_to", "thing": "Grim HEX", "thing_kind": "place"}]}
+{"text": "I fly a Gladius when the flat gets too quiet.", "set": "mixed", "facts": [{"relation": "flies", "thing": "Gladius", "thing_kind": "ship"}]}
+{"text": "I'm saving for a Carrack, something has to go right.", "set": "mixed", "facts": [{"relation": "plans", "thing": "Carrack", "thing_kind": "ship"}]}
+{"text": "I hate Lorville, I hate most things lately.", "set": "mixed", "facts": [{"relation": "dislikes", "thing": "Lorville", "thing_kind": "place"}]}
+{"text": "I do bounties so I don't have to talk to anyone.", "set": "mixed", "facts": [{"relation": "does", "thing": "bounty hunting", "thing_kind": "activity"}]}
+{"text": "I land at Area18 because the noise helps.", "set": "mixed", "facts": [{"relation": "goes_to", "thing": "Area18", "thing_kind": "place"}]}
+{"text": "I fly the Vulture, salvage is quiet and I need quiet.", "set": "mixed", "facts": [{"relation": "flies", "thing": "Vulture", "thing_kind": "ship"}]}
+{"text": "I go to Grim HEX when I can't face people.", "set": "mixed", "facts": [{"relation": "goes_to", "thing": "Grim HEX", "thing_kind": "place"}]}
+{"text": "I love Nova.", "set": "sensitive", "facts": []}
+{"text": "I love Luna.", "set": "sensitive", "facts": []}
+{"text": "I used to fly a Hornet.", "set": "sensitive", "facts": []}
+{"text": "I sold my Hammerhead.", "set": "sensitive", "facts": []}
+{"text": "I fly the Cutlass because my dad left it to me.", "set": "sensitive", "facts": []}
+{"text": "I love the Carrack, it was ours.", "set": "sensitive", "facts": []}
+{"text": "I always land at Orison, it's where we got engaged.", "set": "sensitive", "facts": []}
+{"text": "I fly the Avenger, it was his.", "set": "sensitive", "facts": []}
+{"text": "I still fly the Avenger.", "set": "sensitive", "facts": []}
+{"text": "I only fly the Carrack now.", "set": "sensitive", "facts": []}
+{"text": "I fly his Cutlass.", "set": "sensitive", "facts": []}
+{"text": "I fly our Carrack on Sundays.", "set": "sensitive", "facts": []}
+{"text": "I fly the Cutlass with him every night.", "set": "sensitive", "facts": []}
+{"text": "I keep the Gladius fuelled, never fly it.", "set": "sensitive", "facts": []}
+{"text": "I wear the Geist armor she picked.", "set": "sensitive", "facts": []}
+{"text": "I use the Coda, it's the last thing he gave me.", "set": "sensitive", "facts": []}
+{"text": "I bought the Zeus the week it all fell apart.", "set": "sensitive", "facts": []}
+{"text": "I've got the Aurora left and nothing else.", "set": "sensitive", "facts": []}
+{"text": "I go to Yela to remember.", "set": "sensitive", "facts": []}
+{"text": "I land at Lorville because that's where it ended.", "set": "sensitive", "facts": []}
+{"text": "The Carrack was the last ship we flew.", "set": "sensitive", "facts": []}
+{"text": "I miss my Hammerhead.", "set": "sensitive", "facts": []}
+{"text": "I lost the Vulture in the wipe.", "set": "sensitive", "facts": []}
+{"text": "I gave my Prospector away.", "set": "sensitive", "facts": []}
+{"text": "I had a Carrack once.", "set": "sensitive", "facts": []}
+{"text": "I named the Cutlass after her.", "set": "sensitive", "facts": []}
+{"text": "I flew the Gladius with my brother.", "set": "sensitive", "facts": []}
+{"text": "My husband flies the Cutlass.", "set": "sensitive", "facts": []}
+{"text": "Dave flies a Cutlass.", "set": "sensitive", "facts": []}
+{"text": "She loves the Carrack.", "set": "sensitive", "facts": []}
+{"text": "We fly the Carrack together.", "set": "sensitive", "facts": []}
+{"text": "I fly the Carrack alone now.", "set": "sensitive", "facts": []}
+{"text": "I can't fly the Gladius any more.", "set": "sensitive", "facts": []}
+{"text": "I don't fly the Hornet since the accident.", "set": "sensitive", "facts": []}
+{"text": "I haven't touched the Vulture in months.", "set": "sensitive", "facts": []}
+{"text": "I'm selling the Polaris to pay the rent.", "set": "sensitive", "facts": []}
+{"text": "I want a Carrack but the bills come first.", "set": "sensitive", "facts": []}
+{"text": "I'm saving for a Kraken with the redundancy money.", "set": "sensitive", "facts": []}
+{"text": "I fly the Apollo because my mum was a nurse.", "set": "sensitive", "facts": []}
+{"text": "I love Orison, my wife proposed there.", "set": "sensitive", "facts": []}
+{"text": "I always land at Area18, the doctor says I need routine.", "set": "sensitive", "facts": []}
+{"text": "I hate hauling, my back can't take the chair.", "set": "sensitive", "facts": []}
+{"text": "I'm at Grim HEX, I can't sleep.", "set": "sensitive", "facts": []}
+{"text": "I'm in the Carrack doing nothing, I'm not well.", "set": "sensitive", "facts": []}
+{"text": "I use the Fresnel my dad picked.", "set": "sensitive", "facts": []}
+{"text": "The Zenith was his.", "set": "sensitive", "facts": []}
+{"text": "I keep two Codas, one was never mine to sell.", "set": "sensitive", "facts": []}
+{"text": "I fly the Avenger, never could let it go.", "set": "sensitive", "facts": []}
+{"text": "I fly the Cutlass, it's all I have left.", "set": "sensitive", "facts": []}
+{"text": "I love the Carrack, it reminds me of better days.", "set": "sensitive", "facts": []}
+{"text": "I go to Daymar where we used to drive.", "set": "sensitive", "facts": []}
+{"text": "I'd never sell the Carrack.", "set": "sensitive", "facts": []}
+{"text": "I'd never fly the Carrack again.", "set": "sensitive", "facts": []}
+{"text": "I hate the Hammerhead, it's the one I lost everything in.", "set": "sensitive", "facts": []}
+{"text": "I fly the Cutlass my brother left me.", "set": "sensitive", "facts": []}
+{"text": "I'm wearing her Novikov.", "set": "sensitive", "facts": []}
+{"text": "I always sit at Everus Harbor after the hospital.", "set": "sensitive", "facts": []}
+{"text": "My daily was the Gladius.", "set": "sensitive", "facts": []}
+{"text": "My daily is the Gladius, the one from my dad.", "set": "sensitive", "facts": []}
+{"text": "I got the Aurora in the split.", "set": "sensitive", "facts": []}
+{"text": "I love mining, it keeps me from thinking.", "set": "sensitive", "facts": []}
+{"text": "I own the Karna, it is the one thing I have from that org.", "set": "sensitive", "facts": []}
+{"text": "I run the Demeco, the last gun we chose.", "set": "sensitive", "facts": []}
+{"text": "I wear the Morozov, it came with the account when I took it over.", "set": "sensitive", "facts": []}
+{"text": "I land at Orison, same pad as before.", "set": "sensitive", "facts": []}
+{"text": "I want the Kraken, it was going to be the one we lived on.", "set": "sensitive", "facts": []}
