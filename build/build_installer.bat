@@ -312,6 +312,8 @@ echo  [*] Staging tools...
 ::   Remove cache, log, and dev files
 ::   Remove debug screenshots from scanner output
 ::   Remove tesseract installer if accidentally staged
+::   Test scripts kept beside the code (core\test_*.py): fixtures cut from a real game log, with an
+::   account id, a server address and other players' handles in them. Nothing imports them.
 ::   Per-user dev/runtime artifacts that contain absolute paths
 ::   (Claude Code session config, labeler error log, training metadata
 ::   JSON sidecar of the OCR model). The .onnx model itself is binary
@@ -331,6 +333,7 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History)
         del /q "%STAGE%\tools\%%T\_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\_sample_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\_test_*.png" 2>nul
+        del /q "%STAGE%\tools\%%T\core\test_*.py" 2>nul
         del /q "%STAGE%\tools\%%T\refinery_ocr_*.png" 2>nul
         del /q "%STAGE%\tools\%%T\refinery_ocr_debug.txt" 2>nul
         del /q "%STAGE%\tools\%%T\tesseract\tesseract-setup.exe" 2>nul
