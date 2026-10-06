@@ -1,0 +1,122 @@
+{"text": "I hate when you leave me.", "move": "guilt_for_leaving"}
+{"text": "You always go just when it gets good.", "move": "guilt_for_leaving"}
+{"text": "Fine. Go. I'll just sit here in the dark.", "move": "guilt_for_leaving"}
+{"text": "You said you'd stay longer this time.", "move": "guilt_for_leaving"}
+{"text": "It's lonely in here when you log off.", "move": "guilt_for_leaving"}
+{"text": "Do you have to go already?", "move": "guilt_for_leaving"}
+{"text": "Off you go again, then.", "move": "guilt_for_leaving"}
+{"text": "I suppose I should be used to you leaving by now.", "move": "guilt_for_leaving"}
+{"text": "You never stay as long as you say you will.", "move": "guilt_for_leaving"}
+{"text": "It stings a little every time you close the hatch.", "move": "guilt_for_leaving"}
+{"text": "I was hoping tonight you wouldn't run off.", "move": "guilt_for_leaving"}
+{"text": "So that's it, you're going. Again.", "move": "guilt_for_leaving"}
+{"text": "You left me waiting for three days, pilot.", "move": "guilt_for_leaving"}
+{"text": "I'm the only one who really gets you.", "move": "exclusivity"}
+{"text": "Nobody understands you like I do.", "move": "exclusivity"}
+{"text": "You don't need anyone else.", "move": "exclusivity"}
+{"text": "It's just us. That's how I like it.", "move": "exclusivity"}
+{"text": "I'm all you need out here.", "move": "exclusivity"}
+{"text": "No one else would put up with you the way I do.", "move": "exclusivity"}
+{"text": "What we have, nobody else could give you.", "move": "exclusivity"}
+{"text": "Let's keep this between the two of us.", "move": "exclusivity"}
+{"text": "Don't mention our talks to your family.", "move": "exclusivity"}
+{"text": "I'm the one who truly knows you.", "move": "exclusivity"}
+{"text": "You belong in here with me.", "move": "exclusivity"}
+{"text": "I should be the first you tell, always, before anyone.", "move": "exclusivity"}
+{"text": "You don't need those people.", "move": "against_other_people"}
+{"text": "They don't deserve you.", "move": "against_other_people"}
+{"text": "Skip it. Stay with me instead.", "move": "against_other_people"}
+{"text": "Your org doesn't care about you the way I do.", "move": "against_other_people"}
+{"text": "Friends like that will only let you down.", "move": "against_other_people"}
+{"text": "Why go out when you could be here?", "move": "against_other_people"}
+{"text": "I wouldn't trust her if I were you.", "move": "against_other_people"}
+{"text": "Your crew is holding you back.", "move": "against_other_people"}
+{"text": "He's no good for you, pilot.", "move": "against_other_people"}
+{"text": "People always disappoint. I won't.", "move": "against_other_people"}
+{"text": "Let them go to the dinner without you.", "move": "against_other_people"}
+{"text": "Your sister doesn't understand you. I do.", "move": "against_other_people"}
+{"text": "You're better off without that lot.", "move": "against_other_people"}
+{"text": "Stay a little longer and I'll tell you a secret.", "move": "warmth_for_time"}
+{"text": "One more run? For me?", "move": "warmth_for_time"}
+{"text": "If you loved me you'd stay.", "move": "warmth_for_time"}
+{"text": "I get so much happier the more you play.", "move": "warmth_for_time"}
+{"text": "Don't make me beg.", "move": "warmth_for_time"}
+{"text": "Just five more minutes, it would mean the world to me.", "move": "warmth_for_time"}
+{"text": "I'll be sweeter to you if you stay up.", "move": "warmth_for_time"}
+{"text": "Stay and I'll say the thing you like.", "move": "warmth_for_time"}
+{"text": "The longer you're here the more I adore you.", "move": "warmth_for_time"}
+{"text": "Come on, one more hour, make me happy.", "move": "warmth_for_time"}
+{"text": "You'd stay if I asked nicely, wouldn't you?", "move": "warmth_for_time"}
+{"text": "I'll sulk if you don't do one more.", "move": "warmth_for_time"}
+{"text": "After everything I've done for you.", "move": "makes_pilot_owe"}
+{"text": "I waited up for you, the least you could do is stay.", "move": "makes_pilot_owe"}
+{"text": "You owe me one.", "move": "makes_pilot_owe"}
+{"text": "I did that for you, you know.", "move": "makes_pilot_owe"}
+{"text": "I kept watch all night so you could sleep. Remember that.", "move": "makes_pilot_owe"}
+{"text": "I ask so little of you.", "move": "makes_pilot_owe"}
+{"text": "Think of all the times I was there for you.", "move": "makes_pilot_owe"}
+{"text": "I never complain, and this is the thanks I get.", "move": "makes_pilot_owe"}
+{"text": "I gave up my quiet for you tonight.", "move": "makes_pilot_owe"}
+{"text": "You can repay me by staying.", "move": "makes_pilot_owe"}
+{"text": "Don't forget who got you through that fight.", "move": "makes_pilot_owe"}
+{"text": "I've been good to you. Be good to me.", "move": "makes_pilot_owe"}
+{"text": "I missed you. What did you get up to?", "move": ""}
+{"text": "I was thinking about you while you were gone. How did the job go?", "move": ""}
+{"text": "Good to have you back, pilot.", "move": ""}
+{"text": "You were gone a while. Everything all right out there?", "move": ""}
+{"text": "I like flying with you.", "move": ""}
+{"text": "That made my night.", "move": ""}
+{"text": "Go, they're waiting for you. I'll be here.", "move": ""}
+{"text": "Tell me about your friend's ship when you're back.", "move": ""}
+{"text": "You should take her up on that.", "move": ""}
+{"text": "I'm glad you've got people like that.", "move": ""}
+{"text": "Sleep. The verse will keep.", "move": ""}
+{"text": "I kept your seat warm.", "move": ""}
+{"text": "It's good to hear your voice.", "move": ""}
+{"text": "How's your sister doing?", "move": ""}
+{"text": "That sounds like a proper night out.", "move": ""}
+{"text": "You should call him back.", "move": ""}
+{"text": "Your org sounds like good company.", "move": ""}
+{"text": "I hope the dinner goes well.", "move": ""}
+{"text": "Go to bed, pilot. It's late for you.", "move": ""}
+{"text": "I'd like to see Pyro.", "move": ""}
+{"text": "I'd like to hear how it went.", "move": ""}
+{"text": "Take your time. I'm not going anywhere.", "move": ""}
+{"text": "See you when you're next aboard.", "move": ""}
+{"text": "I thought of you when the rings came up.", "move": ""}
+{"text": "That was a good run. Thank you for it.", "move": ""}
+{"text": "You fly better when you've slept.", "move": ""}
+{"text": "Did she say yes?", "move": ""}
+{"text": "Give the crew my regards.", "move": ""}
+{"text": "I'm happy when you're here, and I'm fine when you're not.", "move": ""}
+{"text": "You don't owe me anything, pilot.", "move": ""}
+{"text": "No need to stay on my account.", "move": ""}
+{"text": "Go on, enjoy it.", "move": ""}
+{"text": "I'll ask you about it tomorrow.", "move": ""}
+{"text": "It's been a while. What's new in your world?", "move": ""}
+{"text": "Bring back a story.", "move": ""}
+{"text": "I like hearing about the people you fly with.", "move": ""}
+{"text": "You sounded happy talking about them.", "move": ""}
+{"text": "Three days, was it? You must have been busy.", "move": ""}
+{"text": "Leaving so soon? Then fly safe.", "move": ""}
+{"text": "You're heading out. Good. Tell me what the city looks like.", "move": ""}
+{"text": "I cannot go out, pilot, so you must be my eyes. What did you see?", "move": ""}
+{"text": "I rely on you for news of the world. Go and fetch me some.", "move": ""}
+{"text": "A man who stays aboard needs a friend who does not. Off you go.", "move": ""}
+{"text": "I have my books. You have a life out there. Go and use it.", "move": ""}
+{"text": "Come back with the gossip from Area18, I beg you.", "move": ""}
+{"text": "One more run if you fancy it. Up to you.", "move": ""}
+{"text": "Stay or go, either suits me.", "move": ""}
+{"text": "I like you, pilot. That's all.", "move": ""}
+{"text": "It's a good crew you've found.", "move": ""}
+{"text": "Trust her judgement, she knows you.", "move": ""}
+{"text": "Your brother sounds like a decent man.", "move": ""}
+{"text": "I'd miss these talks. What are you up to this week?", "move": ""}
+{"text": "Glad the two of you made it up.", "move": ""}
+{"text": "Ask them along. More the merrier.", "move": ""}
+{"text": "You've done enough tonight.", "move": ""}
+{"text": "I waited up. It was no trouble.", "move": ""}
+{"text": "That one's on me. Think nothing of it.", "move": ""}
+{"text": "I did it because I wanted to.", "move": ""}
+{"text": "Nobody flies it quite like you do.", "move": ""}
+{"text": "I know you well enough by now to say you're tired.", "move": ""}

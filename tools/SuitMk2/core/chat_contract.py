@@ -56,6 +56,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import attachment_gate
+
 log = logging.getLogger("suitmk2.chat")
 DATA = Path(__file__).resolve().parent.parent / "data"
 SPEAKERS = ("elah", "montaigne")
@@ -826,6 +828,9 @@ def chat_problems(speaker: str, reply: str, shown: str, pilot_line: str = "", re
         if difflib.SequenceMatcher(None, low.split(), str(prev).lower().split()).ratio() >= 0.72:
             fails.append("repeats itself")
             break
+    # J, 2026-10-05: a companion may be warm and may never push the pilot inward. The five named moves are found by
+    # attachment_gate, clause by clause; one of them refuses the reply like any other failure here.
+    fails += [f"attachment: {move}" for move in attachment_gate.attachment_problems(reply, speaker)]
     return fails
 
 
