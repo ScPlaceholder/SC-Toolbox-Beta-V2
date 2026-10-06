@@ -262,11 +262,13 @@ xcopy "%ROOT%\ui\*.py" "%STAGE%\ui\" /s /i /q >nul
 
 :: skills/ — copy each skill, then prune non-runtime files
 echo  [*] Staging skills...
+set "COPY_FAILED="
 for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Loadout Mission_Database Mouse_Blocker Trade_Hub) do (
     if exist "%ROOT%\skills\%%S" (
-        xcopy "%ROOT%\skills\%%S" "%STAGE%\skills\%%S\" /s /i /q >nul
+        robocopy "%ROOT%\skills\%%S" "%STAGE%\skills\%%S" /E /XD .claude .git __pycache__ .pytest_cache /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+        if errorlevel 8 set "COPY_FAILED=!COPY_FAILED! skills\%%S"
 
-        :: Remove cache files
+        rem Remove cache files
         del /q "%STAGE%\skills\%%S\.cargo_cache.json" 2>nul
         del /q "%STAGE%\skills\%%S\.erkul_cache.json" 2>nul
         del /q "%STAGE%\skills\%%S\.fy_hardpoints_cache.json" 2>nul
@@ -274,23 +276,23 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
         del /q "%STAGE%\skills\%%S\.scmdb_cache*.json" 2>nul
         if exist "%STAGE%\skills\%%S\.craft_cache" rmdir /s /q "%STAGE%\skills\%%S\.craft_cache"
         if exist "%STAGE%\skills\%%S\.api_cache" rmdir /s /q "%STAGE%\skills\%%S\.api_cache"
-        :: Remove log files
+        rem Remove log files
         del /q "%STAGE%\skills\%%S\*.log" 2>nul
         del /q "%STAGE%\skills\%%S\*.log.*" 2>nul
         del /q "%STAGE%\skills\%%S\nul.lock" 2>nul
         del /q "%STAGE%\skills\%%S\_debug.log" 2>nul
-        :: Remove dev/audit files
+        rem Remove dev/audit files
         del /q "%STAGE%\skills\%%S\*_audit*.py" 2>nul
         del /q "%STAGE%\skills\%%S\*_audit*.txt" 2>nul
         del /q "%STAGE%\skills\%%S\audit_report.txt" 2>nul
-        :: ★ 2026-09-26 — the erkul ground-truth SCRAPERS. Dev tools: they exist to query
-        :: erkul and compare its answers with ours, so they are deliberately NOT gated by
-        :: erkul_network_allowed() (gating them would delete their only purpose). But they
-        :: were SHIPPING: pak_cross_audit.py was caught by the *_audit* rule above and
-        :: these two were not, so every installer carried two live erkul scrapers.
-        :: erkul's API page states third-party automated access is not authorised, so
-        :: shipping them to users is the risk — not running them here. Excluded, not gated,
-        :: which keeps them working on a dev box where they belong.
+        rem ★ 2026-09-26 — the erkul ground-truth SCRAPERS. Dev tools: they exist to query
+        rem erkul and compare its answers with ours, so they are deliberately NOT gated by
+        rem erkul_network_allowed() (gating them would delete their only purpose). But they
+        rem were SHIPPING: pak_cross_audit.py was caught by the *_audit* rule above and
+        rem these two were not, so every installer carried two live erkul scrapers.
+        rem erkul's API page states third-party automated access is not authorised, so
+        rem shipping them to users is the risk — not running them here. Excluded, not gated,
+        rem which keeps them working on a dev box where they belong.
         del /q "%STAGE%\skills\%%S\erkul_dropdown_truth.py" 2>nul
         del /q "%STAGE%\skills\%%S\erkul_slot_truth.py" 2>nul
         del /q "%STAGE%\skills\%%S\erkul_dropdown_truth.json" 2>nul
@@ -301,7 +303,7 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
         del /q "%STAGE%\skills\%%S\generate_layout.py" 2>nul
         del /q "%STAGE%\skills\%%S\cargo_grid_editor.html" 2>nul
         del /q "%STAGE%\skills\%%S\requirements.txt" 2>nul
-        :: pytest coverage data — contains absolute source paths.
+        rem pytest coverage data — contains absolute source paths.
         del /q "%STAGE%\skills\%%S\.coverage" 2>nul
     )
 )
@@ -322,7 +324,8 @@ echo  [*] Staging tools...
 ::  and printed 'The system cannot find the drive specified.' in the 2.4.0 build log.)
 for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History) do (
     if exist "%ROOT%\tools\%%T" (
-        xcopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T\" /s /i /q >nul
+        robocopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T" /E /XD .claude .git __pycache__ .pytest_cache /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+        if errorlevel 8 set "COPY_FAILED=!COPY_FAILED! tools\%%T"
         del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
         del /q "%STAGE%\tools\%%T\*.log.*" 2>nul
@@ -343,6 +346,10 @@ for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History)
         del /q "%STAGE%\tools\%%T\.coverage" 2>nul
         del /q "%STAGE%\tools\%%T\ocr\models\model_signal_cnn.json" 2>nul
     )
+)
+if defined COPY_FAILED (
+    echo  [ERR] These folders were not copied whole:!COPY_FAILED!
+    goto :fail
 )
 
 :: Pico Pals (tools\Pico) - staged FILE BY FILE, never through the loop above.
