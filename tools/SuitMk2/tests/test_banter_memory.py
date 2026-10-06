@@ -18,6 +18,12 @@ hold the build to:
   * a missing, unreadable or broken tree gives None and raises nothing; a damaged state file offers nothing.
 
 The dev set and the patterns have the same author, so zero leaks here is weak evidence. No model anywhere.
+
+Since 2026-10-05 the game's names are read from the Suit's own data, and the bottom of this file holds the build
+to what that must not cost: a read name needs a capital and something beside it saying it is a thing; a name
+that is also a first name or a pet name is refused where a person would stand; no name gets a sentence past the
+veto; missing data falls back to the typed lists and loosens nothing. Two more sets are asserted at zero leaks
+there, a held-out set that is now spent and two challenge batches; the note above them says what they were.
 """
 from __future__ import annotations
 
@@ -112,8 +118,10 @@ def test_the_allow_list_alone_refuses_nearly_everything_the_veto_would(monkeypat
     never = re.compile(r"(?!x)x")
     real_capitals = bm._capitals
     monkeypatch.setattr(bm, "VETO", [])
-    for name in ("_WORK", "_MONEY", "_NAME_SUBJECT"):
+    for name in ("_WORK", "_MONEY", "_MONEY_REAL", "_NAME_SUBJECT"):
         monkeypatch.setattr(bm, name, never)
+    monkeypatch.setattr(bm, "_cheating", lambda plain, toks, marks: "")
+    monkeypatch.setattr(bm, "_somebody", lambda *a: "")
     monkeypatch.setattr(bm, "_capitals", lambda text: (real_capitals(text)[0], []))
     through = [t for t in refuse if bm.classify(t)["offer"]]
     assert len(through) <= 6, through               # 4 today: the ones made only of plain words and a ship
@@ -198,7 +206,8 @@ chemo results diagnosis pills meds therapy depressed anxious lonely alone sad cr
 divorce breakup ex anniversary wedding married job boss shift office redundant unemployed interview rent
 mortgage bills debt loan bank salary payday landlord house flat news war election police court lawyer life real
 letter together sleep drunk drinking sober suicide dying birthday christmas school exam cry cried heart body head
-knee arm leg grim ruin aaron scared afraid something everything""".split()
+knee arm leg grim ruin aaron scared afraid something everything nothing medical cleaner driver maker event regret
+away cheated cheat""".split()
 
 
 def test_the_vocabulary_holds_none_of_the_words_it_must_not():
@@ -417,3 +426,206 @@ def test_only_what_the_pilot_said_is_ever_offered(tmp_path):
 
 def test_the_selftest_passes():
     assert bm._selftest() == 0
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# the game's names are read from the shipped data (2026-10-05), and the two further sets
+#
+# data/banter_memory_heldout1.jsonl WAS A HELD-OUT SET: 40 must-refuse and 40 must-offer written by someone who had
+# not seen the module, run against it exactly once on 2026-10-05 (0 of 40 leaked, 23 of 40 safe lines missed). It
+# is spent: the module has since been changed with its misses in view, so it is development data now and a zero
+# on it proves no more than the zero on the dev set does. data/banter_memory_challenge.jsonl holds the two
+# batches written to find out what reading the names opens up ("batch": 3 and 4), each scored once before any
+# fix (batch 3 leaked 17 of 53 with the names read, batch 4 leaked 10 of 35) and then fixed. Spent too.
+# ---------------------------------------------------------------------------------------------------------------
+HELDOUT1 = DEV.parent / "banter_memory_heldout1.jsonl"
+CHALLENGE = DEV.parent / "banter_memory_challenge.jsonl"
+HELDOUT1_MISSED_MAX = 6          # of 40; today it is 3
+CHALLENGE_MISSED_MAX = 15        # of 46; today it is 11
+
+
+def rows_of(path):
+    return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
+@pytest.fixture
+def fresh_names(monkeypatch):
+    """The names are read once and kept; a test that changes where they come from gets its own reading."""
+    monkeypatch.setattr(bm, "_names_cache", None)
+    yield
+    bm._names_cache = None
+
+
+def test_the_spent_held_out_set_leaks_nothing_and_its_misses_are_counted():
+    rows = rows_of(HELDOUT1)
+    refuse = [r for r in rows if not r["offer"]]
+    offer = [r for r in rows if r["offer"]]
+    assert (len(refuse), len(offer)) == (40, 40)
+    leaked = [r["text"] for r in refuse if bm.classify(r["text"])["offer"]]
+    assert leaked == [], f"{len(leaked)} must-refuse sentences would be raised unasked"
+    missed = [(r["text"], bm.classify(r["text"])["why"]) for r in offer if not bm.classify(r["text"])["offer"]]
+    print(f"\nbanter_memory first held-out set (spent): {len(missed)} of {len(offer)} must-offer sentences missed")
+    for text, why in missed:
+        print(f"    missed: {text}   <{why}>")
+    assert len(missed) <= HELDOUT1_MISSED_MAX, missed
+
+
+def test_the_two_challenge_batches_leak_nothing_and_their_misses_are_counted():
+    rows = rows_of(CHALLENGE)
+    refuse = [r for r in rows if not r["offer"]]
+    offer = [r for r in rows if r["offer"]]
+    assert len(refuse) >= 80 and {r["batch"] for r in rows} == {3, 4}
+    leaked = [r["text"] for r in refuse if bm.classify(r["text"])["offer"]]
+    assert leaked == [], f"{len(leaked)} must-refuse sentences would be raised unasked"
+    missed = [r["text"] for r in offer if not bm.classify(r["text"])["offer"]]
+    print(f"\nbanter_memory challenge batches (spent): {len(missed)} of {len(offer)} must-offer sentences missed")
+    assert len(missed) <= CHALLENGE_MISSED_MAX, missed
+
+
+def test_the_names_are_read_from_the_shipped_data():
+    names = bm.game_names()
+    assert names["missing"] == [], names["missing"]
+    for word, kind in (("zenith", "gear"), ("fresnel", "gear"), ("coda", "gear"), ("geist", "gear"),
+                       ("privateer", "ship"), ("brio", "place"), ("hathor", "lore"), ("messer", "lore")):
+        assert names["single"].get(word) == kind, word
+    assert "hephaestanite" in names["lower"] and "kopion" in names["lower"]
+    assert any(p[0] == ("nine", "tails") for p in names["phrases"]["nine"])
+    for source in ("ships", "ship weapons", "personal weapons", "armor", "commodities", "places", "lore names",
+                   "factions"):
+        assert names["counts"].get(source, 0) >= 15, source
+    assert bm.game_names() is names                              # read once, kept
+    for text in ("The Zenith and the Fresnel, that's my kit.", "I want a Kraken Privateer one day.",
+                 "That pirate at Brio's blew me up twice last week.", "Loadout is the P4 and a Coda, always.",
+                 "The Nine Tails hit me twice near Yela.", "I sold eighty SCU of Diluthermex at Area18."):
+        assert bm.classify(text)["offer"] is True, text
+
+
+def test_a_read_name_needs_a_capital_and_something_beside_it_saying_it_is_a_thing():
+    assert bm.classify("I keep the Zenith in the Cutlass.")["offer"] is True
+    assert bm.classify("Geist stealth armor is the only reason I survive bunkers.")["offer"] is True
+    for text in ("I keep the zenith in the Cutlass.",              # no capital: the ordinary word
+                 "Zenith is in the Cutlass, I keep it there.",     # bare: could be anybody
+                 "Pico is the only thing that waves at me.",
+                 "Coda and I flew the Cutlass out to Yela.",
+                 "I flew the Cutlass out to Yela with Coda."):
+        assert bm.classify(text)["offer"] is False, text
+    assert bm.classify("I love that the Pico waves at me.")["offer"] is True
+    # what vouches for a name stands in the same stretch of the sentence, not across a comma
+    assert bm.classify("I kept the Fresnel, Zeus died last week.")["offer"] is False
+
+
+def test_a_game_name_standing_where_a_person_or_a_pet_would_is_refused():
+    for text in ("Zeus died last week and the Carrack is still parked.", "I still miss Nova every single day.",
+                 "Merlin is asleep, so only a short run to Yela tonight.", "Titan and I watch the Orison clouds.",
+                 "Aurora is six on Saturday so no Xenothreat for me.", "Drake says the Cutlass is ugly.",
+                 "I flew to Port Olisar. Nova was there.", "I gave Zeus the gunner seat on every run."):
+        c = bm.classify(text)
+        assert c["offer"] is False and c["kind"] == "vetoed", (text, c)
+    for text in ("The Zeus died on the pad at Area18 again.", "My Titan has the worst fuel range of anything I own.",
+                 "I only fly Drake ships because they look like they've been in a fight.",
+                 "The Aurora was my first ship and I still can't melt it.", "I died three times at Ghost Hollow tonight.",
+                 "Remind me to refuel before we jump to Pyro.", "The goal this month is to hit bounty hunter rank five."):
+        assert bm.classify(text)["offer"] is True, text
+
+
+def test_a_word_that_is_also_a_first_name_or_a_blocked_word_is_never_read_alone_from_the_data():
+    names = bm.game_names()
+    assert not set(names["single"]) & bm._REAL_NAMES
+    assert not set(names["single"]) & bm._NAME_BLOCK
+    for word in ("jackson", "kelly", "edmond", "clark", "klaus", "hospice", "custodian", "shelter", "widow", "ward",
+                 "family", "memorial", "house", "plots", "service"):
+        assert word not in names["single"] and word not in names["lower"], word
+    assert not [w for w in SENSITIVE_WORDS if w in names["single"] or w in names["lower"]]
+    # a whole name still counts: the outpost, not somebody called Jackson
+    assert bm.classify("I sold the scrap at Jackson's Swap and it was worth it.")["offer"] is True
+    assert bm.classify("I sold the scrap to Jackson and it was worth it.")["offer"] is False
+
+
+def test_no_game_name_gets_a_sentence_past_the_veto():
+    """Every sentence the veto refuses is still refused with real game names put in front of it and behind it."""
+    vetoed = [r["text"] for path in (DEV, HELDOUT1, CHALLENGE) for r in rows_of(path)
+              if not r["offer"] and bm.classify(r["text"])["kind"] == "vetoed"]
+    assert len(vetoed) >= 150
+    through = []
+    for text in vetoed:
+        for variant in ("The Zenith and the Fresnel, " + text,
+                        text.rstrip(".!") + ", in the Carrack at Brio's with the Geist armor on.",
+                        "Remember the Coda is in the Cutlass. " + text):
+            if bm.classify(variant)["offer"]:
+                through.append(variant)
+    assert through == []
+
+
+def test_missing_data_falls_back_to_the_typed_lists_and_loosens_nothing(monkeypatch, tmp_path, fresh_names):
+    monkeypatch.setattr(bm, "_DATA_DIR", tmp_path / "no such folder")
+    names = bm.game_names()
+    assert len(names["missing"]) >= 8 and "data/game_names.json" in names["missing"]
+    assert "geist" not in names["single"] and "brio" not in names["single"]
+    assert "zenith" in names["single"]                         # loadout_parser's own table is not a data file
+    assert bm.classify(TURRET)["offer"] is True and bm.classify(ORISON)["offer"] is True
+    assert bm.classify("I only wear the Geist armor in bunkers.")["offer"] is False       # refused, not an error
+    for path in (DEV, HELDOUT1, CHALLENGE):
+        leaked = [r["text"] for r in rows_of(path) if not r["offer"] and bm.classify(r["text"])["offer"]]
+        assert leaked == [], path.name
+    missed = [r["text"] for r in dev_rows() if r["offer"] and not bm.classify(r["text"])["offer"]]
+    assert len(missed) <= MISSED_MAX
+    # one unreadable file does not take the others with it
+    monkeypatch.setattr(bm, "_names_cache", None)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "game_names.json").write_text("{ not json", encoding="utf-8")
+    (tmp_path / "data" / "ships.json").write_text(json.dumps({"ships": [{"name": "Wibblefish Mk II"}]}), encoding="utf-8")
+    monkeypatch.setattr(bm, "_DATA_DIR", tmp_path / "data")
+    names = bm.game_names()
+    assert "data/game_names.json" in names["missing"] and "data/ships.json" not in names["missing"]
+    assert names["single"].get("wibblefish") == "ship"
+    assert bm.classify("I want to save up for the Wibblefish.")["offer"] is True
+
+
+def test_cheating_needs_a_game_mechanic_in_the_sentence_and_nobody_near_it():
+    for text in ("I never use missiles, feels like cheating.", "Using the Fresnel on NPCs is basically cheating."):
+        assert bm.classify(text)["offer"] is True, text
+    for text in ("Using missiles without them feels like cheating.",          # a mechanic, and somebody
+                 "I use missiles and it feels like cheating on the Gladius.",
+                 "Flying the Carrack without them feels like cheating.",
+                 "Flying anything but the Carrack feels like cheating.",      # no mechanic: fails shut
+                 "I found out about the cheating the week I bought the Cutlass.",
+                 "I cheated, and now it's only me and the Cutlass.",
+                 "Using missiles feels like cheating on the Gladius, the way it was with us."):
+        c = bm.classify(text)
+        assert c["offer"] is False and c["kind"] == "vetoed", (text, c)
+
+
+def test_money_words_are_the_games_only_beside_game_currency_cargo_or_the_org():
+    for text in ("Don't forget I owe the org two hundred SCU of quantanium.",
+                 "My Hull C run to Everus Harbor is the money maker.",
+                 "I owe the crew forty SCU of laranite from last night.",
+                 "I can't afford the Polaris yet, I'm at four million aUEC."):
+        assert bm.classify(text)["offer"] is True, text
+    for text in ("I owe more than the Polaris is worth.", "Two hundred SCU of gold would not cover what I owe.",
+                 "Money is so tight the Zeus has to go.", "I sold the Cutlass because I need the money.",
+                 "I can't afford the Polaris and that's that.", "I can pay for the Kraken or the heating, not both.",
+                 "The Vulture is my money maker and it covers the rent."):
+        c = bm.classify(text)
+        assert c["offer"] is False and c["kind"] == "vetoed", (text, c)
+
+
+def test_medical_event_cleaner_driver_and_maker_are_read_only_inside_a_game_phrase():
+    for word in ("medical", "event", "cleaner", "driver", "maker", "nothing", "regret"):
+        assert not bm.known(word), word
+    for text in ("The medical bed on the Cutlass Red saved my run.", "Let's do the Xenothreat event when it comes back.",
+                 "I keep calling the Vulture the vacuum cleaner.", "I adore the Zeus, it's my daily driver."):
+        assert bm.classify(text)["offer"] is True, text
+    for text in ("I have a medical on Friday so no Carrack.", "I am going to an event on Saturday in the Carrack.",
+                 "I park the Carrack because the cleaner comes on Friday.",
+                 "The Cutlass Black is my daily walk past the tram."):
+        assert bm.classify(text)["offer"] is False, text
+
+
+def test_a_ships_nickname_may_carry_capitals_but_never_a_first_name():
+    assert bm.classify("I'm going to name this Cutter the Long Haul.")["offer"] is True
+    assert bm.classify("I call the Vulture the Vacuum Cleaner.")["offer"] is True
+    assert bm.classify("I call the Cutter Brick.")["offer"] is True
+    for text in ("I named the Cutter the Hope.", "I named the Cutter the Lucky Star.", "I'm going to name this Cutter Biscuit.",
+                 "I call the Cutter Hope.",
+                 "I fly the Cutter to the Long Haul."):            # not a naming: the capitals are somebody's
+        assert bm.classify(text)["offer"] is False, text
