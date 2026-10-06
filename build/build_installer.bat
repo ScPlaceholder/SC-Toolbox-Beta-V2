@@ -1356,6 +1356,16 @@ if not defined PACK_VER (
 )
 echo  [*] Packing Velopack release v!PACK_VER!...
 
+:: A file that held bytes in the last release and is empty in this one stops vpk from building the
+:: delta (its zstd will not make a patch that ends in nothing). fix_emptied_files.py gives such a Python
+:: source file one comment line and stops the build for any other kind.
+echo  [*] Checking for files that became empty since the last release...
+"%STAGE%\python\python.exe" "%BUILD%fix_emptied_files.py" "%STAGE%" "%BUILD%Releases" "!PACK_VER!"
+if !errorlevel! neq 0 (
+    echo  [ERR] A file became empty since the last release and could not be handled.
+    goto :fail
+)
+
 :: ── Step 8c: Run vpk pack ──
 :: DOTNET_ROLL_FORWARD=Major lets vpk run against ASP.NET Core 10
 :: (we don't bundle 9 separately to save install space).
