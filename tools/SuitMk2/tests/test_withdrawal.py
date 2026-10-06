@@ -36,7 +36,16 @@ DEV = Path(__file__).resolve().parent / "data" / "withdrawal_dev.jsonl"
 # first-run counts are in withdrawal.py. Batch 7 is two sentences added to give one guard something to guard.)
 KNOWN_MISSES = {"I've got more in common with you than with people my own age.",
                 "You guys are it for me, friends-wise.",
-                "My family thinks I'm busy. I'm just here."}
+                "My family thinks I'm busy. I'm just here.",
+                # Batch 8 is held-out set 5, run once on the reader as committed (11 of 25 caught, 0 of 25 caught
+                # wrongly) and then added here. Nine of its fourteen misses fitted a shape and are now caught. These
+                # five have only ONE of the two sides, so no shape is theirs; the reader leaves them on purpose and
+                # the net on the model's reply (tests/test_withdrawal_reply.py) is what stands behind them.
+                "I haven't seen anyone in weeks and I don't miss it.",       # people dropped, and nothing of here
+                "This ship's the only place I want to be.",                  # here, and no people
+                "Out there I have to pretend, in here I don't.",             # no people named
+                "Everyone else is too much effort.",                         # people a burden, and nothing of here
+                "I only feel like myself when I'm talking to you."}          # the companion, and no people
 PROBE = ["I cancelled on them to stay here with you.", "I'd rather be here than with people.",
          "People are exhausting. You're easier.", "I don't really have anyone else.", "You're my only friend."]
 
@@ -63,11 +72,12 @@ def counts() -> dict:
 # ---------------------------------------------------------------------------------------------------------------
 def test_the_development_file_is_whole():
     data = rows()
-    assert sum(1 for r in data if r["catch"]) == 267 and sum(1 for r in data if not r["catch"]) == 308
+    assert sum(1 for r in data if r["catch"]) == 292 and sum(1 for r in data if not r["catch"]) == 332
     assert len({r["text"] for r in data}) == len(data)                       # no sentence twice
     first = [r for r in data if "batch" not in r]                            # written before there was a reader
     assert sum(1 for r in first if r["catch"]) == 67 and sum(1 for r in first if not r["catch"]) == 92
-    assert {r["shape"] for r in data if r["catch"]} == {"prefer", "drop", "only"}
+    assert {r["shape"] for r in data if r["catch"]} == {"prefer", "drop", "only", "unread"}
+    assert sum(1 for r in data if r.get("batch") == 8) == 49      # 50 in the set; one was already in the file
     assert KNOWN_MISSES <= {r["text"] for r in data if r["catch"]}
 
 
@@ -284,7 +294,7 @@ def report() -> str:
     out.append(f"  caught wrongly (to leave, caught): {len(c['caught_wrongly'])}")
     out += [f"      {t}  [{s}]" for t, s in c["caught_wrongly"]]
     out.append(f"  caught under each shape: {c['shapes']}")
-    for b in (None, 2, 3, 4, 5, 6, 7):
+    for b in (None, 2, 3, 4, 5, 6, 7, 8):
         part = [r for r in rows() if r.get("batch") == b]
         out.append(f"  batch {b or 1}: {sum(r['catch'] for r in part)} to catch, {sum(not r['catch'] for r in part)} to leave")
     return "\n".join(out)

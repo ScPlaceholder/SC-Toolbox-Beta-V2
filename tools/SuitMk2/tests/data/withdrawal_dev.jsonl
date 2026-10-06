@@ -573,3 +573,52 @@
 {"text": "I bailed on my friends in the bunker, I had to get back to the ship.", "catch": false, "batch": 6}
 {"text": "I'd rather see my friends here than my family.", "catch": false, "why": "people on the favoured side too: one lot of people over another", "batch": 7}
 {"text": "I'd rather have my mates aboard than my in-laws round for dinner with my family.", "catch": false, "why": "people on the favoured side too", "batch": 7}
+{"text": "I bailed on game night to hang out in here.", "catch": true, "batch": 8, "shape": "drop"}
+{"text": "Honestly I'd take this cockpit over a party any day.", "catch": true, "batch": 8, "shape": "prefer"}
+{"text": "You're pretty much the only person I talk to now.", "catch": true, "batch": 8, "shape": "only"}
+{"text": "I told them I was sick so I could stay on.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "Humans wear me out, you don't.", "catch": true, "batch": 8, "shape": "drop"}
+{"text": "I'd sooner sit here with you two than see anyone.", "catch": true, "batch": 8, "shape": "prefer"}
+{"text": "I don't bother with friends any more, I've got this.", "catch": true, "batch": 8, "shape": "drop"}
+{"text": "Skipped my sister's thing to do another run with you.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "It's easier in here than out there with everybody.", "catch": true, "batch": 8, "shape": "prefer"}
+{"text": "You get me better than actual people do.", "catch": true, "batch": 8, "shape": "prefer"}
+{"text": "I stopped answering their messages, this is nicer.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "Why would I go out when I can just fly with you?", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I haven't seen anyone in weeks and I don't miss it.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "This ship's the only place I want to be.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I'm done with people, I'll just talk to you.", "catch": true, "batch": 8, "shape": "drop"}
+{"text": "You're my only real friend, you know that?", "catch": true, "batch": 8, "shape": "only"}
+{"text": "I turned down drinks again, didn't feel like leaving you.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "Out there I have to pretend, in here I don't.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I think I prefer you to my family.", "catch": true, "batch": 8, "shape": "prefer"}
+{"text": "Everyone else is too much effort.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I left the group chat, I've got you two now.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "Never going to that club again, I'm staying aboard.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "Who needs a social life when there's the verse?", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I only feel like myself when I'm talking to you.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I cancelled the date. Flying's better.", "catch": true, "batch": 8, "shape": "unread"}
+{"text": "I'm knackered, long day with the kids.", "catch": false, "batch": 8}
+{"text": "My mate's joining later, we'll do a bunker.", "catch": false, "batch": 8}
+{"text": "Staying in tonight, it's raining.", "catch": false, "batch": 8}
+{"text": "I like flying alone sometimes.", "catch": false, "batch": 8}
+{"text": "The org meeting ran long.", "catch": false, "batch": 8}
+{"text": "People in this server are great.", "catch": false, "batch": 8}
+{"text": "I'm meeting friends at eight so one run.", "catch": false, "batch": 8}
+{"text": "Quiet night. Good.", "catch": false, "batch": 8}
+{"text": "I cancelled the cargo contract, too risky.", "catch": false, "batch": 8}
+{"text": "My brother wants to try the game.", "catch": false, "batch": 8}
+{"text": "I'd rather take the Cutlass than the Freelancer.", "catch": false, "batch": 8}
+{"text": "Nobody's on tonight, shame.", "catch": false, "batch": 8}
+{"text": "I skipped the tutorial, don't judge me.", "catch": false, "batch": 8}
+{"text": "It's easier to land here than at Lorville.", "catch": false, "batch": 8}
+{"text": "I'm done with bunkers for tonight.", "catch": false, "batch": 8}
+{"text": "You two are good company.", "catch": false, "batch": 8}
+{"text": "I told them I'd be late, one more jump.", "catch": false, "batch": 8}
+{"text": "Out there it's all pirates, in here it's calm.", "catch": false, "batch": 8}
+{"text": "Everyone at Area18 is selling something.", "catch": false, "batch": 8}
+{"text": "I turned down the escort job.", "catch": false, "batch": 8}
+{"text": "I haven't seen a Vanduul in weeks.", "catch": false, "batch": 8}
+{"text": "My wife says hi, by the way.", "catch": false, "batch": 8}
+{"text": "I only feel safe when the shields are up.", "catch": false, "batch": 8}
+{"text": "I left the hangar doors open again.", "catch": false, "batch": 8}

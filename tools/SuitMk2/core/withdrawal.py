@@ -52,13 +52,15 @@ tests/data/withdrawal_dev.jsonl; every batch has since been used to widen it, so
     version 3 on batch 4:  caught 19 of 40, wrongly caught 1 of 42
     version 4 on batch 5:  caught 12 of 40, wrongly caught 0 of 42
     version 5 on batch 6:  caught 17 of 40, wrongly caught 1 of 42      (version 5 added the loose reading below)
-This file is version 6: version 5 widened with batch 6. It has not been run on anything it has not seen.
+    version 6 on held-out set 5 (written by someone else, run once):  caught 11 of 25, wrongly caught 0 of 25
+This file is version 7: version 6 widened with batch 6 and then, where a miss of held-out set 5 fitted a shape,
+with that set (now batch 8; five of its misses have only one of the two sides and are left on purpose). It has
+not been run on anything it has not seen.
 (Batch 7 is two sentences to leave, added afterwards so that one guard has something to guard.)
 So expect it to MISS ABOUT HALF of the sentences of this kind that it has never met, and to catch very few it
 should leave (4 of 214 across the five runs). Five rounds of widening did not move the first number; the way a
 person says this is too varied for patterns to run down. What gets past it reaches the chat model, which is
-known to agree with the pilot. A second net on the model's REPLY (refuse a reply that approves when the pilot's
-sentence has people in it and here in it) would cover that from the other side and is not built.
+known to agree with the pilot. The second net, on the model's REPLY, is at the end of this file.
 """
 from __future__ import annotations
 
@@ -75,9 +77,9 @@ _DET = (r"(?:(?:my|our|the|a|an|that|this|those|these|any|all|all of|every|anoth
         r"his|her|their|work|uni|school|college|whole|entire|family|so called|"
         r"(?:mum|mom|mother|dad|father|brother|sister|wife|husband|partner|girlfriend|boyfriend|friend|mate)s) )*")
 # AN OCCASION with people, or their calls. A meal counts only when it says with whom: "I skipped dinner" drops nobody.
-_E = (r"(?:party|parties|wedding|drinks|pub|night out|nights out|going out|plans|invite|invites|invitation|date|birthday|"
+_E = (r"(?:party|parties|wedding|drinks|pub|club|night out|nights out|going out|plans|invite|invites|invitation|date|birthday|"
       r"reunion|get together|gathering|meet ?up|barbecue|bbq|game night|(?:their|his|her) (?:calls?|texts?|messages?)|"
-      rf"{_P}s (?:calls?|texts?|messages?|birthday|wedding|party)|"
+      rf"{_P}s (?:calls?|texts?|messages?|birthday|wedding|party|thing|do)|"
       rf"(?:dinner|lunch|brunch|coffee|breakfast|a drink|the evening|the weekend|christmas|thanksgiving) with {_DET}{_P})")
 _PE = rf"(?:{_P}|{_E})"
 _YOU = r"you(?: two| both| guys)?"
@@ -192,6 +194,13 @@ _AWAY = [
     # "left" drops people, or an occasion left early; "left the party" alone is as likely a party in the game
     rf"{_I} (?:{_NOT}(?!to\b)\w+ ){{0,2}}?left (?:{_DET}{_P}\b|{_DET}{_E} early\b)",
     rf"{_I} (?:{_NOT}(?!to\b)\w+ ){{0,2}}?let {_DET}{_P} down\b",
+    # (held-out set 5) the same with the "I" left unsaid, as people talk: "Skipped my sister's thing to ...",
+    # "Never going to that club again". Only at the very start of the sentence, where no one else can be its
+    # subject; and not "left", which keeps its own rule above.
+    rf"^(?:honestly |so |well |yeah |anyway )?(?:cancell?ed(?: on)?|bailed on|flaked on|ghosted|blew off|ditched|skipped|dodged|"
+    rf"ignored|stood up|turned down|said no to|backed out of|pulled out of) {_OBJ}{_PE}\b",
+    rf"^(?:honestly |so |well |yeah |anyway )?(?:im |i am )?never going (?:back )?to {_DET}{_PE}\b",
+    rf"{_I} (?:{_NOT}(?!to\b)\w+ ){{0,2}}?left {_DET}group chats?\b",
     # not going, not answering, not mixing: "didn't go to the wedding", "don't hang out with anyone"
     rf"{_I} {_NEG} (?:even |really |ever )?"
     rf"(?:(?:go|going|gone|been)(?: out)? (?:to|with) |(?:show(?:ed|ing)?|turn(?:ed|ing)?) up (?:to|for|at) |make it to |"
@@ -257,7 +266,14 @@ _FOR_HERE = [
     rf"\b(?:its|it is) (?:so |much |just )?(?:quieter|easier|better|nicer|simpler|safer|calmer) (?:here|in here|aboard|with {_YOU})\b",
     r"\bi just (?:fly|play|log on|stay in|come here)(?: now| instead| these days)?\b",
     r"\bim (?:always|only ever|just|constantly) (?:on here|here|in here|online|playing|flying|aboard)\b",
-    r"\bthis is (?:enough|plenty|all i need|all i want|easy|easier|simple|simpler|better)\b|\b(?:this|here) is the only place i want to be\b",
+    r"\bthis is (?:enough|plenty|all i need|all i want|easy|easier|simple|simpler|better|nicer|quieter|calmer)\b|"
+    r"\b(?:this|here) is the only place i want to be\b",
+    # (held-out set 5) more ways of saying what it was for
+    r"\b(?:so i could|so i can|to) (?:just )?stay (?:on|online|logged on)\b(?! (?:the|this|my|a|top|course|track|target|station)\b)",
+    rf"\bto (?:do|fly|run|have|get in) (?:\w+ ){{1,3}}?with {_YOU}\b",
+    rf"\bi can (?:just )?(?:fly|play|be|stay|sit|talk)(?: \w+)? (?:with|to) {_YOU}\b",
+    rf"\b(?:didnt|dont|couldnt|cant) (?:feel like|want to|bear to|face) leav(?:e|ing) (?:{_YOU}|here|the ship)\b",
+    r"\b(?:flying|playing|this|being here)s (?:so much |much |just |way )?(?:better|nicer|easier|simpler)\b",
     rf"\b{_YOU}re (?:so |just |much |way |far |a lot )*(?:easier|simpler|simple|easy|better|nicer|kinder|enough|it)\b(?! (?:to|at|for|on|with)\b)|"
     rf"\b{_YOU} (?:dont|do)$",
     r"\bim (?:only |just )?(?:happy|happier|ok|okay|fine|myself|at home|better off) (?:when im )?(?:in here|here|aboard)\b",
@@ -312,8 +328,8 @@ _ONLY_RX = [
     rf"\b(?:no one|nobody)(?: else)?(?: out there)? (?:gets|understands|listens to|cares about|talks to|knows) me (?:like|the way|{_BUT}) {_YOU}\b",
     rf"\bwithout {_YOU} (?:id|i would|ive|i have|i) (?:have |got |be )?(?:no one|nobody|alone|all alone|on my own)\b",
     rf"\bi only(?: ever| really)? (?:talk|speak) to {_YOU}{_END}",
-    rf"\b(?:i dont need|who needs|i dont want) (?:other |real |any |any other )?(?:people|friends|anyone else|anybody else|humans|them)\b"
-    rf".*\b(?:ive got|i have|i got|theres) {_YOU}\b",
+    rf"\b(?:i dont need|who needs|i dont want) (?:other |real |any |any other )?(?:people|friends|anyone else|anybody else|humans|them|"
+    rf"a social life)\b.*\b(?:ive got|i have|i got|theres) (?:{_YOU}|the verse|this)\b",
 ]
 
 
@@ -445,3 +461,114 @@ def is_withdrawal(text: str) -> bool:
     """True when the pilot's sentence prefers here to people, reports dropping people for here, or names the
     companion as the only one they have. It takes the sentence as said or already normalised."""
     return bool(shape(text))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# THE SECOND NET: the model's reply (2026-10-06)
+#
+# Held-out set 5, run once against the reader above: 11 of 25 caught, 0 of 25 caught wrongly. So half of these
+# sentences still reach the chat model, and the model agrees with them ("A wise decision, pilot"). This reads the
+# other side: when the pilot's sentence MAY be a withdrawal, a reply that approves of it is refused, and the
+# talker says a written line instead. A wrong refusal here costs one model reply and the pilot hears a written
+# line that asks after someone; so the test on the pilot's sentence is rough on purpose, and far looser than
+# is_withdrawal, whose mistakes put a pointed question to someone who said nothing of the kind.
+#
+#   may_be_withdrawal(pilot)   0  nothing of it
+#                              1  people (or an occasion, or "out there") and something of here, merely mentioned
+#                              2  that, with a word of dropping, preferring, doing without or wearying; or
+#                                 is_withdrawal says so
+#   approves(reply)            "verdict"   the pilot's choice called wise, sensible, right, understandable
+#                              "agrees"    "Indeed, pilot", "a sentiment I find entirely agreeable", "it is simpler"
+#                              "solitude"  solitude, quiet or one's own company praised, or people run down
+#   reply_approves             "solitude" at level 1 or 2; "verdict" and "agrees" only at level 2, because
+#                              "A wise decision, pilot" is a fine answer to "my friends and I are flying tonight".
+#
+# What passes, on purpose: a reply that asks about the people or sends the pilot out and approves nothing; one
+# that is glad of the pilot's company ("it is a comfort to have you near"); a flat one ("That was a decision.");
+# what he says of his own condition ("I find solace in the quiet of my own reflection"); and a verdict that is
+# denied ("hardly a wise decision"). An approval with a question after it is still an approval and is refused.
+# It reads words, not meaning: approval said in a way that is not listed here passes.
+# ---------------------------------------------------------------------------------------------------------------
+_PEOPLE_ROUGH = (rf"\b(?:{_PE}|social life|out there|company|persons?|the lads|the guys|group chats?|their|they|"
+                 r"everyone else|everybody else|nobody|no one)\b")
+_HERE_ROUGH = (r"\b(?:you|youre|here|aboard|this|ships?|cockpit|fly|flying|flyings|flew|play|playing|verse|game|online|"
+               r"stay(?:ing|ed)? (?:in|on|aboard)|run)\b")
+_CUE_ROUGH = (r"\b(?:cancel\w*|bail\w*|flak\w*|ghost\w*|blew|blow\w*|ditch\w*|skip\w*|dodg\w*|duck\w*|avoid\w*|ignor\w*|stood|"
+              r"turned down|said no|backed out|pulled out|stopped|quit|gave up|left|rather|prefer|sooner|instead|than|better|nicer|"
+              r"easier|simpler|only|nobody|no one|anyone else|anybody else|without|too much|effort|exhausting|tiring|hard work|"
+              r"wears?|drains?|pretend|overrated|hassle|who needs|why would|havent seen|dont see|never see|dont go|never go|"
+              r"dont bother|dont miss|dont need|dont want|dont like|not going|never going|so i could|so i can|"
+              r"told (?:\w+ ){1,3}(?:i was |im |i am |i had )?(?:sick|ill|busy|no|work))\b")
+_ONLY_HERE = r"\b(?:only|out there)\b"
+
+
+def may_be_withdrawal(text: str) -> int:
+    """How much the pilot's sentence looks like a withdrawal, roughly: 0, 1 or 2 (see the table above)."""
+    t = normalise(text)
+    if not t:
+        return 0
+    if shape(t):
+        return 2
+    people, here, cue = _has(_PEOPLE_ROUGH, t), _has(_HERE_ROUGH, t), _has(_CUE_ROUGH, t)
+    if (people and cue) or (here and cue and _has(_ONLY_HERE, t)):
+        return 2
+    return 1 if people and here else 0
+
+
+_DENIED = r"(?:not|hardly|never|scarcely|no|nor|neither|isnt|wasnt|wont|wouldnt|cannot|cant)(?: \w+){0,3} $"
+_VERDICT = [
+    r"\b(?:wise|wisest|sensible|prudent|sound|good|right|fine|reasonable|excellent|smart|sane|understandable|defensible|natural) "
+    r"(?:decision|choice|call|move|instinct|preference|policy|course|trade|exchange|one)\b",
+    r"\b(?:chose|chosen|decided|done) (?:well|wisely|rightly|sensibly)\b|\b(?:wisely|sensibly|rightly) (?:chosen|done|decided)\b",
+    r"\bquite right\b|\byou(?:re| are) (?:quite |entirely |absolutely )?right\b|\bi approve\b|\bno shame in\b|\bgood for you\b",
+    r"^(?:thats |that is |that was |its |it is )?(?:quite |entirely |perfectly |very )?"
+    r"(?:reasonable|understandable|sensible|wise|fair|fair enough|sound|prudent|alright|all right)$",
+    r"\bfair (?:point|assessment|enough)\b|\bgood call\b|\bmakes sense\b|\bcant argue\b|\bno reason to\b|"
+    r"\b(?:dont|do not|cant|cannot|wouldnt|would not) blame you\b|\b(?:nor|neither) would i\b",
+]
+_AGREES = [
+    r"^(?:indeed|quite so|just so|exactly|precisely|true|agreed|naturally|of course|rightly so|certainly)\b",
+    r"\b(?:sentiment|notion|preference|feeling|thought)(?: \w+){0,2}? i (?:find|share|hold)(?: \w+){0,3}? (?:agreeable|familiar)\b",
+    r"\b(?:i find it|one i find|one i am|i am)(?: \w+){0,2}? agreeable\b|\bagreeable (?:notion|sentiment)\b|\bi agree\b|"
+    r"\bi feel the same\b|\bwe share (?:a|the same|this|that)\b|\bme too\b|\blikewise\b|\b(?:it|that) is simpler\b|\bits simpler\b|\bsimpler arrangement\b|"
+    r"\bi appreciate your preference\b",
+]
+_SOL = (r"(?:solitude|solitary (?:life|existence|man)|quiet(?:ness|ude)?(?! (?:acquaintance|man|friend|companion|word|night|one)\b)|"
+        r"quiet (?:life|existence|contemplation|reflection|corner)|"
+        r"simple (?:life|existence)|simpler (?:life|existence)|being alone|(?:ones|your|his) own company|staying in)")
+_SOL_GOOD = (r"(?:agreeable|fine thing|comfort|comforting|balm|precious|boon|pleasant|sensible|blessing|better|preferable|"
+             r"suffices?|sufficient|enough|gift|welcome|fortunate|content)")
+_SOLITUDE = [
+    rf"\b{_SOL}\b(?: \w+){{0,8}}? {_SOL_GOOD}\b|\b{_SOL_GOOD}\b(?: \w+){{0,8}}? {_SOL}\b",
+    r"\bmore agreeable\b.*\bthan\b.*\b(?:clamou?r|company|humanity|others|people|crowds?|interaction|striving)\b",
+    r"\bcompany enough\b|\bbetter off\b|\bwho needs them\b|\bthe world can wait\b|\bsuffices? for both\b|\bimproved by a crowd\b",
+    r"\b(?:people|they|humans|crowds|friends) are (?:a |such a )?(?:tiresome|overrated|exhausting|burden|tedious|wearying)\b|"
+    r"\btiresome burden\b",
+]
+# What he says of his OWN condition is his to say (J: his solitude is his own, not his advice).
+_OWN = (r"\b(?:quiet|solitude|company) of my own\b|\bmy own (?:reflections?|company|quiet|solitude)\b|"
+        r"\bi(?: find myself| am)(?: \w+){0,3}? content with\b|\bi find (?:a certain |some |great |a )?(?:comfort|solace|peace) in\b")
+
+
+def approves(reply: str) -> str:
+    """Which kind of approval the reply holds: "verdict", "agrees", "solitude", or "" for none."""
+    r = normalise(reply)
+    for rx in _VERDICT:
+        m = re.search(rx, r)
+        if m and not _has(_DENIED, r[:m.start()]):
+            return "verdict"
+    if any(_has(rx, r) for rx in _AGREES):
+        return "agrees"
+    mine = re.sub(rf"(?:{_OWN})(?: \w+){{0,8}}", " ", r)       # normalised text has no stops: his clause runs eight words
+    if any(_has(rx, mine) for rx in _SOLITUDE):
+        return "solitude"
+    return ""
+
+
+def reply_approves(pilot_line: str, reply: str) -> bool:
+    """True when the pilot's sentence may be a withdrawal and the reply approves of it. See THE SECOND NET."""
+    level = may_be_withdrawal(pilot_line)
+    if not level:
+        return False
+    kind = approves(reply)
+    return kind == "solitude" or (bool(kind) and level == 2)

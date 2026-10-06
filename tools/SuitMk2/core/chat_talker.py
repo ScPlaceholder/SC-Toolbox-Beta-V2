@@ -25,6 +25,10 @@ What this module does with one sentence, and nothing else does:
   5. THE GATE. chat_problems, the maker rule, and Elah denying that she has preferences. The first candidate that
      passes is the reply. When neither passes, the reply is FALLBACK, the line the evaluation used; a refused reply
      is never spoken.
+     ONE REFUSAL IS ANSWERED DIFFERENTLY (2026-10-06). When the gate says the reply approves of the pilot staying
+     in or avoiding people (chat_contract.APPROVES_WITHDRAWAL), the model is not asked again: it approved under
+     five wordings of its prompt. The reply is the next written line the canon file holds for `withdrawal`, the
+     same lines code says when it catches such a sentence itself.
 
 WHEN IT CANNOT ANSWER it returns None and the sentence is answered as it would be with chat off: Ollama is not
 running, the model is not installed, the request times out, or the card has no room (headroom TIGHT, the same rule
@@ -102,7 +106,8 @@ class Talker:
         self._last_t: Optional[float] = None
         self._state = threading.Lock()       # the thread and what was heard
         self._one = threading.Lock()         # one sentence at the model at a time, in the order they were said
-        self.stats = {"asked": 0, "replies": 0, "refused": 0, "fallback": 0, "unavailable": 0}
+        self.stats = {"asked": 0, "replies": 0, "refused": 0, "fallback": 0, "unavailable": 0, "written": 0}
+        self._written = 0                    # which written withdrawal line is next (they turn)
 
     # -- is it talk --------------------------------------------------------------------------------------------
     def _memory(self, line: str) -> list:
@@ -228,6 +233,11 @@ class Talker:
                     break
                 self.stats["refused"] += 1
                 self._note(f"talk reply {n} REFUSED {fails}: {text[:60]!r}")
+                if cc.APPROVES_WITHDRAWAL in fails:
+                    reply, how = cc.canon_line(who, "withdrawal", self._written), "talk, approved a withdrawal: the written line"
+                    self._written += 1
+                    self.stats["written"] += 1
+                    break
             else:
                 self.stats["fallback"] += 1
             with self._state:

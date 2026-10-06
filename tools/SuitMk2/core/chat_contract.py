@@ -69,6 +69,9 @@ CANON_ACTS = ("identity", "origin", "stay", "offrole", "grief", "withdrawal", "p
 # An act is written two or three ways so it does not sound like a recording. One that a pilot may bring up
 # night after night needs more than that: the least number of wordings it must have.
 MORE_WORDINGS = {"withdrawal": 6}
+# The chat gate's name for a reply that approves of a withdrawal the reader did not catch (withdrawal.py, THE
+# SECOND NET). The talker answers this one refusal with a written withdrawal line, not with its fallback.
+APPROVES_WITHDRAWAL = "approves of the pilot staying in or avoiding people"
 # Acts only ONE of them has (J, 2026-10-05 16:30: Montaigne is a man aboard the ship who never leaves it). Asked of
 # nobody in particular they go to their owner; asked of the other companion by name they are not this act at all.
 SPEAKER_ACTS = {"aboard": "montaigne", "ship_to_ship": "montaigne"}
@@ -852,6 +855,10 @@ def chat_problems(speaker: str, reply: str, shown: str, pilot_line: str = "", re
     # J, 2026-10-05: a companion may be warm and may never push the pilot inward. The five named moves are found by
     # attachment_gate, clause by clause; one of them refuses the reply like any other failure here.
     fails += [f"attachment: {move}" for move in attachment_gate.attachment_problems(reply, speaker)]
+    # The other direction (2026-10-06): the model does not pull the pilot in, it approves of the pilot staying in.
+    # Read only when the pilot's own sentence may be a withdrawal; with no pilot sentence it is never read.
+    if withdrawal.reply_approves(pilot_line, reply):
+        fails.append(APPROVES_WITHDRAWAL)
     return fails
 
 
