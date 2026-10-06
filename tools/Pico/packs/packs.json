@@ -9,24 +9,24 @@
    "name": "Aegis",
    "outfit": "aegis",
    "pack": "o01.tar.xz",
-   "bytes": 13185132,
-   "sha256": "4ba1af6786eb9ef6088d7d5003a7d56004abf88ec395df91dddf2c0a3b372ffd",
+   "bytes": 13185964,
+   "sha256": "2f4b552d9c6c3ff1a09c9b765b84ba641f12eaf45785ee716ee21f2c5df6d96f",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 21628167,
-   "source_sha256": "aee125fd948600ae457e2c7f2b55ec2e47889f034672d5f6eff1860be76353e7"
+   "unpacked_bytes": 21629331,
+   "source_sha256": "54652e29f5f1407b04c2aca37f9a024868a31a7dcde327cadc9a3d337d7910b0"
   },
   {
    "code": "o02",
    "name": "Anvil",
    "outfit": "anvil",
    "pack": "o02.tar.xz",
-   "bytes": 12103064,
-   "sha256": "12ac8832951120c3367dfe57d83acb8ce1c402f03cee916ab1834f294e8da788",
+   "bytes": 12104272,
+   "sha256": "5d308c213bf0ff63119ec1924133132bd65b868e5367557419c6394dfec55ff1",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 20337479,
-   "source_sha256": "e3c35d2063f544af059ba15ddc07025bd214795c97e4ef8fd5f832d31833160c"
+   "unpacked_bytes": 20339927,
+   "source_sha256": "2458e2b8e3820f81013f9239b1e115e6efcf4b9ea679b289833fadbc2fc54306"
   },
   {
    "code": "o03",
@@ -57,36 +57,36 @@
    "name": "Banu",
    "outfit": "banu",
    "pack": "o05.tar.xz",
-   "bytes": 17627308,
-   "sha256": "5694f6967fcd716565061297342e8a8249198da73d26d55384b20961f04d522a",
+   "bytes": 17628180,
+   "sha256": "aee08c6bbb0c39492962fee86f68c201874dcb91f1e8c644f727ca073860f48c",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 27407721,
-   "source_sha256": "6433603a7ded39f91b3e9313bdbffea7e2aab7d39127f6fd8d23d27da815538c"
+   "unpacked_bytes": 27411231,
+   "source_sha256": "b6e75c0fa8626fc57c4ea153f6c58b96a1ec3fbb1cb87848f5bdd3cc65dcc591"
   },
   {
    "code": "o06",
    "name": "CNOU",
    "outfit": "cnou",
    "pack": "o06.tar.xz",
-   "bytes": 13174224,
-   "sha256": "639f00cb1b16c3039bb05de5d9808a1114bbc188fba8bf3a9efa482cd08675b2",
+   "bytes": 13174728,
+   "sha256": "65af34713aa3b4db12a024cc0ad31a3d579280bc2f8923ecc6d24b5c8626526f",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 21810707,
-   "source_sha256": "9c4578ab261750d2fc98b776bb4411211255c3072409981e4d8da12dd5ee1726"
+   "unpacked_bytes": 21811237,
+   "source_sha256": "8d4525145c1d34fa49f5449ade00d088327b00c32acee5593675e28e8d38534f"
   },
   {
    "code": "o07",
    "name": "Crusader",
    "outfit": "crusader",
    "pack": "o07.tar.xz",
-   "bytes": 11809068,
-   "sha256": "b9443a57351d5f54b2e7ad9486c5643ff8715e2e1f3dae50b2cb16c03e2af601",
+   "bytes": 11810136,
+   "sha256": "02f1ccc50a7e2b6b3aed9ed16383638f09dda9ec2232f031f8b221bdc599ab0d",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 19053335,
-   "source_sha256": "07ff362dfbfc6a3dc95d6feafc5a64132721134f5139302c8488635569ef7be7"
+   "unpacked_bytes": 19054639,
+   "source_sha256": "edf8a4bf80ddc17e45614aaf0920e33ecb44650ef8a806eebab162abd2f284ae"
   },
   {
    "code": "o08",
@@ -117,48 +117,48 @@
    "name": "Gatac",
    "outfit": "gatac",
    "pack": "o10.tar.xz",
-   "bytes": 16967648,
-   "sha256": "377fbbbf0f741ae6e964b8101aa133ef99467cf56ae1783812e25c22e69ee43c",
+   "bytes": 16967660,
+   "sha256": "9c4e6c8340657bb3e587fa27180e979ecae9f8e8d96e257e70edcc74b678005a",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 26617361,
-   "source_sha256": "ad0254380a70b6d376b94498d875784113aed3d0e60c3664bcb7f1e54f8f45a0"
+   "unpacked_bytes": 26616953,
+   "source_sha256": "4a603c2b84e2c153b83f71a5e98df2cff5e75a4c40e58d31ee136b2cb1e6de0d"
   },
   {
    "code": "o11",
    "name": "Greycat",
    "outfit": "greycat",
    "pack": "o11.tar.xz",
-   "bytes": 12737928,
-   "sha256": "67cd732f47ba91a35b291ca0c3e33671f62de18f4137898a4f811bea428e11b1",
+   "bytes": 12737888,
+   "sha256": "f38522bfd142aa35bd9297544dac3bee870dad5e53dca2979ffb7398fd822470",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 20453833,
-   "source_sha256": "5d15661d5e0b05a59b3686cf87952587e1c89b69a0c5530bc752b62391ceea1c"
+   "unpacked_bytes": 20453811,
+   "source_sha256": "de8e4bb82f4b427cc8243fae21d958b3655cfa2df3f4b0596711ab5bdd01e5e3"
   },
   {
    "code": "o12",
    "name": "Greys",
    "outfit": "greys",
    "pack": "o12.tar.xz",
-   "bytes": 14785520,
-   "sha256": "f70b61bdd6ca8baf47848788aa2bfeb2d5c5c5115a50b280135674bbc1a0075f",
+   "bytes": 14785936,
+   "sha256": "9a26df3d585125cdace53fa8c253b568781be06203c2ce82e0b5bf0c4d731ff0",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 25391379,
-   "source_sha256": "aeea9bb6e4f4219800805a927b21a75b880b1f05bdec4e1fc945bc0a7ea5c966"
+   "unpacked_bytes": 25391707,
+   "source_sha256": "5ba9b5049ecbb3f1575128ae63b21c14ecd21a73fb1c909e4a9a65c8e10c71d7"
   },
   {
    "code": "o13",
    "name": "Kruger",
    "outfit": "kruger",
    "pack": "o13.tar.xz",
-   "bytes": 14549480,
-   "sha256": "873fa3f720b6606d691e2582a59907d8ab20b34ab553fe7c377aac5ef3b3688d",
+   "bytes": 14552712,
+   "sha256": "15eaf53d0169af6b79acad6c27724e4e688a73689b0678ffeab019f9f5f06eb0",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 23987815,
-   "source_sha256": "774a134f96c8bb1b6b0da670fc96218b5ea5f38eea4fff639244e34c4ed42a2f"
+   "unpacked_bytes": 23990901,
+   "source_sha256": "9b5b621c2b65591be60b7cc326a980bba87b2742bf883cae495e5071b5490234"
   },
   {
    "code": "o14",
@@ -177,48 +177,48 @@
    "name": "MISC",
    "outfit": "misc",
    "pack": "o15.tar.xz",
-   "bytes": 14092792,
-   "sha256": "cf658e5a1d466dce9b08a8227fdfada12f0be31b12f106cbb087517f74f9dfc4",
+   "bytes": 14094180,
+   "sha256": "e9febf4ca68bb362ef6dd45e43633099c10efeac1c9074800d63ad218fa01024",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 22034919,
-   "source_sha256": "b4684ff8574be09a77921ffbc880599bf396434fd54cf1279f5c13a63c3116d5"
+   "unpacked_bytes": 22037587,
+   "source_sha256": "4e201d599d6bc2b56afc15207017f5608021baa555894cfcd144f834aa6720f0"
   },
   {
    "code": "o16",
    "name": "Origin",
    "outfit": "origin",
    "pack": "o16.tar.xz",
-   "bytes": 12293808,
-   "sha256": "8fe59513e1722a84cb3056bea8c0784c2106da5776cdf22aeb98db89bac30132",
+   "bytes": 12296472,
+   "sha256": "6128eae682fbecb981e3c9c72a9b4323ab94caedba7df6cd8602be8481123eee",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 20711399,
-   "source_sha256": "d92f817bf1d47cbcdc4603fded5dd9bc693132d68bbd46085941743d24a2756a"
+   "unpacked_bytes": 20712739,
+   "source_sha256": "039780c1f00ef60abab7d6dc75dfc98b8bf7d740ac2776df3fcf1ea38b69272c"
   },
   {
    "code": "o17",
    "name": "RSI",
    "outfit": "rsi",
    "pack": "o17.tar.xz",
-   "bytes": 12795920,
-   "sha256": "7bdbc96822887b260306ff7a76a6c30efb7b10cd7dcd88e9863246b8425e0773",
+   "bytes": 12799188,
+   "sha256": "7b0d9dc07a7d92bca0c990affe48be2ae55f75d73744d5bae5e1966a36d5ea62",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 21291161,
-   "source_sha256": "27d829edbc19672a723ac91499325b4cc8b1d5a736840015abd281d7df597a9a"
+   "unpacked_bytes": 21295047,
+   "source_sha256": "2de4de00df3602dcf3d150cb36b89968c33d92e1873ff1b1499cbb9e9b24ee10"
   },
   {
    "code": "o18",
    "name": "Tumbril",
    "outfit": "tumbril",
    "pack": "o18.tar.xz",
-   "bytes": 12451048,
-   "sha256": "dca40d837705a42c10bff03239a24cf41370b1eac8371fcdd40f4a0af6e0d664",
+   "bytes": 12451052,
+   "sha256": "49c8dc4efc4c8a4d0e03516f54d830a345a7d2ade882bf9a52ed0f8ac62e0695",
    "loops": 121,
    "anchors": 112,
-   "unpacked_bytes": 20657459,
-   "source_sha256": "9e09ccade403f9e10923fb13fc3d309d31497af863ee6888a06b0c1cf994b41d"
+   "unpacked_bytes": 20657709,
+   "source_sha256": "468aff09e8c9da63db26f8db82611a064d81922f598390445ef2621e8dffe727"
   },
   {
    "code": "o19",
@@ -236,7 +236,7 @@
  "totals": {
   "outfits": 19,
   "loops": 2299,
-  "bytes": 260324932,
-  "unpacked_bytes": 424716147
+  "bytes": 260340360,
+  "unpacked_bytes": 424736231
  }
 }
