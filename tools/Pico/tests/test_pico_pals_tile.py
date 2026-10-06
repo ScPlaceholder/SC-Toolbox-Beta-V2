@@ -10,6 +10,7 @@ pico_pals_app.py (the adapter) are the fix, and these tests hold both ends:
                         starts it: not argparse's exit 2, and show / hide / quit all work
     no art              no loops on disk -> exit 3 and one plain sentence in the log the launcher
                         shows, never a tile that silently does nothing
+    the shipped pack    no loop folders but the outfit pack in tools/Pico/packs -> he starts from it
 
 These live in tools/Pico/tests, NOT tools/Pico/pico/tests: the `pico` package is the pure-logic
 layer and its selftest (check_no_qt) fails if any file under it so much as names Qt, which the
@@ -296,12 +297,14 @@ def test_custom_args_reach_sprite_pal(fake_home, tmp_path):
 # ── no art ───────────────────────────────────────────────────────────────────
 
 def test_no_loops_on_disk_fails_loudly_not_silently(tmp_path):
-    """A machine without Pico's art (it is not in the repo): exit 3 and a sentence in the log.
-    A non-zero exit is what makes the launcher open that log for the user (unexpectedly_died)."""
+    """A machine without Pico's art, neither loop folders nor an outfit pack: exit 3 and a sentence in
+    the log. A non-zero exit is what makes the launcher open that log for the user (unexpectedly_died)."""
     empty_home = tmp_path / "empty_home"
     (empty_home / "AppData").mkdir(parents=True)
+    (tmp_path / "no_packs").mkdir()
     reg = launcher_registration()
-    mp = managed(ADAPTER, reg["args"], tmp_path, child_env(empty_home))
+    env = dict(child_env(empty_home), PICO_PACKS_DIR=str(tmp_path / "no_packs"))
+    mp = managed(ADAPTER, reg["args"], tmp_path, env)
     try:
         assert mp.start()
         proc = mp._proc
@@ -310,5 +313,40 @@ def test_no_loops_on_disk_fails_loudly_not_silently(tmp_path):
         text = log_text(tmp_path)
         assert "Pico Pals cannot start" in text and "animation loops" in text, text
         assert "Traceback" not in text and "unrecognized arguments" not in text, text
+    finally:
+        kill(mp)
+
+
+# ── the shipped pack ─────────────────────────────────────────────────────────
+
+def test_with_no_loop_folders_the_tile_starts_pico_from_the_shipped_pack(tmp_path):
+    """What a user's PC looks like: no loop folders anywhere, only the outfit pack inside the toolbox.
+    He starts, wearing it, unpacked under %APPDATA%/PicoPal/worn, and quits when the launcher says so.
+    Skipped where tools/Pico/packs holds no pack (it is not in the repository)."""
+    from pico import packs
+
+    man = packs.PackStore._read_manifest(packs.BUNDLED_DIR / "packs.json")
+    if not man.default or not (packs.BUNDLED_DIR / man.entries[man.default].pack).is_file():
+        pytest.skip("no shipped pack in tools/Pico/packs on this PC")
+    empty_home = tmp_path / "empty_home"
+    (empty_home / "AppData").mkdir(parents=True)
+    state = tmp_path / "state.json"
+    reg = launcher_registration(custom_args=["--demo"])        # no Game.log: this PC's own is not to be read
+    env = dict(child_env(empty_home, state), PICO_PACKS_DIR=str(packs.BUNDLED_DIR))
+    mp = managed(PROBE, reg["args"], tmp_path, env)
+    try:
+        assert mp.start()
+        proc = mp._proc
+        first = wait_for(lambda: read_state(state) or (proc.poll() is not None and {"dead": True}),
+                         what="Pico's window")
+        assert "dead" not in first, "Pico exited on start (rc=%s):\n%s" % (proc.returncode, log_text(tmp_path))
+        assert first["visible"] is True
+        worn = empty_home / "AppData" / "PicoPal" / "worn"
+        assert [d.name for d in worn.iterdir()] == [man.default]
+        assert len(list((worn / man.default).glob("*/*.webp"))) == man.entries[man.default].loops
+        assert not (empty_home / "AppData" / "PicoPal" / "packs").exists()     # read from the install
+        mp.stop(timeout=15)
+        assert proc.returncode == 0, log_text(tmp_path)
+        assert "Pico Pals cannot start" not in log_text(tmp_path)
     finally:
         kill(mp)

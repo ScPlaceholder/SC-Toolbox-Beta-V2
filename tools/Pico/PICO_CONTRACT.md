@@ -316,3 +316,41 @@ LOOPS with the expression baked into each frame, while the bone rig (A, B, D) st
   3. The pools themselves: which loops count as calm, alert, hurt, happy, startled, irritated.
 * Flight/event loops (docking, quantum_jump, crash, fuel_low, ...) are NOT wired yet. They want
   Game.log EVENTS, not moods, and that mapping is the next piece.
+
+---
+
+## OUTFIT PACKS (2026-10-06) - where a user's Pico gets his loops
+
+J, 2026-10-06: "ship the base pico animation set out with the current picos ... and do streaming for the
+next sets of armor"; "only unzip the currently equipped pico"; "have the program unload the previous pico
+outfits automatically and also check on load for existing packs so we don't download duplicate pico
+folders"; "check which models are downloaded and don't unload them if every pack has been downloaded. So
+the Pico Pals needs to remember."
+
+The loop folders under `BrAi/_forJ/VNCCS` are the developer's working tree; a user's PC does not have them.
+`pico/packs.py` (pure logic, no Qt) is how everyone else gets an outfit. Its docstring is the full statement;
+in short:
+
+* One file per outfit, `<code>.tar.xz`: the 121 loops, their `.anchors.json`, and an index. Read with the
+  standard library. About 13 MB packed for 21 MB of loops; unpacking takes about half a second.
+* File names and addresses carry the outfit CODE (`o01`..`o19`), never a maker's or the game's name
+  (Cloud Imperium's fan-site rule). The names are inside `packs.json`, which the app reads.
+* Drake's pack ships inside the toolbox (`tools/Pico/packs/`). Every other outfit is fetched the first
+  time it is picked and kept under `%APPDATA%/PicoPal/packs/`. A pack that is on disk with the right
+  checksum is never fetched again. "Download every Pal now" in Customise fetches the rest at once.
+* Only the worn outfit is unpacked (`%APPDATA%/PicoPal/worn/<code>/`). Switching removes the previous
+  outfit's unpacked files and keeps its pack. Once EVERY pack is on the PC nothing unpacked is removed any
+  more: outfits stay ready after their first wear.
+* `have.json` remembers which packs are on the PC. It is checked against the disk at every start and is
+  never believed over it.
+* **A loop folder always wins**: `--loops`, a folder saved as `outfit` in settings.json, or the developer's
+  folder when the PC has one. A pack is saved as `"outfit": "pack:<code>"`. Nobody's setting is migrated.
+* **The network.** `packs.PACKS_URL` is the one address and it is EMPTY: the pack site does not exist yet.
+  Empty means offline: the shipped pack and packs already on disk work, the rest are listed as "not
+  available yet". When it is set: https only, the only requests are `packs.json` and pack files, nothing
+  is requested at start-up, nothing about the user is sent, and a failed or cancelled download leaves him
+  in the outfit he had with a plain sentence saying why.
+* Packs are built by `elah-audio/_pico_pals_notice/build_packs.py`, which also writes `packs.json`. When
+  the loops are re-rendered, run it again: every checksum changes, and that is expected.
+* **OPEN for J:** whether the 13 MB Drake pack is committed to the repository or added when the installer
+  is built (it is NOT in git; `PICO_PACKS_DIR` can point the toolbox at it elsewhere); the pack address.

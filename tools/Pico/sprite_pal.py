@@ -6,6 +6,11 @@
     py -3.13 sprite_pal.py --mood happy            # pin one mood (art review)
     py -3.13 sprite_pal.py --loops <folder>        # another outfit's loops (e.g. Origin)
 
+OUTFITS come from a loop FOLDER (the developer's working tree, --loops, or a folder saved as "outfit") or
+from an outfit PACK (pico/packs.py: one file per outfit; the one shipped with the toolbox, the others
+fetched the first time they are picked and kept). A folder always wins, so nothing changes on a PC that
+has the loop folders. Nothing is requested from the network at start-up.
+
 From the toolbox launcher he is the "Pico Pals" tile, which runs pico_pals_app.py: the launcher passes
 window geometry and a command file, which this CLI rejects, so that file adapts them and calls main().
 
@@ -32,13 +37,15 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt, QTimer
+import threading
+
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QMovie, QPainter, QPixmap, QRadialGradient
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-                               QLabel, QMenu, QSlider, QVBoxLayout, QWidget)
+                               QLabel, QMenu, QProgressBar, QPushButton, QSlider, QVBoxLayout, QWidget)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pico import aura, snap, sprites  # noqa: E402
+from pico import aura, packs, snap, sprites  # noqa: E402
 import pico_notice  # noqa: E402
 import pico_tutorial  # noqa: E402
 
@@ -113,7 +120,7 @@ def outfit_name(d: Path, root: Path = sprites.DEFAULT_DIR) -> str:
     suffix of pico_anim_sequences_<brand>. One function, so the Customise list and the aura rule
     can never disagree about what an outfit is called."""
     d = Path(d)
-    if d == root:
+    if d == root or d.name == root.name:       # the same folder name unpacked from a pack (pico/packs.py)
         return "Drake"
     if d.name.startswith(root.name + "_"):
         return d.name[len(root.name) + 1:].replace("_", " ").title()
@@ -276,8 +283,130 @@ GAG_CHOICES = (("every 15 min", 15), ("every 30 min", 30), ("once an hour", 60),
                ("every 4 hours", 240))
 
 
+def open_store(saved: dict = None) -> "packs.PackStore":
+    """The pack store this PC uses. The pack address is packs.PACKS_URL unless settings.json has a
+    "packs_url"; both are empty until the pack site exists, and empty means nothing is ever requested."""
+    saved = load_settings() if saved is None else saved
+    return packs.PackStore(base_url=str(saved.get("packs_url") or packs.PACKS_URL))
+
+
+def start_outfit(asked: Path, saved: dict, store) -> tuple:
+    """(loop folder, pack code or None) to start with. Never asks the network for anything.
+
+    A folder always wins, exactly as before packs existed: --loops, then a folder saved as "outfit", then
+    the developer's own loop folder if this PC has one. A saved "pack:<code>" is unpacked from the pack on
+    disk. With none of those, the outfit that ships with the toolbox."""
+    if asked != sprites.DEFAULT_DIR:
+        return asked, None
+    want = saved.get("outfit")
+    code = want[len(packs.PREFIX):] if isinstance(want, str) and want.startswith(packs.PREFIX) else None
+    if code is None:
+        if want and Path(want).is_dir():
+            return Path(want), None            # the outfit folder the user picked last time
+        if sprites.DEFAULT_DIR.is_dir():
+            return sprites.DEFAULT_DIR, None
+    for c in (code, store.default_code()):
+        if c:
+            try:
+                return store.activate(c), c
+            except packs.PackError as ex:
+                print("outfit pack %s not usable: %s" % (c, ex))
+    return sprites.DEFAULT_DIR, None           # Catalog.scan says what is missing
+
+
+class PackJob(QThread):
+    """Runs one slow pack job (a download, an unpack) off the window's thread."""
+    progress = Signal(str, int, int, int, int)
+
+    def __init__(self, fn, parent=None):
+        super().__init__(parent)
+        self.fn = fn
+        self.cancel = threading.Event()
+        self.result = None
+        self.error = None                      # None = it worked; "" = cancelled; else a sentence
+
+    def run(self):
+        try:
+            self.result = self.fn(self.progress.emit, self.cancel)
+        except packs.PackCancelled:
+            self.error = ""
+        except packs.PackError as ex:
+            self.error = str(ex)
+        except Exception as ex:                # noqa: BLE001 - nothing in a download may take Pico down
+            self.error = "something unexpected went wrong (%s)" % ex
+
+
+class PackProgress(QDialog):
+    """A download, with a bar and Cancel. It closes itself when the job is done or cancelled. If the job
+    FAILS it stays open and says so in plain words, with what Pico is doing instead, until Close."""
+
+    def __init__(self, parent, title: str, fn, names, kept: str = ""):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.names, self.kept = names, kept
+        self.failed = None
+        self.text = QLabel("Starting...")
+        self.text.setWordWrap(True)
+        self.text.setMinimumWidth(380)
+        self.bar = QProgressBar()
+        self.bar.setRange(0, 1000)
+        self.button = QPushButton("Cancel")
+        self.button.clicked.connect(self.reject)
+        lay = QVBoxLayout(self)
+        lay.addWidget(self.text)
+        lay.addWidget(self.bar)
+        lay.addWidget(self.button, 0, Qt.AlignRight)
+        self.job = PackJob(fn, self)
+        self.job.progress.connect(self.on_progress)
+        self.job.finished.connect(self.on_done)
+        QTimer.singleShot(0, self.job.start)
+
+    def on_progress(self, code, done, total, index, count):
+        which = " (%d of %d)" % (index, count) if count > 1 else ""
+        self.text.setText("Downloading %s%s: %s of %s" % (self.names(code), which, packs.mb(done), packs.mb(total)))
+        self.bar.setValue(int(1000 * done / total) if total else 0)
+
+    def on_done(self):
+        err = self.job.error
+        if err is None:
+            self.accept()
+        elif err == "":
+            super().reject()
+        else:
+            self.fail(err)
+
+    def fail(self, sentence: str):
+        self.failed = sentence
+        self.text.setText("That did not work: %s.%s" % (sentence, (" " + self.kept) if self.kept else ""))
+        self.bar.hide()
+        self.button.setText("Close")
+
+    def reject(self):
+        if self.job.isRunning():
+            self.job.cancel.set()              # the job stops at its next chunk; on_done closes the box
+            self.text.setText("Cancelling...")
+            self.button.setEnabled(False)
+            return
+        super().reject()
+
+    def closeEvent(self, e):
+        if self.job.isRunning():
+            self.job.cancel.set()
+            self.job.wait(30000)
+        super().closeEvent(e)
+
+
+PACK_STATE_TEXT = {"included": "included", "downloaded": "downloaded", "unavailable": "not available yet"}
+
+
+def pack_label(name: str, state: str, size: int) -> str:
+    """What the outfit list says for a pack: 'Drake  (included)', 'Banu  (17.8 MB download)'."""
+    return "%s  (%s)" % (name, PACK_STATE_TEXT.get(state) or "%s download" % packs.mb(size))
+
+
 class Customise(QDialog):
-    def __init__(self, parent, current: Path, height: int):
+    def __init__(self, parent, current: Path, height: int, store=None):
         super().__init__(parent)
         self.setWindowTitle("Customise Pico")
         self.outfit = QComboBox()
@@ -286,6 +415,18 @@ class Customise(QDialog):
             self.outfit.addItem(name, str(d))
             if d == current:
                 self.outfit.setCurrentIndex(self.outfit.count() - 1)
+        # OUTFIT PACKS (pico/packs.py). The developer's loop folders, if this PC has them, stay first and
+        # unchanged; the packs follow. A pack that is not on this PC shows its download size.
+        self.store = store if store is not None else open_store()
+        self.pack_note = QLabel()
+        self.pack_note.setWordWrap(True)
+        self.all_btn = QPushButton()
+        self.all_btn.setAutoDefault(False)
+        self.all_btn.clicked.connect(self.download_all)
+        self.all_note = QLabel()
+        self.all_note.setWordWrap(True)
+        self.told = False                      # True when the on-demand sentence was on screen this time
+        self.fill_packs(self.store.code_of(current))
         self.size = QSlider(Qt.Horizontal)
         self.size.setRange(140, 560)
         self.size.setValue(height)
@@ -314,6 +455,9 @@ class Customise(QDialog):
         self.lively.setCurrentIndex(self.lively.findData(live if live in sprites.LIVELINESS else "normal"))
         form = QFormLayout(self)
         form.addRow("Outfit", self.outfit)
+        form.addRow(self.pack_note)
+        form.addRow(self.all_btn)
+        form.addRow(self.all_note)
         form.addRow("Size", self.size)
         form.addRow(self.gags)
         form.addRow("Gags at most", self.often)
@@ -337,6 +481,75 @@ class Customise(QDialog):
         """The tutorial, over this box. Modal, like this box: a window opened from a modal one and left
         non-modal could not be clicked."""
         pico_tutorial.Tutorial(self).exec()
+
+    def fill_packs(self, select: str = None):
+        """(Re)build the pack rows of the outfit list, and the sentences and button under it, from what
+        is on this PC now. Reads no pack file (packs.PackStore.present)."""
+        box, store = self.outfit, self.store
+        first = getattr(self, "pack_first", None)
+        if first is not None:
+            data = box.currentData()
+            if select is None and isinstance(data, str) and data.startswith(packs.PREFIX):
+                select = data[len(packs.PREFIX):]
+            while box.count() > first:
+                box.removeItem(box.count() - 1)
+        rows = store.listing()
+        self.pack_first = box.count()
+        if rows and box.count():
+            box.insertSeparator(box.count())
+        for code, name, state, size in rows:
+            box.addItem(pack_label(name, state, size), packs.PREFIX + code)
+            if state == "unavailable":             # shown, so the user knows it exists; cannot be picked
+                box.model().item(box.count() - 1).setEnabled(False)
+            if code == select:
+                box.setCurrentIndex(box.count() - 1)
+        missing = [r for r in rows if r[2] in ("available", "unavailable")]
+        entries = store.manifest.entries.values()
+        packed, loose = sum(e.bytes for e in entries), sum(e.unpacked_bytes for e in entries)
+        note, button, can, cost = "", "Download every Pal now", False, ""
+        if rows and not missing:
+            button = "Every Pal is downloaded"
+            cost = ("Every Pal is on this PC (%s of packs). Outfits now stay unpacked once worn: up to %s more."
+                    % (packs.mb(packed), packs.mb(loose)))
+        elif rows and not store.online:
+            note = "More outfits will be available here once online packs are set up."
+        elif rows:
+            if self.told or not load_settings().get("packs_told"):
+                # Said once, the first time there is something to download; never a question.
+                note = ("An outfit downloads the first time you pick it and is then kept on this PC. "
+                        "Nothing else is downloaded.")
+                self.told = True
+            button = "Download every Pal now  (%d to fetch, %s)" % (len(missing), packs.mb(sum(r[3] for r in missing)))
+            can = True
+            cost = ("With every Pal on this PC, outfits stay unpacked once worn: %s of packs, and up to %s more "
+                    "unpacked." % (packs.mb(packed), packs.mb(loose)))
+        self.pack_note.setText(note)
+        self.pack_note.setVisible(bool(note))
+        self.all_btn.setText(button)
+        self.all_btn.setEnabled(can)
+        self.all_btn.setVisible(bool(rows))
+        self.all_note.setText(cost)
+        self.all_note.setVisible(bool(cost))
+
+    def download_all(self):
+        """"Download every Pal now": fetch every pack this PC does not have, with a bar and Cancel."""
+        store = self.store
+
+        def job(progress, cancel):
+            out = store.fetch_all(progress, cancel)
+            if out.get("cancelled"):
+                raise packs.PackCancelled("cancelled")
+            if out["failed"]:
+                code, why = next(iter(out["failed"].items()))
+                raise packs.PackError("%s stopped the download at %s" % (why, store.name(code)))
+            return out
+
+        dlg = PackProgress(self, "Download every Pal", job, store.name,
+                           kept="Every Pal downloaded so far is kept.")
+        dlg.text.setText("Asking which Pals there are...")
+        dlg.exec()
+        dlg.deleteLater()
+        self.fill_packs()
 
     def values(self) -> dict:
         return {"outfit": self.outfit.currentData(), "height": self.size.value(),
@@ -462,6 +675,9 @@ class Pal(QWidget):
         at = self.movie.currentFrameNumber() if (carry and self.movie is not None) else 0
         if self.movie is not None:
             self.movie.stop()
+            # Close the loop file now. A stopped QMovie can outlive this line (the label keeps the last one
+            # it was given), and Windows will not remove an outfit's unpacked folder while a loop in it is open.
+            self.movie.setFileName("")
         m = QMovie(str(path))
         m.jumpToFrame(0)
         sz = m.currentImage().size()
@@ -610,12 +826,32 @@ class Pal(QWidget):
         return dlg
 
     def customise(self):
-        dlg = Customise(self, self.chooser.catalog.root, self.height_px)
-        if dlg.exec() != QDialog.Accepted:
+        store = getattr(self, "store", None)
+        if store is None:
+            store = self.store = open_store()
+        dlg = Customise(self, self.chooser.catalog.root, self.height_px, store)
+        result = dlg.exec()
+        if dlg.told:                              # the on-demand sentence has been shown: once is enough
+            d = load_settings()
+            d["packs_told"] = True
+            save_settings(d)
+        if result != QDialog.Accepted:
             return
         changed = dlg.changes()
         self.height_px = changed.pop("height", self.height_px)
-        root = Path(changed["outfit"]) if "outfit" in changed else Path(self.chooser.catalog.root)
+        root = Path(self.chooser.catalog.root)
+        worn = previous = getattr(self, "worn", None)
+        pick = changed.pop("outfit", None)
+        if isinstance(pick, str) and pick.startswith(packs.PREFIX):
+            # An outfit pack. It is saved as his outfit only once it is on this PC and unpacked: a failed
+            # or cancelled download changes nothing, and he keeps what he is wearing.
+            folder = self.get_pack(pick[len(packs.PREFIX):])
+            if folder is not None:
+                root, worn = folder, pick[len(packs.PREFIX):]
+                changed["outfit"] = pick
+        elif pick is not None:
+            root, worn = Path(pick), None
+            changed["outfit"] = pick
         self.remember(**changed)
         try:
             self.chooser = sprites.LoopChooser(sprites.Catalog.scan(root))
@@ -624,7 +860,36 @@ class Pal(QWidget):
             # An outfit still rendering may not cover every mood yet: say so, keep the old one.
             self.why.setText("outfit not ready: %s" % ex)
             return
+        self.worn = worn
+        old_movie = getattr(self, "movie", None)
         self.tick()
+        if previous and previous != worn:
+            if old_movie is not None and old_movie is not getattr(self, "movie", None):
+                old_movie.stop()
+                old_movie.setFileName("")         # closes the old outfit's loop, so its folder can go
+            self.take_off(previous)
+
+    def get_pack(self, code: str):
+        """The loop folder of an outfit pack, fetched first if this PC does not have it, with a bar and
+        Cancel. None if it could not be had: the box has then said why, and that he keeps his outfit."""
+        store = self.store
+        dlg = PackProgress(self, "Pico's outfit", lambda progress, cancel: store.wear(code, progress, cancel),
+                           store.name, kept="Pico keeps wearing %s." % outfit_name(self.chooser.catalog.root))
+        dlg.text.setText("Getting %s ready..." % store.name(code))
+        dlg.exec()
+        dlg.deleteLater()
+        if dlg.job.error is None and dlg.job.result is not None:
+            return Path(dlg.job.result)
+        if dlg.job.error:
+            self.pic.setToolTip("outfit not changed: %s" % dlg.job.error)
+        return None
+
+    def take_off(self, code: str):
+        """The outfit he just stopped wearing: its unpacked files go (pico/packs.py decides; they stay once
+        every pack is on this PC), its pack stays. The old loop may still be open for a moment, so ask twice."""
+        store = self.store
+        store.deactivate(code)
+        QTimer.singleShot(2000, lambda: getattr(self, "worn", None) == code or store.deactivate(code))
 
     def mouseMoveEvent(self, e):
         if self.drag is not None and e.buttons() & Qt.LeftButton:
@@ -692,13 +957,16 @@ def main(argv=None, on_ready=None) -> int:
     ap.add_argument("--mood")
     a = ap.parse_args(argv)
     saved = load_settings()
-    loops = a.loops
-    if a.loops == sprites.DEFAULT_DIR and saved.get("outfit") and Path(saved["outfit"]).is_dir():
-        loops = Path(saved["outfit"])      # the outfit the user picked last time
+    store = open_store(saved)
+    try:
+        store.reconcile()                  # which packs are really on this PC (pico/packs.py, RECORD)
+    except Exception as ex:                # noqa: BLE001 - the record is a convenience; Pico starts anyway
+        print("pack record not checked: %s" % ex)
+    loops, worn = start_outfit(a.loops, saved, store)      # reads the disk only: nothing is requested
     try:
         chooser = sprites.LoopChooser(sprites.Catalog.scan(loops))
     except sprites.SpriteError:
-        chooser = sprites.LoopChooser(sprites.Catalog.scan(sprites.DEFAULT_DIR))
+        chooser, worn = sprites.LoopChooser(sprites.Catalog.scan(sprites.DEFAULT_DIR)), None
     chooser.apply_prefs(saved)                     # gags / signs / how often, from the Customise dialog
     if a.mood and a.mood not in chooser.pools:
         print("unknown mood %r; known: %s" % (a.mood, ", ".join(chooser.pools)))
@@ -716,6 +984,11 @@ def main(argv=None, on_ready=None) -> int:
             print("tailing", log)
     app = QApplication(sys.argv)
     pal = Pal(chooser, source, tail, demo=a.demo, pinned=a.mood)
+    pal.store, pal.worn = store, worn
+    try:
+        store.sweep(active=worn)           # outfits left unpacked by an earlier run, other than the worn one
+    except Exception as ex:                # noqa: BLE001
+        print("old outfits not cleared: %s" % ex)
     if saved.get("height"):
         pal.height_px = int(saved["height"])
         if pal.chooser.current:                     # re-play so the first loop is the remembered size
