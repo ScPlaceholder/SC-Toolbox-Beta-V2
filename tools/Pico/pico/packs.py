@@ -81,6 +81,9 @@ PREFIX = "pack:"                        # settings.json "outfit": "pack:o08" = a
 MAX_PACK_BYTES = 256 * 1024 * 1024
 MAX_MANIFEST_BYTES = 1024 * 1024
 TIMEOUT_S = 20
+# The pack host refuses Python's default agent ("Python-urllib/x.y") with HTTP 403, so every request names
+# the toolbox instead. It identifies the program only: no version of the user's system, no id.
+USER_AGENT = "SC-Toolbox-PicoPals/1"
 CHUNK = 128 * 1024
 
 # Where the toolbox keeps the pack it ships with. PICO_PACKS_DIR moves it: for the tests, and for an
@@ -393,7 +396,7 @@ class PackStore:
         self.requests.append(url)
         opener = urllib.request.build_opener(_SameRules(self))
         try:
-            return opener.open(urllib.request.Request(url), timeout=TIMEOUT_S)
+            return opener.open(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=TIMEOUT_S)
         except PackError:
             raise
         except urllib.error.HTTPError as ex:

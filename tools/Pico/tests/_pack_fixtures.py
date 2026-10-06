@@ -75,6 +75,12 @@ class PretendServer:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
                 outer.hits.append(self.path)
+                # The real host (Cloudflare) answers 403 to Python's default "Python-urllib/x.y" agent. Found
+                # 2026-10-06 on the first real upload; this server now refuses it too, so every fetch test
+                # fails if the store stops naming itself.
+                if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+                    self.send_error(403)
+                    return
                 body = outer.files.get(self.path.rsplit("/", 1)[-1])
                 if not self.path.startswith("/packs/") or body is None:
                     self.send_error(404)
