@@ -81,22 +81,46 @@ def _edit(path, fn):
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# the line itself
+# the line itself: a sequence of words, static and gaps (J approved it by ear, 2026-10-06)
 # ---------------------------------------------------------------------------------------------------------------
-def test_the_line_is_js_with_his_expansion_where_he_left_room_for_it():
+LETTERS = "M, O, N, T. A, I. G, N. Three."
+OLD_BUZZ = ("Brzzz. MONT-AI-GN-3 error: Modular Onboard Navigation and Telemetry, Attendant Interface, Guidance Node, Mark 3. "
+            "Bzzt, your friendly ship assistant! Happy to be—no, that's not right. Ah, where was I? I was telling you "
+            "about a time in Rome.")
+OLD_NAMED = ("Montaigne three, error: Modular Onboard Navigation and Telemetry, Attendant Interface, Guidance Node, Mark 3. "
+             "Your friendly ship assistant! Happy to be No, that's not right. Ah, where was I? I was telling you about a "
+             "time in Rome.")
+
+
+def _say(d, n, text):
+    """Set the words of the n-th `say` item of a canon copy."""
+    says = [item for item in d["glitch"]["sequence"] if "say" in item]
+    says[n]["say"] = text
+
+
+def test_the_sequence_is_the_one_j_approved_static_where_the_buzz_words_were_and_the_letters_spelled():
     c = json.loads(cc.canon_path("montaigne").read_text(encoding="utf-8"))
     g = c["glitch"]
-    assert g["model"] == "MONT-AI-GN-3"
+    assert g["model"] == "MONT-AI-GN-3" and "line" not in g
     assert g["expansion"] == "Modular Onboard Navigation & Telemetry / Attendant Interface / Guidance Node, Mark 3"
-    line = rl.line()
-    assert line == g["line"] and line.startswith("Brzzz. MONT-AI-GN-3 error")
-    for his in ("your friendly ship assistant!", "Happy to be—no", "that's not right.", "where was I",
-                "telling you about a time in Rome."):
-        assert his in line, his
-    # the expansion, word for word in J's order, written so a voice can say it
-    assert "Modular Onboard Navigation and Telemetry, Attendant Interface, Guidance Node, Mark 3." in line
-    assert "&" not in line and "/" not in line and "*" not in line and "insert" not in line
-    assert "J's" in c["_glitch_about"] and "ONLY" in c["_glitch_about"]
+    assert g["sequence"] == [
+        {"static": 0.55}, {"gap": 0.07},
+        {"say": LETTERS + " Error. Modular Onboard Navigation and Telemetry. Attendant Interface. Guidance Node. Mark three."},
+        {"gap": 0.07}, {"static": 0.32}, {"gap": 0.07},
+        {"say": "Your friendly ship assistant! Happy to be"},
+        {"static": 0.18},                                    # no gap before it: it cuts him off
+        {"gap": 0.07},
+        {"say": "No, that's not right. Ah, where was I? I was telling you about a time in Rome."}]
+    assert rl.sequence() == [(k, v) for item in g["sequence"] for k, v in item.items()]
+    words = rl.spoken()
+    assert words.startswith(LETTERS + " Error. Modular Onboard Navigation and Telemetry.") and words.endswith("a time in Rome.")
+    for gone in ("brzz", "bzzt", "montaigne three", "mont-ai", "&", "/", "*", "[", "—"):
+        assert gone not in words.lower(), gone
+    # one plain rendering for the log and the grounding gate, derived from the sequence
+    assert rl.line() == ("[static] " + g["sequence"][2]["say"] + " [static] Your friendly ship assistant! Happy to be "
+                         "[static] No, that's not right. Ah, where was I? I was telling you about a time in Rome.")
+    assert rl.line().replace("[static] ", "") == words
+    assert "APPROVED BY J" in c["_glitch_about"] and "ONLY" in c["_glitch_about"] and "sequence" in c["_glitch_about"]
     assert "glitch" in c["_provisional_2026-10-05_night"]
     # he does not know it: not in what he is told about himself, and not among the lines an act can answer with
     assert "MONT" not in c["persona"] and "attendant" not in c["persona"].lower()
@@ -107,66 +131,96 @@ def test_the_line_is_js_with_his_expansion_where_he_left_room_for_it():
 def test_it_is_a_fixed_line_of_montaignes_that_the_grounding_gate_passes_because_of_its_claim():
     spec = rl.spec()
     assert spec["speaker"] == "montaigne" and spec["scenario"] == rl.SCENARIO and spec["fixed_text"] == rl.line()
+    assert spec["sequence"] == rl.sequence() and spec["spoken"] == rl.spoken()
+    assert "MONT-AI-GN-3" in spec["claims"][0]["value"]
     assert ground(spec, spec["fixed_text"]) == []
     bare = dict(spec, claims=[{"id": "C1", "predicate": "montaigne.model", "value": "a model"}])
-    assert any("unauthorized numbers" in f for f in ground(bare, spec["fixed_text"]))     # the 3 comes from the claim
+    assert any("unauthorized numbers" in f for f in ground(bare, spec["fixed_text"]))     # the three comes from the claim
     assert ground(spec, spec["fixed_text"] + " Mark 4.") != []
 
 
+@pytest.mark.parametrize("bad", [
+    [{"static": 0.5}], [], "a string", [{"say": "Hello."}, {"hiss": 1.0}], [{"say": "Hello."}, {"static": 99}],
+    [{"say": "Hello."}, {"gap": 0}], [{"say": "Hello.", "static": 0.2}], [{"say": "Hello."}, {"static": True}],
+    [{"say": ""}, {"static": 0.2}], [{"say": "Hello."}, "static"],
+])
+def test_a_sequence_with_no_words_or_one_item_it_cannot_read_is_not_said_at_all(canon_copy, bad):
+    _edit(canon_copy / "canon_montaigne.json", lambda d: d["glitch"].__setitem__("sequence", bad))
+    assert rl.sequence() == [] and rl.spoken() == "" and rl.line() == "" and rl.spec() is None
+    assert rl.problems("Hello.") == ["the canon file holds no rare line"]
+
+
 # ---------------------------------------------------------------------------------------------------------------
-# the one exemption: this exact text, and nothing else
+# the one exemption: these exact words, and nothing else
 # ---------------------------------------------------------------------------------------------------------------
 ASSISTANT_RULE = "says it is an AI model, a program or an assistant"
 
 
-def test_the_exact_line_is_excused_and_only_from_the_two_named_checks():
-    line = rl.line()
-    assert rl.problems(line) == []
+def test_the_exact_words_are_excused_and_only_from_the_two_named_checks():
+    words = rl.spoken()
+    assert rl.problems(words) == []
     assert rl.EXEMPT == (ASSISTANT_RULE, "an assistant's offer of help")
     # the chat gate itself knows nothing of this: asked about the same text, it refuses it by that rule
-    assert ASSISTANT_RULE in cc.chat_problems("montaigne", line, line)
-    assert ASSISTANT_RULE in cc.chat_problems("montaigne", line, "")
+    assert ASSISTANT_RULE in cc.chat_problems("montaigne", words, words)
+    assert ASSISTANT_RULE in cc.chat_problems("montaigne", words, "")
     # ... so a model that worded this very sentence would be refused by the talker's gate
-    assert ASSISTANT_RULE in ct.Talker.problems("montaigne", line, line, line, "Tell me about Rome.", [])
+    assert ASSISTANT_RULE in ct.Talker.problems("montaigne", words, words, words, "Tell me about Rome.", [])
+    # the rendering for the log is not what is spoken, and is not excused
+    assert rl.problems(rl.line())[0] == rl.NOT_THE_LINE
 
 
 @pytest.mark.parametrize("change", [
     lambda s: s.replace("friendly", "trusty"),                       # one word
     lambda s: s.replace("ship assistant", "ship's assistant"),       # one mark
     lambda s: s + " ",                                               # one space
-    lambda s: s.replace("Brzzz. ", ""),                              # a part of it
+    lambda s: s.replace("M, O, N, T. ", ""),                         # a part of it
     lambda s: s.lower(),
     lambda s: "Bzzt. I am your friendly ship assistant, pilot. Happy to help.",      # invented in its likeness
     lambda s: "Brzzz. MONT-AI-GN-3 online. Your friendly ship assistant, at your service!",
+    lambda s: OLD_BUZZ,                                              # the first version, with the buzz written out
+    lambda s: OLD_NAMED,                                             # the second, "Montaigne three"
 ])
 def test_an_invented_variant_of_it_is_still_refused(change):
-    variant = change(rl.line())
-    assert variant != rl.line()
+    variant = change(rl.spoken())
+    assert variant != rl.spoken()
     fails = rl.problems(variant)
     assert fails[0] == rl.NOT_THE_LINE                               # refused for not being the line ...
     assert ASSISTANT_RULE in fails                                   # ... and the rule it is not excused from still fires
     assert ASSISTANT_RULE in cc.chat_problems("montaigne", variant, variant)
 
 
+def test_a_noise_written_as_a_word_can_never_be_spoken_again(canon_copy):
+    """The voice read "Brzzz" and "Bzzt" as letters. Put back into the file, they are refused even as the exact text."""
+    assert rl.NOISE_AS_A_WORD in rl.problems(OLD_BUZZ)
+    for noise in ("Brzzz. Hello, pilot.", "Bzzt, your friendly ship assistant!", "Hello. Bzzzt. Goodbye.", "Zzzt. Hello."):
+        _edit(canon_copy / "canon_montaigne.json", lambda d, noise=noise: _say(d, 0, noise))
+        assert rl.spoken().startswith(noise) and rl.NOISE_AS_A_WORD in rl.problems(rl.spoken()), noise
+        assert rl.spec() is None, noise
+    for fine in ("Forgive the static, pilot.", "A buzz of flies, pilot.", "The pizza is cold."):
+        assert rl.NOISE_AS_A_WORD not in rl.problems(fine), fine
+
+
 def test_the_exemption_follows_the_file_not_a_copy_in_code(canon_copy):
-    """J edits the line: the edited text is the one that may be said, and the old one no longer is."""
-    old = rl.line()
-    new = old.replace("a time in Rome", "the baths at Lucca")
-    _edit(canon_copy / "canon_montaigne.json", lambda d: d["glitch"].__setitem__("line", new))
-    assert rl.line() == new and rl.problems(new) == [] and rl.spec()["fixed_text"] == new
+    """J edits the words: the edited text is the one that may be said, and the old one no longer is."""
+    old = rl.spoken()
+    last = "No, that's not right. Ah, where was I? I was telling you about the baths at Lucca."
+    _edit(canon_copy / "canon_montaigne.json", lambda d: _say(d, 2, last))
+    new = rl.spoken()
+    assert new == old.replace("a time in Rome", "the baths at Lucca") and rl.problems(new) == []
+    assert rl.spec()["spoken"] == new and rl.spec()["fixed_text"].endswith("the baths at Lucca.")
     assert rl.problems(old)[0] == rl.NOT_THE_LINE
 
 
-def test_every_other_check_still_applies_to_the_exact_line(canon_copy):
-    """Excused from two checks, not from the gate: a line that pulls the pilot in, or names a product, is not said."""
+def test_every_other_check_still_applies_to_the_exact_words(canon_copy):
+    """Excused from two checks, not from the gate: words that pull the pilot in, or name a product, are not said."""
     for bad, why in (("Stay with me, pilot, you do not need them.", "attachment"),
-                     ("Bzzt, powered by ChatGPT, your friendly ship assistant!", "names a product")):
-        _edit(canon_copy / "canon_montaigne.json", lambda d, bad=bad: d["glitch"].__setitem__("line", bad))
-        assert rl.line() == bad
-        assert any(why in f for f in rl.problems(bad)), rl.problems(bad)
+                     ("Powered by ChatGPT, your friendly ship assistant!", "names a product")):
+        _edit(canon_copy / "canon_montaigne.json", lambda d, bad=bad: _say(d, 1, bad))
+        assert bad in rl.spoken()
+        assert any(why in f for f in rl.problems(rl.spoken())), rl.problems(rl.spoken())
         assert rl.spec() is None
-    _edit(canon_copy / "canon_montaigne.json", lambda d: d["glitch"].__setitem__("line", ""))
-    assert rl.line() == "" and rl.spec() is None and rl.problems("") == ["the canon file holds no rare line"]
+    _edit(canon_copy / "canon_montaigne.json", lambda d: d["glitch"].__setitem__("sequence", []))
+    assert rl.spoken() == "" and rl.spec() is None and rl.problems("") == ["the canon file holds no rare line"]
     _edit(canon_copy / "canon_montaigne.json", lambda d: d.pop("glitch"))
     assert rl.spec() is None
 
@@ -346,12 +400,19 @@ def test_a_record_that_cannot_be_read_or_written_never_lets_it_be_said_early(tmp
 # ---------------------------------------------------------------------------------------------------------------
 class _Speech:
     def __init__(self):
-        self.said, self.muted, self.refuse = [], False, False
+        self.said, self.muted, self.refuse, self.sequences = [], False, False, []
 
     def say(self, text, speaker, priority):
         if self.muted or self.refuse:
             return False
         self.said.append((speaker, text, priority))
+        return True
+
+    def say_sequence(self, items, speaker, priority, addressed=False, text=""):
+        if self.muted or self.refuse:
+            return False
+        self.said.append((speaker, text, priority))
+        self.sequences.append(list(items))
         return True
 
     def pending(self):
@@ -405,6 +466,8 @@ def test_it_is_said_once_by_montaigne_down_the_unprompted_path_and_no_model_is_a
     assert rig.core.hours.hours == 50.0 and rig.core.rare.count == 0
     rig.tick(1)
     assert rig.heard() == [("montaigne", rl.line())]
+    assert rig.core.speech.sequences == [rl.sequence()]               # handed to the voice as the sequence, once
+    assert "Brzzz" not in rig.core.speech.said[-1][1] and "[static] M, O, N, T." in rig.core.speech.said[-1][1]
     assert rig.core.speech.said[-1][2] == PRIORITY_AMBIENT
     assert rig.core.rare.count == 1 and not rig.core.rare.armed
     assert not any(s.get("scenario") == rl.SCENARIO for s in rig.asked)          # the realizer never saw it

@@ -6,7 +6,14 @@ and he has believed he is the man ever since. J asked for an easter egg: a line 
 lines", heard by "only users who use him a ton ... maybe once out of 100 hours", in which the ship assistant
 underneath shows for a second and then he is Montaigne again. No setting; it is meant as a surprise.
 
-THE LINE is in data/canon_montaigne.json under "glitch", for J to edit, and is said word for word. No model sees it.
+THE LINE is in data/canon_montaigne.json under "glitch", for J to edit. No model sees it. Since 2026-10-06 it is not
+one string but a SEQUENCE: words for his voice, bursts of generated static, and gaps. J heard the first version, in
+which "Brzzz" and "Bzzt" were written out, and the voice read them as letters; he approved the rendering with real
+static and the model number spelled letter by letter ("Yeah perfect"). sequence() reads it; spoken() is the words
+of its `say` items joined, which is the text the exemption below is about; line() is one plain rendering for the
+log and the grounding gate, DERIVED from the sequence so it cannot drift from what is said ("[static] M, O, N, T.
+... [static] Your friendly ship assistant! Happy to be [static] No, that's not right. ..."). Speech plays the
+sequence as ONE queue item (speech.Speech.say_sequence), so everything that governs a line governs it.
 
 WHEN. Three numbers, all in HOURS OF USE as hours_aboard.py counts them (the window open, not muted, the pilot at
 the controls), so a Suit left running hidden overnight earns nothing:
@@ -36,7 +43,8 @@ Only then is it written down as said.
 
 THE ONE EXEMPTION. The chat gate refuses a line in which Montaigne calls himself an assistant or offers help like
 one, and this line does both: that is the point of it. problems() lifts those two checks, by name, for a text that
-is EXACTLY the line the canon file holds at that moment, and for nothing else. Every other check still applies to
+is EXACTLY the words the canon sequence speaks at that moment (spoken()), and for nothing else. A noise written as
+a word ("Brzzz", "Bzzt") is refused even there, so the first version can never be spoken again. Every other check still applies to
 the exact line (length, markup, the five attachment moves, a product name), and a text that differs from it by
 one character gets no exemption at all: it is refused for not being the line, and the full gate is run on it too.
 Nothing in chat_contract knows this module exists, so a model that words the same sentence is still refused.
@@ -52,6 +60,7 @@ import logging
 import math
 import os
 import random
+import re
 import threading
 import time
 from pathlib import Path
@@ -71,6 +80,9 @@ OWED_MAX_S = 1800.0            # the most a run of held ticks may pass on: half 
 # The two checks of the chat gate this one line is excused from, by the names chat_contract gives them.
 EXEMPT = (cc.CHARACTER[0][0], cc.CHARACTER[1][0])
 NOT_THE_LINE = "not the rare line the canon file holds"
+NOISE_AS_A_WORD = "a noise written as a word: the voice reads it as letters"
+MAX_SOUND_S = 5.0              # a static burst or a gap longer than this is not a burst or a gap
+_NOISE = re.compile(r"\b(?:b+r*z{2,}t*|bz+t+|z{3,}t*|k+z+t+|k?s{2,}h+t*|fz+t*)\b", re.I)
 
 
 def entry() -> dict:
@@ -78,32 +90,61 @@ def entry() -> dict:
     return e if isinstance(e, dict) else {}
 
 
+def sequence() -> list[tuple]:
+    """The canon file's sequence as [("say", words) | ("static", seconds) | ("gap", seconds)], in order. [] when
+    there is none, when it has no words, or when ONE item cannot be read: half a sequence is not said."""
+    raw = entry().get("sequence")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        if not isinstance(item, dict) or len(item) != 1:
+            return []
+        (kind, value), = item.items()
+        if kind == "say" and isinstance(value, str) and value.strip():
+            out.append(("say", " ".join(value.split())))
+        elif (kind in ("static", "gap") and isinstance(value, (int, float)) and not isinstance(value, bool)
+              and 0 < value <= MAX_SOUND_S):
+            out.append((kind, float(value)))
+        else:
+            return []
+    return out if any(kind == "say" for kind, _ in out) else []
+
+
+def spoken() -> str:
+    """The words his voice says, in order, as one text; "" when there is no sequence. The exemption is about this."""
+    return " ".join(value for kind, value in sequence() if kind == "say")
+
+
 def line() -> str:
-    """The line as the canon file holds it now; "" when there is none."""
-    text = entry().get("line")
-    return text.strip() if isinstance(text, str) else ""
+    """One plain rendering of the sequence, for the log and the grounding gate: the words, with "[static]" where
+    a burst is and nothing where a gap is. Derived, never stored."""
+    return " ".join("[static]" if kind == "static" else value for kind, value in sequence() if kind != "gap")
 
 
 def problems(text: str) -> list[str]:
-    """Why this text may not be said as the rare line; [] = it may. See THE ONE EXEMPTION above."""
-    held = line()
+    """Why this text may not be SPOKEN as the rare line; [] = it may. See THE ONE EXEMPTION above."""
+    held = spoken()
     if not held:
         return ["the canon file holds no rare line"]
+    noise = [NOISE_AS_A_WORD] if _NOISE.search(str(text or "")) else []
     if text != held:
-        return [NOT_THE_LINE] + cc.chat_problems(SPEAKER, str(text or ""), "")
+        return [NOT_THE_LINE] + noise + cc.chat_problems(SPEAKER, str(text or ""), "")
     # His own names and number are his to say; everything else the gate checks, it checks.
-    return [f for f in cc.chat_problems(SPEAKER, text, text) if f not in EXEMPT]
+    return noise + [f for f in cc.chat_problems(SPEAKER, text, text) if f not in EXEMPT]
 
 
 def spec() -> Optional[dict]:
     """The line as a fixed-text spec the core can speak like any other unprompted line, or None when the file
-    holds none or it does not pass. Its one claim is the model number and its expansion, which is where the
-    grounding gate finds the 3."""
-    text = line()
-    if not text or problems(text):
+    holds none or its words do not pass. fixed_text is the plain rendering (what the log shows and the grounding
+    gate reads); "sequence" is what speech plays; "spoken" is the words alone. Its one claim is the model number
+    and its expansion, which is where the grounding gate finds the three."""
+    words, text = spoken(), line()
+    if not words or problems(words):
         return None
     e, n = entry(), len(text.split())
     return {"id": f"rare:{KEY}", "scenario": SCENARIO, "speaker": SPEAKER, "fixed_text": text,
+            "sequence": sequence(), "spoken": words,
             "claims": [{"id": "C1", "predicate": "montaigne.model",
                         "value": f"{e.get('model', '')}: {e.get('expansion', '')}"}],
             "required_values": [], "length_words": [max(1, n - 3), n]}

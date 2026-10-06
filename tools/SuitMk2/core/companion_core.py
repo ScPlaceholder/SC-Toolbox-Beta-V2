@@ -1250,6 +1250,18 @@ class CompanionCore:
         except queue.Full:
             self.stats["busy"] += 1          # realizer backed up: drop, never queue stale speech
 
+    def _say_line(self, spec: dict, text: str, speech_priority: int) -> bool:
+        """Hand one unprompted line to the voice. A spec with a "sequence" (Montaigne's rare line: words, static
+        and gaps) is played as that sequence, one queue item; a voice with no say_sequence (a test's) is given
+        its words alone. Every other line is said as it always was."""
+        seq = spec.get("sequence")
+        if seq:
+            play = getattr(self.speech, "say_sequence", None)
+            if callable(play):
+                return bool(play(seq, spec["speaker"], speech_priority, text=text))
+            return bool(self.speech.say(spec.get("spoken") or text, spec["speaker"], speech_priority))
+        return bool(self.speech.say(text, spec["speaker"], speech_priority))
+
     def _realize_loop(self) -> None:
         while not self._stop.is_set():
             try:
@@ -1306,7 +1318,7 @@ class CompanionCore:
             self._note(f"{why}: REFUSED by gate {fails}: {text[:60]!r}")
             return
         prev_last = self.gate_state.last_spoken_at
-        if self.speech.say(text, spec["speaker"], speech_priority):
+        if self._say_line(spec, text, speech_priority):
             self.gate.record_spoken(self.gate_state, cand)
             self._spoke(spec, text, cand)
             self.stats["spoken"] += 1

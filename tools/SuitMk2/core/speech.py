@@ -19,6 +19,15 @@ Rules:
     refused exactly as before. This is how SuitMk2 stays silent with its window hidden ("only have the AI's talk
     while it is launched", J 2026-10-04) and still answers a push-to-talk question asked from the game. The window
     decides when (ui/suit_window.py _voice_gate); nothing here opens the pass by itself, and it starts closed.
+  * A SEQUENCE (J 2026-10-06). say_sequence(items, speaker, ...) queues ONE item made of words, bursts of static
+    and gaps: [("say", text) | ("static", seconds) | ("gap", seconds)]. It was added for Montaigne's rare line,
+    after J heard "Brzzz" read out as letters: "We need to use an audio sound snip". It is one queue item, so
+    every rule above holds for it exactly as for a line: priority, max age, mute stopping it and clearing it,
+    the hidden-window gate, the wait for the game's own dialogue, one playback thread, never over another line.
+    The words are synthesised by the same synth and given the same character and level as any line; the static is
+    made here (static_burst) and is given neither: it is set to 0.8 of the level the first words came out at, so
+    a character turned down takes its static down with it. One limiter pass over the whole. Without voice_fx
+    (no scipy) the static is the same stuttered noise UNFILTERED and at half that level, and it still plays.
 """
 from __future__ import annotations
 
@@ -67,6 +76,60 @@ class _Item:
     text: str = field(compare=False)
     speaker: str = field(compare=False)
     addressed: bool = field(compare=False, default=False)     # an answer to the pilot; see allow_addressed
+    sequence: Optional[tuple] = field(compare=False, default=None)     # say_sequence: words, static and gaps
+
+
+# The static of a sequence. The numbers are those of the rendering J approved by ear on 2026-10-06
+# (scratchpad render_glitch3a.py): noise band-passed 350 to 3600 Hz, a random stutter of short bursts, coarse
+# amplitude steps, a quiet 120 Hz square buzz under it, 6 ms fades, 0.8 of the voice's speech level. Seeded, so
+# the same burst is the same every time.
+STATIC_BAND_HZ = (350.0, 3600.0)
+STATIC_LEVEL = 0.8                 # of the level the sequence's first words came out at
+STATIC_LEVEL_UNFILTERED = 0.4      # without scipy the noise is full-band and harsher: half as loud
+STATIC_SEEDS = (3, 7, 11)          # the first three bursts of a sequence, as approved; later ones go on by fours
+MAX_SEQUENCE_SOUND_S = 5.0
+
+
+def static_seed(n: int) -> int:
+    """The seed of a sequence's n-th burst of static (0 first)."""
+    return STATIC_SEEDS[n] if n < len(STATIC_SEEDS) else STATIC_SEEDS[-1] + 4 * (n - len(STATIC_SEEDS) + 1)
+
+
+def static_burst(seconds: float, sr: int, seed: int, level: float):
+    """(float32 samples, filtered?) for one burst of static of this length, at `level` RMS x STATIC_LEVEL when
+    it could be band-passed and x STATIC_LEVEL_UNFILTERED when it could not (no voice_fx, so no scipy)."""
+    import numpy as np
+    r = np.random.default_rng(seed)
+    n = max(0, int(seconds * sr))
+    if n == 0:
+        return np.zeros(0, dtype=np.float32), False
+    x = r.standard_normal(n).astype(np.float32)
+    filtered = False
+    if voice_fx is not None and n:
+        try:
+            from scipy.signal import butter, sosfilt  # type: ignore
+            x = sosfilt(butter(4, list(STATIC_BAND_HZ), btype="band", fs=sr, output="sos"), x)
+            filtered = True
+        except Exception as e:
+            log.warning("speech: static could not be band-passed, playing it unfiltered: %s: %s", type(e).__name__, e)
+    env = np.zeros(n, dtype=np.float32)
+    i = 0
+    while i < n:                                   # stutter: short bursts with shorter gaps
+        on, off = int(sr * r.uniform(0.025, 0.09)), int(sr * r.uniform(0.008, 0.035))
+        env[i:i + on] = r.uniform(0.55, 1.0)
+        i += max(1, on + off)
+    x = x * env
+    x = np.round(x / (np.abs(x).max() + 1e-9) * 12) / 12            # coarse steps: a digital edge on the noise
+    hum = 0.25 * np.sign(np.sin(2 * np.pi * 120 * np.arange(n) / sr)).astype(np.float32)   # a low buzz under it
+    x = (x + hum * env).astype(np.float32)
+    f = int(0.006 * sr)
+    if 0 < 2 * f <= n:
+        ramp = np.linspace(0, 1, f, dtype=np.float32)
+        x[:f] *= ramp
+        x[-f:] *= ramp[::-1]
+    rms = float(np.sqrt(np.mean(x ** 2))) if n else 0.0
+    gain = (STATIC_LEVEL if filtered else STATIC_LEVEL_UNFILTERED) * float(level) / (rms + 1e-9)
+    return (x * gain).astype(np.float32), filtered
 
 
 def _stock_path(speaker: str, cache: Path) -> Path:
@@ -246,6 +309,74 @@ class Speech:
             self._cv.notify()
         return True
 
+    def say_sequence(self, items, speaker: str = "montaigne", priority: int = PRIORITY_AMBIENT,
+                     addressed: bool = False, text: str = "") -> bool:
+        """Queue a prepared sequence as ONE line of this speaker's: items are ("say", words), ("static", seconds)
+        and ("gap", seconds), played in order. Refused exactly when say() would refuse a line, and also when the
+        sequence has no words or an item that is not one of the three. text: what the status window shows for it;
+        by default its words."""
+        seq = []
+        try:
+            for kind, value in items:
+                if kind == "say" and isinstance(value, str) and value.strip():
+                    seq.append(("say", value.strip()))
+                elif kind in ("static", "gap") and 0 < float(value) <= MAX_SEQUENCE_SOUND_S:
+                    seq.append((kind, float(value)))
+                else:
+                    return False
+        except (TypeError, ValueError):
+            return False
+        words = " ".join(v for k, v in seq if k == "say")
+        if self._refuses(addressed) or not words or speaker not in STOCK:
+            return False
+        with self._cv:
+            heapq.heappush(self._q, _Item(priority, next(self._seq), self.now(), str(text or words), speaker,
+                                          bool(addressed), tuple(seq)))
+            self._cv.notify()
+        return True
+
+    def _render_sequence(self, seq, speaker: str):
+        """(audio, sr) for a sequence. The words are synthesised, given their character and their level, one item
+        at a time, as a line is; the static is generated at 0.8 of the level the first words came out at; then
+        everything is joined and limited once. With a synth that does not return arrays (the tests') the result
+        is the list of parts in order, the words' audio as the synth gave it and ("static" | "gap", seconds) for
+        the rest, and play() is handed that list."""
+        import numpy as np
+        voiced, sr = {}, 22050
+        for i, (kind, value) in enumerate(seq):
+            if kind == "say":
+                audio, sr = self._synth(value, speaker)
+                voiced[i] = self._level(self._character(audio, sr, speaker), sr, speaker)
+        if not all(isinstance(a, np.ndarray) for a in voiced.values()):
+            return [voiced[i] if kind == "say" else (kind, value) for i, (kind, value) in enumerate(seq)], sr
+        first = next(iter(voiced.values()))
+        try:
+            ref = voice_fx.speech_rms(first, sr) if voice_fx is not None else 0.0
+        except Exception:
+            ref = 0.0
+        if not ref and len(first):
+            ref = float(np.sqrt(np.mean(first.astype(np.float32) ** 2)))
+        parts, bursts = [], 0
+        for i, (kind, value) in enumerate(seq):
+            if kind == "say":
+                parts.append(voiced[i].astype(np.float32).reshape(-1))
+            elif kind == "gap":
+                parts.append(np.zeros(int(value * sr), dtype=np.float32))
+            else:
+                try:
+                    burst, _ = static_burst(value, sr, static_seed(bursts), ref)
+                except Exception as e:           # never allowed to cost the line: silence of the same length
+                    log.warning("speech: static failed, a gap in its place: %s: %s", type(e).__name__, e)
+                    burst = np.zeros(int(value * sr), dtype=np.float32)
+                bursts += 1
+                parts.append(burst)
+        out = np.concatenate(parts).astype(np.float32)
+        try:
+            out = voice_fx._limit(out, sr) if voice_fx is not None else out
+        except Exception as e:
+            log.warning("speech: the sequence could not be limited, clipping it: %s: %s", type(e).__name__, e)
+        return np.clip(out, -1.0, 1.0).astype(np.float32), sr
+
     def _refuses(self, addressed: bool) -> bool:
         """Not muted: nothing is refused. Muted: everything is, except an answer while answers are allowed."""
         return self._muted and not (addressed and self._addressed_ok)
@@ -309,8 +440,11 @@ class Speech:
             if not item.text or self._refuses(item.addressed):
                 continue
             try:
-                audio, sr = self._synth(item.text, item.speaker)
-                audio = self._level(self._character(audio, sr, item.speaker), sr, item.speaker)
+                if item.sequence is not None:
+                    audio, sr = self._render_sequence(item.sequence, item.speaker)
+                else:
+                    audio, sr = self._synth(item.text, item.speaker)
+                    audio = self._level(self._character(audio, sr, item.speaker), sr, item.speaker)
                 if self.ducker is not None and not self._refuses(item.addressed):
                     # The game is talking: wait for it (bounded by priority), then re-check staleness -
                     # a line that waited past its max_age is dropped like any other stale line.
@@ -385,6 +519,30 @@ def _selftest() -> int:
     s2.say("y", "elah", PRIORITY_EVENT)
     time.sleep(0.3)
     case("a failing line does not kill the voice thread", s2._thread.is_alive())
+    # A sequence (words, static, gaps) is ONE line: one play, in order, and refused like a line when muted.
+    del played[:]
+    gate.set()
+    seq = [("static", 0.5), ("gap", 0.07), ("say", "letters"), ("static", 0.2), ("say", "where was I")]
+    case("a sequence is accepted and a sequence with no words is not",
+         s.say_sequence(seq, "montaigne", PRIORITY_AMBIENT, text="[static] letters [static] where was I") is True
+         and s.say_sequence([("static", 0.5)], "montaigne") is False)
+    time.sleep(0.4)
+    case("a sequence is played once, its parts in order",
+         played == [[("static", 0.5), ("gap", 0.07), "montaigne:letters", ("static", 0.2), "montaigne:where was I"]])
+    case("the status window shows it as one line", s.spoken[-1][1:] == ("montaigne", "[static] letters [static] where was I"))
+    s.mute(True)
+    case("muted: say_sequence refuses", s.say_sequence(seq, "montaigne") is False)
+    s.mute(False)
+    try:
+        import numpy as np
+        a, _f = static_burst(0.55, 22050, static_seed(0), 0.1)
+        b, _f2 = static_burst(0.55, 22050, static_seed(0), 0.1)
+        rms = float(np.sqrt(np.mean(a ** 2)))
+        case("static: the stored length, the same every time, at its level (0.8 band-passed, 0.4 unfiltered)",
+             len(a) == int(0.55 * 22050) and np.array_equal(a, b)
+             and abs(rms - (STATIC_LEVEL if _f else STATIC_LEVEL_UNFILTERED) * 0.1) < 0.002)
+    except ImportError:
+        case("static: numpy is there to make it", False)
     s.close(); s2.close()
     for name, ok in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}")
