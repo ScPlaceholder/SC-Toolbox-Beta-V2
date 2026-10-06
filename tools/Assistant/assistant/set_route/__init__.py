@@ -1,13 +1,12 @@
 """Set route: the one implementation, owned by the AI Assistant.
 
 "Set route to Area 18" resolves a spoken destination and walks Star Citizen's
-own star map to plot that route in game. J asked on 2026-10-04 for this to
-belong to the Assistant, so the Assistant can set a route with the Star Map
-closed. It lived in skills/Starmap/starmap/set_route/ (and before that in
+own star map to plot that route in game. It belongs to the Assistant,
+so the Assistant can set a route with the Star Map closed. It lived in skills/Starmap/starmap/set_route/ (and before that in
 starmap/voice/); the Star Map now reaches THIS copy through
 skills/Starmap/starmap/set_route_link.py, and there is no other.
 
-  * destination_engine - J's WingmanAI set_route phonetic engine: turns
+  * destination_engine - the WingmanAI set_route skill's phonetic engine: turns
     "area eighteen" into a known destination, or a short "which one?" list.
     Pure Python and JSON; no Qt, no game, no map.
   * route_setter       - the in-game macro (F2, clicks, a clipboard paste, R,
@@ -22,8 +21,8 @@ skills/Starmap/starmap/set_route_link.py, and there is no other.
     caller can skip the switch.
   * phrases            - which utterances are set-route requests.
 
-destination_engine.py and route_setter.py are J's code, moved byte-identical
-(decision 2026-09-25: kept as it is). They sit five folders below the toolbox
+destination_engine.py and route_setter.py came from the WingmanAI set_route
+skill. They sit five folders below the toolbox
 root, the same depth as before, which their data-path lookups rely on: the
 destination list is the live tools/set_route_ai/data (shared with the WingmanAI
 skill) where that folder exists, else the copy packaged at

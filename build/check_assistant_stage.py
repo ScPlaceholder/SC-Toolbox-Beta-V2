@@ -56,8 +56,10 @@ CALIBRATION = "mouse_calibration.json"
 # sentence saying the tool is missing; every other tool in worker_pool.TOOLS must be staged.
 NOT_SHIPPED = {"starmap"}
 HOME_PATH = re.compile(rb"[A-Za-z]:[\\/]+Users[\\/]")
-# A developer's working folders and note links.
-DEV_NOTE = re.compile(rb"elah-audio|BrAi|_forJ|\[\[[a-z0-9]+(?:-[a-z0-9]+)+\]\]")
+# A developer's working folders and note links, and comments that say who asked for something and when
+# instead of what the rule is (the shipped files were reworded; this keeps them that way).
+DEV_NOTE = re.compile(rb"elah-audio|BrAi|_forJ|\[\[[a-z0-9]+(?:-[a-z0-9]+)+\]\]"
+                      rb"|\bJ,? 20\d\d-\d\d-\d\d|\bJ's\b|\xe2\x9b\x94|\xe2\x98\x85")
 
 PROBE = r'''
 import json, os, runpy, subprocess, sys, threading, time

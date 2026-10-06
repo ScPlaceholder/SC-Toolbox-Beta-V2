@@ -14,12 +14,12 @@ The agent runs blocking LLM calls on a worker thread; everything reaches
 the GUI through Qt signals. The ears/mouth/speak pipeline is optional-
 dependency gated.
 
-This window is the toolbox's ONE microphone (J, 2026-10-04). The Star Map
+This window is the toolbox's ONE microphone. The Star Map
 used to have its own ears and voice bar; they are gone, and what is said for
 the map is relayed to it from here (starmap_bridge.py, the starmap_command
 tool). The Star Map's saved mic settings are folded in once at start-up.
 
-Its own push-to-talk key (J, 2026-10-05). The mic key is the ASSISTANT's key:
+Its own push-to-talk key. The mic key is the ASSISTANT's key:
 held, it opens the mic and what is said goes to this agent, whichever tab of
 the shared window is showing and with the window closed. SuitMk2 has a key of
 its own; shared/mic_floor.py keeps the two from opening the microphone at
@@ -60,7 +60,7 @@ _STATE_PATH = os.path.join(os.path.expanduser("~"), ".sctoolbox",
 
 #: Said to close an always-open mic. It was the Star Map's "ears off" command;
 #: the mic is this window's now, so the command is handled here and never
-#: reaches the agent. There is no "off" (J 2026-09-26): it drops to push-to-talk.
+#: reaches the agent. There is no "off": it drops to push-to-talk.
 _STOP_LISTENING = re.compile(r"^\W*(?:please\s+)?(?:ears?\s+off|stop\s+listening|go\s+to\s+sleep)\W*$",
                              re.IGNORECASE)
 
@@ -155,7 +155,7 @@ class _AssistantBody:
 
     Two classes at the bottom of this file put it on screen: AssistantWindow
     (its own window, as it has always been) and AssistantPanel (one tab of the
-    Toolbox Assistant window, which also has SuitMk2 as a tab; J 2026-10-04).
+    Toolbox Assistant window, which also has SuitMk2 as a tab).
     Both get every method here. They differ in the frame, in whether a window
     position is saved, and in who owns the microphone.
 
@@ -385,7 +385,7 @@ class _AssistantBody:
         which AI hears it"."""
         self._ears = _Ears(self)
         self._ears.use_floor(FLOOR, ptt_keys.ASSISTANT)
-        # Ears are always on (J 2026-09-26); the player picks push-to-talk
+        # Ears are always on; the player picks push-to-talk
         # (default) or always on. An old saved "toggle" becomes push-to-talk.
         mode = self._state.get("mic_mode", "push")
         self._ears.set_mode(mode if mode in ("push", "always") else "push")
@@ -407,7 +407,7 @@ class _AssistantBody:
     # An ALWAYS-OPEN mic belongs to the tab that is showing: the window hands
     # it over with mic_take and takes it away with mic_release.
     #
-    # A PUSH-TO-TALK key is different (J, 2026-10-05): each tool has its own,
+    # A PUSH-TO-TALK key is different: each tool has its own,
     # and holding one talks to that tool whichever tab is showing. So after
     # mic_release the window says ptt_background(True), and this tab goes on
     # watching its key. Two keys still cannot open the microphone twice:
@@ -548,9 +548,9 @@ class _AssistantBody:
     def _speak(self, text: str) -> None:
         if self._btn_replies.isChecked() and Mouth.available():
             # Warn the ears BEFORE the line is queued: with the mic always open they
-            # hear the speakers, and on 2026-09-27 "Say yes or no" came back as the
-            # user's own next utterance, mistranscribed to "or not" — so the yes/no
-            # parse read a refusal and refused what had just been approved twice.
+            # hear the speakers, and "Say yes or no" can come back as the user's own
+            # next utterance, mistranscribed to "or not": the yes/no parse then reads a
+            # refusal and refuses what was just approved.
             self._ears.note_speaking(text)
             try:
                 self._mouth.speak(text)
@@ -637,7 +637,7 @@ class _AssistantBody:
 
     def _calibrate_route(self, begin: bool = False) -> None:
         """The in-game macro's 3-click calibration. This is the only button that
-        opens it: the Star Map's "Calibrate Star Map" moved here (J, 2026-10-04).
+        opens it: the Star Map's "Calibrate Star Map" moved here.
 
         It needs the game's own star map on screen (the pilot clicks its search
         bar, a result and its centre) and pynput to see those clicks. It needs
@@ -655,7 +655,7 @@ class _AssistantBody:
         except ImportError as exc:
             self._set_status("calibration unavailable: %s" % exc)
             return
-        # The dialog opens on step 0, "Click on the game and say 'calibrate star map' to begin." (J, 2026-10-04),
+        # The dialog opens on step 0, "Click on the game and say 'calibrate star map' to begin.",
         # and watches nothing until _calibrate_by_voice hears that, or its Begin button is pressed. Its prompts
         # are spoken through _speak: the same path as every reply, so Voice Replies decides whether they are
         # heard and the ears are warned before each one (an always-open mic would otherwise hear the prompt).

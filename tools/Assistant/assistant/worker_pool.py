@@ -6,7 +6,7 @@ about trade routes does not re-download 5,000 prices. Around that sits a
 short result cache, so asking the same thing twice within a few minutes
 costs nothing at all.
 
-Resource rules (this box is memory-tight):
+Resource rules (a PC running the game has little memory to spare):
   * at most ``max_live`` workers at once; the least recently used one is
     stopped to make room;
   * a worker idle for ``idle_timeout`` seconds is stopped on the next call;
@@ -60,7 +60,7 @@ DEFAULT_RESULT_TTL = 180
 
 
 def find_toolbox_python() -> str:
-    """The interpreter the launcher uses (pythoncore-3.14-64 on J's box).
+    """The interpreter the launcher uses.
 
     The Assistant is itself started by the launcher with that
     interpreter, so sys.executable is right whenever it is a plain

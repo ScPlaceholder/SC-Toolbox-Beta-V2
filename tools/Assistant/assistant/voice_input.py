@@ -53,10 +53,7 @@ REFUSED_MSG = ("Left and right mouse buttons can't be the mic key: every click i
 class HotkeyMonitor(QObject):
     """Watches a binding and re-emits pressed/released as Qt signals.
 
-    ⛔ 2026-09-26: the assistant's ears had never once been ENTERED. `voice.py` logs
-      "ears: key down" on every trigger edge and `logs/assistant.crash.log` contained
-      none, ever — and this class was the reason the log could not say why. Three
-      defects, all of which made "the listener never started" and "it started fine and
+    Three defects this class once had, all of which made "the listener never started" and "it started fine and
       nobody pressed the key" the same empty log:
 
       1. `start()` returned True as soon as a Listener OBJECT existed. The actual
@@ -77,11 +74,11 @@ class HotkeyMonitor(QObject):
          tree returns nothing, so there is no such concept to hook into. It read like
          error handling and did nothing at all.
 
-    ⇒ `start()` now starts the listener on the calling thread, waits (bounded) for it
+    `start()` starts the listener on the calling thread, waits (bounded) for it
       to reach its loop, and on failure logs the binding by name with the exception
       TYPE before returning False.
 
-    ⚠ WHAT THIS STILL CANNOT PROVE, and it must not be read as more than it is: pynput
+    WHAT THIS STILL CANNOT PROVE, and it must not be read as more than it is: pynput
       calls `_mark_ready()` BEFORE installing the Windows hook, and `SetWindowsHookEx`
       failing returns NULL without raising (pynput's `SystemHook.__enter__` does not
       check it). So a live listener thread proves the code got that far; it does NOT
@@ -262,7 +259,7 @@ class KeyCaptureDialog(QObject):
     def start(self) -> bool:
         """True only if at least one listener is really running.
 
-        ⛔ 2026-09-26: this used to return True unconditionally and start each listener
+        It used to return True unconditionally and start each listener
           inside `except Exception: pass`, so "Set Mic Key" that could never capture
           anything looked identical to one waiting patiently for a press. The player is
           then stuck: no key can be bound, and nothing says so. `on_error=` is gone for

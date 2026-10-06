@@ -21,7 +21,7 @@ WHAT IT PLAYS, in strict preference order
 
 WHY THE GRID IS DETECTED AND NOT DIVIDED
 ========================================
-Measured 2026-09-27 on `2ec8f6be-67e0-4965-b194-43408a909b1e.png`: 1774x887,
+Measured on the first sheet: 1774x887,
 ARGB32, real alpha, 36.6% of pixels fully transparent. There is NO integer 6x2
 grid: 1774/6 = 295.67, 887/2 = 443.5. Nor is there a usable non-integer one -
 an even 6-way split of the content span (pitch 292.2) CLIPS frame 1, whose
@@ -43,10 +43,10 @@ is decisive rather than a guess - alpha mass drops to 31 against a peak of 391
 (8%) in row 1 and to 25 against 363 (7%) in row 2. It happens to land within
 3 px and 8 px of the midpoint, which is the confirmation, not the method.
 
-⚠ NOTHING ABOUT THIS FILE'S DIMENSIONS IS HARDCODED. 1774, 887, 295.67 and the
+NOTHING ABOUT THIS FILE'S DIMENSIONS IS HARDCODED. 1774, 887, 295.67 and the
 band numbers above appear only in this docstring. cols and rows are parameters,
 the thresholds are parameters, and a third revision of the asset needs no code
-change. This is the second version of the art in fifteen minutes.
+change.
 
 
 WHY FRAMES ARE NORMALISED, AND ON WHAT EVIDENCE
@@ -71,12 +71,12 @@ horrible to debug later, so the alignment was chosen by measurement:
     859-864 across row 2, a 6 px spread, while the TOPS range over 28 px. The
     dance bobs the head, not the feet.
 
-⇒ Crop each frame to its own alpha bounding box, then compose onto one uniform
+Crop each frame to its own alpha bounding box, then compose onto one uniform
 canvas: centred horizontally, BOTTOM-aligned vertically. That plants the feet on
 a common floor, keeps the head bob that is really there, and gives every frame
 an identical size so one cache scale factor produces no size jitter.
 
-⇒ `frame_rects()` returns the detected source rectangles and `--dump-grid`
+`frame_rects()` returns the detected source rectangles and `--dump-grid`
 writes two PNGs to look at: the sheet with every rect outlined, and the
 normalised frames in a strip. A crop this widget cannot justify is a crop you
 can see.
@@ -143,22 +143,10 @@ DEFAULT_ROWS = 2
 
 #: 12 frames at 9 fps is a 1.333 s dance cycle.
 #:
-#: ⛔ WAS 12.0, AND THE REASONING WAS SOUND AND STILL WRONG. The original note read:
-#: "fast enough to read as dancing, slow enough that twelve poses do not blur into
-#: a flicker, and the traditional rate for hand-posed character loops." Every clause
-#: of that is true. J watched it and said: *"Can we slow the animation down by like
-#: half so it looks like he's dancing not spazzing"*, then watched 6 and said
-#: *"Maybe like halfway between that and the first one"* — so 9 (2026-09-27).
-#: Two rounds of him looking at it, which is the only instrument that reads this.
-#:
-#: ★ The argument was about LEGIBILITY — can you resolve twelve distinct poses — and
-#:   he was judging CHARACTER. A penguin can be perfectly legible and still look
-#:   frantic. Those are different questions, and the rate that answers one does not
-#:   answer the other. No amount of reasoning from first principles was going to
-#:   produce "6", because the input is a human watching it.
-#: ⚠ So this constant is TASTE, and it is HIS taste. Do not re-derive it from cycle
-#:   length, repaint cost or animation convention and quietly put it back to 12 —
-#:   all three arguments are still available and all three are still beside the point.
+#: The rate is about how the dance LOOKS, not about legibility. At 12 fps every pose can be told
+#: apart and he still looks frantic; at 6 he drags; 9 was chosen by watching it. Do not re-derive it
+#: from cycle length, repaint cost or animation convention and put it back to 12: none of those says
+#: how it looks.
 #: Cheap either way: 9 repaints a second once the fade has settled.
 DEFAULT_FPS = 9.0
 

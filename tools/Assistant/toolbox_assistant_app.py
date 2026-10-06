@@ -1,8 +1,5 @@
 """SC Toolbox - Toolbox Assistant: the Assistant and SuitMk2 in one window, a tab each.
 
-J, 2026-10-04: "Can we combine toolbox assistant and suit mk2 under the same
-tool and have a tab for each under the tool".
-
 One launcher tile, one process, one window (assistant/hub.py), two tabs:
 
     Assistant   the voice-driven copilot      Ctrl+3   (assistant/panel.py, AssistantPanel)
@@ -25,8 +22,7 @@ its own.
 A tool the user switched off in the launcher's Settings does not come back as a
 tab: the launcher names the disabled ones in env SC_TOOLBOX_TABS_OFF.
 
-A PUSH-TO-TALK KEY EACH (J, 2026-10-05: "individual push to talk buttons which
-also auto-route to the right ai"). Each tab has its own key (the Assistant's
+A PUSH-TO-TALK KEY EACH. Each tab has its own key (the Assistant's
 "Mic key", SuitMk2's "Talk key"; defaults in shared/ptt_keys.py), and holding
 one talks to that tool whichever tab is showing and with the window closed. A
 tab has to exist to hear its key, so a few seconds after the window is up every
@@ -98,7 +94,7 @@ PRELOAD_TAB = TAB_SUIT
 # the first tab's own start-up (SuitMk2 finding Game.log and waking its model service) is not competing with it.
 WARM_MS = 4000
 
-# THE SIZE. The window first shipped opening at 560x600, and on J's launcher (2026-10-04, UI scale 1.5) the Suit Mk2
+# THE SIZE. The window first shipped opening at 560x600, and at UI scale 1.5 the Suit Mk2
 # tab was unreadable at that size: nine status rows 4 px high and drawn over each other, six button labels cut, and
 # the title cut to "TOOLBOX ASSISTANT / A". SuitMk2's dashboard is a plain column with no scroll area, and a window's
 # explicit minimum size overrides what its layout needs, so nothing stopped the window being smaller than its content.

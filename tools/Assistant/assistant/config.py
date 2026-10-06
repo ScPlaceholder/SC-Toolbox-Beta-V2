@@ -1,4 +1,4 @@
-"""LLM endpoint configuration — the plug Elah fills in.
+"""LLM endpoint configuration: which model service the Assistant talks to.
 
 Config lives in ``~/.sctoolbox/assistant_llm.json`` so it survives
 toolbox updates. Every field can be overridden with an environment

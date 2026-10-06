@@ -29,7 +29,7 @@ _SET = re.compile(r"^(?:set (?:the |a )?route to|navigate to|set (?:a )?course t
 _BARE = re.compile(r"^route to (\S.*)$")
 
 
-#: "calibrate star map" (J, 2026-10-04): starts the in-game route setter's
+#: "calibrate star map": starts the in-game route setter's
 #: calibration. The whole utterance, not its start: "how do I calibrate the
 #: star map" is a question for the assistant, not the command.
 #: Spellings: Whisper writes the map as "star map", "starmap" or "Star Map"

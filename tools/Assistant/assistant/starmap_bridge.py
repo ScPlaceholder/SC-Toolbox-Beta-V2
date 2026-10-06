@@ -3,7 +3,7 @@
 Until 2026-10-04 the Star Map had its own ears (skills/Starmap/starmap/voice/):
 its own microphone capture, its own Whisper, its own mic mode. With that mode
 saved as "Always on", opening the map - on its own, or as a tab of the
-Everything Finder - armed the mic. J asked for voice-to-text to live in ONE
+Everything Finder - armed the mic. Voice-to-text now lives in ONE
 place, here. Three jobs follow from that, and this module is all three:
 
 1. :func:`command_text` - decide whether something the pilot said is meant for

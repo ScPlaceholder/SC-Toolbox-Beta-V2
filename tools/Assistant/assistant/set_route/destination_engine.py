@@ -1,4 +1,4 @@
-"""DestinationPhoneticEngine - ported from Elah's WingmanAI set_route skill.
+"""DestinationPhoneticEngine - ported from the WingmanAI set_route skill.
 
 Resolves a spoken destination phrase to one of the Star Citizen
 destinations in ``destinations.json`` (with its hand-built alias list) via:

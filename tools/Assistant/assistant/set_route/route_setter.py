@@ -1,6 +1,6 @@
 """In-game route setter - the set_route_ai automation, repurposed.
 
-Drives the Star Citizen in-game starmap exactly like Elah's WingmanAI
+Drives the Star Citizen in-game starmap exactly like the WingmanAI
 set_route skill did, but on ``pynput`` (the ears' existing optional
 dependency) instead of Wingman's internal mouse/keyboard services:
 
@@ -116,33 +116,18 @@ def save_calibration(search_bar, destination, map_center) -> None:
 def _set_clipboard(text: str) -> None:
     """Win32 clipboard set (CF_UNICODETEXT), same approach as the original.
 
-    ⛔ THIS FUNCTION RAISED "GlobalLock failed" ON EVERY CALL AND THE PORT DROPPED THE
-       EXACT LINES THE ORIGINAL LABELS CRITICAL. Found 2026-09-27 by J's dry run: point
-       the macro at a blank Notepad and watch what it types. It typed nothing — the
-       destination never reached the clipboard, so no route was ever plotted, in Notepad
-       or in game.
+    The restype / argtypes declarations below are REQUIRED on 64-bit Windows. Without them ctypes
+    assumes a C ``int`` return, so GlobalAlloc's HANDLE is truncated to 32 bits and sign-extended,
+    GlobalLock is handed a bad handle and returns 0, and this function raises "GlobalLock failed" on
+    every call: the destination never reaches the clipboard and no route is plotted. For example:
 
-       `tools/set_route_ai/main.py` carries the comment
-       ``# --- CRITICAL: Declare proper 64-bit return types ---`` above eight restype /
-       argtypes declarations. The port kept the call sequence and the comment's *shape*
-       and dropped the declarations. Without them ctypes assumes a C ``int`` return, so
-       on 64-bit Windows GlobalAlloc's HANDLE is truncated to 32 bits and sign-extended.
-       Measured on this machine:
+        default restype   -> -604110840        (truncated, sign-extended)
+        c_void_p restype  -> 2000850649112     (the real handle)
+        GlobalLock(truncated) -> 0             ->  "GlobalLock failed"
 
-           default restype   -> -604110840        (truncated, sign-extended)
-           c_void_p restype  -> 2000850649112     (the real handle)
-           GlobalLock(truncated) -> 0             ->  "GlobalLock failed"
-
-       ★ The port did not lose the KNOWLEDGE — the original's comment survived into the
-         new file as the docstring's "same approach as the original". It lost the four
-         lines the comment was ABOUT. A copied reassurance is not a copied safeguard.
-
-    ⚠ SECOND, INDEPENDENT DEFECT in the same body, which the first one masked: it encoded
-      ``text`` without a terminator, set ``size = len(text_bytes) + 2``, then memmove'd
-      ``size`` bytes out of a buffer holding ``size - 2``. That over-reads the Python
-      bytes object by two bytes and never deliberately writes the NUL, so CF_UNICODETEXT
-      would be handed an unterminated string plus whatever followed in memory. Fixed the
-      way the original does it: append "\\0" BEFORE encoding and size from the result.
+    The text is encoded WITH its terminator ("\\0" appended before encoding) and the size is taken
+    from the result. Sizing from the unterminated bytes plus two copies two bytes from past the end of
+    the buffer and hands CF_UNICODETEXT an unterminated string.
     """
     import ctypes
 
@@ -301,7 +286,6 @@ class InGameRouteSetter:
             report("pressing Set Route...")
             # Six presses ON PURPOSE, not a bug: when SC lags it drops single R
             # presses, so this retries until one lands.
-            # (J, 2026-09-25; an audit had flagged it as spam.)
             for _ in range(6):
                 kb.press("r")
                 kb.release("r")
@@ -319,9 +303,8 @@ class InGameRouteSetter:
 class RouteCalibrationDialog(QDialog):
     """3-step click capture for the in-game route setter, started by voice.
 
-    J, 2026-10-04: "Step one for calibrate star map should be 'click on game
-    and say calibrate starmap to begin' then when the user says 'calibrate
-    starmap' it begins the verbal prompts to the user".
+    It opens on a step that only says how to begin; the spoken prompts start
+    when the pilot says the phrase, or presses Begin.
 
       0. "Click on the game and say 'calibrate star map' to begin."
          NOTHING is watched here: the mouse and keyboard listeners do not
@@ -352,7 +335,7 @@ class RouteCalibrationDialog(QDialog):
     clickSeen = Signal(int, int)     # step 1: a click was seen (not yet confirmed)
     enterPressed = Signal()          # step 1: Enter confirms the most recent click
 
-    # Step 1 waits for ENTER (J, 2026-09-26). The first click in the game is often only the click that
+    # Step 1 waits for ENTER. The first click in the game is often only the click that
     # focuses the game window, so taking it as the search-bar position calibrated the wrong spot. Now any
     # number of clicks are allowed in step 1; the most recent one is kept, and Enter confirms it.
     STEP_0 = "Click on the game and say \"calibrate star map\" to begin."

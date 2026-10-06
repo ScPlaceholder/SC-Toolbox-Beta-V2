@@ -52,7 +52,7 @@ def _whisper_cpu_threads() -> int:
         4 threads (today)            1.938 / 1.834 s per utterance
         16 threads + no timestamps   1.507 / 1.395   ->  -22.3% and -23.9%
 
-    Two passes because this machine drifts: one repeated config moved 26% over an
+    Two passes because the timings drift: one repeated config moved 26% over an
     evening, so a single ordering cannot separate "faster config" from "ran at a
     quieter moment". The RATIO replicated across passes; the absolute number did
     not, so only the ratio is claimed here.
@@ -73,7 +73,7 @@ _TTS_VOLUME = 90
 _TTS_TIMEOUT = 30
 
 # ── the assistant hearing itself ─────────────────────────────────────────────
-# Owner's screenshot, 2026-09-27, "Always on" + "Voice Replies":
+# Seen with "Always on" + "Voice Replies":
 #
 #     You: Want me to open Starmouth? Say yes or not. Yes. Yes.
 #     AI:  Okay, I won't open Starmap.
@@ -321,7 +321,7 @@ class EarsController(QObject):
         self._model = None
         # Whisper loads once per process (~2.1s measured 2026-09-26: 0.25s import +
         # 1.81s small.en int8, warm cache — a cold first run also downloads ~250MB).
-        # It used to load on the FIRST utterance, so J paid it mid-sentence. The lock
+        # It used to load on the FIRST utterance, so the wait landed mid-sentence. The lock
         # matters because arm() now preloads on a worker while _transcribe may call
         # _get_model on its own thread: without it both see None and build two models.
         self._model_lock = threading.Lock()
@@ -336,13 +336,12 @@ class EarsController(QObject):
         self._echo = EchoFilter()
         self._deaf_blocks = 0
         self._speaking = False
-        #: ⛔ A SECOND THRESHOLD, DELIBERATELY NOT THE TRANSCRIPTION ONE. J, 2026-09-27:
-        #:   "have the option for users to reduce the mic sensitivity to spawn him but it
-        #:    won't reduce the sensitivity to spawn the whisper".
+        #: A SECOND THRESHOLD, DELIBERATELY NOT THE TRANSCRIPTION ONE: how loud the room must be for the
+        #:   listener penguin to appear, which the player can raise without the ears hearing any less.
         #:   A player who finds the companion twitchy raises THIS, and the ears go on
         #:   hearing exactly as well as before. `_VOICE_RMS` drives _voice_ms and therefore
         #:   WHEN AN UTTERANCE IS CAPTURED; this drives only speakingChanged.
-        #: ⚠ Defaults EQUAL to _VOICE_RMS, so behaviour is unchanged until someone asks.
+        #: Defaults EQUAL to _VOICE_RMS, so behaviour is unchanged until someone asks.
         #:   Raising it can only make the indicator quieter — it can never deafen the mic,
         #:   because nothing on the transcription path reads it. The test that matters is
         #:   the one that raises it to a level no speech passes and asserts _finish() still
@@ -468,12 +467,10 @@ class EarsController(QObject):
             self._monitor.triggered.connect(self._on_trigger)
         ok = self._monitor.start(self._binding)
         if not ok:
-            # ⛔ 2026-09-26: this used to emit "ears armed (...)" and `return ok`, so the
-            # status line — and the log line fed from it — said ARMED whatever start()
-            # returned. logs/assistant.crash.log holds "ears status: ears armed (z, hold to
-            # talk)" for a session in which no key edge was ever seen, and that sentence was
-            # worth nothing: it was printed without consulting the result. The claim now
-            # follows the evidence, and self._armed is only set when the trigger is watched.
+            # The status line, and the log line fed from it, say ARMED only when start() says
+            # the trigger is being watched, and self._armed is only set then. Saying "ears armed"
+            # whatever start() returned made a session in which no key edge was ever seen look
+            # like a working one.
             self._armed = False
             self.statusChanged.emit(
                 "mic key %s could not be watched - see logs/assistant.crash.log"
@@ -578,11 +575,10 @@ class EarsController(QObject):
     def _audio_cb(self, indata, frames, time_info, status) -> None:
         with self._lock:
             if self.deaf():
-                # My own voice, arriving through the speakers. Dropped here rather
+                # The Assistant's own voice, arriving through the speakers. Dropped here rather
                 # than filtered later so it can never be concatenated onto the
-                # front of the user's next sentence -- which is exactly what the
-                # 2026-09-27 screenshot was: one utterance, my question and their
-                # answer, and the parser saw a single string.
+                # front of the user's next sentence: one utterance, the question and
+                # the answer, which the parser would see as a single string.
                 # _last_rms is zeroed so the silence watcher cannot keep counting
                 # speech from the last block it did see.
                 self._deaf_blocks += 1
@@ -674,7 +670,7 @@ class EarsController(QObject):
     def _abort_recording(self, reason: str = "closed") -> None:
         self._tick.stop()
         if self._pulse is not None:
-            # Unconditional, and this is the line the owner's 2026-09-26 session needed:
+            # Unconditional, and this is the line one real session needed:
             # the mic was held open 16.4 s and closed without the gate ever firing, so
             # every existing log line was skipped and the session produced nothing at all
             # between "listening..." and "ears off". A close is the last moment anything
@@ -774,7 +770,7 @@ class EarsController(QObject):
             text = " ".join(s.text for s in segments).strip()
             if text:
                 # Second defence, and independent of the gate's timing: whatever the
-                # mic caught, do not hand the parser words I just said. Runs in every
+                # mic caught, do not hand the parser words the Assistant just said. Runs in every
                 # mode, because a leak is a leak.
                 kept, why = self._echo.clean(text)
                 if why:

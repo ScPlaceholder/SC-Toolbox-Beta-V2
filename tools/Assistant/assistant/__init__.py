@@ -1,4 +1,4 @@
-"""Toolbox-wide LLM assistant — the brain Elah plugs an LLM into.
+"""Toolbox-wide LLM assistant: the part a language model is plugged into.
 
 Architecture (all optional-dependency gated, stdlib-only core):
 

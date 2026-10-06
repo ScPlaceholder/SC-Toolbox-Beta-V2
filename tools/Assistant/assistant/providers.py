@@ -166,7 +166,7 @@ def _ipv4_loopback(url: str) -> str:
 
     On Windows, urllib resolves "localhost" to ::1 first; Ollama and LM
     Studio listen on IPv4 only, so every request waited ~2 s for the IPv6
-    attempt to fail before falling back (measured on the dev box: 2.06-2.39 s
+    attempt to fail before falling back (measured: 2.06-2.39 s
     per call via localhost vs 0.02-0.04 s via 127.0.0.1).
     """
     return re.sub(r"^(https?://)localhost(?=[:/]|$)", r"\g<1>127.0.0.1", url, flags=re.I)

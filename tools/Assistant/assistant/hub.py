@@ -1,7 +1,6 @@
 """HubWindow - one window, one tab per tool.
 
-J, 2026-10-04: "Can we combine toolbox assistant and suit mk2 under the same
-tool and have a tab for each under the tool". This is the window; the tabs are
+The Toolbox Assistant and SuitMk2 are one tool with a tab each. This is the window; the tabs are
 the two tools' own HUDs, built without their title bars (AssistantPanel in
 panel.py, SuitPanel in tools/SuitMk2/ui/suit_window.py). What goes in which tab
 is decided by the entry script (toolbox_assistant_app.py): this module knows
@@ -18,8 +17,7 @@ Rules the window keeps, each with a test in tests/test_hub_window.py:
                    microphone: it stays with the tab that was last in front,
                    which is what each tool did on its own (both kept
                    listening while hidden).
-  a key each       J, 2026-10-05: "individual push to talk buttons which also
-                   auto-route to the right ai". Each tab has its own
+  a key each       Each tab has its own
                    push-to-talk key, and holding it talks to THAT tab
                    whichever one is showing: which AI hears a sentence is
                    decided by the key, never by the tab. So a tab that is

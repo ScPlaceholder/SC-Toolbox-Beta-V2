@@ -1,7 +1,6 @@
 """ptt_overlay.py - which AI is listening, shown on screen while a push-to-talk key is held.
 
-J, 2026-10-05: "For the assistant and suit Mk 2 can you have individual push to talk buttons which also
-auto-route to the right ai?" Each tool has its own key and holding one talks to that tool from anywhere, so the
+Each tool has its own key and holding one talks to that tool from anywhere, so the
 pilot holding it is in the game and not looking at either tab. This is the one line that tells him which of the
 two is hearing him, and afterwards what it heard or why it could not.
 
