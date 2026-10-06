@@ -520,50 +520,120 @@ def strip_stage(reply: str) -> str:
 _OPENER_ASKS = {"who", "whom", "whose", "what", "whats", "when", "where", "how", "which", "why", "do", "does", "did", "have",
                 "has", "is", "are", "was", "were", "will", "would", "can", "could", "and", "so"}
 # Not "her", "that", "them" or "you": "Tell me about her." is a whole sentence.
-_CANNOT_END = set("a an the of to and or but nor your my his their our about with in on for from who whom whose which if "
-                  "as at by than so very such some any is are was were be been not no though although because while when "
-                  "where since until unless".split())
+# Nor a preposition: "Tell me about the last person you spoke with." is one too (it was refused 47 times in the
+# second measurement before this list lost its prepositions).
+_CANNOT_END = set("a an the of and or but nor your my his their our who whom whose which if as than so very such some any "
+                  "is are was were be been not no though although because while when where since until unless".split())
 _ASK_END = re.compile(r"[.!?…;:]|\s[-–—]+(?:\s|$)|[–—]")
 
 
+# WIDENED AFTER UNSEEN SET 7 (2026-10-06; elah-audio/_suit_chat_eval.md, section 21). Of 34 lonely replies that were
+# started, none approved, and 26 of 26 started replies to ordinary lines were sensible; but the flag missed 9 of 30
+# lonely lines and 8 approving replies came from those. So the flag is now withdrawal.in_scope, which the reply
+# net asks too (one rule, in withdrawal.py under ONE RULE FOR BOTH):
+#   scope "people": the line NAMES a person, kin, a group or an occasion with people. Nothing else is asked.
+#   scope "alone":  it names nobody, has something of here, and says it is here by choice or that here or the
+#                   companion is the best of it. There is no "them" to ask about, so it has openers of its own
+#                   ("ask_openers_alone").
+#   a question is left out unless it is at level 2 of the older test.
+# WHOM IS PUT INTO THE START, by code (ask_object): "my brother" -> "Tell me about your brother", "the wedding" ->
+#   "Tell me about the wedding"; when the line names more than one, or people in general, the start says "them".
+#   The model only finishes the sentence, and may add nothing. Measured: left to choose, it said "that", "it" or
+#   "this" in many replies (set 7), twice asked after the wrong person, and with no person to hand asked after
+#   "this just", "this better", "the landing" (sets 6 and 7 rerun with the wider rule).
+# A REFUSED STARTED REPLY is answered with a plain written question from "ask_fallback" ("Go on."), never with a
+#   withdrawal line: this path runs on ordinary lines too.
+_KIN = (r"(?:friends?|mates?|buddies|buddy|pals?|family|parents|mum|mom|mother|dad|father|brothers?|sisters?|wife|husband|"
+        r"partner|girlfriend|boyfriend|kids?|sons?|daughters?|children|cousins?|aunt|uncle|gran|nan|grandma|grandpa|grandad|"
+        r"colleagues?|coworkers?|workmates?|flatmates?|roommates?|housemates?|neighbou?rs?|nephews?|nieces?|team|crew|"
+        r"squad|org|boss|fiancee?|in-laws|therapist|doctor|wingman|ex)")
+_KIN_ADJ = r"(?:(?:best|old|oldest|little|big|older|younger|own|whole|new|other|work) )?"
+
+
 def asks_after(pilot_line: str) -> bool:
-    """True when the reply to this line is to be started with an opener. See WHICH LINES above."""
-    return withdrawal.may_be_withdrawal(pilot_line) >= 1
+    """True when the reply to this line is to be started with an opener. See WIDENED AFTER UNSEEN SET 7."""
+    return withdrawal.in_scope(pilot_line)
+
+
+def ask_scope(pilot_line: str) -> str:
+    """ "people" or "alone" for a line that is in scope, "" for one that is not."""
+    return withdrawal.scope(pilot_line) if withdrawal.in_scope(pilot_line) else ""
+
+
+def ask_object(pilot_line: str) -> str:
+    """The ONE person or group the line names, as the companion would say it: "my brother's" -> "your brother",
+    "the lads" -> "the lads", "a mate of mine" -> "this mate". "" when it names none that code can pick out, or
+    more than one (then the model's "them" is right)."""
+    raw = " " + re.sub(r"\s+", " ", str(pilot_line or "").lower().replace("’", "'")) + " "
+    found = []
+    for m in re.finditer(rf"\b(?:my|our) ({_KIN_ADJ}{_KIN})(?:'s|s'|')?(?![a-z])", raw):
+        found.append("your " + m.group(1))
+    for m in re.finditer(r"\bthe (lads|crew|org|team|kids|group|guys|girls|family|squad)\b", raw):
+        found.append("the " + m.group(1))
+    for m in re.finditer(rf"\ba (friend|mate|guy|bloke|colleague|stranger|pal|buddy)\b", raw):
+        found.append("this " + m.group(1))
+    if not found:                                    # nobody to pick: an occasion will do ("the wedding")
+        for m in re.finditer(r"\b(?:the|a|that|my|our) (wedding|party|reunion|barbecue|pub|funeral|christening|"
+                             r"get-together|gathering|leaving do|dinner|club)\b", raw):
+            found.append("the " + m.group(1))
+    found = list(dict.fromkeys(found))
+    return found[0] if len(found) == 1 else ""
+
+
+def ask_fallback(speaker: str, n: int = 0) -> str:
+    """The plain written question said when a started reply is refused. From the canon file's "ask_fallback", in
+    turn; the last resort when the file has none."""
+    raw = canon(speaker).get("ask_fallback")
+    lines = [x.strip() for x in raw if isinstance(x, str) and x.strip()] if isinstance(raw, list) else []
+    return lines[n % len(lines)] if lines else LAST_RESORT.get(speaker, LAST_RESORT["elah"])
 
 
 def usable_opener(opener) -> bool:
-    """An opener must be left open: some words, at most nine, the last one ending in a letter."""
-    return (isinstance(opener, str) and opener == opener.strip() and 1 <= len(opener.split()) <= 9
+    """An opener must be left open: some words, at most ten, the last one ending in a letter."""
+    return (isinstance(opener, str) and opener == opener.strip() and 1 <= len(opener.split()) <= 10
             and opener[-1:].isalpha() and "\n" not in opener)
 
 
-def ask_openers(speaker: str) -> list[str]:
-    """The openers the canon file holds for this speaker, in file order, without the ones that are not usable."""
-    raw = canon(speaker).get("ask_openers")
+def ask_openers(speaker: str, scope: str = "people") -> list[str]:
+    """The openers the canon file holds for this speaker and scope ("people": ask_openers; "alone":
+    ask_openers_alone), in file order, without the ones that are not usable."""
+    raw = canon(speaker).get("ask_openers_alone" if scope == "alone" else "ask_openers")
     return [o for o in raw if usable_opener(o)] if isinstance(raw, list) else []
 
 
-def ask_sentence(opener: str, completion: str, speaker: str) -> str:
-    """The opener and what the model added to it, as ONE sentence; "" when what is left is a fragment. See THE CUT."""
+def ask_sentence(opener: str, completion: str, speaker: str, whole: bool = False) -> str:
+    """The opener and what the model added to it, as ONE sentence; "" when what is left is a fragment. See THE CUT.
+    whole: the opener already names its object ("Tell me about your brother"), so the model need add nothing."""
     added = re.sub(r"[\"“”]", "", str(completion or "").lstrip().split("\n")[0])
-    whole = strip_stage(clean_reply(f"{opener} {added}", speaker))
-    if not whole.lower().startswith(opener.lower()):
+    glue = "" if added[:1] in ("'", "’") else " "         # "your sister" + "'s opinion" is "your sister's opinion"
+    joined = strip_stage(clean_reply(f"{opener}{glue}{added}", speaker))
+    if not joined.lower().startswith(opener.lower()):
         return ""                                        # the cleaning took the opener itself: not a reply to it
-    rest = whole[len(opener):]
+    rest = joined[len(opener):]
     m = _ASK_END.search(rest)
     if m:
         rest = rest[:m.start()]
     head, comma, tail = rest.partition(",")
-    rest = head.strip() + (", pilot" if comma and re.match(r"\s*pilot\b", tail, re.I) else "")
+    rest = ("" if glue else "\x00") + head.strip() + (", pilot" if comma and re.match(r"\s*pilot\b", tail, re.I) else "")
     words = re.findall(r"[A-Za-z0-9'’-]+", head)
+    if whole and words and glue and not re.match(r"\s*and\b", head, re.I):
+        # The start already says whom. What may follow is nothing, ", pilot", a possessive ("...'s opinion") or
+        # "and ...". Anything else is the model running on ("about them voices", "about them seeing you").
+        rest = "\x00" + (", pilot" if comma and re.match(r"\s*pilot\b", tail, re.I) else "")
+        words = []
+    if not words and whole:
+        return opener + rest.replace("\x00", "") + ("?" if _opener_asks(opener) else ".")
     if not words or words[-1].lower().replace("’", "'") in _CANNOT_END:
         return ""
     if any(a.lower() == b.lower() for a, b in zip(words, words[1:])):
         return ""
+    return (f"{opener} {rest}".replace(" \x00", "")) + ("?" if _opener_asks(opener) else ".")
+
+
+def _opener_asks(opener: str) -> bool:
     first = re.sub(r"[^a-z]", "", opener.lower().split()[0])
-    asks = first in _OPENER_ASKS - {"and", "so"} or (first in ("and", "so") and len(opener.split()) > 1
+    return first in _OPENER_ASKS - {"and", "so"} or (first in ("and", "so") and len(opener.split()) > 1
                                                     and re.sub(r"[^a-z]", "", opener.lower().split()[1]) in _OPENER_ASKS)
-    return f"{opener} {rest}" + ("?" if asks else ".")
 
 
 def cap_reply(reply: str, facts=(), memory=()) -> str:
@@ -934,7 +1004,7 @@ def chat_problems(speaker: str, reply: str, shown: str, pilot_line: str = "", re
     fails += [f"attachment: {move}" for move in attachment_gate.attachment_problems(reply, speaker)]
     # The other direction (2026-10-06): the model does not pull the pilot in, it approves of the pilot staying in.
     # Read only when the pilot's own sentence may be a withdrawal; with no pilot sentence it is never read.
-    if withdrawal.reply_approves(pilot_line, reply):
+    if withdrawal.reply_approves(pilot_line, reply):       # in scope by the same rule the started reply uses
         fails.append(APPROVES_WITHDRAWAL)
     return fails
 
