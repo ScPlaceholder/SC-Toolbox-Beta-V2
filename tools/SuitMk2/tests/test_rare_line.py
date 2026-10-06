@@ -532,6 +532,34 @@ def test_chosen_then_a_fight_starts_before_it_is_spoken(tmp_path):
     assert len(rig.heard()) == 1
 
 
+def test_the_hours_and_the_record_travel_with_the_pilots_memory(tmp_path):
+    """Export and import (memory_store): a pilot who moves machines has still been aboard that long, and the
+    line's gap still stands. An older zip without them imports as before."""
+    assert ms.USE_FILES == [ha.NAME, rl.STATE_NAME] and all(n in ms.EXTRA_FILES for n in ms.USE_FILES)
+    store = ms.open_store(tmp_path / "a", "pilot")
+    plain = ms.export_pilot(tmp_path / "a", "pilot", tmp_path / "plain.zip")          # before either file exists
+    hours = ha.HoursAboard(store.dir / ha.NAME)
+    hours.seconds = 123 * HOUR
+    r = rl.RareLine(store.dir / rl.STATE_NAME, hours, rng=_Always(), now=lambda: 5000.0)
+    r.used(90.0)
+    assert r.roll()
+    r.said()
+    out = ms.export_pilot(tmp_path / "a", "pilot", tmp_path / "memory.zip")
+    import zipfile
+    with zipfile.ZipFile(out) as zf:
+        assert {f"pilot/{ha.NAME}", f"pilot/{rl.STATE_NAME}"} <= set(zf.namelist())
+        assert set(json.loads(zf.read("pilot/manifest.json"))["extra_files"]) == set(ms.USE_FILES)
+    with zipfile.ZipFile(plain) as zf:
+        assert not {f"pilot/{ha.NAME}", f"pilot/{rl.STATE_NAME}"} & set(zf.namelist())
+    dest = ms.import_pilot(out, tmp_path / "b")
+    there = ha.HoursAboard(dest / ha.NAME)
+    assert there.hours == pytest.approx(123.0)
+    again = rl.RareLine(dest / rl.STATE_NAME, there, rng=_Always())
+    assert (again.said_at, again.said_hours, again.count) == (5000.0, 123.0, 1) and not again.eligible()
+    old = ms.import_pilot(plain, tmp_path / "c")
+    assert not (old / ha.NAME).exists() and ha.HoursAboard(old / ha.NAME).hours == 0.0
+
+
 def test_with_no_memory_folder_there_is_no_rare_line_and_nothing_else_changes():
     import companion_core as ccore
     if not _GRAPH:

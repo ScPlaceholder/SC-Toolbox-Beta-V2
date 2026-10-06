@@ -75,11 +75,20 @@ STORE_FILES = [
 # import. A fixed list of names, so an archive cannot use this to write anywhere else. They are NOT written
 # through the atomic helpers below: the log is unbounded, and _append_jsonl_atomic rewrites a whole file per line.
 # A build from before 2026-10-05 imports such a zip without error and takes the five STORE_FILES only.
-EXTRA_FILES = [
+TREE_FILES = [
     "tree/log.jsonl",
     "tree/nodes_elah.jsonl",
     "tree/nodes_montaigne.jsonl",
 ]
+# The hours of use and when Montaigne's rare line was last said (hours_aboard.py, rare_line.py; 2026-10-06). They
+# travel with the pilot's memory for the same reason they are kept at all: a pilot who moves machines has still
+# been aboard that long, and the line's gap still stands. The names are written out here because this module
+# imports nothing of the Suit; a test holds them equal to the two modules' own.
+USE_FILES = [
+    "hours_aboard.json",
+    "rare_line.json",
+]
+EXTRA_FILES = TREE_FILES + USE_FILES
 
 _BAD_PILOT_ID_CHARS = set('\\/:*?"<>|')
 

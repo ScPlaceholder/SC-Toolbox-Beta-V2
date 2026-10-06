@@ -509,7 +509,7 @@ def test_export_carries_the_conversations_and_import_restores_them(tmp_path):
         assert {"pilot/tree/log.jsonl", "pilot/tree/nodes_elah.jsonl", "pilot/tree/nodes_montaigne.jsonl"} <= names
         assert manifest["extra_files"]["tree/log.jsonl"] == hashlib.sha256(zf.read("pilot/tree/log.jsonl")).hexdigest()
         assert set(manifest["files"]) == set(ms.STORE_FILES)             # the five files an older build checks
-    assert tm.tree_files(store.dir) == ms.EXTRA_FILES
+    assert tm.tree_files(store.dir) == ms.TREE_FILES and ms.EXTRA_FILES[:len(ms.TREE_FILES)] == ms.TREE_FILES
     dest = ms.import_pilot(out, tmp_path / "b")
     there = tm.open_tree(dest, session="s3")
     assert there.records() == tree.records()
