@@ -15,7 +15,7 @@ at once, rest or not, then he goes back to his mood. Drawing a weapon in game (s
 makes him hold the matching prop until you holster (sprites.HAND_LOOPS), with an idle now and then.
 
 A frameless, transparent, always-on-top window. Drag it with the left button. Right-click Pico for
-Customise / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
+Customise / How Pico works / About Pico Pals / Quit. PICO_CONTRACT.md, J's words: right-click on Pico re-opens the customise box, and
 the box opens on FIRST LAUNCH, EVERY app start ("so users can't forget how to customize their pico").
 Not a one-time "don't show again" flag; that is his call to make later.
 Hover over Pico to see what he is feeling and WHY (the MoodReading). J asked for no caption on screen;
@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDia
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pico import aura, snap, sprites  # noqa: E402
+import pico_notice  # noqa: E402
 import pico_tutorial  # noqa: E402
 
 DEFAULT_LOGS = (
@@ -326,6 +327,10 @@ class Customise(QDialog):
         self.how.setAutoDefault(False)
         self.how.clicked.connect(self.show_tutorial)
         form.addRow(bb)
+        # The legal notice (pico_notice.py), under the buttons. This box is what every start opens, so
+        # nobody has to look for it. It is a label: it changes nothing that OK saves.
+        self.notice = pico_notice.notice_label(self)
+        form.addRow(self.notice)
         self.opened = self.values()
 
     def show_tutorial(self):
@@ -577,6 +582,7 @@ class Pal(QWidget):
             menu = QMenu(self)
             menu.addAction("Customise Pico...", self.customise)
             menu.addAction(pico_tutorial.MENU_TEXT, self.show_tutorial)
+            menu.addAction(pico_notice.MENU_TEXT, self.show_about)
             menu.addSeparator()
             menu.addAction("Quit Pico", QApplication.quit)
             menu.exec(e.globalPosition().toPoint())
@@ -587,6 +593,17 @@ class Pal(QWidget):
         dlg = getattr(self, "_tutorial", None)
         if dlg is None:
             dlg = self._tutorial = pico_tutorial.Tutorial(self)
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        return dlg
+
+    def show_about(self):
+        """About Pico Pals (pico_notice.py): the legal notice, from the right-click menu. Not modal, and
+        one window, like the tutorial."""
+        dlg = getattr(self, "_about", None)
+        if dlg is None:
+            dlg = self._about = pico_notice.About(self)
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()

@@ -1,7 +1,7 @@
 """Pico has a tutorial ("How Pico works"): reachable two ways, text on every tab, and only names that exist.
 
-Every name set in bold in the tutorial must be a string in sprite_pal.py or
-pico/signs.py, or the tile's name in skill.json, or be listed below as prose
+Every name set in bold in the tutorial must be a string in sprite_pal.py,
+pico/signs.py or pico_notice.py, or the tile's name in skill.json, or be listed below as prose
 (the rule is in shared/tutorial_guard.py). Rename a menu entry or a Customise
 row and this goes red until the tutorial says the new name.
 
@@ -26,7 +26,7 @@ for _p in (str(ROOT), str(HERE)):
 import pico_tutorial  # noqa: E402
 from shared import tutorial_guard as guard  # noqa: E402
 
-SOURCES = [str(HERE / "sprite_pal.py"), str(HERE / "pico" / "signs.py")]
+SOURCES = [str(HERE / "sprite_pal.py"), str(HERE / "pico" / "signs.py"), str(HERE / "pico_notice.py")]
 
 # The tutorial's own menu entry: its text is pico_tutorial.MENU_TEXT, which the wiring test below pins.
 PROSE = ["How Pico works..."]

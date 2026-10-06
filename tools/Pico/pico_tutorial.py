@@ -60,6 +60,8 @@ is there next time.</p>
   <li><b>Customise Pico...</b> &mdash; his outfit, his size and how he
       behaves</li>
   <li><b>How Pico works...</b> &mdash; this window</li>
+  <li><b>About Pico Pals...</b> &mdash; who made Pico Pals, and the legal
+      notice</li>
   <li><b>Quit Pico</b> &mdash; closes him</li>
 </ul>
 <h4>Hide him and bring him back</h4>
