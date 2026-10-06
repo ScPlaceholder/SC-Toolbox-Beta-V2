@@ -9,7 +9,7 @@ the terminal->items index (which loads off-thread), each row can be
 
 Styling follows Market Finder (tool_market accent), not Trade Hub.
 
-Everything Finder port (2026-10-03): the collapsible per-category grouping and
+Everything Finder port: the collapsible per-category grouping and
 the refill-when-the-index-lands behaviour come from the Item Finder star map
 (market_finder/starmap/items_dialog.py), so the one Star Map has both. The
 visibility guard on refill() is dropped here: in this tool the dialog is

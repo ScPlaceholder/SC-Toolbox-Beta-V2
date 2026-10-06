@@ -15,7 +15,7 @@ layers:
 
 Computed once per route load; cheap (pure in-memory aggregation over routes).
 
-Ported verbatim 2026-10-03 from the Trade Hub star map (Trade_Hub/starmap/
+Ported verbatim from the Trade Hub star map (Trade_Hub/starmap/
 trade_overlay.py) so the one Star Map carries the Trade Hub's overlay layers.
 The Starmap tool has no route engine of its own, so the layers stay hidden
 until a host hands the panel a routes provider (StarmapPanel.set_routes_provider).

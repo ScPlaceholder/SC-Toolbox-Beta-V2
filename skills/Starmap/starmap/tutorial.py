@@ -9,8 +9,8 @@ the source, not a commit message:
   panel.py            Home / Route / In-Game / Shopping List / Market / Commodities,
                       "< Back", the "   >   " breadcrumb, the context menus
   command_bar.py      the command box, the status line (Calibrate moved to the
-                      Assistant's window with set route, 2026-10-04)
-                      (the mic controls moved to the Assistant, 2026-10-04)
+                      Assistant's window with set route)
+                      (the mic controls moved to the Assistant)
   shared/shopping/panel.py   Item | Commodity, Add, x, Clear list, Plan route,
                       Auto-calculate, Show on Star Map (the one list all three
                       tools share)
@@ -191,8 +191,8 @@ open the <b>Toolbox Assistant</b> and press <b>Calibrate Route</b>, then
 <p>Esc cancels. The three places are remembered.</p>
 <p style="{_DIM}"><b>In-Game</b> here and <b>In-Game</b> in the Assistant are
 one switch.</p>
-<p style="{_DIM}">Without a calibration it clicks where those three things sit
-on a standard layout, which may be the wrong places on your screen. Plotting
+<p style="{_DIM}">Without a calibration nothing is sent to the game: the map
+tells you to calibrate first. Plotting
 on this map, on its own, needs no calibration at all.</p>
 <p><span style="{_YLW}">Typed is not the same as spoken.</span> Say
 <em>navigate to &hellip;</em> to the Assistant and it asks <em>yes or no</em>

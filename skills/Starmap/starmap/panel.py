@@ -6,7 +6,7 @@ map (terminal -> items browsing, item pop-outs, multi-stop shopping routes),
 the toolbox's shared shopping list, and a command router ("navigate to Area 18", "zoom in")
 fed by the command bar and by the AI Assistant.
 
-The Star Map has NO microphone (J, 2026-10-04). It used to carry its own
+The Star Map has NO microphone. It used to carry its own
 voice ears (starmap/voice/), and with the saved mic mode "Always on" simply
 opening the map - standalone, or as a tab of the Everything Finder - armed
 the mic. Voice-to-text now lives in one place, the Assistant, which relays
@@ -16,7 +16,7 @@ Terminal clicks open the combined :class:`LocationDialog` (commodities
 + items tabs). The shopping list docks on the right; "Show on Star Map" on
 one of its planned routes draws the multi-stop jump route on the galaxy view.
 
-The list is NOT this tool's own any more (J, 2026-10-04). It is the one
+The list is NOT this tool's own. It is the one
 shared list (shared/shopping) that Item Finder and the Everything Finder show
 too, planned by Trade Hub's basket planner. The grocery panel that lived here
 (starmap/grocery.py: its own file, its own stop ordering) is retired; what it
@@ -26,7 +26,7 @@ added from - is a feature of the shared list now.
 Everything is defensive: if data/scene construction fails the panel
 shows an inline message instead of dying.
 
-Everything Finder port (2026-10-03) - the Trade Hub star map's features that
+Everything Finder port - the Trade Hub star map's features that
 this panel lacked, so the one Star Map carries the union of all three copies:
 
   * trade OVERLAYS (Trade Flows / Top Routes / Activity / My Runs), from
@@ -1330,7 +1330,7 @@ class StarmapPanel(QWidget):
         self.save_state()
 
 
-    # ══ Trade Hub star map features (ported 2026-10-03 for the Everything Finder) ══
+    # ══ Trade Hub star map features (ported for the Everything Finder) ══
     # Source: Trade_Hub/starmap/panel.py. Kept behaviourally identical; the only
     # change is how the routes arrive - through a provider callable instead of a
     # hard reference to the Trade Hub window - so the standalone tool, which has
@@ -1619,7 +1619,7 @@ class StarmapPanel(QWidget):
     def _set_route_service(self):
         """The Assistant's RouteService, or None (logged) when it cannot be loaded.
 
-        Set route is not the map's code any more (J, 2026-10-04): destination
+        Set route is not the map's code: destination
         matching, the in-game macro and the In-Game switch live in
         tools/Assistant/assistant/set_route/ and this is the one way in."""
         if self._route_svc is None:
@@ -1702,7 +1702,7 @@ class StarmapPanel(QWidget):
                                      done_cb=self._route_done)
         return message
 
-    # Calibration of the in-game route setter is NOT here (J, 2026-10-04): the Route
+    # Calibration of the in-game route setter is NOT here: the Route
     # button's right-click "Calibrate in-game route setter..." and the command bar's
     # "Calibrate Star Map" both went to the AI Assistant's window ("Calibrate
     # Route"), with the code they calibrate. The map keeps no way to open it.

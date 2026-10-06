@@ -146,7 +146,7 @@ class LocationDialog(QDialog):
                  on_commodity_route: Optional[Callable[[str, str, str], None]] = None) -> None:
         # The three on_* hooks are the Trade Hub star map's terminal-panel links
         # (Trade_Hub/starmap/terminal_panel.py "Plot Route" + the commodity page's
-        # routes buttons), ported 2026-10-03 for the Everything Finder. They are
+        # routes buttons), ported for the Everything Finder. They are
         # only wired when a host hands the panel a live Trade Hub; standalone, they
         # stay None and the dialog looks exactly as before.
         super().__init__(parent)

@@ -2,8 +2,8 @@ r"""CommandRouter - turns a line of text into a map action.
 
 The text comes from the command bar, or from the AI Assistant, which owns the
 microphone and relays what it heard (IPC ``map_command``). The Star Map itself
-does not listen: this module was starmap/voice/commands.py until 2026-10-04,
-when voice-to-text moved into the Assistant.
+does not listen: this module was starmap/voice/commands.py until
+voice-to-text moved into the Assistant.
 
 Built-in commands cover map navigation, routing and the shopping list.
 ``register()`` is the public extension point: repurposed WingmanAI /

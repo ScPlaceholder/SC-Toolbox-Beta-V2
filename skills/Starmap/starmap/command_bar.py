@@ -1,7 +1,7 @@
 """CommandBar - the Star Map's command strip.
 
 The Star Map does not listen. Voice-to-text lives in ONE place, the AI
-Assistant (J, 2026-10-04); what the Assistant hears for the map arrives here
+Assistant; what the Assistant hears for the map arrives here
 as text and runs through the same :class:`~.commands.CommandRouter` as a line
 typed into this bar.
 
@@ -9,12 +9,11 @@ typed into this bar.
                   "clear route", "help"
   * status line - what the map was told and what it did
 
-There is no Calibrate button here any more (J, 2026-10-04: "Why not move the
-calibrate button as well?"). Calibration belongs to the in-game route setter,
-which is the AI Assistant's code now, so its button is in the Assistant's
+There is no Calibrate button here. Calibration belongs to the in-game route
+setter, which is the AI Assistant's code, so its button is in the Assistant's
 window ("Calibrate Route"), next to the In-Game switch.
 
-Until 2026-10-04 this file was voice_control.py and carried the mic controls
+This file used to be voice_control.py and carried the mic controls
 (push-to-talk / always on, mic keybind, voice replies). Those are the
 Assistant's now; a Star Map that owned its own always-on microphone was
 arming it every time the map was opened, including as a tab of the

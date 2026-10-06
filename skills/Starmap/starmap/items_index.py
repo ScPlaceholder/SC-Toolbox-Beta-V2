@@ -89,7 +89,7 @@ class ItemsIndexLoader(QObject):
 _PLACE_FIELDS = ("space_station_name", "city_name", "outpost_name", "terminal_name")
 
 # Extra names a TERMINAL RECORD is known by, from the Item Finder star map's
-# _terminal_name_keys (market_finder/starmap/items_index.py). Ported 2026-10-03
+# _terminal_name_keys (market_finder/starmap/items_index.py). Ported
 # for the Everything Finder so the one Star Map answers every name either copy
 # answered: a click on a moon or planet body lists what sells on it, and a
 # terminal the map knows by its nickname / display name still resolves.

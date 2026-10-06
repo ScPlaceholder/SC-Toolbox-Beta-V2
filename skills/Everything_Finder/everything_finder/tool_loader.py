@@ -1,10 +1,8 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 """Import the three existing tools, each only when its tab is first opened.
 
 Nothing here runs at import time: every loader is a function, and each one
-imports its tool inside the function body. That is the "streamed in as normal"
-J asked for - opening the Everything Finder imports exactly one tool.
+imports its tool inside the function body, so opening the Everything Finder
+imports exactly one tool.
 
 Module-name hygiene (the reason this file exists rather than three one-liners):
 
@@ -78,7 +76,7 @@ def import_starmap_package() -> ModuleType:
 
 
 def load_starmap_panel():
-    """The one Star Map: skills/Starmap's StarmapPanel (see the report / README)."""
+    """The one Star Map: skills/Starmap's StarmapPanel."""
     import_starmap_package()
     panel_mod = importlib.import_module(STARMAP_ALIAS + ".panel")
     return panel_mod.StarmapPanel(cmd_file="")

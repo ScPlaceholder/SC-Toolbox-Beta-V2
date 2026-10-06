@@ -40,6 +40,9 @@ class _Setter:
     def available(self):
         return True
 
+    def calibrated(self):
+        return True
+
     def busy(self):
         return False
 

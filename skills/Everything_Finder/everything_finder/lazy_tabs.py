@@ -1,5 +1,3 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 """A stacked widget whose pages are built the first time they are shown.
 
 Each tab is registered with a *factory* (a zero-argument callable returning a
