@@ -17,7 +17,7 @@ Output shape matches companion_design/specs/train.jsonl (one semantic spec):
 This module decides WHETHER and WHAT (character-engine layer). Wording is the realizer's job;
 faithfulness to these claims is the grounding validator's job. See companion_design/ARCHITECTURE.md.
 
-v2 (2026-09-23), three defects found by running the real realizer on these specs:
+v2, three defects found by running the real realizer on these specs:
   1. INJURY passed the whole VolatileContext dict as ONE claim value, so the realizer was handed
      "{'body_part': 'left leg', 'severity': ..., 'tier': 2, 'age_seconds': 41}" and age_seconds became an
      authorised number. Now: body part, tier and severity are separate claims; age never leaves the tracker.
@@ -86,9 +86,9 @@ _VARIANTS: dict[str, list[tuple[str, str, str]]] = {
 
 # Tier 3 is the WORST tier, and the stances above downplay ("no rush yet", "it reads worse than it is"). Performed
 # faithfully on a tier-3 head injury that the suit happened to label "minor", they produced "Treatment can wait for
-# now" (blind test vs Wingman, 2026-09-24). The realizer did exactly what it was cued; the cue was wrong. So a tier-3
+# now" (blind test vs Wingman). The realizer did exactly what it was cued; the cue was wrong. So a tier-3
 # injury gets its own stances, and the TIER outranks the severity label, which can disagree with it.
-# ⛔ CORRECTED THE SAME EVENING: STAR CITIZEN COUNTS TIERS THE OTHER WAY. Every injury line in J's logs pairs Tier 1 with
+# CORRECTED: STAR CITIZEN COUNTS TIERS THE OTHER WAY. Every injury line in real logs pairs Tier 1 with
 # "Severe" and Tier 3 with "Minor" (Minor/Tier 3 left arm alone: ~60 injuries; count "Added notification" lines, the rest are echoes). The glossary this was built on said "1 is the
 # mildest, 3 the worst", and nobody checked it against a log. As first shipped, this told the pilot to get to a med bed
 # NOW for the commonest scratch in the game. A serious injury is Tier 1 (or the label Severe).
@@ -213,14 +213,14 @@ def _situation_ship_context(state: dict, variant: int) -> Optional[Spec]:
         return None
     claims = [_claim("C1", "OBSERVED", "ship.name", ship), _claim("C2", "OBSERVED", "ship.system", system)]
     required = ["C1"]
-    if state.get("vehicle_kind"):          # J 09-23: "Montaigne is talking about land vehicles that can fly"
+    if state.get("vehicle_kind"):          # otherwise Montaigne talks about land vehicles that can fly
         claims.append(_claim("C3", "OBSERVED", "ship.kind", state["vehicle_kind"]))
         required.append("C3")
     return _spec("ship_context", variant, claims, required, [])
 
 
 def _situation_quiet(state: dict, variant: int) -> Optional[Spec]:
-    """Last resort: nothing else matched. DISABLED for speech (2026-09-23, J's first dry run): its only fact is the
+    """Last resort: nothing else matched. DISABLED for speech (after the first dry run): its only fact is the
     companion's own speech-queue size, so Elah said "Nothing to do, given the queue's emptiness" to a player.
     Nothing to say means silence. Kept (returning None) so the variant table and training data stay valid."""
     if not state.get("_allow_quiet_line"):
@@ -251,7 +251,7 @@ def build_ambient_spec(state: dict, variant: int = 0,
     (main.py keeps a counter) so the same situation does not always mean the same thing. First
     matching situation wins, UNLESS `skip(spec)` says its subject is already talked out (topic_ledger):
     then the next matching situation gets its turn, and if every one is spent the answer is silence.
-    Without `skip`, one situation can own every tick for as long as its state holds (J 2026-09-23).
+    Without `skip`, one situation can own every tick for as long as its state holds.
     """
     for situation in _SITUATIONS:
         spec = situation(state, variant)

@@ -1,8 +1,8 @@
 """ship_feelings.py - favourite ships that change with what actually happens aboard them.
 
-J 2026-09-24: "Their favorite ships and other interests should also be able to change based on player relation and
-personal experience. For example if the Privateer gets blown up and the user dies every time Elah is on it maybe Elah
-won't like it anymore."
+Their favourite ships and other interests can change with the pilot's relation to them and with
+personal experience. For example, if the Privateer gets blown up and the pilot dies every time Elah is on it, Elah
+may stop liking it.
 
 Raw EVENTS are stored, never conclusions: each death or completed mission aboard a ship is one memory callback
 (kind "ship_event"), so the pilot's export/import carries it and the rule can change without rewriting history.
@@ -35,7 +35,7 @@ def event(ship: str, what: str) -> dict:
     return {"kind": KIND, "meta": {"ship": str(ship).strip(), "what": what}}
 
 
-# Ship familiarity (J 2026-09-24, from the old skill's ship_familiarity_tracker): the Nth time the pilot boards a ship
+# Ship familiarity (from the old skill's ship_familiarity_tracker): the Nth time the pilot boards a ship
 # is worth a remark. Boardings are raw events like deaths, but COUNTED WHOLE, never decayed: the 25th time aboard is
 # the 25th time, however long ago the first was.
 MILESTONES = (5, 10, 25, 50, 100)

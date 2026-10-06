@@ -1,5 +1,5 @@
-# COPIED from Battle_Buddy/core/inventory_parser.py on 2026-09-24 (J: "battle buddy already reads and stores information for
-# loadout so that would be easy to reuse"). COPIED, never imported: narrator_seam bans SuitMk2 from importing
+# COPIED from Battle_Buddy/core/inventory_parser.py (Battle Buddy already reads and stores information for
+# loadout, so it was easy to reuse). COPIED, never imported: narrator_seam bans SuitMk2 from importing
 # another tool's modules. A loadout is inventory (what the pilot carries), never a position, so it stays on the
 # narrator side of the line. Keep in step with the Battle_Buddy original by hand.
 """

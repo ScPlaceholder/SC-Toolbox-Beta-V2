@@ -1,13 +1,13 @@
-"""refinery_tracker.py - refinery orders that outlast a session (J 2026-09-25, April spec section 6).
+"""refinery_tracker.py - refinery orders that outlast a session (April spec section 6).
 
-WHAT THE LOG ACTUALLY RECORDS (measured 2026-09-25 over all 1,112 of J's Game.log backups, before designing):
+WHAT THE LOG ACTUALLY RECORDS (measured over 1,112 real Game.log backups, before designing):
   * NO SUBMISSION WITH A DURATION. The April spec keyed its timer on OnRefineryRequest; in 1,112 logs that line appears
     4 times, in 2 sessions (Sep 2025), always "request[] currencyType[UEC]" with an EMPTY request and followed by
     "Commodity Refinery Response Error ... result[InvalidQuantityError] type[Selling]". No ore, no duration, no
     finish time, and it was a sale. A countdown timer has nothing to count.
   * ONE REAL SIGNAL: the HUD notice
         "A Refinery Work Order has been Completed at HUR-L2 Faithful Dream Station: "
-    (parsed as refinery_complete since 2026-09-24). 46 of them in the backups: 4 fired mid-session, hours after a
+    (parsed as refinery_complete). 46 of them in the backups: 4 fired mid-session, hours after a
     login (a job finishing while the pilot played), and 42 fired 34-98 s after a {Join PU} (one at 498 s). The game
     RE-ANNOUNCES a finished, uncollected order at every login: HUR-L2 was announced on four consecutive logins,
     3-4 Apr 2026.
@@ -166,7 +166,7 @@ class RefineryTracker:
         return [o["station"] for o in self.orders.values() if o["open"]]
 
 
-# Verbatim lines, J's log "Game Build(11545720) 03 Apr 26 (00 47 48).log" (tails trimmed).
+# Verbatim lines, a real game log "Game Build(11545720) 03 Apr 26 (00 47 48).log" (tails trimmed).
 FIXTURE_JOIN = "<2026-04-03T04:48:23.527Z> [+] [CIG] {Join PU} [0] id[c1391066-71ab-4a55-b763-1eb0c052792a] status[1] port[64344]"
 FIXTURE_AT_STATION = ("<2026-04-03T04:49:13.182Z> [Notice] <RequestLocationInventory> Player[ProjectGegnome] requested "
                       "inventory for Location[RR_HUR_L2] [Team_CoreGameplayFeatures][Inventory]")

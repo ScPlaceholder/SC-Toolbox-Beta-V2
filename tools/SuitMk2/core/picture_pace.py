@@ -1,10 +1,10 @@
-"""picture_pace.py - how often the eyes take a PICTURE, by what the pilot is doing (J 2026-10-05).
+"""picture_pace.py - how often the eyes take a PICTURE, by what the pilot is doing.
 
-J: "The eyes depending on the activity type should pull a minimum and maximum times per duration. Once every 5
-minutes for salvage ... For mining 5 by default or trigger when a reliable capture has been fed by the mining reader
-with a cooldown period so it's not spamming the player or GPU 85 times in 3 minutes. For combat missions 2 minutes by
-default. Sandbox activities also 5 minutes by default. These sliders should be user selected from 5 seconds to 120
-[minutes] maximum with a never checkbox next to each category."
+The eyes pull a minimum and maximum number of times per duration, depending on the activity type. Once every 5
+minutes for salvage. For mining 5 by default, or triggered when a reliable capture has been fed by the mining reader,
+with a cooldown period so it is not spamming the player or GPU 85 times in 3 minutes. For combat missions 2 minutes by
+default. Sandbox activities also 5 minutes by default. The sliders are user selected from 5 seconds to 120
+minutes maximum, with a never checkbox next to each category.
 
 A PICTURE is a frame handed to the vision model (eyes.py: a glance or a look). The cheap frame compare that runs every
 few seconds is not one and is not paced here.
@@ -52,13 +52,13 @@ if str(HERE) not in sys.path:
 
 ACTIVITIES = ("salvage", "mining", "combat_mission", "sandbox")
 LABELS = {"salvage": "Salvage", "mining": "Mining", "combat_mission": "Combat missions", "sandbox": "Everything else"}
-DEFAULT_EVERY_S = {"salvage": 300.0, "mining": 300.0, "combat_mission": 120.0, "sandbox": 300.0}   # J's defaults
-MIN_EVERY_S, MAX_EVERY_S = 5.0, 120.0 * 60.0      # J: "from 5 seconds to 120", then "Maximum 120 minutes"
+DEFAULT_EVERY_S = {"salvage": 300.0, "mining": 300.0, "combat_mission": 120.0, "sandbox": 300.0}   # the defaults
+MIN_EVERY_S, MAX_EVERY_S = 5.0, 120.0 * 60.0      # from 5 seconds to a maximum of 120 minutes
 # The slider's stops. 5 s to 120 min on one even scale would give the first minute a hundredth of the track, so the
 # slider moves along this table instead: fine at the low end, coarse at the top, with 2 and 5 minutes exact.
 STOPS = (5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300, 420, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200)
-# A capture from the mining reader may ask for a picture early, at most this often. J's bound is "not 85 times in 3
-# minutes"; 90 s is at most two in three minutes, and a rock takes about that long to break. A settings key.
+# A capture from the mining reader may ask for a picture early, at most this often. The bound is: not 85 times in 3
+# minutes; 90 s is at most two in three minutes, and a rock takes about that long to break. A settings key.
 MINING_CAPTURE_COOLDOWN_S = 90.0
 MINING_COOLDOWN_KEY = "eyes_mining_capture_cooldown_s"
 # contract_history's contract type -> the activity it counts as. Types not listed (cargo, delivery, rescue,
@@ -75,7 +75,7 @@ def never_key(activity: str) -> str:
 
 
 def defaults() -> dict:
-    """The settings keys this module owns, with J's defaults. settings.DEFAULTS takes them from here."""
+    """The settings keys this module owns, with their defaults. settings.DEFAULTS takes them from here."""
     out: dict = {}
     for a in ACTIVITIES:
         out[every_key(a)] = DEFAULT_EVERY_S[a]

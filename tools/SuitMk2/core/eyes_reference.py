@@ -8,7 +8,7 @@ WHAT THIS IS, AND WHAT IT IS NOT
     vision model, with the ship each frame shows. This module knows what is there (the index), fetches a
     table the first time something asks for it, checks it, and keeps it.
 
-    ⛔ RECOGNITION IS NOT CONNECTED (RECOGNITION_CONNECTED is False, and nothing here pretends otherwise).
+    RECOGNITION IS NOT CONNECTED (RECOGNITION_CONNECTED is False, and nothing here pretends otherwise).
     A table can only be compared with a fingerprint made by the SAME model and the SAME preprocessing
     (CLIP ViT-H/14 or DINOv2; the index names them). The Suit has neither: its eyes are a frame compare, a
     nearest-neighbour over 32x18 thumbnails, and an optional local vision model that answers in words

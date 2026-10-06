@@ -1,8 +1,8 @@
-"""hours_aboard.py - how long this pilot has had the companions with them, in hours of use (2026-10-05).
+"""hours_aboard.py - how long this pilot has had the companions with them, in hours of use.
 
 One number, kept in one small file beside the pilot's memory, that survives restarts. It was added for the rare
 line (rare_line.py), which is said about once in a hundred hours of use and so needs to know what an hour of use
-is. J's ruling the same night that the characters may develop "along authored stages keyed to hours aboard" will
+is. The plan that the characters may develop along authored stages keyed to hours aboard will
 want the same number; nothing of that is built here, and nothing here stands in its way: any code may read
 `hours`.
 
@@ -12,8 +12,8 @@ A fight counts (they are with the pilot in it); the window hidden does not (the 
 at startup and it can sit there all day), nor does a muted Suit, nor an empty chair.
 
 WHY NOT THE COUNTER THAT ALREADY EXISTED. relationship.json has `minutes_together`, added per session by the
-dream queue's `counters` job. It was read on J's own machine on 2026-10-05 and could not be used for this:
-  - it had not moved since 2026-09-27: 16 of 38 sessions' counters jobs were still waiting in the queue;
+dream queue's `counters` job. It was read on a real machine and could not be used for this:
+  - it had not moved for eight days: 16 of 38 sessions' counters jobs were still waiting in the queue;
   - it counts a session from its first event to its last, hidden window and empty chair included;
   - it is added only at the next launch, so it cannot say how far into this session the pilot is.
 That counter is left exactly as it is.

@@ -4,14 +4,14 @@ SuitMk2 - Location Name Mapping
 Maps Star Citizen game log location codes to human-readable names
 and star system identifiers.
 
-TWO SOURCES, in this order (2026-10-05):
+TWO SOURCES, in this order:
   1. LOCATION_MAP below: the hand-written table. It wins, so every name it has given so far is unchanged.
   2. THE CATALOGUE: data/brochures.jsonl, 513 places from the starmap catalogue. Each row's source_url ends in
      the log's own code, lower-cased with hyphens ("outpost-olp-stanton1b-vivere" is the log's
      Outpost_OLP_Stanton1b_Vivere), and the row carries the display name, the type and the body. So a place
      the table never listed gets its real name instead of the code with its underscores removed. Measured on
-     J's 1,116 Game.logs: 218 distinct codes, 131 named by the catalogue (all 16 Hathor sites, every Pyro
-     outpost and station he has been to, the HDMS and Rayari outposts); the table alone named 37.
+     1,116 real Game.logs: 218 distinct codes, 131 named by the catalogue (all 16 Hathor sites, every Pyro
+     outpost and station the pilot has been to, the HDMS and Rayari outposts); the table alone named 37.
   3. Neither: the old fallback (the code with its prefix and underscores removed). is_named() says False, so the
      conversation lane can say it is reading the log's label and has no proper name.
 
@@ -64,8 +64,8 @@ LOCATION_MAP: dict[str, LocationInfo] = {
     # Stanton - Cities
     "Stanton1_Lorville": LocationInfo("Lorville", "Stanton"),
     "HUR_Lorville": LocationInfo("Lorville", "Stanton"),
-    # Stanton2 is Crusader and Stanton3 is ArcCorp. Until 2026-10-05 the two keys here were the other way round
-    # ("Stanton2_Area18", "Stanton3_Orison"), so neither ever matched: J's logs say Stanton2_Orison 599 times and
+    # Stanton2 is Crusader and Stanton3 is ArcCorp. The two keys here used to be the other way round
+    # ("Stanton2_Area18", "Stanton3_Orison"), so neither ever matched: real logs say Stanton2_Orison 599 times and
     # Stanton3_Area18 303 times, and both fell to the fallback and were read out as "2 Orison" and "3 Area18".
     "Stanton3_Area18": LocationInfo("Area 18", "Stanton"),
     "ARC_Area18": LocationInfo("Area 18", "Stanton"),
@@ -309,8 +309,8 @@ def get_location_type(code: str) -> str:
     row = catalogue_entry(code)
     if row is not None and row["type"] in _CATALOGUE_TYPES:
         return _CATALOGUE_TYPES[row["type"]]
-    # A moon is Stanton[1-4][a-d] and nothing after it; a planet is Stanton[1-4]. Until 2026-10-05 these two tests
-    # looked only at the LAST character, so Stanton1_HurdynMining_HDMSEdmond (an outpost) was a "moon" and
+    # A moon is Stanton[1-4][a-d] and nothing after it; a planet is Stanton[1-4]. These two tests used to
+    # look only at the LAST character, so Stanton1_HurdynMining_HDMSEdmond (an outpost) was a "moon" and
     # Stanton4_Shubin_SM0_10 (another) was a "planet".
     if re.fullmatch(r"Stanton\d[a-z]", code):
         return "moon"

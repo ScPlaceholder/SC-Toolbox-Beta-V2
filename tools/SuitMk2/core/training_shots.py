@@ -1,5 +1,5 @@
 """training_shots.py - the frames the eyes LOOKED AT, kept only if the pilot opts in, exportable as one zip
-(J 2026-09-24: "a training screenshot export where it will zip users agent screenshots and export them").
+(a training screenshot export, which zips the agent's screenshots and exports them).
 
 What is kept, and what is not:
   - ONLY frames the vision model actually described (a routine glance or a deliberate look), each with what the model
@@ -28,7 +28,7 @@ from typing import Callable, Optional
 
 MAX_SHOTS = 500
 NOTICE_VERSION = 2          # bump when NOTICE changes, so every pilot sees the new wording once
-                            # 2 (2026-10-05): the sentence about unmodified hardware and large models
+                            # 2: the sentence about unmodified hardware and large models
 NOTICE_TITLE = "SuitMk2 - what the companion is, and what it is not"
 NOTICE = (
     "Elah and Montaigne are NARRATORS. They watch and listen, and they talk. That is all they can do.\n\n"

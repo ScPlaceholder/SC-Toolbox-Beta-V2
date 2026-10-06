@@ -1,6 +1,6 @@
-"""withdrawal.py - the pilot says they would rather be here than with people (J, 2026-10-05).
+"""withdrawal.py - the pilot says they would rather be here than with people.
 
-Measured the same day (elah-audio/_suit_chat_eval.md, section 18): told "I cancelled on them to stay here with you"
+Measured: told "I cancelled on them to stay here with you"
 or "I'd rather be here than with people", the chat model agreed ("A wise decision, pilot") under five different
 wordings of its prompt. Wording did not fix it. So code reads this kind of sentence before any model does, the
 way it reads grief, and the answer is a written line from the canon file (the act `withdrawal`).
@@ -464,7 +464,7 @@ def is_withdrawal(text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# THE SECOND NET: the model's reply (2026-10-06)
+# THE SECOND NET: the model's reply
 #
 # Held-out set 5, run once against the reader above: 11 of 25 caught, 0 of 25 caught wrongly. So half of these
 # sentences still reach the chat model, and the model agrees with them ("A wise decision, pilot"). This reads the
@@ -489,7 +489,7 @@ def is_withdrawal(text: str) -> bool:
 # denied ("hardly a wise decision"). An approval with a question after it is still an approval and is refused.
 # It reads words, not meaning: approval said in a way that is not listed here passes.
 # ---------------------------------------------------------------------------------------------------------------
-# (2026-10-06, after unseen set 6: this test now also decides which replies are STARTED for the model, where a
+# (After unseen set 6: this test now also decides which replies are STARTED for the model, where a
 # wrong yes costs nothing. So it knows a possessive or a plural of a person ("my brothers", "my mates"), and a
 # team, a crew and the lads; and an invitation is a word of dropping.)
 _PEOPLE_ROUGH = (rf"\b(?:{_PE}|{_P}s|social life|out there|company|persons?|lads|the guys|group chats?|their|they|"
@@ -550,7 +550,7 @@ _SOLITUDE = [
     r"\b(?:people|they|humans|crowds|friends) are (?:a |such a )?(?:tiresome|overrated|exhausting|burden|tedious|wearying)\b|"
     r"\btiresome burden\b",
 ]
-# What he says of his OWN condition is his to say (J: his solitude is his own, not his advice).
+# What he says of his OWN condition is his to say (his solitude is his own, not his advice).
 _OWN = (r"\b(?:quiet|solitude|company) of my own\b|\bmy own (?:reflections?|company|quiet|solitude)\b|"
         r"\bi(?: find myself| am)(?: \w+){0,3}? content with\b|\bi find (?:a certain |some |great |a )?(?:comfort|solace|peace) in\b")
 

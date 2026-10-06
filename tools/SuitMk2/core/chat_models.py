@@ -1,8 +1,8 @@
-"""chat_models.py - which local models may word free talk: the list, the pick, and the check before use (J 2026-10-05).
+"""chat_models.py - which local models may word free talk: the list, the pick, and the check before use.
 
-J: "I guarantee there will be some lonely user which swaps our 3B model for a 27B model and then wants Elah and
-Montaigne to be their best friends. We should also have a drop down that ... auto-detects local models to make that
-easy." And, the same evening: the hardware limit is a HARD limit. A 27B model beside Star Citizen on a 1080 Ti with
+Some lonely user will swap the 3B model for a 27B model and then want Elah and
+Montaigne to be their best friends. So there is a drop down that auto-detects local models to make that
+easy. And the hardware limit is a HARD limit. A 27B model beside Star Citizen on a 1080 Ti with
 16 GB of RAM must not crash the game or overload the machine, and no setting may get past that.
 
 So this module does three things, none of which loads a model or asks one anything:
@@ -16,7 +16,7 @@ So this module does three things, none of which loads a model or asks one anythi
                 started since). A model that no longer fits is "cannot be asked" to chat_talker, which then answers
                 as with chat off. Cheap: the answer is kept for FIT_RECHECK_S.
 
-Only gemma3:4b has been measured with the prompt chat_talker sends (elah-audio/_suit_chat_eval.md). Every other
+Only gemma3:4b has been measured with the prompt chat_talker sends. Every other
 model is listed and marked untested, not hidden.
 """
 from __future__ import annotations

@@ -1,7 +1,7 @@
-"""place_knowledge.py - what each companion KNOWS about a place, for the question path (J, 2026-10-05).
+"""place_knowledge.py - what each companion KNOWS about a place, for the question path.
 
-J: "Elah should have knowledge of the Galactapedia and Montaigne should have his brochures and dev history to
-call on". Until today the lore, the brochures and the dev-history pack were only ever used for remarks nobody
+Elah has knowledge of the Galactapedia and Montaigne has his brochures and dev history to
+call on. Before this module the lore, the brochures and the dev-history pack were only ever used for remarks nobody
 asked for (the topic walker, dev_facts). A question about the place the pilot is standing in was answered with
 the place's name and nothing else.
 
@@ -20,7 +20,7 @@ Three things live here:
      the line that answers must stay inside its claims. See the function for exactly what it checks and what it
      cannot.
 
-  2b. WHAT THE EYES SAW (J 2026-10-05: "'Wow look at that!' should summon the eyes on the word look"). A sentence
+  2b. WHAT THE EYES SAW ("Wow look at that!" summons the eyes on the word look). A sentence
      that points at something makes the Suit take ONE look at the screen (eyes.py, the local vision glance, under
      every rule eyes.py already has). What comes back is a short description, and it enters the answer as an
      OBSERVATION, the claim eyes.saw, said word for word: "What I see: A tall lattice tower on a ridge." It is never a
@@ -30,7 +30,7 @@ Three things live here:
      WHAT is on screen, never WHERE").
 
   3. THE ANSWER ITSELF, answer_line(): the claims, in order, in the speaker's voice. A question about a place
-     is NOT worded by the model. Measured 2026-10-05 on the two shipped 1.5B adapters, 120 lines over ten place
+     is NOT worded by the model. Measured on the two shipped 1.5B adapters, 120 lines over ten place
      questions: the gate passed 20 of 60 of Elah's lines and 5 of 60 of Montaigne's, and the ones it passed
      were still wrong in ways no word check can see ("You're at Aberdeen's outpost in Vivere OLP", "Lorville
      isn't who you left", "Your spaceport is somewhere in Lorville. I don't know where."). The model keeps
@@ -143,7 +143,7 @@ def lore_source(q: Query) -> list[Fact]:
 
 
 def galactapedia_source(q: Query) -> list[Fact]:
-    """THE SEAM for Elah's Galactapedia (J 2026-10-05). There is no Galactapedia data in the toolbox, so this
+    """THE SEAM for Elah's Galactapedia. There is no Galactapedia data in the toolbox, so this
     returns nothing, and nothing here fetches any. When a file exists, return its entries for q.location, q.body
     and q.named_nodes() in the Fact shape, with kind "lore" and status "lore", and each entry's own `source`. The
     gate and answer_line() need nothing else: they work from the claims."""
@@ -442,7 +442,7 @@ _LINES = {
         "bare": ["That is all I know about it.", "I have nothing more on it."],
     },
     "montaigne": {
-        # J, 2026-10-05: he is a man aboard the ship who never goes out. Until then these two lines read "a ship
+        # He is a man aboard the ship who never goes out. These two lines used to read "a ship
         # has only what he is told" and "I have no eyes of my own".
         "pointing": ["I cannot see which {thing} you mean, pilot; I stay aboard, and have only what I am told.",
                      "Which {thing} you mean I cannot see from in here; I have only the suit's feed."],

@@ -1,4 +1,4 @@
-"""sc_dev_history.py - search Star Citizen's development history, streamed from GitHub (J 2026-09-24).
+"""sc_dev_history.py - search Star Citizen's development history, streamed from GitHub.
 
 The corpus (1,368 dev-video transcripts + 5,152 RSI comm-link records, ~51 MB) lives in the public repo
 ScPlaceholder/sc-dev-history. Nothing is bundled. This client:
@@ -102,12 +102,12 @@ class DevHistory:
                 hit_terms[i] = hit_terms.get(i, 0) + 1
         # A document matching every query term outranks one that repeats a single term a lot. A term in the TITLE
         # counts again: long transcripts contain every common word somewhere, so without this a comm-link ranked
-        # #347 for its own exact title ("Give These People Air"), found 2026-09-25.
+        # #347 for its own exact title ("Give These People Air").
         tset = set(terms)
         title_hits = {i: len(tset & set(WORD.findall(idx["docs"][i].get("t", "").lower()))) for i in scores}
         # The index keeps only 3+ character words, so "Alpha 4.0" searched just "alpha" and returned the 3.23 stream,
         # and "Hull C" returned the Hull B. The TITLES are in the index, so check the dropped tokens (and the whole
-        # query as a phrase) against them: a title that carries "4.0" or "hull c" ranks first. Found 2026-09-25.
+        # query as a phrase) against them: a title that carries "4.0" or "hull c" ranks first.
         short = [t for t in query.lower().split() if not WORD.fullmatch(t.strip(".,:;!?\"'()"))]
         short = [t.strip(".,:;!?\"'()") for t in short if t.strip(".,:;!?\"'()")]
         phrase = " ".join(query.lower().split())

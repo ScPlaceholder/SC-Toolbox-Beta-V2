@@ -1,7 +1,7 @@
-"""ship_makers.py - WHO MAKES A SHIP IS LOOKED UP, NEVER REMEMBERED (J, 2026-10-05).
+"""ship_makers.py - WHO MAKES A SHIP IS LOOKED UP, NEVER REMEMBERED.
 
-"I imagine we can assign manufacturer intelligently to any ship so they'd never mistake a ship for the wrong
-manufacturer." The pilot said "I love this ship", the ship was an Aegis Avenger Titan, and a model answered "It is
+A manufacturer can be assigned intelligently to any ship, so that no ship is ever given the wrong
+manufacturer. The pilot said "I love this ship", the ship was an Aegis Avenger Titan, and a model answered "It is
 a Drake." A model is never the source of a maker. This module finds the ships a sentence names and gives each its
 maker from the Suit's own ship list (data/ships.json, 242 ships, every one with a maker).
 

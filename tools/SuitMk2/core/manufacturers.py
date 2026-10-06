@@ -1,6 +1,6 @@
-"""manufacturers.py - what Elah and Montaigne SAY about a ship's maker (J 2026-09-25, April spec section 3 + 4).
+"""manufacturers.py - what Elah and Montaigne SAY about a ship's maker (April spec section 3 + 4).
 
-"For the manufacturers you can have all the manufacturers." Every manufacturer in data/ships.json (19) has an entry in
+All the manufacturers are covered: every manufacturer in data/ships.json (19) has an entry in
 data/manufacturer_lore.json. The April spec switched the ship AI's VOICE per maker; SuitMk2's voices stay Elah and
 Montaigne, so the idea is carried as FLAVOUR in what they say:
 
@@ -67,7 +67,7 @@ def _ship_rows() -> list:
 
 def resolve(ship: str) -> Optional[dict]:
     """A ship as the log names it -> its maker's entry. The crew channel reads "Drake Ironclad", "RSI Ursa Medivac" or
-    "@vehicle_NameDRAK_Golem_OX" (measured on J's logs); the parser cleans the last to "Golem OX". So: the maker's
+    "@vehicle_NameDRAK_Golem_OX" (measured on real logs); the parser cleans the last to "Golem OX". So: the maker's
     name or alias leading the name, then a code prefix, then the longest data/ships.json ship name inside it."""
     raw = str(ship or "").strip()
     if not raw:

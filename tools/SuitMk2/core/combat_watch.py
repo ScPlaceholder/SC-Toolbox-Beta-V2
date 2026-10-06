@@ -1,9 +1,9 @@
-"""combat_watch.py - is the pilot in a fight? (J's design, 2026-09-23)
+"""combat_watch.py - is the pilot in a fight?
 
-J: "Can we also intercept game audio? We could have combat weapon equipped -> turn on game ears and eyes -> gun
-shot + muzzle flash = combat state."
+Game audio is intercepted too: a combat weapon equipped -> game ears and eyes turned on -> gun
+shot + muzzle flash = combat state.
 
-What the evidence allows (measured on his logs the same night):
+What the evidence allows (measured on real logs):
   - The log records weapons going INTO a slot (AttachmentReceived ... Port[wep_sidearm|wep_stocked_N]) but never
     a weapon being DRAWN. So the log can say "weapon put away" (a combat-OFF hint), not "weapon out".
   - voice_fx.DuckingMonitor already reads StarCitizen.exe's own output PEAK at ~20 Hz, per process: it never hears

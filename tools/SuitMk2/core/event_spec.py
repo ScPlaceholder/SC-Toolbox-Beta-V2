@@ -1,4 +1,4 @@
-"""event_spec.py - semantic specs for EVENT reactions (the event lane; 2026-09-23).
+"""event_spec.py - semantic specs for EVENT reactions (the event lane).
 
 Until now every event reaction in SuitMk2 was worded by a cloud LLM call (dynamic_dialogue -> WingmanAI llm_call).
 This module is the event-lane twin of ambient_spec.py: one game event in, at most ONE semantic spec out, built only
@@ -10,7 +10,7 @@ Same shape and rules as ambient_spec:
   * a small pool of (speaker, move, stance) variants per event, rotated by the caller's counter
   * Montaigne only ever knows things secondhand (the suit's feed, the ship's log)
 
-Event field names come from event_parser.py / event_classifier.py (see the event-lane map, 2026-09-23).
+Event field names come from event_parser.py / event_classifier.py (see the event-lane map).
 `incapacitated` is included even though the parser does not emit it yet: the moment it does, it speaks.
 """
 from __future__ import annotations
@@ -23,10 +23,10 @@ from ambient_spec import _ELAH_MOVES, _MONT_MOVES, _claim
 Spec = dict[str, Any]
 _LEN = (6, 32)          # events are reactions: shorter than ambient chatter
 # Mk II-style clipped edges. The gate drops a line outside length_words (+5 slack), so without this a one-word
-# "Contact." failed as TOO SHORT and combat went silent (end-to-end test, 2026-09-23).
+# "Contact." failed as TOO SHORT and combat went silent (end-to-end test).
 _LEN_BY_EVENT = {"combat_on": (1, 8), "combat_off": (1, 14)}
-# Mk II-length edges (2026-09-24): the retrain taught both adapters 2-10 word lines for these events (short_* specs,
-# 616 teacher lines, median 8 words). J: "You can keep longer lines as well to keep them interesting", so it is a
+# Mk II-length edges: the retrain taught both adapters 2-10 word lines for these events (short_* specs,
+# 616 teacher lines, median 8 words). Longer lines are kept as well, to keep them interesting, so it is a
 # MIX, not a replacement: SHORT_EDGE_SHARE of variants ask for the clipped length, the rest keep _LEN.
 # SUITMK2_SHORT_EDGES=0 turns it off for an A/B dry run.
 SHORT_EDGE_EVENTS = {"incapacitated", "player_respawned", "injury", "med_bed_heal", "qt_arrived", "boarded_ship",
@@ -39,7 +39,7 @@ SHORT_EDGE_SHARE = 0.7
 SHORT_EDGES = os.environ.get("SUITMK2_SHORT_EDGES", "1") != "0"
 
 
-# What an injury DOES, so Elah can say it instead of guessing (J 2026-09-24: a sniper hit in the left arm 80 times;
+# What an injury DOES, so Elah can say it instead of guessing (a sniper hit in the left arm 80 times;
 # "Left arm. Your aim's going to drift."). From the game's own medical rules (starcitizen.tools/Medical, checked the
 # same evening): arm injuries increase weapon sway, and from Moderate (Tier 2) up they also cost aiming accuracy; head
 # injuries blur vision and muffle hearing. Other parts are left unstated rather than guessed.
@@ -87,7 +87,7 @@ _VARIANTS: dict[str, list[tuple[str, str, str]]] = {
         ("elah", "PRACTICAL", "different rules apply here"),
         ("montaigne", "EVIDENCE_SKEPTIC", "a new border, the same doubtful laws"),
     ],
-    # Respawn: current SC builds log this reliably (~40 s after death), unlike the death itself (death agent, 09-23).
+    # Respawn: current SC builds log this reliably (~40 s after death), unlike the death itself.
     "player_respawned": [
         ("elah", "DEADPAN", "back on your feet; try not to make it a habit"),
         ("elah", "PRACTICAL", "check your gear before heading back out"),
@@ -98,7 +98,7 @@ _VARIANTS: dict[str, list[tuple[str, str, str]]] = {
         ("elah", "PRACTICAL", "worth banking"),
         ("montaigne", "SKEPTICAL_REVERSAL", "money earned, though he doubts it buys much wisdom"),
     ],
-    # --- the edge layer (J 09-23: "fire on edges"; measured on his live log: these were parsed and never spoken) ---
+    # --- the edge layer (fire on edges; measured on a live log: these were parsed and never spoken) ---
     # Boarding / leaving the ship = its crew channel joined / left ("You have joined channel 'Aegis Reclaimer : ...'").
     "boarded_ship": [
         ("elah", "DEADPAN", "back aboard; one clipped line"),
@@ -136,12 +136,12 @@ _VARIANTS: dict[str, list[tuple[str, str, str]]] = {
         ("elah", "DEADPAN", "clear; you are still breathing"),
         ("montaigne", "GRAND_PHILOSOPHY_TO_TRIVIAL", "a battle survived, reduced to a footnote"),
     ],
-    # "You've earned:" names ITEMS, never money (measured over 80 logs, 2026-09-23); blueprints are their own line.
+    # "You've earned:" names ITEMS, never money (measured over 80 logs); blueprints are their own line.
     "item_earned": [
         ("elah", "DEADPAN", "new gear; name it, no fuss"),
         ("montaigne", "SELF_DEPRECATION", "a prize for the pilot, admired secondhand by a ship"),
     ],
-    # Refinery job done (J 2026-09-24, from the old skill's audit): the game already logged it and the parser already
+    # Refinery job done (from the old skill's audit): the game already logged it and the parser already
     # emitted it ("A Refinery Work Order has been Completed at Levski"), and nothing ever spoke it.
     # A ship or freight elevator actually MOVING (not the hangar streaming in). Spoken at the start of a freight run
     # and when a ship elevator brings a ship up; the presence throttle keeps a hauling loop from narrating every trip.
@@ -385,8 +385,8 @@ def build_event_spec(event_type: str, data: dict, state: Optional[dict] = None, 
     if not claims:
         return None
     # A tier-3 injury (the worst tier) is never "not as bad as it felt": only the stance that sends the pilot to
-    # treatment. Same defect ambient_spec._SERIOUS_INJURY fixes for the follow-up line (2026-09-24).
-    # SC counts tiers down: Tier 1 = Severe, Tier 3 = Minor (every injury line in J's logs; corrected 2026-09-24 evening).
+    # treatment. Same defect ambient_spec._SERIOUS_INJURY fixes for the follow-up line.
+    # SC counts tiers down: Tier 1 = Severe, Tier 3 = Minor (every injury line in real logs).
     if event_type == "injury" and (_as_int((data or {}).get("tier")) == 1
                                    or str((data or {}).get("severity") or "").lower() == "severe"):
         pool = [("elah", "PRACTICAL", "the worst tier; get to a med bed now")]
@@ -405,7 +405,7 @@ def build_event_spec(event_type: str, data: dict, state: Optional[dict] = None, 
                 ("montaigne", "SELF_DEPRECATION", "the ore is still waiting for them, patiently, as he does")]
     elif event_type == "injury" and injury_effect(str((data or {}).get("body_part") or ""),
                                                   _as_int((data or {}).get("tier"))):
-        # Arm or head: what it does to the pilot's shooting or senses is the useful part (J 2026-09-24).
+        # Arm or head: what it does to the pilot's shooting or senses is the useful part.
         pool = [("elah", "PRACTICAL", "one clipped line: the part, and what it does to the pilot's aim or senses"),
                 ("elah", "DEADPAN", "dry; the part and its effect, no fuss")]
     speaker, move, stance = pool[variant % len(pool)]

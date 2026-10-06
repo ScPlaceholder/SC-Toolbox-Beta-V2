@@ -1,6 +1,6 @@
-"""dream_queue.py - dreaming as a QUEUE, not a session (ARCHITECTURE.md "When the thinking happens"; 2026-09-23).
+"""dream_queue.py - dreaming as a QUEUE, not a session (ARCHITECTURE.md "When the thinking happens").
 
-J: "a lot of users will close out the toolbox upon closing the game". So there is no after-game dreaming session to
+A lot of users will close the toolbox upon closing the game. So there is no after-game dreaming session to
 rely on. Instead:
 
   DURING PLAY   SessionRecorder.note(event) appends one line per notable event to the open session file. It is
@@ -48,7 +48,7 @@ MODEL_ORDER = ["essay", "moves"]
 QUIET_WINDOWS = {"quantum", "parked", "menu", "refinery", "launch"}      # "launch" = catch-up before SC is up
 # Live event names come from event_parser/event_classifier: reward_earned, qt_arrived, ship_channel_joined,
 # player_respawned. The first version listed invented names (mission_reward, quantum_arrived), so real sessions
-# recorded no rewards or arrivals (session_story agent, 2026-09-23). Old names kept for existing records.
+# recorded no rewards or arrivals. Old names kept for existing records.
 NOTABLE = {"injury", "incapacitated", "med_bed_heal", "location_change", "jurisdiction_change",
            "reward_earned", "qt_arrived", "ship_channel_joined", "player_respawned", "heartbeat",
            "quantum_arrived", "ship_entered", "mission_reward"}
@@ -151,7 +151,7 @@ class DreamQueue:
                 job["result"] = getattr(self, f"_job_{job['kind']}")(self._events(job["session"]))
                 job["status"] = "done" if job["result"] is not None else "pending"
                 # A generator that keeps declining (bad model output, model missing) must not burn a ROOMY
-                # window forever: give up after 5 empty attempts (agent finding, 2026-09-23).
+                # window forever: give up after 5 empty attempts.
                 if job["result"] is None and job["attempts"] >= 5:
                     job["status"] = "failed"
                     job["error"] = "generator declined 5 times"

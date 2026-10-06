@@ -1,5 +1,5 @@
-"""eyes.py - the companion's sight, cheapest first (ARCHITECTURE.md "Eyes"; J 2026-09-23: "have the eyes run every
-few seconds on the screen to produce a feeling of actual presence" + "wire in the vision api to filter pipeline").
+"""eyes.py - the companion's sight, cheapest first (ARCHITECTURE.md "Eyes": the eyes run every
+few seconds on the screen to produce a feeling of actual presence, and the vision API feeds the filter pipeline).
 
 Every tick (presence mode sets the cadence: occasional 10s / present 3s / curious 2s):
 
@@ -63,9 +63,9 @@ CADENCE_S = {"occasional": 10.0, "present": 3.0, "curious": 2.0}
 GLANCES_PER_HOUR = {"occasional": 4, "present": 12, "curious": 30}
 GLANCE_MIN_GAP_S = 45.0      # between two routine glances, until the core has set a pace (Eyes.set_pace)
 CHANGE_BITS = 10             # of 64 dHash bits; below this the frame is "the same scene"
-# SCENE TRANSITIONS the log never records (J 2026-09-24: "going down an elevator and going indoors ... the eyes will
-# need to be doing the heavy lifting"). A frame far from the ROLLING average of recent frames is a new place, not a
-# camera turn. ⚠ 0.22 is a first guess on the _dist scale (near-duplicates < 0.12), NOT tuned on real play yet.
+# SCENE TRANSITIONS the log never records (going down an elevator, going indoors: there the eyes
+# need to be doing the heavy lifting). A frame far from the ROLLING average of recent frames is a new place, not a
+# camera turn. 0.22 is a first guess on the _dist scale (near-duplicates < 0.12), NOT tuned on real play yet.
 TRANSITION_DIST = 0.22
 TRANSITION_EMA = 0.15        # weight of each new changed frame in the rolling baseline
 TRANSITION_MIN_GAP_S = 20.0
@@ -108,7 +108,7 @@ def foreground_process_name() -> Optional[str]:
         _LOG.debug("eyes: no Windows foreground-window API (%s); never capturing", e)
         return None
     except (OSError, ValueError, ctypes.ArgumentError) as e:
-        # ★ ABSENCE BECOMES A VALUE. A WinError from any of these four calls returns None, and None is the caller's
+        # ABSENCE BECOMES A VALUE. A WinError from any of these four calls returns None, and None is the caller's
         # reading for "the game is not in front" - so a broken privacy gate makes the eyes BLIND FOR THE WHOLE
         # SESSION and it looks exactly like a pilot who is alt-tabbed. No scene, no glance, no death detection, and
         # eyes.state() reports a perfectly healthy "not looking". The fallback is the safe direction (it never
@@ -163,18 +163,18 @@ class SceneClassifier:
         self.path = path
         self.examples: dict[str, deque] = {}
         # No memory of this player's own yet: start from the shipped seed (data/eyes_seed.json, labelled offline from
-        # real SC screenshots). Without it the eyes classified ZERO scenes in the 09-23 dry run: they only learn from
+        # real SC screenshots). Without it the eyes classified ZERO scenes in the first dry run: they only learn from
         # glances, and glances are forbidden while SC owns the GPU. The player's own file replaces the seed on save.
         # Seed FIRST, then the player's own memory on top: each label keeps its newest MAX_PER_LABEL, so what this
         # player's eyes learn gradually displaces the seed. (First version used the seed only when no own file
-        # existed, and the dry run had already saved an EMPTY own file, so the seed never loaded on J's machine.)
+        # existed, and the dry run had already saved an EMPTY own file, so the seed never loaded.)
         for src in ([SEED] if path is not None and SEED.exists() else []) + ([path] if path and path.exists() else []):
             try:
                 data = json.loads(src.read_text(encoding="utf-8"))
             except (OSError, ValueError) as e:
                 # OSError: the file vanished between exists() and read, or is locked. ValueError: truncated or
                 # non-UTF-8 JSON (UnicodeDecodeError and JSONDecodeError both subclass it).
-                # ★ ABSENCE BECOMES A VALUE, and this exact failure has already cost a day: an eyes_seed.json that
+                # ABSENCE BECOMES A VALUE, and this exact failure has already cost a day: an eyes_seed.json that
                 # does not parse leaves self.examples empty, predict() then returns (None, ...) for every frame,
                 # and the eyes classify ZERO scenes - reported as "unsure", which is also what a genuinely novel
                 # screen looks like. The comment above records the previous version of this bug being found by
@@ -217,10 +217,10 @@ class SceneClassifier:
             self.path.write_text(json.dumps(data), encoding="utf-8")
 
 
-# ---- the vision glance: a LOCAL vision model (J 2026-09-23: "the vision API for suitmk2 needs to be entirely local")
-# ⛔ NO POSITIONS, EVER (J 2026-09-24): "If I made the companion AI be able to target track ... it could be too easy to
-# turn into a bot that plays the game for you ... That's no longer a narration tool but an aimbot with no control
-# output." The eyes may say WHAT is on screen, never WHERE: no coordinates, boxes, bearings or offsets in the glance
+# ---- the vision glance: a LOCAL vision model (the vision API for SuitMk2 is entirely local)
+# NO POSITIONS, EVER. A companion AI able to track targets would be too easy to
+# turn into a bot that plays the game for you: no longer a narration tool but an aimbot with no control
+# output. The eyes may say WHAT is on screen, never WHERE: no coordinates, boxes, bearings or offsets in the glance
 # schema, in state(), in an Observation, or in a burst result (the muzzle-flash check counts flashes and discards
 # where they were). A narrator needs a noun, not a point; a point is the one field an aimbot needs.
 # The selftest fails if any exposed field name looks positional (POSITION_WORDS).
@@ -559,8 +559,8 @@ class Eyes:
         return False
 
     def look(self, reason: str = "curiosity") -> Optional[str]:
-        """A DELIBERATE glance on a hook (J 2026-09-24: "on certain hooks as well as curiosity it should use the eyes
-        and see what is going on and comment on it"). Skips the classifier, because the point is a DESCRIPTION, not a
+        """A DELIBERATE glance on a hook (on certain hooks, as well as from curiosity, the eyes are used
+        to see what is going on and comment on it). Skips the classifier, because the point is a DESCRIPTION, not a
         label. Same guards as any glance: game in front, headroom not TIGHT, hourly budget, plus LOOK_MIN_GAP_S.
         -> the 'notable' text (what is on screen, may carry uncertainty) or None if it did not or could not look."""
         t = self._now()
@@ -706,7 +706,7 @@ class Eyes:
             # RuntimeError: Thread.start() when the process is out of threads or already shutting down (and a
             # re-entrant acquire of _confirm_lock, were the lock ever made non-reentrant). OSError: the OS refusing
             # a new thread.
-            # ★ ABSENCE BECOMES A VALUE, and this is the worst-disguised one in the file: None is this method's
+            # ABSENCE BECOMES A VALUE, and this is the worst-disguised one in the file: None is this method's
             # NORMAL, most common return - "no answer yet, a burst is running". So a confirm that can never start a
             # burst returns the same None forever and CombatWatch waits for a second opinion that will never come,
             # with stats.bursts frozen at whatever it was. Called at ~20 Hz while in MAYBE, hence warn-once.
@@ -909,7 +909,7 @@ def _selftest() -> int:
     s_cut = flash_score(cut)
     case(f"burst: whole-frame brightness jumps are not fire (score {s_cut:.0f})", s_cut < FLASH_EVENTS)
     # The uniform jump above is cancelled by mean compensation alone. This one needs the GLOBAL and SIZE gates
-    # (mutation-checked 2026-09-23: it scores 3 only when both are removed): a repeated explosion wash over ~1/3 of
+    # (mutation-checked: it scores 3 only when both are removed): a repeated explosion wash over ~1/3 of
     # the frame, which is too big to be a muzzle.
     boom = [cockpit(flash=(160, 90, 110) if i in on else None) for i in range(12)]
     s_boom = flash_score(boom)

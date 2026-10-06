@@ -1,10 +1,10 @@
-"""npc_factions.py - NPC entity names in Game.log -> the name a companion SAYS (J 2026-09-25, April spec section 1).
+"""npc_factions.py - NPC entity names in Game.log -> the name a companion SAYS (April spec section 1).
 
 The log names NPCs by their entity class ("PU_Human_Enemy_GroundCombat_NPC_Ninetails_grunt_7766016...") and a
 companion must never read that aloud. This table turns one into "Nine Tails pirates". Same shape as
 location_names.py: a pattern table plus a resolver, no model, no network.
 
-EVERY ROW IS BACKED BY A REAL LOG LINE. Measured 2026-09-25 over all 1,112 of J's Game.log backups (LIVE + HOTFIX,
+EVERY ROW IS BACKED BY A REAL LOG LINE. Measured over 1,112 real Game.log backups (LIVE + HOTFIX,
 May 2024 .. Sep 2026): each pattern below matched real entity names, and LINE_FIXTURES at the bottom holds verbatim
 lines (tails trimmed) with the file each came from. The April spec's six rows were the starting point; two did not
 survive the check as written:
@@ -148,7 +148,7 @@ class ThreatLog:
         return best[1] if best else None
 
 
-# Verbatim lines from J's logs (tails trimmed), each with the backup file it came from.
+# Verbatim lines from real logs (tails trimmed), each with the backup file it came from.
 LINE_FIXTURES = [
     ("kopion", "you_killed", "Game Build(10007308) 09 Aug 25 (19 06 37).log",
      "<2025-08-10T00:17:08.737Z> [Notice] <Actor Death> CActor::Kill: 'Kopion_Irradiated_5403148872314' [5403148872314] "
@@ -182,7 +182,7 @@ LINE_FIXTURES = [
      "<2024-05-26T00:52:28.899Z> [Notice] <Actor Position Divergence> [PU_Human-Dusters-Engineer-Male_01_4065964670998] "
      "[AI 1] diverging 2501.100342m (threshold 4.000000m) for over 10.004625s (threshold 10.000000s)"),
 ]
-# Entity CLASS SHAPES counted in <Actor Death> lines of J's logs (scan 2026-09-25; the numeric id suffix replaced),
+# Entity CLASS SHAPES counted in <Actor Death> lines of real logs (the numeric id suffix replaced),
 # one per row that has no line fixture above, plus names that must resolve to nobody.
 RESOLVE_FIXTURES = {
     "PU_Human_Enemy_GroundCombat_NPC_Ninetails_grunt_1": "nine_tails",             # 54 kills

@@ -1,7 +1,7 @@
-"""hardware_guard.py - the hard limit: the companions never cost the game its machine (J 2026-10-05).
+"""hardware_guard.py - the hard limit: the companions never cost the game its machine.
 
-J, asked whether quieting under load should be something a user can switch off: "Agreed. Our hardware monitoring
-should prevent eyes or chat during important moments and if the card runs too hard disable them completely." And:
+Quieting under load is not something a user can switch off. The hardware monitoring
+prevents eyes or chat during important moments and, if the card runs too hard, disables them completely. And:
 someone will run a 27B model beside Star Citizen on max graphics on a 1080 Ti with 16 GB of RAM; it must not crash
 the game or overload the machine.
 
@@ -14,7 +14,7 @@ It reads NO temperature: Windows has no counter for it without a vendor library,
 hard" therefore means what the monitor's own verdict means: headroom TIGHT, which is free system memory under 3 GB,
 graphics load over 85 %, free video memory under 1 GB, or Star Citizen alone over 80 % of the card.
 
-TEMPERATURE (J 2026-10-05: do not assume the card protects itself; a user may have flashed its firmware or lifted
+TEMPERATURE (do not assume the card protects itself; a user may have flashed its firmware or lifted
 its power limit, and that cannot be detected). So the Suit has a ceiling of its OWN, TEMP_CEILING_C, and never asks
 the card what its limit is. A reading at or over the ceiling counts exactly as TIGHT does. A reading that is absent,
 zero or nonsense is "cannot check": it is never "fine", it relaxes nothing, and the window says temperature is not

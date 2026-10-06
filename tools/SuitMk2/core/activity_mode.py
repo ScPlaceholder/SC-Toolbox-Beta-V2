@@ -1,11 +1,11 @@
-"""activity_mode.py - when to be PRESENT and when to be a PRESENCE (J 2026-09-24).
+"""activity_mode.py - when to be PRESENT and when to be a PRESENCE.
 
-J: "on certain hooks as well as curiosity it should use the eyes and see what is going on and comment on it ...
-During stuff like moving boxes, hauling, salvaging and other slow gameplay not much happens so that's where groups
-do a lot more small talk and banter and not comment on every box they move. So the system needs to be intelligent
-and deterministic on when to be present and when to be a presence."
-And: "the logs are so scarce ... going down an elevator and going indoors [are not logged] so the eyes at times will
-need to be doing the heavy lifting."
+On certain hooks, as well as on curiosity, it uses the eyes to see what is going on and comments on it.
+During moving boxes, hauling, salvaging and other slow gameplay not much happens, so that is where groups
+do a lot more small talk and banter and do not comment on every box they move. So the system is intelligent
+and deterministic about when to be present and when to be a presence.
+And the logs are scarce: going down an elevator and going indoors are not logged, so the eyes at times
+need to do the heavy lifting.
 
 DETERMINISTIC by design: a novelty score, not a model. Things that are NEW add points; the score decays (half-life
 NOVELTY_HALF_LIFE_S); slow-loop evidence (a mining/trading scene, a long stay, many near-identical events) pulls it
@@ -181,7 +181,7 @@ class AfkWatch:
 
 
 # ---- the curiosity look -> one line --------------------------------------------------------------------------------
-# J's model, the Onyx night: "Hang on, I thought we were here to collect a dossier, this looks like the set of an
+# The model reaction: "Hang on, I thought we were here to collect a dossier, this looks like the set of an
 # Alien movie." ... "Is that the worm? Oh wait, that's a dead guy." A REACTION to what is on screen, allowed to be
 # unsure. The eyes' description is the only fact; the stance invites a reaction, never a report.
 LOOK_VOICES = [
@@ -194,10 +194,10 @@ LOOK_VOICES = [
 ]
 
 
-# NEVER COMMENT ON AN ABSENCE (J 2026-10-05). "If nothing is being salvaged do not comment on it. Depending on the
-# salvage approach 3 ships could've been munched since the last picture and being like 'yeah slim pickings today' just
-# breaks the immersion. If something does happen or there's a ship to salvage the engine should choose to comment or
-# not." A picture is one moment; what it does not show may have come and gone between two pictures. So a picture is
+# NEVER COMMENT ON AN ABSENCE. If nothing is being salvaged, it is not commented on. Depending on the
+# salvage approach 3 ships could have been munched since the last picture, and a "slim pickings today" just
+# breaks the immersion. If something does happen or there is a ship to salvage, the engine chooses to comment or
+# not. A picture is one moment; what it does not show may have come and gone between two pictures. So a picture is
 # only ever a reason to speak about something that IS in it.
 #
 # The rule is positive, with the refusal on top: a description may become a line only if it NAMES something (at least
@@ -239,7 +239,7 @@ def build_look_spec(notable: str, reason: str, variant: int) -> Optional[dict]:
         "claims": [{"id": "C1", "kind": "OBSERVED", "predicate": "scene.looks_like", "value": notable}],
         "interpretation": {"owner": speaker, "text": stance},
         "required_claims": [], "required_values": [], "length_words": [4, 18],
-        # No name gate here, on purpose: "the set of an Alien movie" is exactly the reaction J wants, and a name
+        # No name gate here, on purpose: "the set of an Alien movie" is exactly the reaction wanted, and a name
         # gate would refuse it. The stance forbids naming places or people instead.
         "allowed_names": None,
         "look_reason": reason,

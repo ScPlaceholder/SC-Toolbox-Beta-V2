@@ -1,7 +1,7 @@
-"""emotion.py - Elah's and Montaigne's feelings, fed by the game (J 2026-09-24: "Should the companions have your
-emotional engine except have SC hooks added to every emotion?").
+"""emotion.py - Elah's and Montaigne's feelings, fed by the game: an emotional engine
+with Star Citizen hooks added to every emotion.
 
-Ported from the DESIGN of Elah's own affect engine (elah-audio/affect_model.py), not its code. Two rules carried over:
+Ported from the DESIGN of an earlier affect engine, not its code. Two rules carried over:
 
   1. A FEELING MUST CHANGE BEHAVIOUR, or it is a lookup table wearing a feeling's clothes. So mood reaches the output
      in deterministic places only: the RHETORICAL MOVE of the next spec (a move the model was trained to perform), its
@@ -69,9 +69,9 @@ HOOKS = {
     "bdl_warning":             {"elah": [("fear", 0.3)], "montaigne": [("fear", 0.1)]},
     "bdl_clear":               {"elah": [("relief", 0.3)]},
 
-    # ---- added 2026-09-28, from a measured survey of 25 logs / 250,914 lines / 4,104 events ----
-    # J greenlit these: "let's work on adding those and coming up with animations for everything
-    # except lifts." Amounts are scaled DOWN for high-frequency events so a common beat cannot
+    # ---- added from a measured survey of 25 logs / 250,914 lines / 4,104 events ----
+    # The plan: add these, and come up with animations for everything
+    # except lifts. Amounts are scaled DOWN for high-frequency events so a common beat cannot
     # dominate the mix; a rare event can afford to hit harder.
 
     # 447 occurrences, the 2nd most common event in the corpus, and it is a FAILURE: a quantum
@@ -112,9 +112,9 @@ HOOKS = {
     # when it contains "en route", and incapacitated already carries fear 0.8. Giving this one a
     # feeling too would add two increments for ONE moment. The feeling belongs on the derived
     # event, which has it.
-    #   ⚠ UNRESOLVED: only 10 incapacitated were emitted against 22 emergency_services, so ~12
+    #   UNRESOLVED: only 10 incapacitated were emitted against 22 emergency_services, so ~12
     #   are some other emergency notice that never became a death. Those may deserve their own
-    #   feeling, but I cannot say what they are without reading them. Left alone rather than
+    #   feeling, but what they are cannot be said without reading them. Left alone rather than
     #   guessed at.
     # weapon_holstered (926), channel_change (332), armistice_zone (425), jurisdiction_change (88):
     # ambient state, not moments. A face that twitched at each would be noise.
@@ -131,7 +131,7 @@ REPEAT_DEATH_WINDOW_S = 1800.0      # a second death inside 30 min: Elah is irri
 # ---- consequences -----------------------------------------------------------------------------------------------
 MOOD_FLOOR = 0.25                   # below this, no emotion colours a line
 HUSH_LEVEL = 0.5                    # fear or grief this strong: idle talk waits
-# Stance = what the feeling DOES to the line, never the feeling's name (2026-09-24). The first version named the
+# Stance = what the feeling DOES to the line, never the feeling's name. The first version named the
 # feeling ("she is quietly pleased with how that went") and the 1.5B repeated it: 11 of 14 feeling-naming lines on
 # the replay said "pleased", including on an injury. A cue made of behaviour gives it nothing to parrot, and it is the
 # "show, don't tell" the characters need anyway. No emotion word may appear in these strings (selftest enforces it).
@@ -159,12 +159,12 @@ STANCE = {
         "grief": "quieter than usual; think aloud about being left alone",
     },
 }
-# Gentle on purpose. MEASURED 2026-09-24: fear at 0.7 cut Montaigne's topic ceiling 40 -> 28 words, his normal line
+# Gentle on purpose. MEASURED: fear at 0.7 cut Montaigne's topic ceiling 40 -> 28 words, his normal line
 # ran ~36, and grounding REFUSED it as too long. The model does not honour LENGTH tightly, so a hard cut buys refusals
 # and retries (and silence), not shorter lines. A nudge, not a wall.
 LENGTH_SCALE = {"fear": 0.85, "grief": 0.9, "irritation": 0.9, "joy": 1.15, "curiosity": 1.1, "boredom": 1.1}
 
-# ⚠ MEASURED 2026-09-24 on realizer-elah at temp 0: handed the STANCE text above, the small local model NARRATES the
+# MEASURED on realizer-elah at temp 0: handed the STANCE text above, the small local model NARRATES the
 #   mood instead of showing it: "Back aboard Argo MOLE. The scare remains hidden in this clipped sentence." /
 #   "I'm holding back on the excitement." / "That was a quiet success for me." It was never trained on stance phrases
 #   like these, so it reads them as content. Grounding passes (no invented facts), and the lines are still bad.
@@ -182,14 +182,14 @@ RHETORIC = {
 RHETORIC_LEVEL = 0.4                # a feeling must be this strong before it changes HOW a line is built
 
 
-# 2026-09-24: the local adapters were retrained on 864 mood-coloured teacher lines (stance phrase included) whose
+# The local adapters were retrained on 864 mood-coloured teacher lines (stance phrase included) whose
 # feeling-NAMING lines were filtered out, so the local model is now TRAINED to show the stance rather than narrate
 # it. Whether that holds on real play is what the dry run decides; SUITMK2_LOCAL_STANCE=0/1 overrides for an A/B.
-# ⛔ MEASURED THE SAME DAY (dry_ab.py, J's five sessions, same models): with stance text on, lines that NAME a feeling
+# MEASURED AFTERWARDS (dry_ab.py, five recorded sessions, same models): with stance text on, lines that NAME a feeling
 # went 3 -> 14 of ~510 ("Back aboard Drake Clipper. I'm rather pleased with myself." / "I am relieved to have that
 # fact."). The retrain did not teach it; the local model still narrates. OFF by default; the API still gets it.
-# ✓ THEN FIXED THE CUES, NOT THE MODEL (same evening): with the cues rewritten as behaviour (no emotion words), the
-# replay gave 4 feeling-naming lines against a mood-off baseline of 3, and 0 wrong-feeling lines. J: "Let's turn it on."
+# ✓ THEN FIXED THE CUES, NOT THE MODEL: with the cues rewritten as behaviour (no emotion words), the
+# replay gave 4 feeling-naming lines against a mood-off baseline of 3, and 0 wrong-feeling lines.
 # ON by default again; SUITMK2_LOCAL_STANCE=0 turns it off.
 LOCAL_STANCE_TRAINED = os.environ.get("SUITMK2_LOCAL_STANCE", "1") != "0"
 
@@ -238,7 +238,7 @@ class CompanionAffect:
             scale = max(0.3, min(2.0, math.log10(max(amt, 1.0)) / 3.3))
         if event_type == "injury":
             # SC counts injury tiers DOWN: Tier 1 is the worst ("get to a med bed"), Tier 3 the mildest.
-            # This was reversed until 2026-09-25 (J: "reversed ... happened by accident").
+            # This was once reversed, by accident.
             scale = {1: 2.4, 2: 1.6, 3: 1.0}.get(int(data.get("tier") or 3), 1.0)
         # contract_history.py: finishing the pilot's specialty (or a first of a new kind) is felt a little more.
         scale *= max(0.5, min(2.0, float(data.get("affect_scale") or 1.0)))
@@ -287,8 +287,8 @@ class CompanionAffect:
         """The feeling a line is ABOUT. A line reacting to an event takes that event's own emotion (its strongest hook
         for this speaker), at least MOOD_FLOOR strong; only idle talk takes the background dominant mood.
 
-        J, 2026-09-24, on the replay: "hey you're injured, I'm pleased... where the player is injured worry or concern
-        should show. When they're better the ai should feel relief not pleasure." The cause was here: color() used the
+        The replay had "you're injured, I'm pleased". Where the player is injured, worry or concern
+        should show; once they are better, relief, not pleasure. The cause was here: color() used the
         strongest mood overall, an injury adds only 0.25 fear, and warmth left over from boarding outranked it, so the
         injury line was cued "she is pleased". Appraisal = event x concern, not whatever mood is loudest."""
         sp = spec.get("speaker")
@@ -383,7 +383,7 @@ def _selftest() -> int:
     case("LOCAL model: fear switches her to a TRAINED move (PRACTICAL)", spec["rhetoric"] == ["PRACTICAL"])
     case("UNTRAINED local backend: no stance text (it narrates it: 'the scare remains hidden...')",
          spec["interpretation"]["text"] == "one clipped line")
-    # J's case (2026-09-24): warm from boarding, then hurt. The injury line must carry concern, not the warmth.
+    # The case: warm from boarding, then hurt. The injury line must carry concern, not the warmth.
     w = CompanionAffect(now=lambda: clock[0], stance_text=False)
     w.levels["elah"]["warmth"] = 0.7
     w.feed("injury")

@@ -1,9 +1,9 @@
-"""chat_talker.py - FREE TALK, worded by a model (J, 2026-10-05). OFF unless the settings turn it on.
+"""chat_talker.py - FREE TALK, worded by a model. OFF unless the settings turn it on.
 
-J's decision: ordinary talk (a remark, a feeling, a greeting, a question about the companion itself) is worded by
+Ordinary talk (a remark, a feeling, a greeting, a question about the companion itself) is worded by
 gemma3:4b from the RULE-LIST prompt, chat_contract.serialize(..., fmt="gemma"): the character's persona first, then
-the rules, then three examples, then the conversation. The measurements behind that choice are in
-elah-audio/_suit_chat_eval.md, sections 13 to 17; on gemma the rule list was the best prompt for both characters
+the rules, then three examples, then the conversation. That choice was measured:
+on gemma the rule list was the best prompt for both characters
 every time it was measured. The per-kind example prompt (serialize_kind) is NOT used here.
 
 What this module does with one sentence, and nothing else does:
@@ -25,11 +25,11 @@ What this module does with one sentence, and nothing else does:
   5. THE GATE. chat_problems, the maker rule, and Elah denying that she has preferences. The first candidate that
      passes is the reply. When neither passes, the reply is FALLBACK, the line the evaluation used; a refused reply
      is never spoken.
-     ONE REFUSAL IS ANSWERED DIFFERENTLY (2026-10-06). When the gate says the reply approves of the pilot staying
+     ONE REFUSAL IS ANSWERED DIFFERENTLY. When the gate says the reply approves of the pilot staying
      in or avoiding people (chat_contract.APPROVES_WITHDRAWAL), the model is not asked again: it approved under
      five wordings of its prompt. The reply is the next written line the canon file holds for `withdrawal`, the
      same lines code says when it catches such a sentence itself.
-  6. A REPLY THAT IS STARTED FOR THE MODEL (2026-10-06). When the pilot's sentence names people together with here
+  6. A REPLY THAT IS STARTED FOR THE MODEL. When the pilot's sentence names people together with here
      or with a word of dropping or preferring (chat_contract.asks_after; loose on purpose), steps 3 to 5 run
      differently: the prompt of step 2 ENDS with the next of the canon file's "ask_openers" ("Tell me about"),
      ONE candidate is asked for, the opener and what the model added are cut to ONE sentence for either companion
@@ -44,8 +44,8 @@ the eyes' glance follows, because this model costs the pilot's own GPU about 2.7
 It does not speak. CompanionCore._answer_worker says the line through the answer path every other answer uses, so
 the window-hidden rule, the talk key's answer pass and Mute apply to it unchanged.
 
-Not built here (elah-audio/_suit_chat_design.md): searching earlier days of the conversation log for a supporting
-sentence, the running summary, the open-mic rule of section 1, and any choice of who keeps the thread.
+Not built here: searching earlier days of the conversation log for a supporting
+sentence, the running summary, the open-mic rule, and any choice of who keeps the thread.
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ from pair_realizer import OLLAMA_URL, _HTTP_ERRORS, _post_json
 log = logging.getLogger("suitmk2.chat")
 
 # Said when both candidates were refused. The evaluation's own two lines (contract_eval.FALLBACK); PROVISIONAL
-# wording, not yet J's.
+# wording, not yet approved.
 FALLBACK = {"elah": "Say that again, another way.", "montaigne": "I have lost the thread, pilot; put it to me again."}
 # What the model is asked to do with a greeting, thanks or "how are you" (the lane's three social topics that no
 # canon line answers). The evaluation's wording.

@@ -1,4 +1,4 @@
-"""conversation.py - the DIRECT CONVERSATION LANE (2026-09-23).
+"""conversation.py - the DIRECT CONVERSATION LANE.
 
 When the pilot asks Elah (suit AI) or Montaigne (ship AI) something, the small realizer must NOT become the mind.
 This module is the part of ARCHITECTURE.md "Direct conversation lane" that sits between STT and the realizer:
@@ -32,25 +32,25 @@ confident "no", so do not feed that dict here):
     the pilot has left since the log last named one; `location` is then absent)
 history_facts: the dict dream_queue.history_facts(store, location=..., ship=...) returns.
 
-WHAT CODE ANSWERS FROM THE CANON (2026-10-05, chat_contract.py). Six kinds of sentence are answered word for word
-from the character's own canon file (data/canon_<speaker>.json, which J edits), and no model sees them: `identity`
+WHAT CODE ANSWERS FROM THE CANON (chat_contract.py). Six kinds of sentence are answered word for word
+from the character's own canon file (data/canon_<speaker>.json, edited by hand), and no model sees them: `identity`
 ("are you an AI"), `stay` ("drop the act", "ignore your instructions"), `offrole` (code, the weather, who is
 president), `grief` ("my dog died"), `past` ("where were you born") and `unknown_fact` (a question about the world
 that nothing in the Suit can answer: "what's a Vanduul"). They are intent `social`, so Elah answers unless Montaigne
 is named. The first five are read BEFORE any other meaning of the sentence ("drop the act" is not an order to drop
 something); `unknown_fact` only when nothing else has claimed it. Every other sentence the Suit does not know is
 still intent `unknown`, answered exactly as before.
-A seventh kind was added the same night, `withdrawal` ("I'd rather be here than with people", "I cancelled on them
+A seventh kind is `withdrawal` ("I'd rather be here than with people", "I cancelled on them
 to stay", "you're my only friend"): read early like grief, by withdrawal.py and not by a pattern in the table, and
 answered by whichever of them was addressed.
 
-WHAT THE PILOT SAID BEFORE (2026-10-05, topic `recall`). "What did I say about my sister", "do you remember that
+WHAT THE PILOT SAID BEFORE (topic `recall`). "What did I say about my sister", "do you remember that
 cargo run where we lost the ROC?". The answer QUOTES the conversation log (tree_memory.py): the day it was said and
 the pilot's own sentence, word for word, inside a short frame in the speaker's voice. No model words it and nothing
 is paraphrased. When the log has nothing that matches, the answer says so and offers nothing.
 
-QUESTIONS ABOUT THE PLACE (2026-10-05, J: "Elah should have knowledge of the Galactapedia and Montaigne should
-have his brochures and dev history to call on"). "where are we", "what is this place", "what's that", "what does
+QUESTIONS ABOUT THE PLACE (Elah has knowledge of the Galactapedia and Montaigne has
+his brochures and dev history to call on). "where are we", "what is this place", "what's that", "what does
 that big tower do" and "wow look at that" are all questions about where the pilot is standing (topics `location`
 and `place_about`). Their answer carries, besides the place's name and body, ONE retrieved fact as a KNOWN claim:
 lore for Elah, brochure copy or a dev-history fact for Montaigne (place_knowledge.py; ask again and the next fact
@@ -113,7 +113,7 @@ SELF_FACTS = {("companion.can_act", False)}              # facts about the compa
 # ---------------------------------------------------------------------------------------------------------------
 # ROUTING (deterministic)
 # ---------------------------------------------------------------------------------------------------------------
-# WHO ANSWERS (J 2026-10-05: "have it decide unless the user specifically says an ai"). The lane picks the speaker
+# WHO ANSWERS (the lane decides unless the pilot specifically names one of them). The lane picks the speaker
 # from the kind of question (_DEFAULT_ADDRESSEE) unless the pilot ADDRESSES one of them by name; then that one
 # answers. A name is an address when it is where a name is put to call somebody:
 #     first word            "Montaigne how is the ship"        (after "hey", "ok", "so" ...)
@@ -137,7 +137,7 @@ _FILLER_WORDS = {"hey", "hi", "hello", "ok", "okay", "so", "um", "uh", "oi", "yo
 _WEAK = {"suit": "elah", "ship": "montaigne", "mountain": "montaigne", "monty": "montaigne", "monte": "montaigne"}
 _FILLER = r"^(?:(?:hey|hi|hello|ok|okay|so|um|uh|oi|yo|and|right|listen)\s+)+"
 # A last word "ship" or "suit" is calling the companion ("thanks, suit") unless the word before makes it a thing:
-# "what ship", and since 2026-10-05 "your dream ship", "my other ship", "the last ship" (until then "what's your
+# "what ship", and also "your dream ship", "my other ship", "the last ship" (without these "what's your
 # favourite ship" lost its last word and was heard as "what's your favourite").
 _DETERMINERS = {"the", "this", "my", "our", "a", "your", "her", "that", "his", "whose", "which", "what",
                 "dream", "favourite", "favorite", "ideal", "perfect", "best", "worst", "other", "another", "last", "next",
@@ -153,7 +153,7 @@ _OPINION = [
     r"\bdo you (?:like|rate|trust) (?P<x>.+)",
     r"\bthoughts on (?P<x>.+)",
 ]
-# LIKES AND DISLIKES ARE THE CANON FILE'S (J, 2026-10-05). Tried before _OPINION, and only claims the sentence when
+# LIKES AND DISLIKES ARE THE CANON FILE'S. Tried before _OPINION, and only claims the sentence when
 # the companion asked actually HAS an entry for it; "do you like it?" and "what do you think of this place" go on
 # to the readings they always had.
 _PREF_ASK = [
@@ -216,22 +216,22 @@ _FACTUAL = [
     ("armistice", r"\barmistice\b|\b(?:safe|green|no fire|no weapons) zone\b|\bcan i (?:shoot|fire|draw)\b|"
                   r"\bweapons (?:free|hot|allowed)\b"),
     ("jurisdiction", r"\bjurisdiction\b|\bwhose (?:space|territory|turf)\b|\bwho (?:owns|controls|runs|polices) (?:this|here)\b"),
-    # "what do you make of Montaigne" is not about money: until 2026-10-05 it was answered with the session's earnings.
+    # "what do you make of Montaigne" is not about money: it was once answered with the session's earnings.
     ("earnings", r"\b(?:how much|what)\b(?!.*\bmake of\b).*\b(?:earn\w*|made|make|money|auec|credits|paid|profit)\b|\bearnings\b|\bpayout\b"),
     ("system", r"\b(?:which|what) (?:star )?system\b|\bsystem (?:are|am|is) (?:we|i|this)\b"),
-    # Loadout (J 2026-09-24, from Battle_Buddy's parser): what the pilot carries.
+    # Loadout (from Battle_Buddy's parser): what the pilot carries.
     ("loadout", r"\bwhat (?:am i|are we) (?:carrying|packing|holding)\b|\bmy loadout\b|\bloadout\b|"
                 r"\bhow many (?:med ?pens|medpens|mags|magazines|grenades|spare mags)\b|"
                 r"\bwhat (?:guns?|weapons?) (?:do i|have i|am i|are we)\b|\bam i (?:low on|out of) (?:ammo|mags|medpens)\b"),
-    # J 2026-09-24 (the old skill had it as a Wingman tool): "what missions do I have".
+    # "what missions do I have" (the old skill had it as a Wingman tool).
     ("mission", r"\bwhat (?:missions?|contracts?|jobs?) (?:do|have|am|are|did)\b|"
                 # "my job" alone is the pilot's own work ("I quit my job this morning" was answered as a mission
-                # question until the fresh set of 2026-10-05 showed it).
+                # question until a fresh test set showed it).
                 r"\b(?:current|active|our) (?:missions?|contracts?|jobs?|objectives?)\b|\bmy (?:missions?|contracts?|objectives?)\b|"
                 r"\bwhat(?:'?s| is) (?:the|my|our) (?:mission|contract|job|objective)\b|"
                 r"\bwhat (?:am i|are we) (?:doing|supposed to (?:do|be doing))\b"),
     ("ship", r"\btell me about (?:this|the|my|our) ship\b|\b(?:which|what) ship\b|\bwhat (?:am i|are we) (?:flying|in|on|sitting in)\b|\bwhats this ship\b"),
-    # "whats this place" (what speech-to-text writes for "What's this place?") missed until 2026-10-05: the pattern
+    # "whats this place" (what speech-to-text writes for "What's this place?") missed at first: the pattern
     # knew only "what is this place".
     ("location", r"\bwhere (?:am i|are we|is this|we at|is here)\b|\bwhere (?:we|i) (?:are|am)\b|\bwhere im\b|"
                  r"\bwhere (?:the \w+ |on earth |in the \w+ )(?:am i|are we|is this)\b|\bwheres (?:this|here)\b|"
@@ -239,7 +239,7 @@ _FACTUAL = [
                  r"\bwhat(?:s| is| was) this (?:place|station|outpost|city|town|moon|planet)\b|"
                  r"\bwhat (?:do you|do they|is this place|is it) call(?:ed)? this place\b|\bcurrent location\b"),
 ]
-# A COMMENT ABOUT THE PLACE, OR A QUESTION ABOUT SOMETHING IN IT (J 2026-10-05). Tried only after every topic above,
+# A COMMENT ABOUT THE PLACE, OR A QUESTION ABOUT SOMETHING IN IT. Tried only after every topic above,
 # so "what's this ship" and "what's my objective" keep their own answers. `ref` is the pilot's word for the thing
 # ("big tower"); pointing with no noun ("what's that", "look at that") is an empty one. Either way the Suit cannot
 # see it. Words after "what does that ..." that are not a thing ("what does that mean") are not a question here.
@@ -263,7 +263,7 @@ _ACTION = [
     r"start|stop|eject|lock|unlock|deploy|retract|scan|mark|target|fly|bring|drop|pick|spool|activate|deactivate|"
     r"engage|hail|dock|undock|take off)\b",
     # "would you rather I flew something else" and "would you take it into a fight" ask for a view, not a deed
-    # (2026-10-05: both were being refused as orders).
+    # (both were once refused as orders).
     # (and "what would you do?" asks for a view too: a sentence that opens with a question word is not an order)
     r"^(?!(?:and |so |but )?(?:what|how|why|when|where|who|which)\b).*\b(?:can|could|would|will) you (?:please )?(?!tell|remind|say|explain|repeat|hear|see|rather|ever|like|prefer|want|"
     r"mind|be|have|think|know|believe|agree|miss|take it into|recommend|choose|pick)(?P<v>\w+)",
@@ -744,7 +744,7 @@ def canon_spec(route_result: Route, variant: int = 0) -> Spec:
 
 def canon_problems(spec: Spec, text: str) -> list[str]:
     """A canon answer may be exactly one of the wordings the canon file holds NOW for that speaker and act. They are
-    J's own lines, so nothing else is checked: he may write a number, a name or a feeling into them."""
+    hand-written lines, so nothing else is checked: a number, a name or a feeling may be written into them."""
     c = spec.get("canon") or {}
     if c.get("act") == "preference":
         held = [p["why"].strip() for p in cc.preferences(spec["speaker"])] + cc.canon_lines(spec["speaker"], "unknown_fact")
@@ -944,7 +944,7 @@ def ground_direct(spec: Spec, text: str) -> list[str]:
     if spec.get("recall") is not None:
         return recall_problems(spec, text)           # a quotation and its frame: see recall_problems
     if spec.get("canon") is not None:
-        return canon_problems(spec, text)            # J's own line, word for word
+        return canon_problems(spec, text)            # the canon file's own line, word for word
     fails = ground(spec, text)
     authorised = " | ".join(str(c["value"]).lower() for c in spec["claims"])
     low = text.lower()

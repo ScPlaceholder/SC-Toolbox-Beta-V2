@@ -1,15 +1,15 @@
-"""rare_line.py - Montaigne's MONT-AI-GN-3 line: once in about a hundred hours, the attendant shows (J, 2026-10-05).
+"""rare_line.py - Montaigne's MONT-AI-GN-3 line: once in about a hundred hours, the attendant shows.
 
-J's backstory (elah-audio/_suit_preferences_J_2026-10-05.md, 23:18 and 23:25): Montaigne's real model number is
+The backstory: Montaigne's real model number is
 MONT-AI-GN-3, an attendant AI. In a bad accident his library of Montaigne and his own personality files crossed,
-and he has believed he is the man ever since. J asked for an easter egg: a line "hidden deep inside his random
-lines", heard by "only users who use him a ton ... maybe once out of 100 hours", in which the ship assistant
+and he has believed he is the man ever since. The easter egg: a line hidden deep inside his random
+lines, heard only by users who use him a great deal, maybe once in 100 hours, in which the ship assistant
 underneath shows for a second and then he is Montaigne again. No setting; it is meant as a surprise.
 
-THE LINE is in data/canon_montaigne.json under "glitch", for J to edit. No model sees it. Since 2026-10-06 it is not
-one string but a SEQUENCE: words for his voice, bursts of generated static, and gaps. J heard the first version, in
-which "Brzzz" and "Bzzt" were written out, and the voice read them as letters; he approved the rendering with real
-static and the model number spelled letter by letter ("Yeah perfect"). sequence() reads it; spoken() is the words
+THE LINE is in data/canon_montaigne.json under "glitch", where it can be edited. No model sees it. It is not
+one string but a SEQUENCE: words for his voice, bursts of generated static, and gaps. In the first version
+"Brzzz" and "Bzzt" were written out, and the voice read them as letters; the rendering now uses real
+static and the model number spelled letter by letter. sequence() reads it; spoken() is the words
 of its `say` items joined, which is the text the exemption below is about; line() is one plain rendering for the
 log and the grounding gate, DERIVED from the sequence so it cannot drift from what is said ("[static] M, O, N, T.
 ... [static] Your friendly ship assistant! Happy to be [static] No, that's not right. ..."). Speech plays the

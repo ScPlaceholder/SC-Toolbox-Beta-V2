@@ -1,4 +1,4 @@
-"""speech.py - local two-voice speech for the SuitMk2 toolbox tool (2026-09-23).
+"""speech.py - local two-voice speech for the SuitMk2 toolbox tool.
 
 Replaces WingmanAI's TTS (speech_dispatcher.py was the one WingmanAI-coupled module). Everything is local:
 Piper ONNX voices through `piper-tts` (bundled phonemizer, Windows wheels) and `sounddevice` for playback, both
@@ -14,14 +14,14 @@ Rules:
     they were fine-tuned from (lessac / alan), fetched once into ~/.cache/piper like Mining_Signals does. Swapping a
     trained voice in is dropping a file in; reload() picks it up.
   * mute() stops the current line and clears the queue.
-  * ANSWERS (J 2026-10-05). A line said with addressed=True is an answer to something the pilot asked with the
+  * ANSWERS. A line said with addressed=True is an answer to something the pilot asked with the
     talk key. While muted, such a line is still spoken if allow_addressed(True) was called; every other line is
-    refused exactly as before. This is how SuitMk2 stays silent with its window hidden ("only have the AI's talk
-    while it is launched", J 2026-10-04) and still answers a push-to-talk question asked from the game. The window
+    refused exactly as before. This is how SuitMk2 stays silent with its window hidden (the companions talk only
+    while it is launched) and still answers a push-to-talk question asked from the game. The window
     decides when (ui/suit_window.py _voice_gate); nothing here opens the pass by itself, and it starts closed.
-  * A SEQUENCE (J 2026-10-06). say_sequence(items, speaker, ...) queues ONE item made of words, bursts of static
+  * A SEQUENCE. say_sequence(items, speaker, ...) queues ONE item made of words, bursts of static
     and gaps: [("say", text) | ("static", seconds) | ("gap", seconds)]. It was added for Montaigne's rare line,
-    after J heard "Brzzz" read out as letters: "We need to use an audio sound snip". It is one queue item, so
+    after "Brzzz" was read out as letters: static has to be an audio clip, not text. It is one queue item, so
     every rule above holds for it exactly as for a line: priority, max age, mute stopping it and clearing it,
     the hidden-window gate, the wait for the game's own dialogue, one playback thread, never over another line.
     The words are synthesised by the same synth and given the same character and level as any line; the static is
@@ -79,8 +79,8 @@ class _Item:
     sequence: Optional[tuple] = field(compare=False, default=None)     # say_sequence: words, static and gaps
 
 
-# The static of a sequence. The numbers are those of the rendering J approved by ear on 2026-10-06
-# (scratchpad render_glitch3a.py): noise band-passed 350 to 3600 Hz, a random stutter of short bursts, coarse
+# The static of a sequence. The numbers are those of the rendering approved by ear:
+# noise band-passed 350 to 3600 Hz, a random stutter of short bursts, coarse
 # amplitude steps, a quiet 120 Hz square buzz under it, 6 ms fades, 0.8 of the voice's speech level. Seeded, so
 # the same burst is the same every time.
 STATIC_BAND_HZ = (350.0, 3600.0)
@@ -170,7 +170,7 @@ class Speech:
         self.dropped_stale = 0
         self.fx_presets = dict(FX_PRESET if fx_presets is None else fx_presets)
         # Per-character level, 0..2 (the window's sliders). Applied at render, BEFORE the limiter, so a boost past
-        # 100% gets louder instead of clipping. J's dry run 2026-09-23: "They sound really quiet".
+        # 100% gets louder instead of clipping. In the first dry run they sounded really quiet.
         self.levels: dict[str, float] = {"elah": 1.0, "montaigne": 1.0}
         self.ducker = ducker
         self.held_s = 0.0                                   # total time spent waiting for the game (status window)

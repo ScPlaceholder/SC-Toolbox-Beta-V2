@@ -1,8 +1,8 @@
-"""tree_memory.py - CHRISTMAS TREE STORAGE: the conversation memory of Suit Mk2 (J, 2026-10-05).
+"""tree_memory.py - CHRISTMAS TREE STORAGE: the conversation memory of Suit Mk2.
 
-J named it and drew it. A permanent log on disk is the trunk; above it a hierarchy that gets coarser with
+A permanent log on disk is the trunk; above it a hierarchy that gets coarser with
 distance from now (exchange -> session -> day -> week -> month -> year); the model sits at the star and is handed
-a small assembled view. His rule for the whole thing: "Compression changes accessibility, not existence."
+a small assembled view. The rule for the whole thing: compression changes accessibility, not existence.
 
 WHAT IS ON DISK, under <memory root>/<pilot>/tree/ :
 
@@ -21,8 +21,8 @@ WHAT IS ON DISK, under <memory root>/<pilot>/tree/ :
 
 A SUMMARY IS A SELECTION, NOT A PARAPHRASE. A node's text is the most telling of the ORIGINAL pilot sentences
 beneath it, word for word, each with the id of the log line it came from. A day node selects from its sessions'
-selections, a week from its days', and what a year node holds is still the pilot's own words. Measured the same
-morning (elah-audio/_suit_chat_eval.md): a model summary of twenty exchanges took 10.8 s on the CPU at 1.5B and
+selections, a week from its days', and what a year node holds is still the pilot's own words. Measured:
+a model summary of twenty exchanges took 10.8 s on the CPU at 1.5B and
 was wrong twice, and 26 s at 4B and wrong once; a summary of THAT would be worse. A selection cannot drift,
 needs no model, and costs milliseconds. "Most telling" is a fixed score (rare words, names and numbers, plans,
 things the pilot asked to have remembered), weighted a little differently for each companion.

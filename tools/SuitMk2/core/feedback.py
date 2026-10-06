@@ -1,4 +1,4 @@
-"""feedback.py - tie a pilot's "Good one" / "Shut up" press to the line it was about (SuitMk2, 2026-09-23).
+"""feedback.py - tie a pilot's "Good one" / "Shut up" press to the line it was about (SuitMk2).
 
 Two bindable keys, one question: WHICH line was that about? The answer is the MOST RECENT spoken line, and only if it
 was spoken within WINDOW_S (15 s). A press outside the window is logged as ignored and attributed to nothing: a
@@ -48,7 +48,7 @@ class SpokenLine:
     priority: Optional[str] = None
     text: str = ""
     reacted: set = field(default_factory=set)
-    # The FULL spec the line was realized from (2026-09-24): a liked line becomes a training pair (spec -> text) for
+    # The FULL spec the line was realized from: a liked line becomes a training pair (spec -> text) for
     # the next retrain, so the pilot's taste reaches the weights. Kept out of meta(); written only on an attributed press.
     spec: Optional[dict] = None
 
@@ -68,7 +68,7 @@ def move_id_for(spec: dict) -> tuple[Optional[str], Optional[str]]:
     return move, mid
 
 
-# Spoken feedback (J 2026-09-24: "the keys could also be verbal as well"). SHORT utterances only, so "shut up and let
+# Spoken feedback (the keys can be verbal as well). SHORT utterances only, so "shut up and let
 # me think about the route" is a question for the lane, not a snooze. Returns 'good_one', 'shut_up' or None.
 import re as _re
 _GOOD = _re.compile(r"^(?:(?:elah|montaigne|ship|suit)[, ]+)?(?:good one|nice one|nice|(?:ha)+h?|that was (?:good|great|funny)|"
@@ -297,7 +297,7 @@ def _selftest(verbose: bool = True) -> int:
             import memory_store as ms
             from move_lifecycle import MoveLifecycle
             from ambient_spec import _ELAH_MOVES
-        except Exception as e:                                        # another agent's module; absence is not a FAIL
+        except Exception as e:                                        # an optional module; absence is not a FAIL
             if verbose:
                 print(f"  [SKIP] real move_lifecycle integration ({type(e).__name__}: {e})")
         else:

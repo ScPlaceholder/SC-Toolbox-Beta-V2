@@ -1,7 +1,7 @@
 """narrator_seam.py - SuitMk2 must stay a NARRATOR: it may never send input or read another tool's tracking.
 
-J 2026-09-24: "If I made the companion AI be able to target track ... That's no longer a narration tool but an aimbot
-with no control output." And on the toolbox as a whole: the OCR tools already TRACK things, so the bot is two pieces
+If the companion AI were able to target track, it would no longer be a narration tool but an aimbot
+with no control output. And on the toolbox as a whole: the OCR tools already TRACK things, so the bot is two pieces
 and a seam. What keeps it a narrator is that SuitMk2 never holds the dangerous half of either piece:
 
   1. NO OUTPUT TO THE GAME. Nothing that presses keys, moves or clicks the mouse, or drives a virtual controller:
@@ -11,8 +11,8 @@ and a seam. What keeps it a narrator is that SuitMk2 never holds the dangerous h
   2. NO IMPORT OF ANOTHER TOOL'S TRACKING. Not Mining_Signals, not Battle_Buddy, no OCR engine. The companion's eyes
      say WHAT is on screen (eyes.POSITION_WORDS keeps it that way); the trackers say WHERE. They never meet here.
   3. NO BORROWED HANDS. set_route_ai is the one toolbox tool that sends input (keystrokes written to the clipboard and
-     played as a macro: an accessibility aid for plotting routes, and input injection by another name). J 2026-09-24:
-     "anyone that reads through all of our code will be able to connect the dots." So SuitMk2 may not import it either.
+     played as a macro: an accessibility aid for plotting routes, and input injection by another name).
+     Anyone who reads through all of the code will be able to connect the dots. So SuitMk2 may not import it either.
 
 AST-based, so a docstring that NAMES a banned call (like this one) is not a violation; only code is.
     python narrator_seam.py            scan SuitMk2, rc 1 on any violation

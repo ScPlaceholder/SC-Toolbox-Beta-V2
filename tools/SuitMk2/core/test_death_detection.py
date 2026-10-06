@@ -1,7 +1,7 @@
-"""test_death_detection.py - local-player death / respawn detection in EventParser (2026-09-23).
+"""test_death_detection.py - local-player death / respawn detection in EventParser.
 
-Every log line below is copied VERBATIM from J's own Game.log / logbackups (source file noted above
-each constant). Near-miss lines (an NPC J killed, another player's incap, a kill volume, another
+Every log line below is copied VERBATIM from a real Game.log / logbackups (source file noted above
+each constant). Near-miss lines (an NPC the pilot killed, another player's incap, a kill volume, another
 player's corpse, a login for a different character) must NOT produce `incapacitated` / `player_respawned`.
 
 Run: python test_death_detection.py      (also collects under pytest)

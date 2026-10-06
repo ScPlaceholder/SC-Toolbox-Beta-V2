@@ -1,11 +1,11 @@
-"""topic_graph.py - what they talk about once the live subjects are talked out (J's topic flowchart, 2026-09-23).
+"""topic_graph.py - what they talk about once the live subjects are talked out (the topic flowchart).
 
-J, mid dry-run: "we should have an idle topic pool that they talk about ... two modes: 1. Event related flowchart
-2. Random topic flowchart. So let's say we enter Crusader airspace. The agents might talk about Orison, space whales,
+The design: an idle topic pool that they talk about, in two modes: 1. Event related flowchart
+2. Random topic flowchart. On entering Crusader airspace, say, the companions might talk about Orison, space whales,
 Crusader industries, the planets around Crusader, the daymar relay, Hathor, Wikelo, pirate activity, Yela, etc.
-Then random topic flowchart would work the same way where let's say the topic is ships they could talk about
+The random topic flowchart works the same way: if the topic is ships, they could talk about
 various manufacturers and her favorite ships and then talk about ship weapons, places they want to visit (if they
-haven't been visited yet)."
+haven't been visited yet).
 
 Shape
   A graph of TOPIC NODES. Each node has sourced facts, `edges` to related nodes (the flowchart), and `anchors`
@@ -35,7 +35,7 @@ from typing import Callable, Optional
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 # Both characters live IN the verse: a fact that talks about patches, "the game" or developers breaks that, however
-# true it is. Refused at load, so a new data file (J's brochure draft included) cannot bring one back in.
+# true it is. Refused at load, so a new data file (a brochure draft included) cannot bring one back in.
 _META = re.compile(r"\b(alpha|beta|patch|developers?|CIG|Cloud Imperium|in the game|in-game|pledge|backers?|players?|concept|wiki)\b", re.I)
 _LENGTH = (10, 40)
 DESTINATION_SHARE = 0.4      # of topic picks while a contract names a destination
@@ -44,7 +44,7 @@ TEMPLATE_MIN_PLACES = 3      # a brochure line whose template recurs at this man
 
 def _is_meta(text: str, places=()) -> bool:
     """Out-of-universe wording, EXCEPT inside a real place name: Pyro has "Patch City", "Broken Patch" and "People's
-    Service Station Alpha" (J's 513-location pack, 2026-09-23). Blanket-matching 'patch'/'alpha' refused real places."""
+    Service Station Alpha" (the 513-location brochure pack). Blanket-matching 'patch'/'alpha' refused real places."""
     low = text.lower()
     for name in places:
         n = str(name).lower()
@@ -54,7 +54,7 @@ def _is_meta(text: str, places=()) -> bool:
 
 # Who says what, by fact status. Montaigne only ever has things secondhand; lore is his natural register.
 _VOICES = {
-    # J 2026-09-23: Montaigne's knowledge of PLACES comes from travel brochures and brand commercials, which he
+    # Montaigne's knowledge of PLACES comes from travel brochures and brand commercials, which he
     # quotes with far more trust than they deserve; the only thing he knows FIRSTHAND is ship and component specs.
     "in_game": [("montaigne", "ESSAY_DIGRESSION", "quoting a travel brochure he read, trusting it far more than he should"),
                 ("elah", "PRACTICAL", "the part that is useful to a pilot"),
@@ -64,26 +64,25 @@ _VOICES = {
              ("montaigne", "GRAND_PHILOSOPHY_TO_TRIVIAL", "a large thought that lands on something small"),
              ("elah", "DEADPAN", "a dry aside about it")],
     # Five angles, not one. The first version had one Montaigne stance ("oddly certain about specs") and the dry run
-    # heard it six times in twelve minutes, paraphrased near-verbatim each time (J 09-23: "obsessed with ships").
+    # heard it six times in twelve minutes, paraphrased near-verbatim each time (it sounded obsessed with ships).
     "spec": [("montaigne", "EVIDENCE_SKEPTIC", "states the numbers flatly, the one thing he knows firsthand"),
              ("elah", "PRACTICAL", "what the numbers mean for actually using it"),
              ("montaigne", "HORSE_ANALOGY", "compares the ship to a horse, using its numbers"),
              ("montaigne", "PILOT_CHARACTER", "what choosing a ship like this says about a pilot"),
              ("elah", "DEADPAN", "one dry remark about what it is for")],
     # Ship weapons (Erkul numbers). Their own voices: the ship "spec" set asks Montaigne to compare the SHIP to a
-    # horse and to read the pilot's character from the SHIP, which is nonsense for a laser repeater (flagged by the
-    # weapons agent, 2026-09-23).
-    # J 09-23: "Montaigne would be more likely be specific about weapon damage and Elah would look at the big picture
-    # and not necessarily calculated stats". So the NUMERIC facts are his alone and the big-picture facts hers alone.
+    # horse and to read the pilot's character from the SHIP, which is nonsense for a laser repeater.
+    # Montaigne is the one who is specific about weapon damage; Elah looks at the big picture,
+    # not at calculated stats. So the NUMERIC facts are his alone and the big-picture facts hers alone.
     "weapon": [("montaigne", "EVIDENCE_SKEPTIC", "states the gun's numbers flatly, the one thing he knows firsthand"),
                ("montaigne", "GRAND_PHILOSOPHY_TO_TRIVIAL", "a large thought about violence that lands on the number"),
                ("montaigne", "SELF_DEPRECATION", "he knows guns better than he knows himself, and says so")],
     "weapon_big": [("elah", "PRACTICAL", "what it is good for in a fight; no numbers"),
                    ("elah", "DEADPAN", "one dry line about the gun; no numbers")],
-    # data/brochures.txt (J's GPT draft): marketing copy, TRUE AS QUOTED, not as fact. He reads it as scholarship.
+    # data/brochures.txt (a GPT draft): marketing copy, TRUE AS QUOTED, not as fact. He reads it as scholarship.
     "brochure": [("montaigne", "ESSAY_DIGRESSION", "reading brochure copy aloud as if it were scholarship"),
                  ("montaigne", "SKEPTICAL_REVERSAL", "quoting an advertisement, then doubting it very slightly")],
-    # ⛔ NO ELAH VOICE HERE, by J's rule 2026-09-24: brochures are MONTAIGNE'S limitation (a ship AI sees only what
+    # NO ELAH VOICE HERE: brochures are MONTAIGNE'S limitation (a ship AI sees only what
     #   spaceport networks allow ship AIs); Elah is a suit AI who has been there and can search anything for mission
     #   prep, so she never speaks from an advertisement. See _REPLY and exchange() for how she answers his quotes.
     "changed": [("elah", "CORRECTION", "that has changed since; say it plainly"),
@@ -92,7 +91,7 @@ _VOICES = {
                      ("montaigne", "ESSAY_DIGRESSION", "his own taste in ships, first person, wandering a little")],
     "opinion": [("elah", "CALLBACK", "her own taste, stated as hers"),
                 ("elah", "DEADPAN", "her own taste, dry")],
-    # Where the current contract is taking them (J 09-23: "mission-aware"): anticipation, not arrival.
+    # Where the current contract is taking them (mission-aware): anticipation, not arrival.
     "destination": [("montaigne", "ESSAY_DIGRESSION", "where they are headed; he has read about it and is looking forward to it"),
                     ("elah", "PRACTICAL", "where we're headed; the useful thing to know before we arrive")],
     "wishlist": [("montaigne", "ESSAY_DIGRESSION", "a place they have not been yet and he would like to see"),
@@ -102,27 +101,27 @@ _VOICES = {
 # Elah's own taste (identity, not lore). Opinions are claims she OWNS, so they need no source.
 _ELAH_OPINIONS = [
     # FIRST person: she always voices these. Third person made the realizer hand her taste to the pilot
-    # ("The ships you prefer are Elah's"), measured against the live service 2026-09-23.
+    # ("The ships you prefer are Elah's"), measured against the live service.
     ("My favourite manufacturers are Drake and Aegis, for function and attitude.", ["Drake", "Aegis"]),
     ("My dream ship is the Drake Kraken, and the Privateer is the variant I want.", ["Drake", "Kraken", "Privateer"]),
     ("Crusader Industries makes the most beautiful ships in the verse, in my opinion.", ["Crusader", "Industries"]),
-    # Added 2026-09-24 from her own dated takes (memory elah/fleet.md), J: "1-3 are very Elah".
+    # Three more, from her own takes on these ships; they are very much her.
     ("The Caterpillar is my favourite kind of Drake; it is built for the day it all goes wrong.", ["Caterpillar", "Drake"]),
     ("I love the Reclaimer unreasonably: gothic armour, and its job is eating garbage.", ["Reclaimer"]),
     ("The Vulture is the most honest thing Drake makes: one seat, somebody else's worst day.", ["Vulture", "Drake"]),
-    # OPTIONAL (J: "keep them as optional"): placed LAST so the walk reaches them only after the core set.
-    # The 400i was cut, J: "the most out of place based on your own interests".
+    # OPTIONAL: placed LAST so the walk reaches them only after the core set.
+    # The 400i was cut as the most out of place among her interests.
     ("The Mercury Star Runner is my favourite Crusader; it assumes you have something to hide.", ["Mercury", "Star", "Runner", "Crusader"]),
     ("The C1 Spirit is the ship I would feel guilty scuffing.", ["C1", "Spirit"]),
-    # The 400i's old slot. Was the Syulen (sc_ship_takes.md, 2026-07-17); the Railen took it 2026-09-24 after J's org
-    # loaded one in under a minute, and J said "work through those" to the swap. Opinion only: FleetYards has no cargo
+    # The 400i's old slot. Was the Syulen; the Railen took it after an org crew
+    # loaded one in under a minute. Opinion only: FleetYards has no cargo
     # figure for the Railen yet, so she states no spec she would have to invent.
     ("The Railen is the ship I'd rather be aboard than write about: a whole crew on the grids, and the cargo's gone "
      "before anyone can count it.", ["Railen", "Gatac"]),
 ]
 
-# Montaigne's taste (J 2026-09-24: his were "never fleshed out"). He knows ship SPECS firsthand, so he judges by
-# engineering, and places by brochure. First person, like Elah's. The 890 Jump is the joke J asked for: he believes
+# Montaigne's taste (his was never fleshed out before). He knows ship SPECS firsthand, so he judges by
+# engineering, and places by brochure. First person, like Elah's. The 890 Jump is the joke: he believes
 # its sales pitch completely, having only ever read the brochure, and has no idea how impractical it is.
 _MONT_OPINIONS = [
     ("The Carrack is the ship I dream about: built to go where no brochure has been written yet.", ["Carrack"]),
@@ -158,8 +157,8 @@ def _fact(text, status, names, source=""):
 
 def ship_branch(ships: list[dict], per_maker: int = 5, makers: int = 10) -> list[dict]:
     """ships.json -> root 'ships' -> manufacturer nodes -> facts naming real ships. Nothing here is invented:
-    every name, role and number is copied from the ship DB row. Only ships that are OUT: J 09-23, "they don't need
-    to say stuff like fly now. They can talk about ... stats or aesthetics or functionality". Looks have no data
+    every name, role and number is copied from the ship DB row. Only ships that are OUT, and they do not need
+    to say things like "fly now": they can talk about stats, aesthetics or functionality. Looks have no data
     behind them, so they stay Elah's opinion (_ELAH_OPINIONS), never a stated fact."""
     def num(v):
         try:
@@ -262,8 +261,8 @@ _DESCRIPTORS = {"salvaged", "hazard-zone", "ballistic", "laser", "distortion", "
                 "driver", "mass", "defense", "division"}
 
 
-# J 09-23: "Montaigne would be more likely be specific about weapon damage and Elah would look at the big picture and
-# not necessarily calculated stats". So every weapon row yields two kinds of fact:
+# Montaigne is the one who is specific about weapon damage; Elah looks at the big picture,
+# not at calculated stats. So every weapon row yields two kinds of fact:
 #   "weapon"      NUMERIC, Montaigne's: DPS, per-shot damage, burst vs sustained, missile payload.
 #   "weapon_big"  BIG PICTURE, Elah's: what it is and what it is for, with NO numbers except a size ("size 3" is a
 #                 spec, not a calculation) and whatever digits a weapon's own name carries ("CF-337").
@@ -435,7 +434,7 @@ def weapon_branch(weapons: list[dict], ship_nodes: list[dict] = (), per_maker: i
             if nid not in s["edges"]:
                 s["edges"].append(nid)
     nodes.append(_node("ship_weapons", "ship weapons", [], edges=maker_ids, root=True))
-    for s in ship_nodes:                               # J's chain: ships, then makers and favourites, then weapons
+    for s in ship_nodes:                               # the chain: ships, then makers and favourites, then weapons
         if s["id"] == "ships" and "ship_weapons" not in s["edges"]:
             s["edges"].append("ship_weapons")
     return nodes
@@ -521,7 +520,7 @@ class TopicGraph:
 
     def drop_template_boilerplate(self, min_places: int = TEMPLATE_MIN_PLACES) -> dict:
         """Brochure lines whose TEMPLATE (the text with its own place and names blanked out) appears at min_places or
-        more different places are template filler, not a brochure. Measured 2026-09-23 on J's 513-location GPT pack:
+        more different places are template filler, not a brochure. Measured on the 513-location GPT pack:
         2,903 of 3,803 brochure lines (76%) were 114 templates reused at 3+ places ("Travel note: Amenities are listed
         only when in the starmap catalog." x376). Spoken, Montaigne would say the same sentence at hundreds of
         outposts: the per-topic ledger cannot see that, because every outpost is its own topic. Unique lines stay."""
@@ -546,7 +545,7 @@ class TopicGraph:
         return {"dropped": dropped, "templates": sum(1 for v in where.values() if len(v) >= min_places)}
 
     def add_brochure_record(self, r: dict) -> dict:
-        """One row of J's GPT pack (data/brochures.jsonl, 2026-09-23: 513 locations from SC DataHub's 4.10 catalogue).
+        """One row of the GPT pack (data/brochures.jsonl: 513 locations from SC DataHub's 4.10 catalogue).
         The copy goes through add_brochure_file, the same splitter and the same name gate as every other brochure.
         The row's `amenities` are GAME-PROVIDED (DataHub), so they become sourced in_game facts, Elah's practical
         register: "Levski has a hospital and a food court" is useful, not marketing."""
@@ -577,7 +576,7 @@ class TopicGraph:
         return res
 
     def add_brochure_file(self, text: str) -> dict:
-        """One full brochure in J's format (2026-09-23, his Shepherd's Rest example):
+        """One full brochure in the expected format (the Shepherd's Rest example):
               PLACE NAME            <- first line (all caps is fine)
               Body, Planet          <- location line, e.g. "Bloom, Pyro III"
               copy ...              <- paragraphs; short lines without end punctuation are headings
@@ -773,7 +772,7 @@ class TopicWalker:
             return None
         # The next fact of this node that has NOT been told before (this session, or in the pilot's memory within
         # the last TOLD_WINDOW_DAYS: CompanionCore seeds told_before from memory_store callbacks). A node whose facts
-        # have all been told is out of material, not a place to start repeating (J 09-23: "obsessively repeating").
+        # have all been told is out of material, not a place to start repeating (that reads as obsessive repetition).
         start = self._next_fact[nid]
         i = next(((start + k) % len(n["facts"]) for k in range(len(n["facts"]))
                   if (nid, (start + k) % len(n["facts"])) not in self.told_before
@@ -841,7 +840,7 @@ class TopicWalker:
     def next_spec(self, state: dict, variant: int = 0, visited: Optional[set] = None) -> Optional[dict]:
         visited = {v.lower() for v in (visited or set())}
         # Where the contract is taking them, some of the time (not every tick: the destination is one subject, and
-        # a subject owned every tick is the obsession J complained about). Its own node first, then its neighbours.
+        # a subject owned every tick is an obsession). Its own node first, then its neighbours.
         if getattr(self, "destination", None) in self.g.nodes and self.rng.random() < DESTINATION_SHARE:
             prev, self.mode = self.mode, "destination"
             spec = self._walk_from([self.destination], variant, visited)
@@ -855,16 +854,16 @@ class TopicWalker:
             spec = self._walk_from(start, variant, visited)
             if spec is not None:
                 return self._took(spec)
-        # Random mode walks from the roots AND from a few random places with brochures (J 09-23: "randomly select
-        # locations to talk about"), shuffled together so a ship tangent and a far-off outpost are equally likely.
+        # Random mode walks from the roots AND from a few random places with brochures (randomly selected
+        # locations to talk about), shuffled together so a ship tangent and a far-off outpost are equally likely.
         places = [nid for nid, n in self.g.nodes.items() if n.get("brochure")
                   and n["title"].lower() not in visited]
         lore = [nid for nid in self.g.nodes if self.branch(nid) == "lore" and self.g.nodes[nid]["facts"]]
         roots = (self.g.roots() + self.rng.sample(places, min(3, len(places)))
                  + self.rng.sample(lore, min(3, len(lore))))
         # Branch fatigue: the last two lines' branches sit out when anything else is on offer. Without it the ship
-        # branch (12 makers x 2 mentions) held the floor for twelve minutes of the dry run (J 09-23: "obsessed with
-        # ships"). Falls back to the full list rather than going silent when only a tired branch is left.
+        # branch (12 makers x 2 mentions) held the floor for twelve minutes of the dry run (it sounded obsessed with
+        # ships). Falls back to the full list rather than going silent when only a tired branch is left.
         tired = set(self._recent_branches[-2:])
         fresh = [nid for nid in roots if self.branch(nid) not in tired]
         roots = fresh or roots
@@ -877,13 +876,13 @@ class TopicWalker:
         spec = self._walk_from(start, variant, visited)
         return self._took(spec) if spec is not None else None
 
-    # Who answers whom in a topic exchange (J 09-23: "banter also needs to fire off more", and the Mk II "occasionally
-    # talks about random topics too"). Turn 2 carries turn 1's claims and adds none: the same subset rule as banter.py.
-    # Elah answers from FIRSTHAND knowledge, never from the advertisement (J 2026-09-24). The old stances told her
+    # Who answers whom in a topic exchange (banter needs to fire off more, and the Mk II occasionally
+    # talks about random topics too). Turn 2 carries turn 1's claims and adds none: the same subset rule as banter.py.
+    # Elah answers from FIRSTHAND knowledge, never from the advertisement. The old stances told her
     # "she has heard this brochure before", and ~1,100 of her training lines duly quoted brochures.
-    # ⚠ Until 2026-09-24 these two said "she has actually been there" / "from having been there herself" for EVERY topic,
-    #   visited or not, and the dry run on J's log heard it: "I've been to Aberdeen", "I've actually been to Hickes
-    #   Research Outpost", with nothing in his record. The model was not overreaching; the stance told it to. Firsthand
+    # These two used to say "she has actually been there" / "from having been there herself" for EVERY topic,
+    #   visited or not, and the dry run on a real log heard it: "I've been to Aberdeen", "I've actually been to Hickes
+    #   Research Outpost", with nothing in the record. The model was not overreaching; the stance told it to. Firsthand
     #   is now only _REPLY_BEEN, chosen when the pilot's record says so.
     _REPLY = {"elah": [("CORRECTION", "one line on what it is really like, from what she actually knows; never the advertisement"),
                        ("DEADPAN", "one dry line from her own knowledge; she does not quote ads")],
@@ -923,7 +922,7 @@ class TopicWalker:
             # She does not get his brochure line to answer (she would only quote it back). She gets the place's
             # REAL facts if any exist, so her reply is what she actually knows; otherwise just the place's name.
             node = self.g.nodes[first["topic"]["node"]]
-            # Been there vs searched it (J 2026-09-24 06:57): where the pilot HAS been, she speaks from having been
+            # Been there vs searched it: where the pilot HAS been, she speaks from having been
             # there; where they have NOT, from a real mission-prep search, which is also her chance to needle him
             # for taking his travel advice from ads. `visited` holds lowercased titles, as in _spec.
             move, stance = (self._REPLY_BEEN if been else self._REPLY_SEARCHED)[variant % 2]
@@ -949,7 +948,7 @@ class TopicWalker:
         return [first, reply]
 
     def wishlist_spec(self, system: str, variant: int = 0, visited: Optional[set] = None) -> Optional[dict]:
-        """On entering a system (J 09-23: "mention locations they want to visit when they enter the system"): one
+        """On entering a system they mention locations they want to visit: one
         place in it with a brochure that the pilot has not been to, spoken as somewhere they would like to see."""
         visited = {v.lower() for v in (visited or set())}
         cands = [nid for nid, n in self.g.nodes.items() if n.get("brochure")
@@ -1142,7 +1141,7 @@ def _selftest() -> int:
     leaks = [f["text"] for n in real.nodes.values() for f in n["facts"] if _is_meta(f["text"], [p["name"] for p in real.places.values()])]
     case("no loaded fact is out-of-universe", not leaks, str(leaks[:2]))
 
-    # --- ship weapons branch (J 09-23: "then talk about ship weapons") ---
+    # --- ship weapons branch ---
     from grounding_validator import ground, unauthorized_names
     kw = [{"name": n, "manufacturer": "Klaus and Werner", "family": "gun", "category": "laser repeater", "size": s,
            "dps": d, "alpha": a, "dps_sustain": su, "fire_kind": "single", "fire_rate_hz": 12.5,
@@ -1209,7 +1208,7 @@ def _selftest() -> int:
         case("weapons: the bundled data loads a weapons root with maker nodes", "ship_weapons" in real.roots()
              and len(real.nodes["ship_weapons"]["edges"]) >= 5, str(real.nodes.get("ship_weapons")))
 
-    # --- J 09-23: numbers are Montaigne's ("weapon"), the big picture is Elah's ("weapon_big") ---
+    # --- numbers are Montaigne's ("weapon"), the big picture is Elah's ("weapon_big") ---
     def no_digits_but_size(f):
         t = re.sub(r"\bsize \d+\b", "", f["text"])
         for nm in sorted(f["names"], key=len, reverse=True):   # a weapon's own name may carry digits ("CF-337")
@@ -1243,14 +1242,14 @@ def _selftest() -> int:
     if (DATA / "ship_weapons.json").exists():
         rows = {w["name"]: w for w in json.loads((DATA / "ship_weapons.json").read_text(encoding="utf-8"))["weapons"]}
         if "Slayer Cannon" in rows:
-            # erkul_dps once gave it 5.24 (a heat-model bug, fixed 09-23: per-shot overheat); now sustain == burst,
+            # erkul_dps once gave it 5.24 (a heat-model bug, since fixed: per-shot overheat); now sustain == burst,
             # so it is trusted and gets no burst-and-sustained sentence (not >10% apart).
             slayer = rows["Slayer Cannon"]
             case("the Slayer Cannon's sustain equals its burst and adds no burst-and-sustained line",
                  slayer.get("dps") and slayer.get("dps_sustain") == slayer["dps"]
                  and not any("Slayer does about" in f["text"] and "sustained" in f["text"]
                              for n in real.nodes.values() for f in n["facts"]), str(slayer))
-    try:                                                   # the builder needs elah-audio's erkul modules (dev copy)
+    try:                                                   # the builder needs the erkul modules (dev copy only)
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
         from build_ship_weapons import trusted_sustain
     except ImportError:

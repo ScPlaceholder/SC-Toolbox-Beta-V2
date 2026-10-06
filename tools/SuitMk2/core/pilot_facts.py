@@ -1,4 +1,4 @@
-"""pilot_facts.py - THE THING, NOT THE SENTENCE: what a companion may know about the pilot unasked (J, 2026-10-05).
+"""pilot_facts.py - THE THING, NOT THE SENTENCE: what a companion may know about the pilot unasked.
 
 banter_memory.py decides whether a whole SENTENCE the pilot said may be brought up again. It was measured on
 lines it had never seen and it leaks: one of 40 sensitive lines got through ("I park at Grim HEX and just sit,
@@ -6,7 +6,7 @@ it's quieter than home."), and a fresh batch of quiet sad lines built from plain
 leaked 10 of 35 before it was patched. No word filter over whole sentences can be the safety, because a sentence
 carries its sadness with it.
 
-J's decision: for unprompted banter the companions remember the THING, not the sentence. From the Grim HEX line
+The decision: for unprompted banter the companions remember the THING, not the sentence. From the Grim HEX line
 code keeps only that the pilot parks at Grim HEX. A companion can later say "Grim HEX again?"; the pilot's words
 were never kept for this purpose, so there is nothing sad to bring back. They know your ship, your kit, your
 haunts and your plans. (Taking up a whole earlier conversation when the PILOT asks is tree_memory's job and is
@@ -72,13 +72,13 @@ TWO GATES, both required, both fail shut.
 
 WHAT IT CANNOT DO, AND HOW FAR TO TRUST THE NUMBER. It cannot know that a thing matters to the pilot for a
 reason they did not say, or said in plain present-tense words: "I go to Daymar and sit at the wreck" gives
-goes_to Daymar, exactly as J's own example gives goes_to Grim HEX. What is kept is the haunt and never the
+goes_to Daymar, exactly as the example above gives goes_to Grim HEX. What is kept is the haunt and never the
 reason. A batch of 30 such lines, written against this module after it passed everything else and scored
 once, gave a fact from 12 (the sentence filter offers 18 of the same 30 whole); reading the free-standing
 parts as well, and barring "not", left 5, all of the Daymar kind. That batch is spent too. On the dev set (tests/data/pilot_facts_dev.jsonl, 165
 sentences, 66 of them sensitive, written before the extractor was run) the first run extracted nothing from a
 sensitive sentence, one fact that was not expected ("I never land at Lorville" as a dislike; fixed) and missed
-10 of 90. Today: 0 wrongly extracted, 9 of 90 missed. From the 231 must-refuse sentences in banter_memory's
+10 of 90. Now: 0 wrongly extracted, 9 of 90 missed. From the 231 must-refuse sentences in banter_memory's
 three files the first run extracted one fact (goes_to Brio's from "I fly to Brio's when the house gets too
 quiet"); reading dependent clauses made that zero. Those sets are all spent, on this module too. Zero from
 sentences this author or the last one wrote is weak evidence, as it was for banter_memory. Expect a held-out

@@ -1,4 +1,4 @@
-"""contract_history.py - what kind of work the pilot does, remembered across sessions (J 2026-09-25, April spec 5).
+"""contract_history.py - what kind of work the pilot does, remembered across sessions (April spec 5).
 
 The April design fed contract types into personality SUBCLASSES. SuitMk2 has no subclasses (its feelings decay and
 are fed by events, emotion.py), so this keeps the history and lets it touch two things, both small and testable:
@@ -8,15 +8,15 @@ are fed by events, emotion.py), so this keeps the history and lets it touch two 
     scales Elah's pride and Montaigne's joy by SPECIALTY_AFFECT_SCALE; the first job of a new kind scales it by
     NEW_KIND_AFFECT_SCALE (novelty). Nothing else changes.
 
-WHAT THE LOG GIVES (measured 2026-09-25 over all of J's Game.log backups): NO contract type field. Only the HUD title
+WHAT THE LOG GIVES (measured over a full set of real Game.log backups): NO contract type field. Only the HUD title
 ("Contract Accepted: Verified Bounty: Harry Batey | ...", "Contract Complete: Claim #30040: Crusader M2 Hercules
 Starlifter Salvage Rights") and a MissionId. So the type is a keyword table over the TITLE, ordered so "Thwart
-Cargo-jacking" is combat, not cargo. Measured on J's logs: 234 of his 241 distinct accepted/completed/failed titles,
+Cargo-jacking" is combat, not cargo. Measured on those logs: 234 of the 241 distinct accepted/completed/failed titles,
 98.4% of 2,130 such notices, get a type; the other 7 ("Hot Shot", "Snow Snipe", "Vanduul-Tech Smugglers", ...) stay
 "other" rather than guessed.
 Outcomes: complete and failed come from the HUD lines; ABANDONED from
     <EndMission> Ending mission for player. MissionId[..] ... CompletionType[Abandon] Reason[Mission Ended]
-joined to the accepted title by MissionId. CompletionType[Abandon] Reason[Player left] (150 of J's) is leaving the
+joined to the accepted title by MissionId. CompletionType[Abandon] Reason[Player left] (150 in those logs) is leaving the
 server with a contract open, not abandoning it, and is not counted.
 
 History is stored as raw events in the pilot's memory store (callbacks, kind "contract"), like ship_feelings, and
@@ -181,7 +181,7 @@ class ContractHistory:
         return t
 
 
-# Real titles from J's HUD lines (scan of all his backups, 2026-09-25), with the type each must get.
+# Real titles from HUD lines (a scan of real log backups), with the type each must get.
 TITLE_FIXTURES = {
     "Verified Bounty: Harry Batey | Extreme-Risk Target (Sub-Capital Class Vessel, Heavy Support)": "bounty",
     "Claim #30040: Crusader M2 Hercules Starlifter Salvage Rights": "salvage",
@@ -209,7 +209,7 @@ TITLE_FIXTURES = {
     "Vanduul-Tech Smugglers": "other",
     "Verified Bounty: ~mission(TargetName) | ~mission(Danger)": "other",
 }
-# J's log "Game Build(10967244) 18 Dec 25 (20 11 47).log" and "Game Build(10989003) 28 Dec 25 (18 20 33).log".
+# Real logs: "Game Build(10967244) 18 Dec 25 (20 11 47).log" and "Game Build(10989003) 28 Dec 25 (18 20 33).log".
 FIXTURE_BOUNTY_DONE = ('<2025-12-19T02:27:15.983Z> [Notice] <SHUDEvent_OnNotification> Added notification "Contract '
                        'Complete: Verified Bounty: Harry Batey | Extreme-Risk Target (Sub-Capital Class Vessel, Heavy '
                        'Support): " [116] to queue. New queue size: 2, MissionId: [17c8e765-b229-4fe6-a68a-9f272ceb6588], '

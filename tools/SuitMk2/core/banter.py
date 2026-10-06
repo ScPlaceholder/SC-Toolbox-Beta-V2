@@ -1,4 +1,4 @@
-"""banter.py - two-voice exchanges (Elah <-> Montaigne), planned SEMANTICALLY up front (2026-09-23).
+"""banter.py - two-voice exchanges (Elah <-> Montaigne), planned SEMANTICALLY up front.
 
 ARCHITECTURE.md: "Banter: the second speaker's engine reads the first speaker's SEMANTIC message, not its
 English. Hard turn cap + cooldown on every exchange." and "Two models in dialogue echo each other unless each
@@ -226,8 +226,8 @@ def plan_exchange(state: dict, variant: int = 0, history: Optional[list] = None,
     scen, base = m
     idx = _pick(scen, variant, history)
     # A tier-3 injury is never banter about how little it matters: only pair 0, where Elah insists the tier stands.
-    # Same defect as ambient_spec._SERIOUS_INJURY (a "no rush yet" cue on the worst tier), same date.
-    # Tier 1 is the severe one in SC (Tier 3 = Minor), corrected 2026-09-24 evening.
+    # Same defect as ambient_spec._SERIOUS_INJURY (a "no rush yet" cue on the worst tier), same correction.
+    # Tier 1 is the severe one in SC (Tier 3 = Minor); this is the corrected reading.
     if scen == "injury_followup" and any(c.get("predicate") == "suit.injury_tier" and _as_tier(c.get("value")) == 1
                                          for c in base.get("claims", [])):
         idx = 0
@@ -376,7 +376,7 @@ def run_exchange(specs: list[Spec], realize: Callable[[Spec], Optional[str]],
             return out
         out.append({"speaker": spec["speaker"], "text": text, "spec_id": spec["id"]})
         # The next turn hears THIS line, not just its stance: without it the reply could only restate the shared
-        # fact, and the exchange sounded staged (J, 2026-09-23). A copy, so the planned specs are not mutated.
+        # fact, and the exchange sounded staged. A copy, so the planned specs are not mutated.
         if n < len(specs) and specs[n].get("responds_to") is not None:
             specs[n] = dict(specs[n], responds_to=dict(specs[n]["responds_to"], text=text))
     return out

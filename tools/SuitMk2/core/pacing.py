@@ -1,4 +1,4 @@
-"""pacing.py - one chattiness dial (0..4) and a "not now" snooze for the SuitMk2 companion (2026-09-23).
+"""pacing.py - one chattiness dial (0..4) and a "not now" snooze for the SuitMk2 companion.
 
 The pilot gets ONE knob instead of fifteen thresholds:
 
@@ -72,7 +72,7 @@ _P = Priority
 _TABLE = {
     #   gap   PRACTICAL  EVENT  AMBIENT  BANTER  budget  ambient_tick  banter_min  allowed
     0: (8.0, 3600.0, 3600.0, 3600.0, 3600.0, 0, 300.0, 1440.0, frozenset({_P.URGENT})),
-    # banter_min halved 2026-09-23 (J, dry run: "Banter also needs to fire off more"): 40/20/12/8 -> 25/10/6/4.
+    # banter_min halved after a dry run (banter needs to fire off more): 40/20/12/8 -> 25/10/6/4.
     1: (6.0, 30.0, 90.0, 420.0, 600.0, 2, 180.0, 25.0, _ALL),
     2: (4.0, 20.0, 45.0, 180.0, 240.0, 4, 90.0, 10.0, _ALL),
     3: (3.0, 15.0, 30.0, 120.0, 150.0, 6, 60.0, 6.0, _ALL),
@@ -87,8 +87,8 @@ def clamp_level(level) -> int:
         return DEFAULT_LEVEL
 
 
-# TALK ABOUT WHAT THE EYES SAW: a second dial, same five names (J 2026-10-05: "There should also be cooldown periods
-# for chatting about what it sees with a chattiness slider for that as well"). How often the eyes take a picture is
+# TALK ABOUT WHAT THE EYES SAW: a second dial, same five names (cooldown periods
+# for chatting about what it sees, with a chattiness slider of their own). How often the eyes take a picture is
 # one setting (picture_pace.py); how often a picture may become a spoken line is this one. Seconds that must pass
 # after a line about something the eyes saw before the next one; None = no such lines at all.
 # Level 2 is 240 s, which is what it was before there was a dial (an unprompted look every 240 s at most). Level 4 is

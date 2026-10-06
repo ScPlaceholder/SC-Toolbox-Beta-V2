@@ -1,23 +1,23 @@
-"""bdl_tracker.py - a SIMULATED blood drug level from med pen use (J 2026-09-25, April spec section 2).
+"""bdl_tracker.py - a SIMULATED blood drug level from med pen use (April spec section 2).
 
 The game has a BDL (the med bed's own notice says so: "Medical Bed: The bed has restored your health and reset your
-BDL", 3,211 times in J's logs) but never writes its value. This module ESTIMATES it from what the log does show, so
+BDL", 3,211 times in real logs) but never writes its value. This module ESTIMATES it from what the log does show, so
 Elah can say "that's a lot of stims" before the pilot overdoses. It is directionally right at best:
 
-    ⚠ EVERY NUMBER BELOW IS AN ESTIMATE from the April 2026 design spec ("based on community testing ... not a precise
+    EVERY NUMBER BELOW IS AN ESTIMATE from the April 2026 design spec ("based on community testing ... not a precise
     medical readout"). Nothing here is measured from the game. They are tunables, named as such. The spoken warning
     therefore NEVER states a level or a threshold: it names only what the log did show (how many pens in the last few
     minutes) and a hedged, qualitative load ("a lot of stims"). A precise number the game never showed would be an
     invented fact with a confident voice.
 
-CONSUMPTION vs HOLSTER (verified 2026-09-25 on all 1,112 of J's Game.log backups):
+CONSUMPTION vs HOLSTER (verified on 1,112 real Game.log backups):
     <AttachmentReceived> Player[..] Attachment[crlf_consumable_healing_01_<id>, crlf_consumable_healing_01, <id>] ...
         Port[weapon_attach_hand_right]      the pen is in the hand (drawn)
   Of 2,888 draws: 1,611 times ANOTHER item took the hand and the pen's entity id never appeared again (consumed);
   1,058 times the same id came back to a pen slot or the hand within 120 s (holstered, median 2.9 s); 61 times
   nothing else happened (usually a death or a logout). A consumed pen is never logged as such; it is the ABSENCE of
   its id that says so, which is why confirmation waits SWAP_CONFIRM_S after the swap.
-  ⚠ THE ABSENCE IS NOT PROOF. Holstering is normally logged (the pen lands on medPen_attach_N, a knife on
+  THE ABSENCE IS NOT PROOF. Holstering is normally logged (the pen lands on medPen_attach_N, a knife on
   utility_attach_2, a rifle on wep_stocked_2), but of the pens swapped away without such a line, 823 of 2,800 (29%)
   were drawn AGAIN later (median 20 s, 90th percentile 267 s): the game stowed them without a log line. So a dose is
   counted when the swap is confirmed (a warning that waits minutes is useless) and RETRACTED if that pen's id ever
@@ -31,11 +31,11 @@ RESETS: the med bed notice above (the game's own words, builds to May 2026; curr
 respawn (the core calls reset()).
 
 GROUND TRUTH, RARE: the game itself sometimes shows a BDL hint ("Blood Drug Level (BDL): An elevated Blood Drug
-Level ..." 8 times in J's logs, "Overdose: A high Blood Drug Level ..." twice, Mar-May 2026). Both are taken as a
+Level ..." 8 times in real logs, "Overdose: A high Blood Drug Level ..." twice, Mar-May 2026). Both are taken as a
 floor under the estimate. The one session with both (30 Mar 2026) is the selftest's fixture: 16 pens in about two
 minutes, the game's "elevated" at 06:38:07, "Overdose" at 06:38:41, and the pilot down at 06:38:58. With the April
 constants the estimate reaches caution 4 s after the game's "elevated" and critical 20 s BEFORE its "Overdose".
-Over all 1,003 of J's sessions the estimate crossed a band in only a handful: the warning is rare by construction.
+Over 1,003 recorded sessions the estimate crossed a band in only a handful: the warning is rare by construction.
 
     python bdl_tracker.py --selftest
 """
@@ -64,7 +64,7 @@ HAND = "weapon_attach_hand_right"
 _ATTACH = re.compile(r"<AttachmentReceived> Player\[([^\]]+)\] Attachment\[[^,\]]+, ([^,\]]+), (\d+)\].*?Port\[([^\]]+)\]"
                      r"(?:\s*Elapsed\[([\d.]+)\])?")
 # ~0 s elapsed is a whole loadout attaching at spawn or at a terminal, not a hand movement (the same rule the core
-# applies to holsters; measured on J's logs: 0.00004-0.0006 s). A "draw" at Elapsed 0.00003 made a phantom burst.
+# applies to holsters; measured on real logs: 0.00004-0.0006 s). A "draw" at Elapsed 0.00003 made a phantom burst.
 MIN_ELAPSED_S = 1.0
 _TS = re.compile(r"^<(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?)Z?>")
 
@@ -213,7 +213,7 @@ class BdlTracker:
         return sum(1 for d in self._doses if t is not None and t - d <= RECENT_DOSES_S)
 
 
-# Verbatim from J's log "Game Build(10007308) 03 Aug 25 (15 28 29).log": a pen drawn, then the sniper back in hand
+# Verbatim from a real log "Game Build(10007308) 03 Aug 25 (15 28 29).log": a pen drawn, then the sniper back in hand
 # 3 s later, and the pen's id never seen again (a real dose).
 FIXTURE_DRAW = ("<2025-08-03T21:08:41.272Z> [Notice] <AttachmentReceived> Player[ProjectGegnome] Attachment["
                 "crlf_consumable_healing_01_5285776306102, crlf_consumable_healing_01, 5285776306102] Status[persistent] "
@@ -226,10 +226,10 @@ FIXTURE_LATER = ("<2025-08-03T21:08:51.670Z> [Notice] <Actor Death> CActor::Kill
                  "'ProjectGegnome' [201926433820]")
 FIXTURE_MED_BED = ('<2026-04-03T05:00:00.000Z> [Notice] <SHUDEvent_OnNotification> Added notification "Medical Bed: The '
                    'bed has restored your health and reset your BDL. Use the Treatment tab to heal injuries (depending '
-                   'on tier), and the Medication tab for dosage." [4] to queue.')     # text verbatim; timestamp mine
+                   'on tier), and the Medication tab for dosage." [4] to queue.')     # text verbatim; timestamp made up
 
 
-# J's log "Game Build(11518367) 30 Mar 26 (02 28 39).log", 06:37:33-06:38:39 UTC: every pen attachment and hand
+# A real log "Game Build(11518367) 30 Mar 26 (02 28 39).log", 06:37:33-06:38:39 UTC: every pen attachment and hand
 # change, fields verbatim (time, class, entity id, port, Elapsed), line text rebuilt around them by _line().
 MAR30 = [
     ('06:37:33.172', 'crlf_consumable_healing_01', '9741297568195', 'medPen_attach_1', '0.406509'),
@@ -286,7 +286,7 @@ def mar30_lines(with_game_notice: bool = False) -> list:
 
 def burst(n: int, start: str = "2025-08-03T21:10:00", gap_s: float = 6.0, first_id: int = 5285776306200) -> list[str]:
     """n doses in the real line shapes above (draw, then the sniper back in hand 3 s later), gap_s apart. The SHAPES
-    are J's; the ids and timestamps are generated, since his logs never hold a burst fast enough to cross a band."""
+    are real; the ids and timestamps are generated, since real logs never hold a burst fast enough to cross a band."""
     t0 = datetime.fromisoformat(start).replace(tzinfo=timezone.utc).timestamp()
     out = []
     for i in range(n):
@@ -344,8 +344,8 @@ def _selftest() -> int:
     o.on_line(FIXTURE_DRAW.replace("ProjectGegnome", "SomeoneElse"), "ProjectGegnome")
     case("another player's pen is not the pilot's dose", not o._pending)
     # With the April constants (+20 a pen, -1 a second) a band needs pens about as fast as a hand can cycle them: the
-    # shortest real gaps between doses in J's logs are 2.4-3.2 s. Over all 1,003 of his sessions the tracker crossed
-    # a band 7 times (measured 2026-09-25), so these warnings are rare by design of the estimates, not by a bug.
+    # shortest real gaps between doses in real logs are 2.4-3.2 s. Over 1,003 recorded sessions the tracker crossed
+    # a band 7 times (measured), so these warnings are rare by design of the estimates, not by a bug.
     w = BdlTracker()
     evs = [e for ln in burst(3, gap_s=6.0) for e in w.on_line(ln, "ProjectGegnome")]
     case("three pens six seconds apart stay below every band (estimate)", not [e for e in evs if e["type"] == "dose"])

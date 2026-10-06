@@ -118,7 +118,7 @@ _CATEGORY_MAP = {
 }
 
 
-# Local-player death / respawn detection (2026-09-23, from J's own Game.log history, 1069 logs).
+# Local-player death / respawn detection (from a real Game.log history, 1069 logs).
 # SC has stripped its death logging patch by patch; each shape below is a real, verbatim line and
 # the last build it was seen in. None of the death lines fires unless it names the LOCAL player.
 #   <Actor Death> CActor::Kill: '<victim>' ... killed by '<killer>' ... damage type '<cause>'   <= 10591185 (Nov 2025)
@@ -143,7 +143,7 @@ class EventParser:
         self._last_session_geid: str | None = None
         self._diagnostic_callback: Callable[[str], None] | None = None
         # Local player identity: from the login line, or (if we attached mid-session) from
-        # <AttachmentReceived> Player[...], which in every one of J's logs names only the local player.
+        # <AttachmentReceived> Player[...], which in every real log examined names only the local player.
         self._local_name: str | None = None
         self._local_geid: str | None = None
         self._last_incap_at: datetime | None = None
@@ -279,7 +279,7 @@ class EventParser:
         if "Disconnecting from Stanton" in line or "Disconnecting from Pyro" in line:
             return "session_end"
 
-        # Hangar ship elevators and freight elevators (2026-09-24, from the old skill's interior_parser). J's log:
+        # Hangar ship elevators and freight elevators (from the old skill's interior_parser). In a real log:
         # a freight run is ClosingFrontGate -> LoweringPlatform -> (~40 s) RaisingPlatform -> OpeningFrontGate, and
         # the many OpenIdle/ClosedIdle lines are the hangar STREAMING IN, not anyone using it. Only a real move counts.
         # (Personal lifts are NOT logged; these are the cargo and ship platforms.)
@@ -290,13 +290,13 @@ class EventParser:
         if "<MED BED HEAL>" in line and "Perform surgery event Success" in line:
             return "med_bed_heal"
         # Same trap as injuries below: one bed heal is logged ~5 times (the queued
-        # notification, queue dumps, UpdateNotificationItem). Across J's logs 16,867 lines
+        # notification, queue dumps, UpdateNotificationItem). Across real logs 16,867 lines
         # mention it and 3,325 are "Added notification", one per distinct second.
         if "Medical Bed:" in line and "restored your health" in line and "Added notification" in line:
             return "med_bed_heal"
         # One real injury appears on 4+ lines (the queued notification, queue dumps, then
         # Next/StartFade/Remove updates). Only the "Added notification" line is the event:
-        # across J's 1,112 logs, 793 lines mention an injury but only 158 are real ones.
+        # across 1,112 real logs, 793 lines mention an injury but only 158 are real ones.
         if "Injury Detected" in line and "Added notification" in line:
             return "injury"
         if "Emergency Services" in line and "en route" in line.lower():
@@ -577,9 +577,9 @@ class EventParser:
 
         elif event_type == "channel_change":
             line_lower = line.lower()
-            # ONLY the pilot's own lines are boarding/leaving. Measured on J's logs 2026-09-24: the pilot's read "You have
+            # ONLY the pilot's own lines are boarding/leaving. Measured on real logs: the pilot's read "You have
             # joined channel" / "You have left the channel"; other players' read "<name> has joined/left the channel".
-            # The old test matched any "left the channel", so 1,298 crewmates leaving across his backups each cleared
+            # The old test matched any "left the channel", so 1,298 crewmates leaving across the backups each cleared
             # the PILOT's current ship in the classifier.
             if "you have joined channel" in line_lower:
                 data["action"] = "joined"
@@ -659,7 +659,7 @@ class EventParser:
                 data["location"] = ref_match.group(1).strip()
 
         elif event_type == "reward_earned":
-            # Measured 2026-09-23 across 80 logs back to June: "You've earned:" names ITEMS ("Falston Jumpsuit
+            # Measured across 80 logs back to June: "You've earned:" names ITEMS ("Falston Jumpsuit
             # 'People's Alliance Edition'", "People's Alliance Hat"). aUEC payouts have no log line at all, so the
             # amount branch has never matched a real line in these builds. Kept in case a build logs money again.
             amount_match = re.search(r"You've earned:\s*([\d,]+)\b(?!\s*[A-Za-z])", line)

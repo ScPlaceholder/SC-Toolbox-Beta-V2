@@ -1,6 +1,6 @@
-"""attachment_gate.py - WHICH WAY a warm reply points (J, 2026-10-05).
+"""attachment_gate.py - WHICH WAY a warm reply points.
 
-J's decision: the companions may be warm and attached, and they may never push the pilot inward. Allowed: affection,
+The rule: the companions may be warm and attached, and they may never push the pilot inward. Allowed: affection,
 being glad the pilot is back, having thought of the pilot, saying the pilot was missed, a plainly stated wish of the
 companion's own. Never, as five named moves:
 

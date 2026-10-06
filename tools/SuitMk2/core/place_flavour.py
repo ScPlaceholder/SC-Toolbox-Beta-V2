@@ -1,4 +1,4 @@
-"""place_flavour.py - the April spec's hand-written place lines, re-checked, as Elah's seed flavour (J 2026-09-25).
+"""place_flavour.py - the April spec's hand-written place lines, re-checked, as Elah's seed flavour.
 
 data/place_flavour.json keeps each April line VERBATIM beside a verdict per claim, re-checked against the current
 sourced data (topics_lore.json facts, places.json):

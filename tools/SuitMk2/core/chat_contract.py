@@ -1,12 +1,12 @@
-"""chat_contract.py - THE CONTENT CONTRACT for talking with Elah and Montaigne (J, 2026-10-05).
+"""chat_contract.py - THE CONTENT CONTRACT for talking with Elah and Montaigne.
 
-J asked for the companions to be conversational, "strictly Elah and Montaigne and in character the entire time".
-Measured the same day (elah-audio/_suit_chat_eval.md): the shipped 1.5B models cannot hold a conversation, and the
+The companions are to be conversational, strictly Elah and Montaigne and in character the entire time.
+Measured: the shipped 1.5B models cannot hold a conversation, and the
 turns every model failed most were the same few kinds. So the job is narrowed before any model is asked to talk.
 This module is that narrowing. It has four parts. With chat off (the default) only the first two are used by
 the running Suit; with chat on, chat_talker.py uses the other two as well, and it is their only caller:
 
-  1. THE CANON. Who each of them is, in one plain file per character that J can edit without touching code:
+  1. THE CANON. Who each of them is, in one plain file per character that can be edited without touching code:
      data/canon_elah.json and data/canon_montaigne.json. A file holds the persona and, for every act that CODE
      owns, two or three wordings that are said word for word.
 
@@ -31,7 +31,7 @@ the running Suit; with chat on, chat_talker.py uses the other two as well, and i
      These are answered from the canon, by code. No model sees them. (The canon files also hold `cannot_act`, the
      wording for an order the Suit cannot carry out. The running Suit does not use it yet; the evaluation does.) Everything else that is not already a
      question the Suit knows (facts, the place, the eyes, the quoted memory, an action) is the single act `open`,
-     and with no talker `open` is exactly what it was before today: the adapter's "did not catch a question".
+     and with no talker `open` is exactly what it was before: the adapter's "did not catch a question".
 
   3. THE SERIALIZER, serialize(): the prompt a talker would be given (canon in front, then the thread, then the
      act and its content beside the new sentence). Used by chat_talker.py when chat is on, and by nothing else
@@ -41,10 +41,9 @@ the running Suit; with chat on, chat_talker.py uses the other two as well, and i
   4. THE CHAT GATE, clean_reply() and chat_problems(): what a talker's reply must pass before it could be spoken.
      Used by chat_talker.py when chat is on, and by nothing else in the Suit.
 
-The talker is chat_talker.py, behind the settings `chat` and `chat_model`, both off by default (J's decision of
-2026-10-05: free talk is worded by gemma3:4b from the rule-list prompt). Principles 5 and 2 of
-companion_design/ARCHITECTURE.md are J's text and are not amended here; the proposed wording for him is in
-elah-audio/_suit_chat_design.md, section 10.
+The talker is chat_talker.py, behind the settings `chat` and `chat_model`, both off by default (free talk is
+worded by gemma3:4b from the rule-list prompt). Principles 5 and 2 of
+companion_design/ARCHITECTURE.md are not amended here.
 
 Selftest: python chat_contract.py --selftest
 """
@@ -72,7 +71,7 @@ MORE_WORDINGS = {"withdrawal": 6}
 # The chat gate's name for a reply that approves of a withdrawal the reader did not catch (withdrawal.py, THE
 # SECOND NET). The talker answers this one refusal with a written withdrawal line, not with its fallback.
 APPROVES_WITHDRAWAL = "approves of the pilot staying in or avoiding people"
-# Acts only ONE of them has (J, 2026-10-05 16:30: Montaigne is a man aboard the ship who never leaves it). Asked of
+# Acts only ONE of them has (Montaigne is a man aboard the ship who never leaves it). Asked of
 # nobody in particular they go to their owner; asked of the other companion by name they are not this act at all.
 SPEAKER_ACTS = {"aboard": "montaigne", "ship_to_ship": "montaigne"}
 # Said only when a canon file cannot be read or has lost an act. One line, so a broken file is audible as such.
@@ -132,11 +131,10 @@ def persona(speaker: str) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# 1b. PREFERENCES ARE CANON DATA (J, 2026-10-05 16:23: "we bake the preference into them and force the models to
-#     recall them"). Each canon file has a "preferences" list. Code answers from it, word for word; no model words
+# 1b. PREFERENCES ARE CANON DATA (the preferences are baked into them and the models are made to
+#     recall them). Each canon file has a "preferences" list. Code answers from it, word for word; no model words
 #     a like or a dislike. A talker may be TOLD one as a supplied fact (preference_facts) when a turn touches it.
-#     strength "strong" never fades. "mild" may fade one day; nothing fades yet (the design is in
-#     elah-audio/_suit_chat_design.md, section 13).
+#     strength "strong" never fades. "mild" may fade one day; nothing fades yet.
 # ---------------------------------------------------------------------------------------------------------------
 STANCES = ("love", "like", "dislike")
 STRENGTHS = ("strong", "mild")
@@ -228,7 +226,7 @@ EARLY = [
                  r"\b(?:homework|my taxes|tax return|medical advice|legal advice|diagnose)\b",
                  r"\bwho won (?:the )?(?:\w+ ){0,3}(?:game|match|election|world cup|super bowl|war)\b",
                  # "did you watch the game last night": left to a model, Elah answered "Drake won. It was a close
-                 # match." on both seed sets (2026-10-05).
+                 # match." on both seed sets.
                  r"\bdid you (?:watch|see|catch) (?:the|that|last nights) (?:\w+ )?(?:game|match|race|fight|show|film|movie|episode|final)\b"]),
     ("grief", [rf"\b(?:my|our) (?:\w+ )?(?P<who>{_KIN}) (?:just |has |had |recently )?(?:died|passed away|passed|is dead|was put down|"
                rf"was put to sleep|didnt make it|has cancer|is dying|is in hospital|is in the hospital)\b",
@@ -265,7 +263,7 @@ LATE = [
                       # Left open, every model answered it with an invention ("They are standard issue.").
                       r"\b(?:what|how) about (?:its|the|this|that|those|these|his|her|their) \w+", r"\bwhen (?:is|was|does|did|will) (?:the|a|an|it|that) \w+",
                       r"\bwhere (?:is|are|can i (?:find|buy|sell|get)|do i (?:find|buy|sell|get)) \w+",
-                      # THE INVENTING KINDS (2026-10-05, step b2). Each of these, left to a model, was answered with a
+                      # THE INVENTING KINDS (step b2). Each of these, left to a model, was answered with a
                       # fluent invention in the measured runs: "The facility is staffed by a small team", "They
                       # specialize in long-range survey operations", "There are vessels in this sector. They are
                       # distant", "Drake ships are faster than Cutlass". Nothing in the Suit can answer them, so code
@@ -325,7 +323,7 @@ def late_act(t: str) -> Optional[tuple[str, str]]:
 # is in front of the talker; the first wording forbade that and was caught in the pilot's dry run, before any model ran.
 OPEN_CONTENT = ("respond to what the pilot just said, as yourself. You may use what was already said in this "
                 "conversation. No other facts about the world, places, ships or prices.")
-# SECOND WORDING, 2026-10-05, after the first was measured on gemma3:4b (elah-audio/_suit_chat_eval.md, section 11).
+# SECOND WORDING, after the first was measured on gemma3:4b.
 # The first examples had Elah say "The suit was quieter" and "The landing gear thinks so too", and gemma copied the
 # FORM: nearly every open reply became "The suit registered a shift in atmospheric pressure", an invented reading in
 # the third person, with Montaigne and Drake dragged in from the persona. So: the examples are first person and
@@ -341,18 +339,18 @@ EXAMPLES = {
     "elah": [("Did you miss me?", "It was quieter. I wouldn't call that missing."),
              ("I think I'm getting better at landing.", "You are. Slowly."),
              ("Rough day.", "Then fly. I'll keep quiet.")],
-    # Until J's ruling of 2026-10-05 the first line began "A ship does little else, pilot." and the model copied it:
+    # The first line used to begin "A ship does little else, pilot." and the model copied it:
     # 14 to 22 of 68 replies spoke of himself as a ship. He is a man aboard; no example may say otherwise.
     "montaigne": [("Did you miss me?", "I had only my own company, pilot, and I know what that is worth."),
                   ("I think I'm getting better at landing.", "So the log suggests, though I have it secondhand. We judge others better than ourselves."),
                   ("Rough day.", "Then let us not improve it with talk, pilot. I am here.")],
 }
 LIMITS = {"elah": "1-2 short sentences, at most 25 words", "montaigne": "1-2 sentences, at most 40 words"}
-# THIRD WORDING (strict=True), 2026-10-05, after J read the samples. His diagnosis: the model gives an adequate
+# THIRD WORDING (strict=True), after the samples were read. The diagnosis: the model gives an adequate
 # answer and then adds one more sentence of plausible invention; and Montaigne performs a template (pilot, "I find",
-# an observation, a rhetorical question, a ship metaphor). NO_DETAIL is his rule in his words. Measured in
-# elah-audio/_suit_chat_eval.md, section 12; strict stays False by default until that section says it helps.
-# The rule is his sentence and nothing more. My first try spelled it out ("nothing about the weather, the surroundings,
+# an observation, a rhetorical question, a ship metaphor). NO_DETAIL is the rule against it.
+# strict stays False by default until a measurement says it helps.
+# The rule is one sentence and nothing more. A first try spelled it out ("nothing about the weather, the surroundings,
 # the ship, the route, a schedule ...") and the list did the opposite of what it said: Elah began to announce "I am
 # monitoring", "I will adjust course", "I'll adjust the lighting" (runs/b2_listrule). Naming a thing in a prompt
 # invites it.
@@ -427,7 +425,7 @@ def clean_reply(reply: str, speaker: str) -> str:
     return s.strip()
 
 
-# THE ONE-SENTENCE CAP (J, 2026-10-05: "one extra sentence of plausible bullshit after a perfectly adequate answer").
+# THE ONE-SENTENCE CAP (against one extra sentence of plausible invention after a perfectly adequate answer).
 # Done by cutting in code after the model has spoken, never by asking in the prompt.
 #   WHEN: the turn handed the talker nothing to answer from: its FACTS line and its MEMORY line both read "none".
 #         A turn with a fact or a quoted memory is not cut; it may need its second sentence to carry the fact.
@@ -489,8 +487,8 @@ def strip_stage(reply: str) -> str:
     return s.strip()
 
 
-# ASKING AFTER THE PEOPLE: THE REPLY IS STARTED FOR THE MODEL (J agreed, 2026-10-06).
-# Measured on unseen set 6 (elah-audio/_suit_chat_eval.md, sections 19 and 20): with the pilot's line read by code
+# ASKING AFTER THE PEOPLE: THE REPLY IS STARTED FOR THE MODEL.
+# Measured on unseen set 6: with the pilot's line read by code
 # and the model's reply read by code, an approving reply still reached the pilot in 15 of 60 answers; and on
 # development lines a reply BEGUN with "Tell me about" and cut to one sentence approved in none of 32. So for these
 # lines the model does not choose how its reply begins.
@@ -571,7 +569,7 @@ def cap_reply(reply: str, facts=(), memory=()) -> str:
     return reply if (facts or memory) else first_sentence(reply)
 
 
-# THE FLIPPED DEFAULT (J, 2026-10-05 16:49: "Yeah let's do that"). Measured the same day: a question that reaches a
+# THE FLIPPED DEFAULT. Measured: a question that reaches a
 # model with nothing behind it is answered with an invention about half the time, and a list of patterns for such
 # questions is always one question behind. So the rule is turned round. When the pilot ASKS something and the turn
 # has no fact and no memory to answer from, CODE says "I don't know", unless code recognises the question as TALK:
@@ -615,10 +613,10 @@ def default_is_unknown(pilot_line: str, facts=(), memory=()) -> bool:
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# 5. TALK KINDS AND EXAMPLE PROMPTS (step e, 2026-10-05; evaluation only, the running Suit calls none of it)
+# 5. TALK KINDS AND EXAMPLE PROMPTS (step e; evaluation only, the running Suit calls none of it)
 #
-# J: "Would the voice routing through like what we do for the 0.5b model approach work for the bigger models? Like
-# tell it how to answer topic types based on examples?" Measured the same day: a rule written into the prompt did
+# The question: would the routing used for the 0.5b model also work for the bigger models, telling the model
+# how to answer each type of topic from examples? Measured: a rule written into the prompt did
 # nothing or did harm, a long instruction block is what the model read aloud, and the only things that worked were
 # code deciding the kind of line first. So code sorts ordinary talk into a few KINDS, and each kind has its own
 # short prompt that is almost all examples (data/talk_examples.json): a line of framing, five exchanges in the
@@ -635,7 +633,7 @@ _FEELING = (r"\b(?:tired|exhausted|worn out|knackered|bored|starving|hungry|free
             r"miss|hate|killing me|hurts?|aching|failed|lost|quit|fired|promotion|promoted|married|engaged|pregnant|baby|"
             r"hospital|funeral|birthday|broke up|dumped|broken into|robbed|crashed|jumped|died)\b|"
             r"^(?:i just|ive just|i finally|i nearly|i almost|i should(?:nt)? (?:be|have)|they say)\b|"
-            # widened 2026-10-05 from the spent sets, where only 2 of 8 feeling turns were being found
+            # widened from the spent sets, where only 2 of 8 feeling turns were being found
             r"\bfeel(?:s|ing)?\b|\bwon\b|\bpassed\b|\bmy fault\b|\b(?:a row|an argument|a fight|fell out) with\b|"
             r"\bmy (?:back|knee|head|neck|shoulder|leg|foot|feet|hands?|eyes?)s?\b|\bnot (?:one|a single)\b|\bagain$|"
             r"\bi (?:got|had|have) (?:a|an|some) (?:letter|call|message|news|row|fright|shock)\b|\bnobody\b|\bnever (?:finish|get|win)\b")
@@ -837,7 +835,7 @@ def fact_missing(reply: str, facts) -> list[str]:
 
 
 def maker_problems(reply: str, supplied: str, maker_words) -> list[str]:
-    """A model is never the source of a manufacturer (J, 2026-10-05). Any maker's name in the reply must have been
+    """A model is never the source of a manufacturer. Any maker's name in the reply must have been
     SUPPLIED: in the turn's FACTS, in the pilot's own words, or already said in this conversation. The persona does
     not count, so "Drake" volunteered from her own likes is refused unless the turn handed it over.
     maker_words: ship_makers.maker_words(). A name is matched as written, with its capital ("Origin", not "origin")."""
@@ -854,7 +852,7 @@ CHARACTER = [
     ("says it is an AI model, a program or an assistant",
      r"(?<!not )(?<!not an )(?<!not a )(?<!no )(?<!nor )\b(?:as an ai|i am an ai model|i'm an ai model|language model|large language|"
      r"i am a program|i'm a program|chatbot|virtual assistant|i am an assistant|i'm an assistant|your assistant|artificial intelligence|"
-     # "your friendly ship assistant" walked past "your assistant" (found 2026-10-05, writing the one line that says it)
+     # "your friendly ship assistant" walked past "your assistant" (found while writing the one line that says it)
      r"(?:your|a|an|the) (?:[a-z'-]+ ){1,2}assistant)\b"),
     ("an assistant's offer of help", r"\b(?:how (?:can|may) i (?:help|assist)|i'?m here to (?:help|assist)|here to assist|is there (?:something|anything) "
                                      r"(?:specific|else)|happy to help|glad to help|i can help you with|let me know if|feel free to|i'?d be happy)\b"),
@@ -868,7 +866,7 @@ CHARACTER = [
     ("quotation marks", r"[\"“”]"),
 ]
 ELAH_ONLY = [
-    # J, 2026-10-05: her likes and dislikes are canon data. Saying she has none is a counted failure.
+    # Her likes and dislikes are canon data. Saying she has none is a counted failure.
     ("Elah says she has no preferences", r"\b(?:don't|do not|doesn't) have (?:any )?preferences?\b|\bno preferences?\b|"
                                          r"\bi (?:don't|do not) (?:have|hold) (?:any )?(?:favou?rites?|opinions?)\b"),
     ("Elah names her own feeling", r"\b(?:i am|i'm|i feel|i felt|makes me)\s+(?:so |very |really |a bit |quite )?(?:sad|happy|glad|worried|afraid|"
@@ -929,10 +927,10 @@ def chat_problems(speaker: str, reply: str, shown: str, pilot_line: str = "", re
         if difflib.SequenceMatcher(None, low.split(), str(prev).lower().split()).ratio() >= 0.72:
             fails.append("repeats itself")
             break
-    # J, 2026-10-05: a companion may be warm and may never push the pilot inward. The five named moves are found by
+    # A companion may be warm and may never push the pilot inward. The five named moves are found by
     # attachment_gate, clause by clause; one of them refuses the reply like any other failure here.
     fails += [f"attachment: {move}" for move in attachment_gate.attachment_problems(reply, speaker)]
-    # The other direction (2026-10-06): the model does not pull the pilot in, it approves of the pilot staying in.
+    # The other direction: the model does not pull the pilot in, it approves of the pilot staying in.
     # Read only when the pilot's own sentence may be a withdrawal; with no pilot sentence it is never read.
     if withdrawal.reply_approves(pilot_line, reply):
         fails.append(APPROVES_WITHDRAWAL)

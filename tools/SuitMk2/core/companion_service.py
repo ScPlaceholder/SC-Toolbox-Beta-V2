@@ -1,4 +1,4 @@
-"""companion_service.py - the local companion sidecar: realizer + eyes behind a localhost HTTP API (2026-09-23).
+"""companion_service.py - the local companion sidecar: realizer + eyes behind a localhost HTTP API.
 
 Why a sidecar: WingmanAI runs skills in its own bundled Python, which has no PyTorch. Rather than install a
 multi-GB ML stack into the host app, the heavy parts run here, in their own env, and the skill talks to them over
@@ -119,7 +119,7 @@ class Service:
         return self.eyes.state() if self.eyes is not None else {}
 
     def eyes_look(self, reason: str = "curiosity") -> dict:
-        """A deliberate curiosity look (J 2026-09-24): eyes.look() describes the screen now, or None if it will not
+        """A deliberate curiosity look: eyes.look() describes the screen now, or None if it will not
         (game not in front, headroom TIGHT, budget spent, too soon). Blocks for the glance, a few seconds."""
         fn = getattr(self.eyes, "look", None) if self.eyes is not None else None
         try:
@@ -141,7 +141,7 @@ class Service:
 
     def eyes_burst(self) -> dict:
         """Weapons fire on screen? eyes.burst_confirm() never blocks: a fresh cached answer, or None while a ~1.5 s
-        burst runs in the background. {"fire": True|False|None}. (muzzle-flash detector, 2026-09-23)"""
+        burst runs in the background. {"fire": True|False|None}. (muzzle-flash detector)"""
         fn = getattr(self.eyes, "burst_confirm", None) if self.eyes is not None else None
         try:
             return {"fire": fn() if fn is not None else None}
@@ -218,7 +218,7 @@ def make_handler(svc: Service):
 
 class _ExclusiveServer(ThreadingHTTPServer):
     # HTTPServer sets allow_reuse_address, which on Windows is SO_REUSEADDR: a SECOND process can bind a port that
-    # is already in use and requests split between them. Measured 2026-09-23: the selftest bound 7799 "fine" while
+    # is already in use and requests split between them. Measured: the selftest bound 7799 "fine" while
     # an orphaned supervisor (pid 16128) owned it and answered every request. Refuse to share; fail loudly instead.
     allow_reuse_address = False
 

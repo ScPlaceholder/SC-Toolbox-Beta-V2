@@ -1,4 +1,4 @@
-"""sound_classifier.py - game ears that know WHAT they hear (J approved 2026-09-23).
+"""sound_classifier.py - game ears that know WHAT they hear.
 
     StarCitizen.exe --(bin/sc_audio_tap.exe: Windows per-PROCESS loopback, 16 kHz mono f32le)--> this thread
         --> 0.975 s windows, hop ~0.49 s --> numpy log-mel (YAMNet's own frontend) --> YAMNet ONNX on CPU
@@ -187,7 +187,7 @@ class SoundClassifier:
             # YAMNet is badly level-sensitive (log(mel + 0.001) has an absolute floor): the PD gunshot clip scores
             # gunfire 0.90 as recorded and 0.02 at -12 dB. What we capture is AFTER SC's in-game volume and its
             # Windows mixer volume, so the pilot's volume knob would decide the class. Peak-normalising each window
-            # made every test clip score the same from 0 dB down to -30 dB (measured 2026-09-23).
+            # made every test clip score the same from 0 dB down to -30 dB (measured).
             x = x * min(NORM_PEAK / max(float(np.abs(x).max()), 1e-9), NORM_MAX_GAIN)
             t0 = time.perf_counter()
             logits = self._sess.run(None, {self._input: self._front.patch(x)})[0][0]
@@ -257,7 +257,7 @@ class SoundClassifier:
                 for g in GROUPS:
                     out[g] = max(out[g], sc.get(g, 0.0))
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
-            # ★★ THE HEADLINE ABSENCE-BECOMES-A-NUMBER IN THIS FILE. The fallback is a full set of 0.0 scores, and
+            # THE HEADLINE ABSENCE-BECOMES-A-NUMBER IN THIS FILE. The fallback is a full set of 0.0 scores, and
             # 0.0 across every group is EXACTLY what a silent room produces. is_combat() reads those zeros and says
             # False, gunfire_confirm() passes that False to CombatWatch as a positive second opinion - "I am
             # listening to the game and there is no gunfire" - while the real answer is that the history could not

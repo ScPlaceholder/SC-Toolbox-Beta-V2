@@ -1,7 +1,7 @@
-"""topic_ledger.py - acknowledge a subject a couple of times, then talk about something else (2026-09-23).
+"""topic_ledger.py - acknowledge a subject a couple of times, then talk about something else.
 
-J, mid dry-run: "Events ended up being covered obsessively rather than acknowledging an event or location a
-couple times then talking about other things." That was the original MK2, and ours had the same shape:
+In a dry run, events ended up being covered obsessively rather than acknowledging an event or location a
+couple of times then talking about other things. That was the original MK2, and ours had the same shape:
 build_ambient_spec() returned the FIRST matching situation, so while the pilot sat in one jurisdiction or at one
 landing zone every ambient tick was about that same thing. The rotating `variant` changed the wording, never the
 subject. Time cooldowns (speak_gate / pacing) limit how OFTEN they talk, not WHAT about.
@@ -35,7 +35,7 @@ def subject_key(spec: dict) -> str:
         if not s or s.replace(",", "").replace(".", "", 1).lstrip("-").isdigit():
             continue
         # Key on WHAT the claim is about (its predicate root: "jurisdiction.zone" -> "jurisdiction"), not on which
-        # channel produced the line. J, 2026-09-26: "still obsessed about the most recent event". The event said
+        # channel produced the line. Heard in play: still obsessed with the most recent event. The event said
         # "event_jurisdiction_change|crusader industries" and the ambient said "jurisdiction|crusader industries",
         # so one subject got two budgets, and banter a third: jurisdiction came up five times in eight minutes.
         pred = str(c.get("predicate") or "")

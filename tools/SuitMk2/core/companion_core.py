@@ -1,7 +1,7 @@
-"""companion_core.py - the SuitMk2 brain as a toolbox tool (replaces main.py's WingmanAI glue; 2026-09-23).
+"""companion_core.py - the SuitMk2 brain as a toolbox tool (replaces main.py's WingmanAI glue).
 
     Game.log --LogMonitor--> EventParser --> EventClassifier(StateStore, VolatileContext)
-        --> on_event: duplicate check BEFORE recording (the 09-23 fix), session record for dreaming,
+        --> on_event: duplicate check BEFORE recording, session record for dreaming,
             event_spec  --\
         ambient timer --> ambient_spec (+ eyes scene facts; a fight on screen = silence)
                           --> SpeakGate (whether/when) --> realizer worker (sidecar, local model)
@@ -77,9 +77,9 @@ EVENT_PRIORITY = {"incapacitated": (Priority.URGENT, PRIORITY_URGENT),
                   "qt_arrived": (Priority.EVENT, PRIORITY_EVENT),
                   "jurisdiction_change": (Priority.EVENT, PRIORITY_EVENT),
                   "location_change": (Priority.AMBIENT, PRIORITY_AMBIENT),
-                  # the edge layer (J 09-23): parsed from his live log all night and never spoken until now
-                  # boarding / leaving the ship. ⚠ These are the CLASSIFIER's names: it renames channel_change before
-                  # the core sees it, so the old "channel_change" key here matched nothing in live play (2026-09-24).
+                  # the edge layer : parsed from the live log all along and never spoken before this
+                  # boarding / leaving the ship. These are the CLASSIFIER's names: it renames channel_change before
+                  # the core sees it, so the old "channel_change" key here matched nothing in live play.
                   "ship_channel_joined": (Priority.EVENT, PRIORITY_EVENT),
                   "ship_channel_left": (Priority.EVENT, PRIORITY_EVENT),
                   "docking_detached": (Priority.EVENT, PRIORITY_EVENT),
@@ -89,14 +89,14 @@ EVENT_PRIORITY = {"incapacitated": (Priority.URGENT, PRIORITY_URGENT),
                   "objective_new": (Priority.AMBIENT, PRIORITY_AMBIENT),
                   "entered_monitored_space": (Priority.AMBIENT, PRIORITY_AMBIENT),
                   "exited_monitored_space": (Priority.AMBIENT, PRIORITY_AMBIENT),
-                  # 2026-09-24: parsed since 09-23 and spoken by nobody, because it was never listed HERE. A speaking
+                  # It was parsed and spoken by nobody, because it was never listed HERE. A speaking
                   # event is registered in four places (event_spec variants + claims, this table, the generator); the
                   # selftest below now fails when one is missing.
                   "refinery_complete": (Priority.EVENT, PRIORITY_EVENT),
                   # AMBIENT, not EVENT: in a hauling loop the freight lift cycles every few minutes, and it is
-                  # company, not news (J: "not comment on every box they move").
+                  # company, not news (they do not comment on every box the pilot moves).
                   "platform_moving": (Priority.AMBIENT, PRIORITY_AMBIENT)}
-# Routine events: worth a line the first time in a while, not every time. Measured on J's log 2026-09-24: a hauling
+# Routine events: worth a line the first time in a while, not every time. Measured on a real game log: a hauling
 # session cycles the freight lift every few minutes, and without this each trip got its own line. Seconds, any mode.
 ROUTINE_GAP_S = {"event_platform_moving": 900.0}
 # Speaking events that reach speech by ANOTHER path than EVENT_PRIORITY, each with the reason. Anything in
@@ -112,7 +112,7 @@ ROUTED_ELSEWHERE = {"boarded_ship": "ship_channel_joined (the classifier's name)
                     "refinery_pickup": "synthesised by on_event on arrival where refinery_tracker has an open order",
                     "bdl_warning": "synthesised by feed_line from bdl_tracker (med pen use, an estimate)",
                     "bdl_clear": "synthesised by feed_line from bdl_tracker when the estimate falls back"}
-# AFK (J 2026-09-24): events the pilot had to DO, which the OS idle clock cannot see when they fly on a HOTAS or a
+# AFK: events the pilot had to DO, which the OS idle clock cannot see when they fly on a HOTAS or a
 # gamepad. Each one counts as activity for the AFK window (AfkWatch.poke). Rewards, objectives and injuries are not
 # here: the game hands those out whether or not anyone is at the controls.
 PILOT_DRIVEN_EVENTS = {"location_change", "qt_arrived", "jurisdiction_change", "docking_detached", "player_respawned",
@@ -171,8 +171,8 @@ class CompanionCore:
     # has the measurement behind that). True = let the model word it, two tries, with the planned line as the
     # fallback. Worth trying again with a larger model or the API backend; not with the 1.5B adapters.
     place_answers_from_model = False
-    # "Look at that" (J 2026-10-05): how long the answer waits for the eyes before saying "Looking.", and how long
-    # before it gives up on them and says the answer it had. Measured 2026-10-05 on an idle RTX 4070 with the
+    # "Look at that": how long the answer waits for the eyes before saying "Looking.", and how long
+    # before it gives up on them and says the answer it had. Measured on an idle RTX 4070 with the
     # glance as eyes.py runs it (gemma3:4b on the GPU): 0.55 s warm, 16 s the first time the model is read from disk.
     # Not measured with Star Citizen holding the card. (On the CPU the same glance took 8.6 s warm and 77 s cold,
     # which is why eyes.py runs it on the GPU and only when headroom is not TIGHT.)
@@ -216,9 +216,9 @@ class CompanionCore:
         self.gate = SpeakGate(now=now)
         self.gate_state = SpeakState()
         self._variant = {"event": 0, "ambient": 0, "banter": 0}
-        self.topics = TopicLedger(now=now)   # a subject gets a couple of mentions, then they move on (J 2026-09-23)
+        self.topics = TopicLedger(now=now)   # a subject gets a couple of mentions, then they move on
         self._rng = random.Random()
-        # J's topic flowchart: once the live subjects are talked out, walk sourced lore/ship topics instead of silence.
+        # The topic flowchart: once the live subjects are talked out, walk sourced lore/ship topics instead of silence.
         try:
             self.walker: Optional[TopicWalker] = TopicWalker(TopicGraph.load(), self.topics.spent)
         except Exception:
@@ -238,24 +238,24 @@ class CompanionCore:
                 log.exception("place flavour")
         # Combat from SC's own audio onsets (fed by voice_fx.DuckingMonitor.listeners), confirmed by the strongest
         # second sense there is: the sound classifier, then the eyes, else audio onsets alone. A holstered weapon
-        # ends it early. J's design, 2026-09-23.
+        # ends it early.
         self.combat = CombatWatch(self._combat_edge,
                                   confirm=self._combat_confirm if (eyes is not None or sound is not None) else None,
                                   now=now)
         self.banter = BanterPolicy(now=now)
-        # PRESENT vs PRESENCE (J 2026-09-24): a deterministic novelty score decides whether they react to what is on
+        # PRESENT vs PRESENCE: a deterministic novelty score decides whether they react to what is on
         # screen or keep company through a slow loop. The eyes feed it as much as the log (scene transitions).
         self.activity = ActivityMode(now=now)
         # AFK: no input for afk_after_s -> they stop talking (see _afk_holds for what may still speak). The idle source
         # is injected like the clock: the window passes activity_mode.os_idle_seconds; the dry run and the selftests
         # pass nothing, and no source means never AFK, so a replay is never silenced.
         self.afk = AfkWatch(idle_source, afk_after_s, now=now)
-        # Feelings fed by the game (J 2026-09-24). Persisted per pilot next to their memory, aged on load.
+        # Feelings fed by the game. Persisted per pilot next to their memory, aged on load.
         _adir = getattr(store, "dir", None) if store is not None else None
         self.affect = CompanionAffect(path=(Path(_adir) / "affect.json") if _adir else None, now=now)
         self._affect_t = now()
         # Hours of use, kept beside the pilot's memory (hours_aboard.py), and Montaigne's rare line, which is said
-        # about once in a hundred of them and has no setting (rare_line.py; J 2026-10-05). With no memory folder
+        # about once in a hundred of them and has no setting (rare_line.py). With no memory folder
         # there is nowhere to keep either, and there is neither.
         self.hours = hours_aboard.HoursAboard(Path(_adir) / hours_aboard.NAME, now=now) if _adir else None
         self.rare = rare_line.RareLine(Path(_adir) / rare_line.STATE_NAME, self.hours, now=now) if _adir else None
@@ -266,7 +266,7 @@ class CompanionCore:
         self._pending_early = False             # the pending look may go ahead of the interval (a mining capture)
         self._look_busy = False
         self._last_look_t = -1e9
-        # HOW OFTEN THE EYES TAKE A PICTURE depends on what the pilot is doing (J 2026-10-05, picture_pace.py):
+        # HOW OFTEN THE EYES TAKE A PICTURE depends on what the pilot is doing (picture_pace.py):
         # salvage, mining, a combat mission, or anything else. The tracker says which; the pace says how often, or
         # never. A core built with no settings (the selftests, the dry run) gets the shipped defaults.
         self.doing = ActivityTracker()
@@ -313,7 +313,7 @@ class CompanionCore:
                       "ungrounded": 0, "silent": 0, "spoken": 0, "combat_hold": 0,
                       "banter": 0, "banter_turns": 0, "not_now": 0}
         self.last: list[str] = []              # recent decisions, for the status window
-        # Dev-history fun facts (dev_facts.py, J 2026-09-25): OPTIONAL, off by default, Montaigne only, quiet moments
+        # Dev-history fun facts (dev_facts.py): OPTIONAL, off by default, Montaigne only, quiet moments
         # only. None = the feature does not exist in this core; a DevFacts with enabled=False = present but off.
         self.dev_facts = dev_facts
         self.dev_facts_persist: Optional[Callable[[bool], None]] = None   # the window saves the voice toggle
@@ -329,8 +329,8 @@ class CompanionCore:
         # Free talk (chat_talker.Talker), or None: chat is off (the default) or no chat model is named. The window
         # attaches it. With None every sentence is answered exactly as it was before there was a talker.
         self.talker = None
-        # Fact lines (pilot_facts.py keeps the THING, fact_lines.py words it; J 2026-10-05). OFF unless the
-        # setting fact_banter is true, and it ships false: J has to hear the lines first. On = while conversations
+        # Fact lines (pilot_facts.py keeps the THING, fact_lines.py words it). OFF unless the
+        # setting fact_banter is true, and it ships false: the lines have to be heard first. On = while conversations
         # are being kept, a thing the pilot says they fly, carry, want or go to is counted (the name and a count,
         # never the sentence), and now and then one is raised as an ordinary unprompted line. Off = nothing is
         # counted, no file is written and nothing is said: the core does what it did before there were facts.
@@ -644,7 +644,7 @@ class CompanionCore:
     def _loadout_changed(self, s) -> None:
         """Summarise the loadout for the conversation lane; speak only when medpens or spare mags run OUT."""
         try:
-            # A reward item keeps its raw class code as its name ("Crlf Medgun 01 Msn Rwd02", measured on J's 07-08
+            # A reward item keeps its raw class code as its name ("Crlf Medgun 01 Msn Rwd02", measured on a real 07-08
             # log): say the weapon type alone rather than read a code aloud.
             def _name(w):
                 raw = str(w.display_name or "")
@@ -658,7 +658,7 @@ class CompanionCore:
             self.state.set("loadout_spare_mags", mags)
             self.state.set("loadout_grenades", s.grenade_count)
             prev, self._loadout_prev = self._loadout_prev, {"medpens": s.medpens, "mags": mags}
-            # A session join RESETS the tracker to an empty loadout. Measured on J's 08-02 log (3 joins): each reset
+            # A session join RESETS the tracker to an empty loadout. Measured on a real 08-02 log (3 joins): each reset
             # read as "4 medpens -> 0" and said "that was the last medpen" at login. An empty snapshot is a reset,
             # not a use: update silently.
             if not s.weapons and not getattr(s, "pens", None) and not s.grenade_count:
@@ -759,8 +759,8 @@ class CompanionCore:
 
     def mining_capture(self, reliable: bool = True) -> bool:
         """The mining reader has handed over a capture it trusts: take a picture now instead of waiting for the
-        interval, unless one was taken or asked for this way less than the cooldown ago (J: "so it's not spamming
-        the player or GPU 85 times in 3 minutes"), or mining pictures are set to never. True = a picture was asked
+        interval, unless one was taken or asked for this way less than the cooldown ago (so that it is not spamming
+        the player or GPU 85 times in 3 minutes), or mining pictures are set to never. True = a picture was asked
         for. It is still only taken if every other rule allows it.
         NOTHING CALLS THIS YET. The mining reader is another tool and SuitMk2 has no channel from it."""
         age = self.now() - self._last_look_t
@@ -787,8 +787,8 @@ class CompanionCore:
             log.exception("picture pace not sent to the eyes")
 
     def _eyes_present(self, st: dict, scene, last) -> None:
-        """What the eyes see drives the mode and the pictures (J: "the eyes at times will need to be doing
-        the heavy lifting" because the log skips elevators, doorways, going indoors)."""
+        """What the eyes see drives the mode and the pictures (the eyes at times need to be doing
+        the heavy lifting, because the log skips elevators, doorways, going indoors)."""
         n = int(st.get("transitions") or 0)
         if n > self._seen_transitions:
             self._seen_transitions = n
@@ -803,9 +803,9 @@ class CompanionCore:
         except Exception:
             log.exception("affect drift")
         self._affect_t = now_
-        # A PICTURE, when this activity's interval says one is due (picture_pace.py). Until 2026-10-05 this was one
+        # A PICTURE, when this activity's interval says one is due (picture_pace.py). This used to be one
         # look every 240 s and only in PRESENT mode; now the interval belongs to the activity and holds in either
-        # mode, because a slow loop (salvage, mining) is exactly where J asked for one every five minutes. Whether
+        # mode, because a slow loop (salvage, mining) is exactly where one every five minutes is wanted. Whether
         # the picture becomes a line is decided afterwards, and it may well not.
         kind, why = self.doing.activity(scene)
         if kind != self.doing_now:
@@ -878,7 +878,7 @@ class CompanionCore:
                 self.stats["dup"] += 1
                 return
             self._last_incap = self.now()
-        # Death leaves EVERY ship channel at once (dry run 2026-09-24: 7 ship_channel_left in one second, and each
+        # Death leaves EVERY ship channel at once (dry run: 7 ship_channel_left in one second, and each
         # saddened Montaigne until his grief read 0.93). Only the first names a ship; the classifier has already
         # cleared it for the rest, so a leave that names no ship is the tail of that burst, not the pilot leaving. BEFORE the affect feed (first
         # version sat after it and the replay still ended at grief 0.93).
@@ -888,7 +888,7 @@ class CompanionCore:
         if et in DEV_FACT_URGENT_EVENTS:
             self._dev_fact_urgent(et, data)          # BEFORE the injury line is considered: it cuts a fact mid-line
         # The core receives boarding as ship_channel_joined / ship_channel_left (the classifier's names), and the
-        # affect hooks call it boarded_ship / left_ship. Resolve it ONCE here. (Until 2026-09-24 nothing matched: the hooks
+        # affect hooks call it boarded_ship / left_ship. Resolve it ONCE here. (Before that, nothing matched: the hooks
         # and EVENT_PRIORITY both keyed on channel_change, and the tests fed derived names directly, so all passed.)
         aff_et = {"ship_channel_joined": "boarded_ship", "ship_channel_left": "left_ship"}.get(et, et)
         if aff_et == "boarded_ship":
@@ -899,7 +899,7 @@ class CompanionCore:
             self.affect.feed(aff_et, data)
         except Exception:
             log.exception("affect")
-        # Favourite ships that change with experience (J 2026-09-24): a death or a finished contract is charged to
+        # Favourite ships that change with experience: a death or a finished contract is charged to
         # the ship the pilot is in. Raw events only; ship_feelings decides what they mean, with decay.
         if et in ("incapacitated", "contract_complete"):
             self._ship_event("death" if et == "incapacitated" else "mission")
@@ -918,13 +918,13 @@ class CompanionCore:
         dup = self.volatile.is_duplicate(et, data)          # BEFORE recording, or it finds itself
         self.volatile.record_event(et, data)
         # Departure. location_name is only ever REPLACED (on arrival somewhere new), never cleared, so after leaving
-        # Seraphim they went on talking about "Seraphim Station, 34 minutes this visit" (J, dry run 2026-09-23).
+        # Seraphim they went on talking about "Seraphim Station, 34 minutes this visit" (dry run).
         # Leaving the armistice zone is the log's own "we left" line; re-entering, or arriving anywhere, undoes it.
         # A weapon back in its slot ends a fight early. ~0 s elapsed is a whole loadout attaching at spawn/terminal
-        # (measured on J's log: 0.00004-0.0006 s), not a holster, so only a real gap counts.
+        # (measured on a real log: 0.00004-0.0006 s), not a holster, so only a real gap counts.
         if et == "weapon_holstered" and float(data.get("elapsed_s") or 0) > 1.0:
             self.combat.holstered()
-        # Mission-aware topics (J 09-23): a contract/objective naming a place leans idle talk toward it; arriving there
+        # Mission-aware topics: a contract/objective naming a place leans idle talk toward it; arriving there
         # or finishing the contract ends it. An objective overrides the contract (it names the next stop).
         if self.walker is not None:
             try:
@@ -947,7 +947,7 @@ class CompanionCore:
             elif not getattr(self, "_departed_far", False):
                 self._departed = None                       # back inside the zone we walked out of
         elif et == "qt_arrived" and self.state.get("location_name"):
-            # A quantum jump ended: wherever this is, it is not the place the log last named (2026-10-05). Entering
+            # A quantum jump ended: wherever this is, it is not the place the log last named. Entering
             # an armistice zone after it is ANOTHER place's zone, so it no longer counts as coming back; only the
             # log naming a place does.
             self._departed, self._departed_far = self.state.get("location_name"), True
@@ -1085,7 +1085,7 @@ class CompanionCore:
         self._count_use()
         # No eyes (vision off, or a log-only player): the activity mode and boredom tick HERE instead. They used to
         # tick only on the eyes loop, so a log-only session never decayed back to PRESENCE and never got bored
-        # (found in the dry run's limits, 2026-09-24).
+        # (found in the dry run's limits).
         if self.eyes is None:
             now_ = self.now()
             try:
@@ -1115,7 +1115,7 @@ class CompanionCore:
             return
         if self._try_rare_line():
             return
-        # Entering a system: somewhere in it they have not been yet (J 09-23). The session's FIRST system is not an
+        # Entering a system: somewhere in it they have not been yet. The session's FIRST system is not an
         # arrival (the welcome covers it), so only a CHANGE counts.
         system, prev = st.get("system"), getattr(self, "_last_system", None)
         self._last_system = system or prev
@@ -1130,11 +1130,11 @@ class CompanionCore:
             return
         # The Mk II's heart ("Did you even know you were wearing me?") gets a GUARANTEED turn in quiet stretches. It
         # used to be a last resort, after the topic walker, and the walker always has something: across 18 hours of
-        # J's replayed sessions (2026-09-24) not one relationship line was said. Now, once per IDLE_SLOT_S, it goes
+        # replayed real sessions not one relationship line was said. Now, once per IDLE_SLOT_S, it goes
         # first. Any mode: requiring PRESENCE too gave ONE line in a busy 142-min session; build_idle_spec itself
         # already stands down after a recent injury, death or reward, and a fight holds ambient entirely.
         # The slot is spent when a relationship line is SPOKEN (_spoke), not when one is tried: a try the gate
-        # merely DEFERS (an ordinary cooldown) used to burn the whole 15 minutes (dry run 2026-09-24: 3 tries, 1 said).
+        # merely DEFERS (an ordinary cooldown) used to burn the whole 15 minutes (dry run: 3 tries, 1 said).
         # _idle_try only stops a waiting line from knocking on the gate every tick.
         if (self.now() - getattr(self, "_last_idle", -1e9) >= self.IDLE_SLOT_S
                 and self.now() - getattr(self, "_idle_try", -1e9) >= self.IDLE_RETRY_S):
@@ -1152,7 +1152,7 @@ class CompanionCore:
         if self._try_pilot_fact(st):
             return
         # The latest event already got its reaction on the edge. Idle time mostly wanders (60%) instead of
-        # narrating the current state again, which is the "most recent event" obsession J heard.
+        # narrating the current state again, which is the "most recent event" obsession.
         visited = self._visited(st)
         spec = None
         if self.walker is not None and self._rng.random() < 0.6:
@@ -1207,7 +1207,7 @@ class CompanionCore:
             self.stats["afk_quiet"] = self.stats.get("afk_quiet", 0) + 1
             self._note(f"{why}: quiet (pilot AFK)")
             return
-        # PRESENCE: company, not commentary (J: "not comment on every box they move"). URGENT never throttles, and
+        # PRESENCE: company, not commentary (no comment on every box the pilot moves). URGENT never throttles, and
         # looks/banter/ambient are not EVENT lines, so only routine event commentary is thinned here.
         if (gate_priority == Priority.EVENT and self.activity.mode == PRESENCE
                 and spec.get("scenario") != "scene_look"):
@@ -1274,7 +1274,7 @@ class CompanionCore:
                 log.exception("realize loop")
 
     def _realize_one(self, item: tuple) -> None:
-        """One work item. Split out of the loop (2026-09-25) so a replay can drain the queue synchronously."""
+        """One work item. Split out of the loop so a replay can drain the queue synchronously."""
         if item[0] == "dream":
             self.dreams.run_one(item[1], self.headroom())
             return
@@ -1440,7 +1440,7 @@ class CompanionCore:
 
     def _dev_fact_urgent(self, et: str, data: dict) -> None:
         """An injury, death, respawn or combat start. Opens the no-facts window, drops a fact waiting to resume, and
-        cuts a fact still being said. The interrupted-fact bit (J 2026-09-25, Montaigne only): a Tier 2/3 injury
+        cuts a fact still being said. The interrupted-fact bit (Montaigne only): a Tier 2/3 injury
         cutting a fact, once per session, arms a resume; Tier 1, a death, combat or anything else never does."""
         self._last_urgent_t = self.now()
         if self.dev_facts is None:
@@ -1508,7 +1508,7 @@ class CompanionCore:
             # said by voice = the pilot asked for it, so the acknowledgement is an answer to him
             self._say_fixed(spec, Priority.URGENT, PRIORITY_URGENT, addressed=(why == "voice"))
 
-    # -- answers to the pilot (J 2026-10-05) ---------------------------------------------------------------------
+    # -- answers to the pilot ------------------------------------------------------------------------------------
     # With the window hidden the speech is muted, and a question asked with the talk key is still answered: the
     # window opens an answer pass and Speech lets through a line said with addressed=True (speech.py). ONLY the
     # paths that answer something the pilot said use these two; every unprompted path still reads speech.muted and
@@ -1732,7 +1732,7 @@ class CompanionCore:
     def answer(self, spec: dict, utterance: str = "") -> None:
         """Answer a direct question. URGENT gate (skips cooldowns, still silenced by mute), its own worker so it is
         never dropped behind ambient work, ground_direct (also refuses an invented place for an UNKNOWN), one
-        retry on refusal, then silence. Never a canned line, with one exception since 2026-10-05: a question about
+        retry on refusal, then silence. Never a canned line, with one exception: a question about
         the PLACE is answered from the spec's own claims (spec["fixed_text"], place_knowledge.answer_line) and
         not worded by the model, which loses the relation between the claims it is given. It needs no realizer,
         so it is answered with the model service down or the card busy. Still held to ground_direct."""
@@ -1809,7 +1809,7 @@ class CompanionCore:
         return seen
 
     def _talk(self, spec: dict, utterance: str) -> Optional[tuple]:
-        """Free talk (chat_talker.py, J 2026-10-05). (the line, how it came about) when a talker is attached, the
+        """Free talk (chat_talker.py). (the line, how it came about) when a talker is attached, the
         sentence is talk and the model worded it, or was refused twice and the fallback line stands in. None for
         everything else: no talker (chat off), a sentence that is not talk, Ollama not running, the model not
         installed, no room on the card. The answer worker then goes on exactly as it does with chat off.
@@ -1891,10 +1891,10 @@ class CompanionCore:
         if not ok:
             return False
         # Half the time banter is about a TOPIC, not the current state: state banter is always about whatever just
-        # happened, which is the "only thing it can think of" loop (J 09-23). The other half falls back to topics too
+        # happened, which is the "only thing it can think of" loop. The other half falls back to topics too
         # when no state situation matches, so banter no longer stops dead in open space.
-        topic_first = self.walker is not None and self._rng.random() < 0.75   # 0.5 -> 0.75: the scripted state pairs sounded staged (J 09-23)
-        # visited: Elah speaks from having been somewhere only when the pilot's record says so (dry run 2026-09-24).
+        topic_first = self.walker is not None and self._rng.random() < 0.75   # 0.5 -> 0.75: the scripted state pairs sounded staged
+        # visited: Elah speaks from having been somewhere only when the pilot's record says so (dry run).
         specs = self.walker.exchange(st, self._variant["banter"], visited=self._visited(st)) if topic_first else []
         if not specs:
             specs = plan_exchange(st, self._variant["banter"], self.banter.history, self.banter.max_turns)
@@ -2004,8 +2004,8 @@ def _claims(spec: Optional[dict]) -> dict:
 
 
 def _npc_case(FakeSpeech, on: bool) -> tuple:
-    """A real ASD presence line (J's 2026-08-02 log), then a fight starts, then a real <Actor Death> line where an ASD
-    grunt killed the pilot (J's 2025-08-21 log, whose incapacitated event carries the killer). -> (combat, death)."""
+    """A real ASD presence line (a real 2026-08-02 log), then a fight starts, then a real <Actor Death> line where an ASD
+    grunt killed the pilot (a real 2025-08-21 log, whose incapacitated event carries the killer). -> (combat, death)."""
     core = CompanionCore(FakeSpeech(), realizer=None, features={"npc_faction_names": on})
     got = _capture(core)
     core.parser._local_name = "ProjectGegnome"
@@ -2070,7 +2070,7 @@ def _feature_cases(FakeSpeech) -> list:
 
 
 def _refinery_case(FakeSpeech, on: bool) -> tuple:
-    """J's 2026-04-03 login at HUR-L2, verbatim lines: {Join PU}, the station's location line, then the notice. The
+    """A real 2026-04-03 login at HUR-L2, verbatim lines: {Join PU}, the station's location line, then the notice. The
     order was first announced two days earlier, in a previous session with the same pilot memory."""
     import tempfile
     import memory_store as ms
@@ -2095,13 +2095,13 @@ def _refinery_case(FakeSpeech, on: bool) -> tuple:
     return first, _claims(pickup), again
 
 
-# J's log "Game Build(12660092) 23 Sep 26 (19 52 37).log", verbatim (tail trimmed): boarding his Ironclad.
+# A real log, "Game Build(12660092) 23 Sep 26 (19 52 37).log", verbatim (tail trimmed): boarding an Ironclad.
 BOARD_IRONCLAD = ('<2026-09-24T01:15:39.827Z> [Notice] <SHUDEvent_OnNotification> Added notification "You have joined '
                   "channel 'Drake Ironclad : ProjectGegnome'.")
 
 
 def _maker_case(FakeSpeech, on: bool) -> tuple:
-    """Board J's Drake Ironclad (real line). -> (boarding claims, boarding stance, does Gatac have a topic node)."""
+    """Board a Drake Ironclad (real line). -> (boarding claims, boarding stance, does Gatac have a topic node)."""
     core = CompanionCore(FakeSpeech(), realizer=None, features={"manufacturer_flavour": on})
     got = _capture(core)
     core.feed_line(BOARD_IRONCLAD)
@@ -2127,7 +2127,7 @@ def _place_case(FakeSpeech, on: bool) -> tuple:
 
 
 def _contract_case(FakeSpeech, on: bool) -> tuple:
-    """A pilot with nine bounties and one cargo run behind them (their memory) finishes J's real bounty (18 Dec 2025
+    """A pilot with nine bounties and one cargo run behind them (their memory) finishes a real bounty (18 Dec 2025
     line). -> (completion-line claims, Elah's pride right after)."""
     import tempfile
     import memory_store as ms
@@ -2149,8 +2149,8 @@ def _contract_case(FakeSpeech, on: bool) -> tuple:
 
 
 def _bdl_case(FakeSpeech, on: bool) -> list:
-    """J's real 30 Mar 2026 overdose (bdl_tracker.MAR30, 16 pens in two minutes; the game said "Overdose" at 06:38:41
-    and he went down at 06:38:58). -> the stim warnings the core would consider, in order."""
+    """A real 30 Mar 2026 overdose (bdl_tracker.MAR30, 16 pens in two minutes; the game said "Overdose" at 06:38:41
+    and the pilot went down at 06:38:58). -> the stim warnings the core would consider, in order."""
     import bdl_tracker as bt
     core = CompanionCore(FakeSpeech(), realizer=None, features={"bdl_tracker": on})
     got = _capture(core)
@@ -2195,7 +2195,7 @@ def _selftest(game_log: Optional[str]) -> int:
     core.gate = SpeakGate(now=lambda: 10_000.0 + core.stats["spec"] * 400)   # far apart: cooldowns never block
     threading.Thread(target=core._realize_loop, daemon=True).start()
 
-    # A FIXED fixture, not the live Game.log: the live file resets whenever the pilot starts SC (2026-09-23: J's new
+    # A FIXED fixture, not the live Game.log: the live file resets whenever the pilot starts SC (once a new
     # session left 758 lines / 1 event and two checks "failed" with nothing wrong in the code).
     path = Path(game_log) if game_log else None
     if path is None or not path.exists():
@@ -2272,7 +2272,7 @@ def _selftest(game_log: Optional[str]) -> int:
     time.sleep(0.4)
     case("sidecar down: silence, no canned fallback", not sp4.said and core4.stats["silent"] == 1)
 
-    # Duplicate check happens before recording (the 09-23 fix): first arrival speaks, instant repeat does not.
+    # Duplicate check happens before recording: first arrival speaks, instant repeat does not.
     sp5 = FakeSpeech()
     core5 = CompanionCore(sp5, realizer=fake_realizer)
     core5.gate = SpeakGate(now=lambda: 50_000.0 + core5.stats["spec"] * 400)
@@ -2286,7 +2286,7 @@ def _selftest(game_log: Optional[str]) -> int:
     time.sleep(0.5)
     case("first reward speaks, instant duplicate is suppressed", len(sp5.said) == 1 and core5.stats["dup"] == 1)
 
-    # Departure (J 09-23 "why are they still talking about seraphim when we left seraphim?").
+    # Departure (they must not still be talking about Seraphim once the pilot has left Seraphim).
     class Arm:
         def __init__(self, action):
             self.event_type, self.data = "armistice_zone", {"action": action}
@@ -2303,7 +2303,7 @@ def _selftest(game_log: Optional[str]) -> int:
     core6.state.set("location_name", "Orison")
     case("arrived somewhere new: the new place counts", core6._ambient_state()["location"] == "Orison")
 
-    # AFK (J 2026-09-24): an injected idle clock, like `now`. AFK holds ambient, urgent still speaks, activity resumes.
+    # AFK: an injected idle clock, like `now`. AFK holds ambient, urgent still speaks, activity resumes.
     idle = [0.0]
     t7 = [70_000.0]
     sp7 = FakeSpeech()

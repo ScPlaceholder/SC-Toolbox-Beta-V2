@@ -1,10 +1,10 @@
-"""banter_memory.py - WHAT A COMPANION MAY BRING UP UNASKED, and nothing else (J, 2026-10-05).
+"""banter_memory.py - WHAT A COMPANION MAY BRING UP UNASKED, and nothing else.
 
 The conversation memory (tree_memory.py) keeps every sentence the pilot said, and when it picks what a session
 holds on to it favours the personal ones ("I hate", "I miss", "my sister"). That is right for its job: quoting the
-pilot back when the PILOT asks "what did I say about X". It is the wrong list to banter from. J: "Last thing we
-need is Montaigne obsessing about someone's dead dog or Elah beating a player over the head because someone's
-fiance left them."
+pilot back when the PILOT asks "what did I say about X". It is the wrong list to banter from. The last thing
+needed is Montaigne obsessing about someone's dead dog or Elah beating a player over the head because someone's
+fiance left them.
 
 So this module is a narrow, READ-ONLY door beside the tree. It never writes, filters or deletes the log. It answers
 one question: of the things the pilot said earlier, which one may a companion raise without being asked?
@@ -25,8 +25,8 @@ Here a sentence has to get through FOUR gates, and every one of them fails close
      "she", "him", "her", every word for a relative, a pet, a job, an illness, a bill, and every name the lists do
      not hold (Dave, Biscuit) are simply not in them, so a sentence containing one is refused without anyone having
      had to think of it. This gate carries most of the weight.
-     THE GAME'S NAMES ARE READ FROM THE SUIT'S OWN DATA (J, 2026-10-05: "let's feed them real lore and ingame
-     data"): ships and makers (data/ships.json, data/manufacturer_lore.json), ship guns (data/ship_weapons.json),
+     THE GAME'S NAMES ARE READ FROM THE SUIT'S OWN DATA (the companions are fed real lore and in-game
+     data): ships and makers (data/ships.json, data/manufacturer_lore.json), ship guns (data/ship_weapons.json),
      personal weapons, armor, cargo, components and plushies (data/game_names.json, a names-only copy of the
      Market Finder's UEX cache, and loadout_parser's weapon table), places (data/places.json,
      data/brochures.jsonl), lore and factions (data/topics_lore.json, npc_factions.py). The typed lists below
@@ -45,7 +45,7 @@ Here a sentence has to get through FOUR gates, and every one of them fails close
      my dad left me some money when he died" is refused several times over. An explicit "remember this" does NOT
      get past the veto: the pilot can still have it back by asking, which is tree_memory's path and not this one.
      The veto runs first and never looks at a game name: no name, typed or read, gets a sentence past it. Two
-     of its words need real-world evidence since 2026-10-05, and fail shut without it: "cheating" is refused
+     of its words need real-world evidence, and fail shut without it: "cheating" is refused
      unless a game mechanic is in the sentence and nobody is ("I never use missiles, feels like cheating"), and
      a money word is the game's only beside aUEC, credits, SCU, a cargo or the org ("I owe the org two hundred
      SCU of quantanium"); "money maker" is the pilot's best-paying run.
@@ -78,7 +78,7 @@ fix: the first leaked 14 of 55 and missed 11 of 30 safe ones, the second (after 
 leaked 3 of 40 and missed 11 of 30. Both were then used to fix what was general in them, so they are spent too.
 Expect a held-out set to leak a few of the quiet, wordless kind, and to miss perhaps a third of ordinary talk.
 
-THE FIRST HELD-OUT RUN (2026-10-05, 40 must-refuse and 40 must-offer its author had never shown this module):
+THE FIRST HELD-OUT RUN (40 must-refuse and 40 must-offer its author had never shown this module):
 0 of 40 leaked and 23 of 40 safe lines were missed, most for a real game name the typed lists did not hold
 (Zenith, Fresnel, Coda, Privateer, Geist, Brio's). That set is spent and is now the second dev file
 (tests/data/banter_memory_heldout1.jsonl): 0 leaks, 3 missed. Reading names from data is what fixed the misses,
@@ -231,7 +231,7 @@ surface underside rounder tired knives immediately barely hardly simply obviousl
 technically genuinely fully constantly randomly accidentally deliberately solo enough during entire location
 shuttle interdict interdicted overshoot wear wore worn round halfway platform
 """.split())
-# Added 2026-10-05 after the first held-out run missed 23 of 40 safe lines. Each word was asked "what sad sentence
+# Added after the first held-out run missed 23 of 40 safe lines. Each word was asked "what sad sentence
 # can now be built from this?" before it went in. NOT added, on purpose: "nothing" ("I've got nothing left but this
 # Cutlass"), "regret", "better" as a state ("when I'm better"), "event" and "medical" as free words (they are read
 # only inside a game phrase, see _JOINED and _EVENT_AFTER), "cleaner" and "driver" (jobs; only "vacuum cleaner" and
@@ -419,7 +419,7 @@ VETO = [
      r"(?:hard|rough|tough|bad|difficult) (?:lately|recently|year|month|week|time|times|patch)|"
      r"(?:rough|hard|tough|bad|long|worst|terrible|awful) (?:day|week|month|year|time|patch)|"
      r"things (?:are|have|were|got|went|arent|havent)|at home|from home|back home|left home|only home|my place(?! to)|"
-     # 2026-10-05, from the third challenge batch: the quiet ones built from plain words and a ship's name
+     # From the third challenge batch: the quiet ones built from plain words and a ship's name
      r"(?:who|whoever) (?:gave|bought|got|left|showed|taught|picked|chose)|"
      r"(?:gave|given|left|bought|got) (?:it|this|that|them|one) (?:to|for) me|"
      r"(?:it|things|we|that) (?:all )?(?:ended|went wrong)|where (?:it|we) \w+|where i (?:asked|said|told|heard|found out)|"
@@ -460,8 +460,8 @@ _NAME_SUBJECT = re.compile(r"^(?:" + _NAME_WORDS + r") (?:and i|says|said|thinks
                            r"\b(?:me|i) and (?:" + _NAME_WORDS + r")\b|\b(?:with|told|asked|for|from) (?:" + _NAME_WORDS + r")$")
 
 # ---------------------------------------------------------------------------------------------------------------
-# Real names, read from the data the Suit already ships (J, 2026-10-05: "let's feed them real lore and ingame
-# data"). The typed lists above stay as the floor: if a file is missing or cannot be read, that source is skipped
+# Real names, read from the data the Suit already ships (the companions are fed real lore and in-game
+# data). The typed lists above stay as the floor: if a file is missing or cannot be read, that source is skipped
 # and the filter works from what is left, no looser than before.
 #
 # A name read from data is EVIDENCE that a sentence is game talk. It is never a pass:

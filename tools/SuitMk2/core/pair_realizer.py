@@ -1,4 +1,4 @@
-"""pair_realizer.py - the ambient realizer SuitMk2 plugs in via set_ambient_realizer() (2026-09-23).
+"""pair_realizer.py - the ambient realizer SuitMk2 plugs in via set_ambient_realizer().
 
     realizer = PairRealizer(backend="auto")       # nothing loads yet; no torch import unless hf is chosen
     suit.set_ambient_realizer(realizer)           # callable(spec) -> str | None
@@ -78,10 +78,10 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 # same rule to decide "already set up" (suit_window passes MODEL_PREFIXES to SetupPanel).
 MODEL_PREFIXES = ("suitmk2-", "realizer-")
 BACKENDS =("auto", "ollama", "hf", "api", "none")
-# Speaker residency (settings key "speaker_residency", J 2026-09-26). One Ollama model per speaker, 1.83 GB of VRAM
+# Speaker residency (settings key "speaker_residency"). One Ollama model per speaker, 1.83 GB of VRAM
 # each. "evict" keeps ONE resident: asking for a speaker releases the other one first. "both" is the older behaviour.
-# Default evict because this ships to 6 GB cards ("not everyone will have a card that's beefy enough to do both"),
-# and because latency is explicitly NOT the axis being optimised ("2 seconds is not a painful response time").
+# Default evict because this ships to 6 GB cards (not everyone has a card big enough to hold both),
+# and because latency is explicitly NOT the axis being optimised (2 seconds is not a painful response time).
 RESIDENCY = ("evict", "both")
 RESIDENCY_DEFAULT = "evict"
 CPU_THREADS = 2
@@ -100,7 +100,7 @@ def spec_prompt(s: dict) -> str:
     """MUST stay identical to companion_design/train_realizer.spec_prompt: the adapters were trained on it."""
     facts = "; ".join(f"{c['predicate']}={c['value']} ({c['kind']})" for c in s["claims"])
     lo, hi = s["length_words"]
-    # A banter reply sees the LINE it answers (2026-09-23, J: "the banter sounds staged because they repeat lines").
+    # A banter reply sees the LINE it answers (banter sounds staged when they repeat lines).
     # Appended only when present, so every non-reply prompt is byte-identical to before.
     rt = s.get("responds_to") or {}
     reply = f"\nREPLYING TO: {rt['speaker'].upper()}: {rt['text']}" if rt.get("text") else ""
@@ -243,16 +243,16 @@ class OllamaPairBackend:
             raise ValueError(f"residency must be one of {RESIDENCY}, not {residency!r}")
         self.url, self.device, self.threads, self.timeout = url.rstrip("/"), device, threads, timeout
         self.residency = residency
-        # ⛔ NO `or MODEL_PREFIXES[0]` HERE. An unresolved prefix stays None and is resolved late —
-        #   see `_resolved_prefix`. 2026-09-26: this line used to end in that fallback and it cost
-        #   the owner an entire evening of a companion that heard him and said nothing.
+        # NO `or MODEL_PREFIXES[0]` HERE. An unresolved prefix stays None and is resolved late —
+        #   see `_resolved_prefix`. This line used to end in that fallback and it cost
+        #   an entire evening of a companion that heard the pilot and said nothing.
         self.prefix = prefix or realizer_prefix(self.url)
         self._used: set = set()
 
     def _resolved_prefix(self) -> str:
         """The installed model-name prefix, resolved as late as necessary. Raises if there is none.
 
-        ⛔ 2026-09-26 — THE BUG THIS EXISTS TO KILL, because it is not obvious from the outside.
+        THE BUG THIS EXISTS TO KILL, because it is not obvious from the outside.
           `__init__` used to read:
 
               self.prefix = prefix or realizer_prefix(self.url) or MODEL_PREFIXES[0]
@@ -263,18 +263,18 @@ class OllamaPairBackend:
           trailing `or` collapsed both into a GUESS: `"suitmk2-"`, the first entry of a preference
           tuple. On a machine whose models are named `realizer-*`, every single generate then
           POSTed a model that does not exist and got HTTP 404.
-        ⛔⛔ AND IT WAS CACHED FOR THE OBJECT'S LIFE. One unlucky two-second probe at construction
+        AND IT WAS CACHED FOR THE OBJECT'S LIFE. One unlucky two-second probe at construction
           time poisoned every later call: 28 asks, 22 errors, 22 identical 404s, no retry and no
           re-resolve. It recovered only when headroom went ROOMY and a FRESH backend happened to be
           built — which makes it look like a ghost rather than a bug.
-        ★ AN ABSENCE IS NOT A VALUE. "The probe could not answer" is not "the models are called
+        AN ABSENCE IS NOT A VALUE. "The probe could not answer" is not "the models are called
           suitmk2-". Guessing a name here has exactly one possible outcome — 404 forever, reported
           to the pilot as silence — while refusing says so in one line of the log. The two failures
           cost wildly different amounts to diagnose, and only one of them is honest.
         ⇒ So: resolve late, keep the answer once it is real, and RAISE a named error rather than
           invent a model. The caller (`PairRealizer.__call__`) already catches, counts and logs,
           so this turns a silent 404 loop into a log line that names the cause.
-        ⚠ The late resolve is the half that actually restores speech: by the time a second line is
+        The late resolve is the half that actually restores speech: by the time a second line is
           asked for, Ollama has usually woken up, and the object is no longer stuck with the answer
           it got during the worst two seconds of the session.
         """
@@ -369,7 +369,7 @@ class OllamaPairBackend:
         self._used.clear()
 
 
-# ---- API backend (J 2026-09-24: "Yeah let's add an API option then.") -------------------------------------------
+# ---- API backend -------------------------------------------
 # The pipeline is unchanged: events, pacing, the topic walker and the spec decide IF and WHAT; the model only turns
 # one spec into one line, grounded HERE exactly like the local model's lines. So an API key buys better wording and
 # more variety, never the ability to invent facts. A base model is not fine-tuned on the characters, so the system
@@ -470,7 +470,7 @@ class ApiPairBackend:
 # ---- backend selection ---------------------------------------------------------------------------------------
 def hf_importable() -> bool:
     """torch AND transformers AND peft findable - WITHOUT importing any of them (find_spec only). Torch alone is
-    not enough: the toolbox's Python 3.14 has torch 2.11 but neither transformers nor peft (measured 2026-09-23)."""
+    not enough: the toolbox's Python 3.14 has torch 2.11 but neither transformers nor peft (measured)."""
     import importlib.util
     try:
         return all(importlib.util.find_spec(m) is not None for m in ("torch", "transformers", "peft"))
@@ -568,7 +568,7 @@ def _device_of(backend, default: str) -> str:
     return {"cuda": "gpu", "gpu": "gpu", "cpu": "cpu"}.get(str(d), default)
 
 
-# The FIRST attempt's temperature (J 2026-09-24, yes to sampling). Greedy (0.0) was the evaluated setting, and it
+# The FIRST attempt's temperature (sampled, not greedy). Greedy (0.0) was the evaluated setting, and it
 # is why every "you're off the ship" line opened the same way: temp 0 picks the single likeliest opening every time.
 # Measured on the held-out sets at 0.7: variety roughly doubles for -4 grounded lines, and those 4 are not spoken,
 # because an ungrounded candidate is retried and never reaches the speaker. Settings key "first_temperature";
@@ -1124,12 +1124,12 @@ def _selftest() -> int:
     fo.stop()
     fo2.stop()
 
-    # ── 2026-09-26: the prefix must never be GUESSED from an absence ────────────────────────────
+    # ── the prefix must never be GUESSED from an absence ────────────────────────────
     # The defect: `self.prefix = prefix or realizer_prefix(url) or MODEL_PREFIXES[0]`. A 2-second
     # probe lost to a busy GPU made realizer_prefix() return None, the trailing `or` elected
     # "suitmk2-" on a machine whose models are "realizer-*", and every generate 404'd — cached for
     # the object's whole life. 28 asks, 22 errors, and the pilot heard silence.
-    # ⚠ THESE RUN AGAINST A DEAD PORT ON PURPOSE. They must not depend on what this machine has
+    # THESE RUN AGAINST A DEAD PORT ON PURPOSE. They must not depend on what this machine has
     #   installed, or the suite would pass here and fail on a developer's box, which is the same
     #   class of mistake as the bug.
     dead = "http://127.0.0.1:1"
@@ -1158,7 +1158,7 @@ def _selftest() -> int:
         globals()["realizer_prefix"] = _real
 
     # The STATIC half — the shape that caused it must not come back by hand.
-    # ⚠ READ BY AST, NOT BY SUBSTRING, and that is not fastidiousness: the first version of this
+    # READ BY AST, NOT BY SUBSTRING, and that is not fastidiousness: the first version of this
     #   check was `"realizer_prefix(self.url) or MODEL_PREFIXES[0]" not in source` and it FAILED
     #   immediately — on the docstring of `_resolved_prefix`, which quotes the old line verbatim
     #   as the explanation of what went wrong. A text scan cannot tell live code from prose about
@@ -1181,10 +1181,10 @@ def _selftest() -> int:
     case("generate() asks for the RESOLVED prefix, not the raw attribute",
          "self._resolved_prefix()}{speaker}" in _src)
 
-    # ── 2026-09-26: SPEAKER RESIDENCY (settings "speaker_residency", default evict) ──────────────
-    # One Ollama model per speaker, 1.83 GB of VRAM each. J overruled keeping Elah permanently warm:
-    # "it would be better to unload Elah because not everyone will have a card that's beefy enough
-    # to do both", and "2 seconds is not a painful response time" - so the default optimises for a
+    # ── SPEAKER RESIDENCY (settings "speaker_residency", default evict) ──────────────
+    # One Ollama model per speaker, 1.83 GB of VRAM each. Elah is NOT kept permanently warm:
+    # it is better to unload Elah, because not everyone has a card big enough
+    # to hold both, and 2 seconds is not a painful response time - so the default optimises for a
     # 6 GB card, not for latency. Residency is PINNED in every case below: reading the settings file
     # would make these tests agree with this PC and nothing else.
     fe = FakeOllama(models=BOTH)
@@ -1247,7 +1247,7 @@ def _selftest() -> int:
     # Eviction must never fire off a GUESSED model name: _resolved_prefix() raises first (be47aee).
     db = OllamaPairBackend(url=dead, device="cpu", residency="evict")
     db._used.add("realizer-elah")                 # warmed earlier, then Ollama went away
-    # ⚠ ANY exception but the refusal counts as the bug, and it is caught rather than allowed to escape: with the
+    # ANY exception but the refusal counts as the bug, and it is caught rather than allowed to escape: with the
     #   be47aee guard removed by hand, _resolved_prefix() invents "suitmk2-" and the POST dies with a URLError -
     #   which, uncaught, killed this whole suite before it printed a single PASS/FAIL line. A regression that
     #   silences the report is worse than one that fails a named case, so the classification happens here.

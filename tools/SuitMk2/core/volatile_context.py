@@ -287,11 +287,11 @@ class VolatileContext:
             # At a city/station, inside the sticky window, a SUB-ZONE of it is not an arrival.
             #
             # A sub-zone is a code that carries its parent's code ("Stanton1_Lorville_..." under
-            # "Stanton1_Lorville"). Until 2026-10-05 the test was the TYPE: any code of unknown type, or of the
+            # "Stanton1_Lorville"). The test used to be the TYPE: any code of unknown type, or of the
             # same type as the current place, counted as a walk inside it. So leaving Lorville and reaching a
             # Hathor site inside half an hour was a "sub-zone of Lorville", and so was flying from one station to
             # the next; the name was not replaced, and a question about the place was answered with the one
-            # the pilot had left. Replayed over J's 1,114 backed-up Game.logs: 946 of 3,729 arrivals at a
+            # the pilot had left. Replayed over 1,114 backed-up Game.logs: 946 of 3,729 arrivals at a
             # different place were kept as the old one (256 sessions), and every one of them was another place
             # (the commonest: Stanton Gateway to Nyx Gateway, 70 times). Not one code in those logs is a
             # sub-zone of another, so nothing that was rightly suppressed is announced now.

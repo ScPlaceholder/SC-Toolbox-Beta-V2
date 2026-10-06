@@ -1,4 +1,4 @@
-"""fact_lines.py - the WORDING for a thing a companion knows about the pilot (J, 2026-10-05).
+"""fact_lines.py - the WORDING for a thing a companion knows about the pilot.
 
 pilot_facts.py keeps the THING and never the sentence: that the pilot flies a Cutlass Black, goes to Grim HEX,
 wants a Kraken. This module turns one such fact into one line a companion may say unasked. It gets a FACT, never
@@ -11,7 +11,7 @@ fact is what the fact store hands out when it is asked for the next one: {"relat
 dropped in, word for word; no model words it. variant picks which template (variant % how many there are), so
 a caller that counts up never gets the same one twice running.
 
-J's decisions the lines are held to:
+The decisions the lines are held to:
   * the companions remember the thing, not the sentence, and never repeat the pilot's words back;
   * they may be warm; they may never push the pilot inward (attachment_gate's five moves) and never comment on
     an absence;
