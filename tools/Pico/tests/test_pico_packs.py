@@ -198,7 +198,8 @@ def test_a_redirect_to_an_address_that_is_not_allowed_is_not_followed(tmp_path, 
 
 
 def test_with_no_pack_address_nothing_is_ever_requested(tmp_path, server):
-    assert packs.PACKS_URL == "", "the pack site does not exist yet: no address may ship"
+    assert packs.PACKS_URL == "https://pico-pals.pages.dev/packs", "the one address the toolbox ships with"
+    assert "pico-pals.pages.dev" == packs.PACKS_URL.split("/")[2] and packs.PACKS_URL.startswith("https://")
     store = make_store(tmp_path, "")
     assert not store.online
     assert {state for _c, _n, state, _b in store.listing()} == {"included", "unavailable"}

@@ -399,3 +399,10 @@ def test_the_real_window_takes_the_old_outfit_off_while_loops_are_playing(tmp_pa
         assert s["unpacked"] == [s["worn"]], out["steps"]      # only the worn outfit is unpacked
         assert s["movie_in"] == s["worn"] and s["frames"] > 1 and s["saved"] == "pack:" + s["worn"]
     assert sorted(p.name for p in (home / "packs").glob("*.tar.xz")) == ["o05.tar.xz"]     # the pack stayed
+
+def test_an_empty_packs_url_in_settings_keeps_pico_offline_and_no_setting_uses_the_site():
+    import sprite_pal as sp
+    from pico import packs as pk
+    assert sp.open_store({"packs_url": ""}).online is False
+    assert sp.open_store({}).base_url == pk.PACKS_URL.rstrip("/") and sp.open_store({}).online is True
+    assert sp.open_store({"packs_url": None}).base_url == pk.PACKS_URL.rstrip("/")

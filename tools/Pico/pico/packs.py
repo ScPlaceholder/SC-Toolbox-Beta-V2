@@ -26,7 +26,7 @@ THE RULES
       download or a wrong file is never mistaken for a pack.
     * https only (PackStore refuses anything else, redirects included). The only requests ever made are for
       packs.json and for pack files, under the one base URL. Nothing is sent about the user or the PC.
-    * PACKS_URL empty (the default) means OFFLINE: only the shipped pack and packs already on disk are used.
+    * An empty PACKS_URL means OFFLINE: only the shipped pack and packs already on disk are used.
     * Only the worn outfit is unpacked. Switching removes the previous outfit's unpacked files; its pack
       stays, so switching back needs no internet. EXCEPT when every pack in the list is on this PC: then
       nothing unpacked is removed (see KEEPING).
@@ -68,8 +68,9 @@ from pathlib import Path
 from typing import Callable, Optional
 
 # THE ONE ADDRESS. The folder on the pack server that holds packs.json and the <code>.tar.xz files.
-# Empty = offline: the site does not exist yet. A "packs_url" in settings.json overrides it (sprite_pal.py).
-PACKS_URL = ""
+# The site went up on 2026-10-06 (all 19 packs, checked from the public address). Empty would mean offline.
+# A "packs_url" in settings.json overrides it (sprite_pal.py); set that to "" to stay offline.
+PACKS_URL = "https://pico-pals.pages.dev/packs"
 
 MANIFEST_NAME = "packs.json"
 RECORD_NAME = "have.json"

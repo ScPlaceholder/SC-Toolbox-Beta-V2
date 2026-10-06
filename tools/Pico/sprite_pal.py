@@ -285,9 +285,10 @@ GAG_CHOICES = (("every 15 min", 15), ("every 30 min", 30), ("once an hour", 60),
 
 def open_store(saved: dict = None) -> "packs.PackStore":
     """The pack store this PC uses. The pack address is packs.PACKS_URL unless settings.json has a
-    "packs_url"; both are empty until the pack site exists, and empty means nothing is ever requested."""
+    "packs_url". A "packs_url" that is present and empty means stay offline: nothing is ever requested."""
     saved = load_settings() if saved is None else saved
-    return packs.PackStore(base_url=str(saved.get("packs_url") or packs.PACKS_URL))
+    url = saved["packs_url"] if "packs_url" in saved and saved["packs_url"] is not None else packs.PACKS_URL
+    return packs.PackStore(base_url=str(url))
 
 
 def start_outfit(asked: Path, saved: dict, store) -> tuple:
