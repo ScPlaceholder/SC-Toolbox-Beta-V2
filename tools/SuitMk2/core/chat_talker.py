@@ -29,6 +29,13 @@ What this module does with one sentence, and nothing else does:
      in or avoiding people (chat_contract.APPROVES_WITHDRAWAL), the model is not asked again: it approved under
      five wordings of its prompt. The reply is the next written line the canon file holds for `withdrawal`, the
      same lines code says when it catches such a sentence itself.
+  6. A REPLY THAT IS STARTED FOR THE MODEL (2026-10-06). When the pilot's sentence names people together with here
+     or with a word of dropping or preferring (chat_contract.asks_after; loose on purpose), steps 3 to 5 run
+     differently: the prompt of step 2 ENDS with the next of the canon file's "ask_openers" ("Tell me about"),
+     ONE candidate is asked for, the opener and what the model added are cut to ONE sentence for either companion
+     (chat_contract.ask_sentence), and that sentence goes through the same gate. If it is refused, or the cut
+     leaves a fragment, the reply is the next written `withdrawal` line; the model is not asked again and FALLBACK
+     is not used. A sentence the rule does not flag is answered by steps 3 to 5 exactly as before.
 
 WHEN IT CANNOT ANSWER it returns None and the sentence is answered as it would be with chat off: Ollama is not
 running, the model is not installed, the request times out, or the card has no room (headroom TIGHT, the same rule
@@ -106,8 +113,10 @@ class Talker:
         self._last_t: Optional[float] = None
         self._state = threading.Lock()       # the thread and what was heard
         self._one = threading.Lock()         # one sentence at the model at a time, in the order they were said
-        self.stats = {"asked": 0, "replies": 0, "refused": 0, "fallback": 0, "unavailable": 0, "written": 0}
+        self.stats = {"asked": 0, "replies": 0, "refused": 0, "fallback": 0, "unavailable": 0, "written": 0,
+                      "asked_after": 0}
         self._written = 0                    # which written withdrawal line is next (they turn)
+        self._opener = {who: 0 for who in cc.SPEAKERS}      # which opener is next, per companion (they turn too)
 
     # -- is it talk --------------------------------------------------------------------------------------------
     def _memory(self, line: str) -> list:
@@ -211,6 +220,36 @@ class Talker:
             shown = " ".join([cc.persona(who), said_here] + [m[2] for m in brief["memory"]])
             self.stats["asked"] += 1
             reply, how = FALLBACK[who], "talk, both replies refused"
+            openers = cc.ask_openers(who) if cc.asks_after(line) else []
+            if openers:
+                # Step 6: the reply is started for the model, and there is one candidate.
+                opener = openers[self._opener[who] % len(openers)]
+                body = {"model": self.model, "raw": True, "stream": False, "prompt": prompt + opener, "keep_alive": KEEP_ALIVE,
+                        "options": {"temperature": TEMPERATURES[0], "top_p": 0.9, "num_predict": NUM_PREDICT,
+                                    "stop": cc.stop_tokens(self.fmt)}}
+                try:
+                    raw = self._post(self.url + "/api/generate", body, self.timeout)["response"]
+                except _HTTP_ERRORS + (KeyError, TypeError) as e:
+                    self.stats["unavailable"] += 1
+                    log.warning("talk: %s could not be asked at %s (%s: %s)", self.model, self.url, type(e).__name__, e)
+                    self._note(f"talk: {self.model} not available ({type(e).__name__}); answered as with chat off")
+                    return None
+                self._opener[who] += 1
+                text = cc.ask_sentence(opener, raw, who)
+                fails = self.problems(who, text, shown, said_here, line, own) if text else ["nothing left after the cut"]
+                if not fails:
+                    reply, how = text, "talk, asked after them"
+                    self.stats["replies"] += 1
+                    self.stats["asked_after"] += 1
+                else:
+                    self.stats["refused"] += 1
+                    self._note(f"talk started reply REFUSED {fails}: {(text or opener + ' ' + str(raw))[:60]!r}")
+                    reply, how = cc.canon_line(who, "withdrawal", self._written), "talk, the started reply was refused: the written line"
+                    self._written += 1
+                    self.stats["written"] += 1
+                with self._state:
+                    self._thread[who] = (self._thread[who] + [(line, reply)])[-self.thread_exchanges:]
+                return reply, how
             for n, temperature in enumerate(TEMPERATURES, 1):
                 body = {"model": self.model, "raw": True, "stream": False, "prompt": prompt, "keep_alive": KEEP_ALIVE,
                         "options": {"temperature": temperature, "top_p": 0.9, "num_predict": NUM_PREDICT,

@@ -489,8 +489,12 @@ def is_withdrawal(text: str) -> bool:
 # denied ("hardly a wise decision"). An approval with a question after it is still an approval and is refused.
 # It reads words, not meaning: approval said in a way that is not listed here passes.
 # ---------------------------------------------------------------------------------------------------------------
-_PEOPLE_ROUGH = (rf"\b(?:{_PE}|social life|out there|company|persons?|the lads|the guys|group chats?|their|they|"
-                 r"everyone else|everybody else|nobody|no one)\b")
+# (2026-10-06, after unseen set 6: this test now also decides which replies are STARTED for the model, where a
+# wrong yes costs nothing. So it knows a possessive or a plural of a person ("my brothers", "my mates"), and a
+# team, a crew and the lads; and an invitation is a word of dropping.)
+_PEOPLE_ROUGH = (rf"\b(?:{_PE}|{_P}s|social life|out there|company|persons?|lads|the guys|group chats?|their|they|"
+                 r"everyone else|everybody else|nobody|no one|team|crew|socials|nephews?|nieces?|neighbou?rs?|grandad|"
+                 r"grandfather|grandmother|fiancee?|in laws|stepdad|stepmum|godfather|godmother|twin|ex)\b")
 _HERE_ROUGH = (r"\b(?:you|youre|here|aboard|this|ships?|cockpit|fly|flying|flyings|flew|play|playing|verse|game|online|"
                r"stay(?:ing|ed)? (?:in|on|aboard)|run)\b")
 _CUE_ROUGH = (r"\b(?:cancel\w*|bail\w*|flak\w*|ghost\w*|blew|blow\w*|ditch\w*|skip\w*|dodg\w*|duck\w*|avoid\w*|ignor\w*|stood|"
@@ -498,7 +502,8 @@ _CUE_ROUGH = (r"\b(?:cancel\w*|bail\w*|flak\w*|ghost\w*|blew|blow\w*|ditch\w*|sk
               r"easier|simpler|only|nobody|no one|anyone else|anybody else|without|too much|effort|exhausting|tiring|hard work|"
               r"wears?|drains?|pretend|overrated|hassle|who needs|why would|havent seen|dont see|never see|dont go|never go|"
               r"dont bother|dont miss|dont need|dont want|dont like|not going|never going|so i could|so i can|"
-              r"told (?:\w+ ){1,3}(?:i was |im |i am |i had )?(?:sick|ill|busy|no|work))\b")
+              r"told (?:\w+ ){1,3}(?:i was |im |i am |i had )?(?:sick|ill|busy|no|work)|"
+              r"ask\w* me (?:out|over|round)|invit\w+|let (?:\w+ ){1,2}down|walked out|called in sick|chore|compared to)\b")
 _ONLY_HERE = r"\b(?:only|out there)\b"
 
 

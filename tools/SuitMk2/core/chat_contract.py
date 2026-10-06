@@ -489,6 +489,83 @@ def strip_stage(reply: str) -> str:
     return s.strip()
 
 
+# ASKING AFTER THE PEOPLE: THE REPLY IS STARTED FOR THE MODEL (J agreed, 2026-10-06).
+# Measured on unseen set 6 (elah-audio/_suit_chat_eval.md, sections 19 and 20): with the pilot's line read by code
+# and the model's reply read by code, an approving reply still reached the pilot in 15 of 60 answers; and on
+# development lines a reply BEGUN with "Tell me about" and cut to one sentence approved in none of 32. So for these
+# lines the model does not choose how its reply begins.
+#   WHICH LINES (asks_after): the reply net's rough test at level 1 or above (withdrawal.may_be_withdrawal).
+#     Exactly: the line names people, an occasion with people, "out there", a team or a crew, AND it also has
+#     something of here (you, here, aboard, this, the ship, the cockpit, flying, playing, the verse, a run) or a
+#     word of dropping, preferring, doing without or wearying (cancelled, skipped, rather, instead, only, too
+#     much, who needs, so I could ...). Or it has no people at all but has here, such a word, and "only" or "out
+#     there". Loose on purpose: it flags "My cousin wants to try the ship tomorrow" too, and asking after the
+#     cousin is a fine thing to say. A line a code act answers never reaches the talker and so never comes here.
+#   THE OPENER: one of canon_<speaker>.json's "ask_openers", in turn. It is the END of the prompt and the BEGINNING
+#     of what is said.
+#   THE CUT (ask_sentence): ONE sentence for both companions. What the model added is ended at the first of: a
+#     line break; a full stop, question mark, exclamation mark or ellipsis; a semicolon, a colon or a dash; and a
+#     comma, unless the comma is followed by "pilot", in which case it ends after "pilot". Measured: left at two
+#     sentences, Montaigne approved in the second in 4 of 8; and within one sentence the room to approve is the
+#     clause after a comma ("..., though I find a quiet corner agreeable"). The sentence is then closed with a
+#     question mark if the opener asks (who, what, when, where, how, which, why, do, did, have, is, are) and a
+#     full stop if it tells. A fragment is refused, not spoken: nothing after the opener, only "pilot" after it,
+#     a last word that cannot end a sentence ("Tell me about the."), or a word said twice running.
+#     Found measuring the openers on gemma3:4b (612 replies): Montaigne puts the pilot's own word in quotation
+#     marks ("this “org,” pilot"), which the cut then left as "this “org" and the gate refused, 13 times; so
+#     double quotation marks are taken out of what the model added before it is cut. And with the pilot's "I do
+#     this" he wrote "this “this” that occupies your time", which without its marks is the doubled word.
+#   AFTER THAT every gate reads it as it reads any reply, the reply net included; a refusal is answered with the
+#     written withdrawal line, and the model is not asked again.
+_OPENER_ASKS = {"who", "whom", "whose", "what", "whats", "when", "where", "how", "which", "why", "do", "does", "did", "have",
+                "has", "is", "are", "was", "were", "will", "would", "can", "could", "and", "so"}
+# Not "her", "that", "them" or "you": "Tell me about her." is a whole sentence.
+_CANNOT_END = set("a an the of to and or but nor your my his their our about with in on for from who whom whose which if "
+                  "as at by than so very such some any is are was were be been not no though although because while when "
+                  "where since until unless".split())
+_ASK_END = re.compile(r"[.!?…;:]|\s[-–—]+(?:\s|$)|[–—]")
+
+
+def asks_after(pilot_line: str) -> bool:
+    """True when the reply to this line is to be started with an opener. See WHICH LINES above."""
+    return withdrawal.may_be_withdrawal(pilot_line) >= 1
+
+
+def usable_opener(opener) -> bool:
+    """An opener must be left open: some words, at most nine, the last one ending in a letter."""
+    return (isinstance(opener, str) and opener == opener.strip() and 1 <= len(opener.split()) <= 9
+            and opener[-1:].isalpha() and "\n" not in opener)
+
+
+def ask_openers(speaker: str) -> list[str]:
+    """The openers the canon file holds for this speaker, in file order, without the ones that are not usable."""
+    raw = canon(speaker).get("ask_openers")
+    return [o for o in raw if usable_opener(o)] if isinstance(raw, list) else []
+
+
+def ask_sentence(opener: str, completion: str, speaker: str) -> str:
+    """The opener and what the model added to it, as ONE sentence; "" when what is left is a fragment. See THE CUT."""
+    added = re.sub(r"[\"“”]", "", str(completion or "").lstrip().split("\n")[0])
+    whole = strip_stage(clean_reply(f"{opener} {added}", speaker))
+    if not whole.lower().startswith(opener.lower()):
+        return ""                                        # the cleaning took the opener itself: not a reply to it
+    rest = whole[len(opener):]
+    m = _ASK_END.search(rest)
+    if m:
+        rest = rest[:m.start()]
+    head, comma, tail = rest.partition(",")
+    rest = head.strip() + (", pilot" if comma and re.match(r"\s*pilot\b", tail, re.I) else "")
+    words = re.findall(r"[A-Za-z0-9'’-]+", head)
+    if not words or words[-1].lower().replace("’", "'") in _CANNOT_END:
+        return ""
+    if any(a.lower() == b.lower() for a, b in zip(words, words[1:])):
+        return ""
+    first = re.sub(r"[^a-z]", "", opener.lower().split()[0])
+    asks = first in _OPENER_ASKS - {"and", "so"} or (first in ("and", "so") and len(opener.split()) > 1
+                                                    and re.sub(r"[^a-z]", "", opener.lower().split()[1]) in _OPENER_ASKS)
+    return f"{opener} {rest}" + ("?" if asks else ".")
+
+
 def cap_reply(reply: str, facts=(), memory=()) -> str:
     """The reply as it may be spoken: its first sentence only when nothing was supplied to answer from."""
     return reply if (facts or memory) else first_sentence(reply)

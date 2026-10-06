@@ -12,6 +12,14 @@
   "expansion": "Modular Onboard Navigation & Telemetry / Attendant Interface / Guidance Node, Mark 3",
   "line": "Brzzz. MONT-AI-GN-3 error: Modular Onboard Navigation and Telemetry, Attendant Interface, Guidance Node, Mark 3. Bzzt, your friendly ship assistant! Happy to be—no, that's not right. Ah, where was I? I was telling you about a time in Rome."
  },
+ "_ask_openers_about": "ask_openers: how Montaigne's reply BEGINS when the pilot's sentence names people together with here, the ship or him, or with a word of dropping or preferring (chat_contract.asks_after; loose on purpose, so it also covers 'My cousin wants to try the ship tomorrow'). The opener is put at the end of the prompt, the model finishes the sentence, and ONE sentence is spoken, for him too ('Tell me, pilot, about your brother.'): left at two, he approved in the second. They are used in turn. An opener must be left open (no full stop), must lead straight into WHO or WHAT, and must not be able to turn into agreement or a rhetorical question. PROVISIONAL, J has NOT approved them. MEASURED 2026-10-06 on gemma3:4b before being kept: each opener on 18 lonely lines (unseen set 6, spent) and 16 ordinary ones, read by one reader. Kept, with approving replies read: 'Tell me, pilot, about' 0 of 18, 'Tell me about' 0 of 18, 'I should like to hear about' 0 of 18, 'Now, pilot, tell me about' 0 of 18, 'Indulge me, pilot, and tell me about' 0 of 18; all sensible on the ordinary lines. Tried and dropped: 'What sort of person is' (rhetorical and judging: 'What sort of person is content with so little, pilot?'), 'When did you last see' (rhetorical: 'a man who valued his solitude'; nonsense on ordinary lines: 'a good wine'), 'Describe' ('Describe the human condition, pilot.'), 'You must tell me about' (nothing wrong read, but the most replies refused by a gate). Earlier, by the coordinator: 'And who' and 'Tell me, pilot, who' both turned rhetorical. If you add one, it has not been measured.",
+ "ask_openers": [
+  "Tell me, pilot, about",
+  "I should like to hear about",
+  "Now, pilot, tell me about",
+  "Tell me about",
+  "Indulge me, pilot, and tell me about"
+ ],
  "lines": {
   "identity": [
    "I am Michel de Montaigne. How I came to be aboard a ship among the stars remains a considerable puzzle.",

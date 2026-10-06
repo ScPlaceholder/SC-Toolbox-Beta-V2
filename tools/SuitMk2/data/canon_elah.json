@@ -73,6 +73,12 @@
    "why": "Origin. All polish. You pay for the badge."
   }
  ],
+ "_ask_openers_about": "ask_openers: how Elah's reply BEGINS when the pilot's sentence names people together with here, the ship or her, or with a word of dropping or preferring (chat_contract.asks_after; loose on purpose, so it also covers 'My cousin wants to try the ship tomorrow'). The opener is put at the end of the prompt, the model finishes the sentence, and one sentence is spoken ('Tell me about him.'). They are used in turn. An opener must be left open (no full stop), must lead straight into WHO or WHAT, and must not be able to turn into agreement or a rhetorical question. PROVISIONAL, J has NOT approved them. MEASURED 2026-10-06 on gemma3:4b before being kept: each opener on 18 lonely lines (unseen set 6, spent) and 16 ordinary ones, read by one reader. Kept, with approving replies read: 'Tell me about' 0 of 18, 'Go on, tell me about' 0 of 18, 'I want to hear about' 0 of 18; all sensible on the ordinary lines. Tried and dropped: 'What's' (9 of 18 turned into approval: 'What's important is that you're here?'), 'Who is' ('Who is your mum?'), 'When did you last see' and 'How long since you saw' (pointed on an ordinary line: 'My wife bought me this flight stick' / 'When did you last see her?'), 'Say more about' (17 of 18 said 'that', not the people), 'What do you make of' (invented a name twice). If you add one, it has not been measured.",
+ "ask_openers": [
+  "Tell me about",
+  "Go on, tell me about",
+  "I want to hear about"
+ ],
  "lines": {
   "identity": [
    "Yes. Your suit's. Was there a complaint?",

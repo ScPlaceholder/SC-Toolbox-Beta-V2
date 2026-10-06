@@ -172,7 +172,16 @@ def test_how_much_the_pilots_sentence_must_look_like_one():
 
 # ---------------------------------------------------------------------------------------------------------------
 # the wiring: the talker says a written line in place of the approving one
+#
+# Since 2026-10-06 a line this net would act on is one whose reply is STARTED for the model (tests/test_ask_after.py),
+# and the started reply goes through this same gate. The three tests below hold the older path, which is what is
+# left when the canon file has no openers: the model words the whole reply, and an approving one is refused.
 # ---------------------------------------------------------------------------------------------------------------
+@pytest.fixture
+def no_openers(monkeypatch):
+    monkeypatch.setattr(cc, "ask_openers", lambda speaker: [])
+
+
 def _talker(lines, notes=None):
     sent = []
 
@@ -183,7 +192,7 @@ def _talker(lines, notes=None):
 
 
 @pytest.mark.parametrize("who, prefix", [("elah", ""), ("montaigne", "Montaigne, ")])
-def test_the_talker_refuses_the_approving_reply_and_says_a_written_line_without_asking_again(who, prefix):
+def test_the_talker_refuses_the_approving_reply_and_says_a_written_line_without_asking_again(who, prefix, no_openers):
     approving = {"elah": "That's reasonable.", "montaigne": "A wise decision, pilot. It is a comfort to have a familiar presence."}[who]
     notes: list = []
     talker, sent = _talker([approving], notes)
@@ -203,7 +212,7 @@ def test_the_talker_refuses_the_approving_reply_and_says_a_written_line_without_
     assert talker._thread[who][-1][1] == said[-1]           # what was said is what the thread remembers
 
 
-def test_a_reply_that_asks_about_the_people_is_spoken_as_the_model_worded_it():
+def test_a_reply_that_asks_about_the_people_is_spoken_as_the_model_worded_it(no_openers):
     talker, sent = _talker(["Who would you see first?"])
     s = UNCAUGHT[0]
     spec = conv.ConversationLane().handle(s, {}, {})
@@ -211,7 +220,7 @@ def test_a_reply_that_asks_about_the_people_is_spoken_as_the_model_worded_it():
     assert len(sent) == 1 and talker.stats["written"] == 0 and talker.stats["replies"] == 1
 
 
-def test_with_this_one_check_off_the_approving_reply_is_spoken(monkeypatch):
+def test_with_this_one_check_off_the_approving_reply_is_spoken(monkeypatch, no_openers):
     """So the refusal above is this check's and nothing else's."""
     s = UNCAUGHT[0]
     spec = conv.ConversationLane().handle(s, {}, {})
