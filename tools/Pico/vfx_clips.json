@@ -1,0 +1,572 @@
+{
+  "spec": "Pico FX clips — the animation-side counterpart to the 15 vfx/* entries in asset_manifest_reference.json. The contract's .anim format keyframes BONES only; FX are slot attachments (fx_front, z 200), so an FX clip is a timed key sequence over {region, x, y, scale, rot, alpha} instead of bone deltas. Numeric fields interpolate between keys (linear unless ease set); 'region' changes discretely at the key time. Missing fields hold the previous key's value. x/y are px offsets from the clip anchor on the 2048x2048 master canvas.",
+  "coordinate_space": "master canvas 2048x2048 origin top-left, same as rig; anchor for these previews is character-centre",
+  "clips": [
+    {
+      "name": "explosion",
+      "manifest_id": "vfx/explosion",
+      "duration": 1.1,
+      "loop": false,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.flash",
+          "x": 0,
+          "y": 0,
+          "scale": 0.45,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.06,
+          "alpha": 1
+        },
+        {
+          "t": 0.12,
+          "region": "s59.fireball",
+          "scale": 0.7,
+          "ease": "out"
+        },
+        {
+          "t": 0.45,
+          "scale": 1.15,
+          "alpha": 0.9
+        },
+        {
+          "t": 0.55,
+          "region": "s59.puff_fire",
+          "scale": 0.8,
+          "alpha": 0.75
+        },
+        {
+          "t": 1.1,
+          "scale": 1.5,
+          "y": -30,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "spark",
+      "manifest_id": "vfx/spark",
+      "duration": 0.35,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.flash",
+          "x": 0,
+          "y": 0,
+          "scale": 0.25,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.05,
+          "alpha": 1
+        },
+        {
+          "t": 0.1,
+          "region": "s59.flash_blue",
+          "scale": 0.5
+        },
+        {
+          "t": 0.35,
+          "scale": 0.25,
+          "alpha": 0,
+          "region": "s59.flash"
+        }
+      ]
+    },
+    {
+      "name": "star",
+      "manifest_id": "vfx/star",
+      "duration": 0.9,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s60.star_d",
+          "x": 0,
+          "y": 0,
+          "scale": 0.4,
+          "rot": 0,
+          "alpha": 0.3,
+          "ease": "inout"
+        },
+        {
+          "t": 0.45,
+          "scale": 0.7,
+          "alpha": 1,
+          "rot": 20
+        },
+        {
+          "t": 0.9,
+          "scale": 0.4,
+          "alpha": 0.3,
+          "rot": 0,
+          "region": "s60.star_d"
+        }
+      ]
+    },
+    {
+      "name": "heart",
+      "manifest_id": "vfx/heart",
+      "duration": 1.6,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s60.heart_small",
+          "x": -30,
+          "y": 10,
+          "scale": 0.3,
+          "rot": -8,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.2,
+          "alpha": 0.9
+        },
+        {
+          "t": 0.8,
+          "region": "s60.heart_big",
+          "x": 0,
+          "y": -60,
+          "scale": 0.5,
+          "rot": 0
+        },
+        {
+          "t": 1.6,
+          "x": -30,
+          "y": 10,
+          "scale": 0.3,
+          "alpha": 0,
+          "region": "s60.heart_small",
+          "rot": -8
+        }
+      ]
+    },
+    {
+      "name": "confetti",
+      "manifest_id": "vfx/confetti",
+      "duration": 1.4,
+      "loop": false,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s60.confetti",
+          "x": 0,
+          "y": -40,
+          "scale": 0.3,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.15,
+          "alpha": 1
+        },
+        {
+          "t": 0.3,
+          "scale": 0.9,
+          "region": "s60.confetti2"
+        },
+        {
+          "t": 1.4,
+          "y": 120,
+          "scale": 1,
+          "rot": 25,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "quantum",
+      "manifest_id": "vfx/quantum",
+      "duration": 1.8,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s58.galaxy",
+          "x": 0,
+          "y": -20,
+          "scale": 0.6,
+          "rot": 0,
+          "alpha": 0.4,
+          "ease": "inout"
+        },
+        {
+          "t": 0.9,
+          "rot": 180,
+          "alpha": 1
+        },
+        {
+          "t": 1.8,
+          "rot": 360,
+          "alpha": 0.4,
+          "region": "s58.galaxy",
+          "y": -20,
+          "scale": 0.6
+        }
+      ]
+    },
+    {
+      "name": "damage",
+      "manifest_id": "vfx/damage",
+      "duration": 0.6,
+      "loop": false,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.debris_hit",
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.08,
+          "alpha": 1
+        },
+        {
+          "t": 0.6,
+          "scale": 0.9,
+          "y": -20,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "warning",
+      "manifest_id": "vfx/warning",
+      "duration": 0.9,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s61.warn",
+          "x": 0,
+          "y": -90,
+          "scale": 0.35,
+          "rot": 0,
+          "alpha": 0
+        },
+        {
+          "t": 0.1,
+          "alpha": 1
+        },
+        {
+          "t": 0.45,
+          "alpha": 0.15
+        },
+        {
+          "t": 0.55,
+          "alpha": 1
+        },
+        {
+          "t": 0.9,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "sleep",
+      "manifest_id": "vfx/sleep",
+      "duration": 2.2,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s61.zzz",
+          "x": 30,
+          "y": -80,
+          "scale": 0.2,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.3,
+          "alpha": 1
+        },
+        {
+          "t": 2.2,
+          "x": 30,
+          "y": -80,
+          "scale": 0.2,
+          "alpha": 0,
+          "region": "s61.zzz"
+        }
+      ]
+    },
+    {
+      "name": "boost",
+      "manifest_id": "vfx/boost",
+      "duration": 0.7,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s58.comet",
+          "x": -90,
+          "y": 60,
+          "scale": 0.5,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "in"
+        },
+        {
+          "t": 0.15,
+          "alpha": 1
+        },
+        {
+          "t": 0.7,
+          "x": -90,
+          "y": 60,
+          "scale": 0.5,
+          "alpha": 0,
+          "region": "s58.comet"
+        }
+      ]
+    },
+    {
+      "name": "electric",
+      "manifest_id": "vfx/electric",
+      "duration": 0.8,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.electric_hit",
+          "x": 0,
+          "y": 0,
+          "scale": 0.5,
+          "rot": 0,
+          "alpha": 1
+        },
+        {
+          "t": 0.2,
+          "region": "s59.arc_trail",
+          "alpha": 0.4
+        },
+        {
+          "t": 0.4,
+          "region": "s59.electric_hit",
+          "alpha": 1
+        },
+        {
+          "t": 0.6,
+          "region": "s59.arc_trail",
+          "alpha": 0.4
+        },
+        {
+          "t": 0.8,
+          "region": "s59.electric_hit",
+          "alpha": 1
+        }
+      ]
+    },
+    {
+      "name": "splash",
+      "manifest_id": "vfx/splash",
+      "duration": 1.2,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s58.splash1",
+          "x": 0,
+          "y": 40,
+          "scale": 0.3,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.15,
+          "alpha": 0.9
+        },
+        {
+          "t": 1.2,
+          "scale": 0.3,
+          "y": 40,
+          "alpha": 0,
+          "region": "s58.splash1",
+          "x": 0
+        }
+      ]
+    },
+    {
+      "name": "shield",
+      "manifest_id": "vfx/shield",
+      "duration": 1.6,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.dome_full",
+          "x": 0,
+          "y": 20,
+          "scale": 0.9,
+          "rot": 0,
+          "alpha": 0.35,
+          "ease": "inout"
+        },
+        {
+          "t": 0.8,
+          "alpha": 0.7
+        },
+        {
+          "t": 1.6,
+          "alpha": 0.35,
+          "region": "s59.dome_full",
+          "x": 0,
+          "y": 20,
+          "scale": 0.9
+        }
+      ]
+    },
+    {
+      "name": "shield_break",
+      "variant_of": "vfx/shield",
+      "duration": 0.9,
+      "loop": false,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.dome_full",
+          "x": 0,
+          "y": 20,
+          "scale": 0.9,
+          "rot": 0,
+          "alpha": 0.5
+        },
+        {
+          "t": 0.1,
+          "region": "s59.shield_hit",
+          "scale": 0.8,
+          "alpha": 1
+        },
+        {
+          "t": 0.35,
+          "region": "s59.dome_shatter",
+          "scale": 1,
+          "alpha": 0.9
+        },
+        {
+          "t": 0.9,
+          "scale": 1.4,
+          "y": -10,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "teleport",
+      "manifest_id": "vfx/teleport",
+      "duration": 1.5,
+      "loop": false,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s58.beam_ring",
+          "x": 0,
+          "y": 90,
+          "scale": 0.4,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.2,
+          "alpha": 0.9
+        },
+        {
+          "t": 0.4,
+          "region": "s58.beam_tall",
+          "y": 20,
+          "scale": 0.9
+        },
+        {
+          "t": 1.1,
+          "alpha": 0.9
+        },
+        {
+          "t": 1.5,
+          "scale": 1.1,
+          "y": -30,
+          "alpha": 0
+        }
+      ]
+    },
+    {
+      "name": "smoke",
+      "manifest_id": "vfx/smoke",
+      "duration": 1.5,
+      "loop": true,
+      "channel": "FX",
+      "anchor": "fx_front",
+      "keys": [
+        {
+          "t": 0,
+          "region": "s59.puff",
+          "x": 0,
+          "y": 0,
+          "scale": 0.4,
+          "rot": 0,
+          "alpha": 0,
+          "ease": "out"
+        },
+        {
+          "t": 0.2,
+          "alpha": 0.8
+        },
+        {
+          "t": 1.5,
+          "y": 0,
+          "scale": 0.4,
+          "alpha": 0,
+          "region": "s59.puff",
+          "x": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "spec": "Pico VFX region map — bridges the 15 vfx/* manifest entries to concrete objects on reference sheets 58-61, and provides the source regions for fx clip playback.",
+  "canvas": { "width": 1536, "height": 1024, "note": "all region coords are px on the named sheet file" },
+  "sheets": {
+    "s58": {
+      "file": "pico_sheet_58.png", "subject": "Blue VFX [group 25]",
+      "alpha_pct_transparent": 2.67, "cuttable": false,
+      "why": "background glow field carries alpha>0 almost everywhere; objects merge into one connected component (4,4,1532x1016). INPUT for re-render, or luminance-keyed preview only.",
+      "blend": "screen"
+    },
+    "s59": {
+      "file": "pico_sheet_59.png", "subject": "Combat VFX [group 26]",
+      "alpha_pct_transparent": 12.39, "cuttable": "partial",
+      "why": "large discrete objects separate cleanly (explosions, shields, lightning); smoky background haze connects the rest. Discrete comps are cuttable with halo; haze-connected rows are not.",
+      "blend": "screen"
+    },
+    "s60": {
+      "file": "pico_sheet_60.png", "subject": "Social VFX [group 27]",
+      "alpha_pct_transparent": 7.81, "cuttable": false,
+      "why": "rainbow glow background connects rows 3-8 into one component (12,416,1520x596). Same verdict as s58.",
+      "blend": "screen"
+    },
+    "s61": {
+      "file": "pico_sheet_61.png", "subject": "Status VFX [group 28]",
+      "alpha_pct_transparent": 15.54, "cuttable": true,
+      "why": "regular ~14x10 icon grid, genuinely transparent gaps (125 components kept). The one sheet of the four that slice_sheet.py can cut directly.",
+      "blend": "source-over"
+    },
+    "star": {
+      "file": "pico_fx_star.png", "subject": "the star at s60 (990,690,90x80), cut out as its own 90x80 file",
+      "cuttable": false,
+      "why": "the desktop Pico's Origin sparkle draws this one region on every frame; its own file means the full sheet does not have to be on disk for it. Pixel-for-pixel the same region.",
+      "blend": "screen"
+    }
+  },
+  "regions": {
+    "s58.star1":        { "sheet": "s58", "x": 15,  "y": 10,  "w": 120, "h": 120 },
+    "s58.galaxy":       { "sheet": "s58", "x": 860, "y": 10,  "w": 220, "h": 120 },
+    "s58.dome_big":     { "sheet": "s58", "x": 1080,"y": 10,  "w": 200, "h": 130 },
+    "s58.swirl":        { "sheet": "s58", "x": 805, "y": 155, "w": 120, "h": 110 },
+    "s58.ring_bright":  { "sheet": "s58", "x": 360, "y": 150, "w": 220, "h": 95 },
+    "s58.beam_tall":    { "sheet": "s58", "x": 495, "y": 380, "w": 100, "h": 160 },
+    "s58.beam_ring":    { "sheet": "s58", "x": 285, "y": 430, "w": 175, "h": 110 },
+    "s58.comet":        { "sheet": "s58", "x": 610, "y": 545, "w": 145, "h": 65 },
+    "s58.swoosh_big":   { "sheet": "s58", "x": 1400,"y": 550, "w": 130, "h": 110 },
+    "s58.lightning1":   { "sheet": "s58", "x": 1245,"y": 755, "w": 75,  "h": 115 },
+    "s58.splash1":      { "sheet": "s58", "x": 320, "y": 905, "w": 150, "h": 105 },
+    "s58.smoke_white":  { "sheet": "s58", "x": 650, "y": 895, "w": 185, "h": 105 },
+
+    "s59.flash":        { "sheet": "s59", "x": 115, "y": 215, "w": 100, "h": 100 },
+    "s59.flash_blue":   { "sheet": "s59", "x": 215, "y": 210, "w": 115, "h": 105 },
+    "s59.fireball":     { "sheet": "s59", "x": 18,  "y": 5,   "w": 225, "h": 195 },
+    "s59.fireball_big": { "sheet": "s59", "x": 1320,"y": 0,   "w": 210, "h": 205 },
+    "s59.sparkburst":   { "sheet": "s59", "x": 252, "y": 0,   "w": 225, "h": 185 },
+    "s59.debris_burst": { "sheet": "s59", "x": 464, "y": 24,  "w": 192, "h": 188 },
+    "s59.smoke_fireball": { "sheet": "s59", "x": 636, "y": 16, "w": 256, "h": 196 },
+    "s59.blue_burst":   { "sheet": "s59", "x": 876, "y": 16,  "w": 208, "h": 188 },
+    "s59.dirt_burst":   { "sheet": "s59", "x": 1084,"y": 8,   "w": 220, "h": 204 },
+    "s59.debris_hit":   { "sheet": "s59", "x": 350, "y": 225, "w": 150, "h": 95 },
+    "s59.fire_slash":   { "sheet": "s59", "x": 700, "y": 215, "w": 180, "h": 95 },
+    "s59.ice_burst":    { "sheet": "s59", "x": 1375,"y": 215, "w": 155, "h": 105 },
+    "s59.tracer_red":   { "sheet": "s59", "x": 25,  "y": 335, "w": 180, "h": 20 },
+    "s59.tracer_blue":  { "sheet": "s59", "x": 190, "y": 368, "w": 190, "h": 20 },
+    "s59.gburst1":      { "sheet": "s59", "x": 15,  "y": 430, "w": 95,  "h": 100 },
+    "s59.fireball_smoke": { "sheet": "s59", "x": 640, "y": 440, "w": 308, "h": 220 },
+    "s59.blue_electric_burst": { "sheet": "s59", "x": 964, "y": 408, "w": 228, "h": 256 },
+    "s59.puff":         { "sheet": "s59", "x": 300, "y": 570, "w": 105, "h": 75 },
+    "s59.puff_fire":    { "sheet": "s59", "x": 640, "y": 570, "w": 200, "h": 80 },
+    "s59.dome_full":    { "sheet": "s59", "x": 20,  "y": 660, "w": 180, "h": 125 },
+    "s59.dome_shatter": { "sheet": "s59", "x": 215, "y": 660, "w": 170, "h": 120 },
+    "s59.sphere_cracked": { "sheet": "s59", "x": 395, "y": 660, "w": 160, "h": 125 },
+    "s59.shield_hit":   { "sheet": "s59", "x": 860, "y": 655, "w": 110, "h": 125 },
+    "s59.electric_hit": { "sheet": "s59", "x": 1095,"y": 655, "w": 160, "h": 120 },
+    "s59.arc_trail":    { "sheet": "s59", "x": 1255,"y": 650, "w": 140, "h": 130 },
+    "s59.smoke_ring":   { "sheet": "s59", "x": 690, "y": 875, "w": 140, "h": 120 },
+    "s59.ember_burst":  { "sheet": "s59", "x": 1220,"y": 890, "w": 120, "h": 100 },
+
+    "s60.chat_heart":   { "sheet": "s60", "x": 865, "y": 20,  "w": 130, "h": 90 },
+    "s60.clap":         { "sheet": "s60", "x": 1060,"y": 150, "w": 130, "h": 110 },
+    "s60.heart_big":    { "sheet": "s60", "x": 1360,"y": 120, "w": 90,  "h": 90 },
+    "s60.heart_small":  { "sheet": "s60", "x": 1400,"y": 190, "w": 60,  "h": 60 },
+    "s60.heart_swarm":  { "sheet": "s60", "x": 1350,"y": 120, "w": 180, "h": 170 },
+    "s60.confetti":     { "sheet": "s60", "x": 1090,"y": 555, "w": 215, "h": 95 },
+    "s60.confetti2":    { "sheet": "s60", "x": 1310,"y": 550, "w": 215, "h": 100 },
+    "s60.star_d":       { "sheet": "star", "x": 0,  "y": 0,   "w": 90,  "h": 80 },
+    "s60.burst_gold":   { "sheet": "s60", "x": 170, "y": 685, "w": 125, "h": 95 },
+    "s60.sparkle":      { "sheet": "s60", "x": 715, "y": 660, "w": 180, "h": 110 },
+    "s60.heart_trail":  { "sheet": "s60", "x": 905, "y": 565, "w": 140, "h": 75 },
+    "s60.beam_gold":    { "sheet": "s60", "x": 1040,"y": 445, "w": 95,  "h": 90 },
+
+    "s61.warn":         { "sheet": "s61", "x": 15,  "y": 12,  "w": 100, "h": 95 },
+    "s61.warn_oct":     { "sheet": "s61", "x": 345, "y": 12,  "w": 100, "h": 95 },
+    "s61.zzz":          { "sheet": "s61", "x": 895, "y": 360, "w": 90,  "h": 95 },
+    "s61.heartbeat":    { "sheet": "s61", "x": 15,  "y": 826, "w": 105, "h": 90 },
+    "s61.flame":        { "sheet": "s61", "x": 1115,"y": 826, "w": 100, "h": 90 },
+    "s61.lightning":    { "sheet": "s61", "x": 1335,"y": 826, "w": 100, "h": 90 },
+    "s61.fountain_b":   { "sheet": "s61", "x": 15,  "y": 928, "w": 105, "h": 90 },
+    "s61.dome_b":       { "sheet": "s61", "x": 345, "y": 928, "w": 130, "h": 90 },
+    "s61.portal_b":     { "sheet": "s61", "x": 675, "y": 928, "w": 130, "h": 90 }
+  }
+}
