@@ -120,6 +120,14 @@ DEFAULTS = {
     "dev_facts": False,
     "dev_facts_max_per_hour": 2,
     "remember_conversations": RECORD_CONVERSATIONS_DEFAULT,   # see RECORD_CONVERSATIONS_DEFAULT above
+    # Fact lines (J 2026-10-05, core/fact_lines.py): OFF by default, and not in the window yet; J hears the lines
+    # first. On = while conversations are being kept (the key above), the THING a sentence names is counted: the
+    # ship the pilot flies, their kit, a place they go, something they want. Never the sentence. Now and then, where
+    # an ordinary unprompted line would have been said anyway, a companion says a light line about one of those
+    # things, word for word from data/fact_lines.json: at most one in 30 minutes, and one thing once a week. Off =
+    # nothing is counted and nothing is said. "Forget conversations" deletes the counts either way. Read when the
+    # companions start.
+    "fact_banter": False,
     # Free talk (J 2026-10-05, core/chat_talker.py): OFF by default. On = an ordinary remark, a greeting, or a question
     # about the companion itself is worded by the local model named in chat_model (J's choice: gemma3:4b), then cut
     # and checked in code before it is spoken. A question the Suit can answer from what it knows, and a question it

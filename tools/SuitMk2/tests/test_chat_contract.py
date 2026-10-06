@@ -259,17 +259,23 @@ def test_open_with_no_talker_is_exactly_what_it_was(sentence):
 
 def test_only_the_talker_calls_the_serializer_and_the_chat_gate_and_chat_is_off_by_default():
     """Until 2026-10-05 this test said NOTHING in the Suit calls them and that there is no chat setting. J then
-    decided free talk is worded by a model: chat_talker.py is the one caller, behind two settings that are off."""
+    decided free talk is worded by a model: chat_talker.py is the one caller, behind two settings that are off.
+    The same day fact_lines.py became a second caller of the GATE alone: its lines are templates, not a
+    model's words, and each filled line is still put to chat_problems before it may be said. It builds no
+    prompt, so the serializer and the reply cleaner still have the one caller."""
     from pathlib import Path
     root = Path(cc.__file__).resolve().parents[1]
-    users = []
+    users, gate_users = [], []
     for p in list((root / "core").glob("*.py")) + list((root / "ui").glob("*.py")) + [root / "suitmk2_companion_app.py"]:
         if p.name == "chat_contract.py":
             continue
         src = p.read_text(encoding="utf-8")
-        if any(name in src for name in ("serialize(", "chat_problems(", "clean_reply(", "turn_block(")):
+        if any(name in src for name in ("serialize(", "clean_reply(", "turn_block(")):
             users.append(p.name)
+        if "chat_problems(" in src:
+            gate_users.append(p.name)
     assert users == ["chat_talker.py"]
+    assert sorted(gate_users) == ["chat_talker.py", "fact_lines.py"]
     import settings
     chat_keys = {k: v for k, v in settings.DEFAULTS.items() if k == "chat" or k.startswith("chat_") or "talker" in k}
     # The two thread keys (2026-10-05) are the values chat_talker's constants had; neither turns anything on.

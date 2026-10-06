@@ -62,6 +62,7 @@ import manufacturers                                                       # noq
 import place_flavour                                                       # noqa: E402
 from contract_history import ContractHistory                               # noqa: E402
 from settings import DEFAULTS as _SETTING_DEFAULTS                         # noqa: E402
+import fact_lines as factl                                                 # noqa: E402
 
 log = logging.getLogger("suitmk2.core")
 
@@ -320,6 +321,18 @@ class CompanionCore:
         # Free talk (chat_talker.Talker), or None: chat is off (the default) or no chat model is named. The window
         # attaches it. With None every sentence is answered exactly as it was before there was a talker.
         self.talker = None
+        # Fact lines (pilot_facts.py keeps the THING, fact_lines.py words it; J 2026-10-05). OFF unless the
+        # setting fact_banter is true, and it ships false: J has to hear the lines first. On = while conversations
+        # are being kept, a thing the pilot says they fly, carry, want or go to is counted (the name and a count,
+        # never the sentence), and now and then one is raised as an ordinary unprompted line. Off = nothing is
+        # counted, no file is written and nothing is said: the core does what it did before there were facts.
+        self.fact_banter = (features or {}).get("fact_banter") is True
+        self._facts = None                             # pilot_facts.PilotFacts, opened on first use
+        self._facts_lock = threading.Lock()            # one reader or writer of its state file at a time
+        self._fact_line_t = -1e9                       # when a fact line was last handed on to be said
+        self._fact_try_t = -1e9                        # when the store was last asked for a fact
+        self._fact_turn = 0                            # whose turn it is; the two take turns
+        self._fact_variant = {"elah": 0, "montaigne": 0}   # which wording next, per speaker
         self._last_speak_event_t = -1e9                # last event that SPEAKS (EVENT_PRIORITY), for the quiet window
         self._last_urgent_t = -1e9                     # last injury / death / respawn / combat start
         self._born_t = now()                           # no fact in the first minutes: that is the welcome's time
@@ -1112,6 +1125,10 @@ class CompanionCore:
                 return
         if self._try_banter(st):
             return
+        # A thing the pilot has (their ship, a haunt, a plan) in place of this tick's ambient line. Last in the
+        # queue on purpose, and nothing at all with the setting off.
+        if self._try_pilot_fact(st):
+            return
         # The latest event already got its reaction on the edge. Idle time mostly wanders (60%) instead of
         # narrating the current state again, which is the "most recent event" obsession J heard.
         visited = self._visited(st)
@@ -1511,6 +1528,11 @@ class CompanionCore:
             self._heard_x = rec["id"]
         except Exception:
             log.exception("conversation log: could not keep what was heard")
+        if self.fact_banter and self._heard_x:
+            # Kept, so conversations are on. What THING the sentence names is worked out on a thread of its
+            # own: this is called on the window's thread and the answer must not wait for it.
+            threading.Thread(target=self._note_fact, args=(str(text),), name="suitmk2_fact_note",
+                             daemon=True).start()
         return self._heard_x
 
     def _log_reply(self, spec: dict, text: str) -> None:
@@ -1522,6 +1544,103 @@ class CompanionCore:
             self.tree.append(spec["speaker"], text, to="pilot", x=x, session=self.session_id)
         except Exception:
             log.exception("conversation log: could not keep the reply")
+
+    # -- fact lines (pilot_facts.py, fact_lines.py): the thing, not the sentence ---------------------------------
+    FACT_LINE_EVERY_S = 1800.0     # at most one fact line in this long (30 minutes), whoever says it. On top of
+                                   # the store's own rule: one thing is raised once a week at most
+    FACT_LINE_RETRY_S = 300.0      # the store had nothing fit to raise: it is asked again no sooner than this
+
+    def _pilot_facts(self):
+        """The fact store, whose one small file sits beside the conversation tree; None when conversations are not
+        being kept. Call with _facts_lock held. It is given no tree to read: the core hands it each sentence
+        once (note), and a store that also read the tree would count every sentence twice."""
+        d = getattr(self.tree, "dir", None)
+        if d is None:
+            return None
+        import pilot_facts as pf
+        path = Path(d) / pf.STATE_NAME
+        if self._facts is None or self._facts.state_path != path:
+            self._facts = pf.PilotFacts(None, state_path=path, now=self.now)
+        return self._facts
+
+    def _note_fact(self, text: str) -> None:
+        """Count the things one sentence of the pilot's names. The sentence is not kept here. Runs on its own
+        thread and never raises into anything."""
+        try:
+            if not self.fact_banter:
+                return
+            with self._facts_lock:
+                facts = self._pilot_facts()
+                got = facts.note(text) if facts is not None else []
+            for f in got:
+                self.stats["facts_noted"] = self.stats.get("facts_noted", 0) + 1
+                self._note(f"fact kept: {f['relation']} {f['thing']}")
+        except Exception:
+            log.exception("fact lines: could not note what was heard")
+
+    def _fact_hold(self) -> str:
+        """Why no fact line may be offered right now, or "". A fact line has no priority of its own: it is held by
+        everything that holds eyes and chat (a fight, the PC overloaded or hot), by headroom TIGHT or no reading,
+        by "not now", and while the companions are still shaken."""
+        hold = self._picture_hold()
+        if hold:
+            return hold
+        try:
+            if self.headroom() not in hardware_guard.CLEAR:
+                return "headroom"
+        except Exception:
+            return "no headroom reading"
+        if self.not_now.active():
+            return "not now"
+        if self.affect.hushed():
+            return "still shaken"
+        return ""
+
+    def _try_pilot_fact(self, st: dict) -> bool:
+        """Maybe offer one fact line in place of this tick's ambient line. True = one was handed on. False, with
+        nothing changed, when the setting is off, conversations are not kept, one was said too recently,
+        something holds it, the speak gate would not allow an ambient line now, or there is no fact or no
+        wording: the tick then goes on exactly as it does without facts."""
+        if not self.fact_banter or self.tree is None:
+            return False
+        now = self.now()
+        if now - self._fact_line_t < self.FACT_LINE_EVERY_S or now - self._fact_try_t < self.FACT_LINE_RETRY_S:
+            return False
+        if self._fact_hold():
+            return False
+        order = ("elah", "montaigne") if self._fact_turn % 2 == 0 else ("montaigne", "elah")
+        # The gate is asked BEFORE a fact is taken. The store counts a fact as raised the moment it hands it out,
+        # and a week's wait must not be spent on a line the ambient cooldown was going to refuse anyway. The
+        # line is gated again in _consider like every other; this asks early and changes nothing.
+        self.gate_state.muted = bool(getattr(self.speech, "muted", False))
+        ask = Candidate(priority=Priority.AMBIENT, speaker=order[0], text_len_words=12, created_at=now)
+        if self.gate.evaluate(self.gate_state, ask).verdict is not Verdict.ALLOW:
+            return False
+        self._fact_try_t = now
+        try:
+            with self._facts_lock:
+                facts = self._pilot_facts()
+                fact = facts.next_fact(companion=order[0]) if facts is not None else None
+        except Exception:
+            log.exception("fact lines: the store could not be asked")
+            return False
+        if not fact:
+            return False
+        spec = None
+        for who in order:                      # the other one words it if this one has no line that passes
+            spec = factl.spec_for(fact, who, self._fact_variant[who])
+            if spec is not None:
+                self._fact_variant[who] += 1
+                break
+        if spec is None:
+            self.stats["fact_no_line"] = self.stats.get("fact_no_line", 0) + 1
+            self._note(f"fact line: no wording for {fact['relation']} passed its checks; nothing said")
+            return False
+        self._fact_turn += 1
+        self._fact_line_t = now
+        self.stats["fact_lines"] = self.stats.get("fact_lines", 0) + 1
+        self._consider(spec, Priority.AMBIENT, PRIORITY_AMBIENT, f"fact line ({fact['relation']})")
+        return True
 
     # -- direct questions (conversation.py): the pilot asked, so this outranks everything else ---------------------
     def lane_state(self) -> dict:
@@ -1780,6 +1899,29 @@ class CompanionCore:
 
 
 # ---- selftest: the optional April-spec features, each with a feature-OFF control ----------------------------------
+def forget_pilot_facts(core, pilot_dir) -> bool:
+    """"Forget conversations" forgets the things as well: delete the fact store's file for this pilot (their
+    ship, kit, haunts and plans as counted from what they said, and the list of things they asked never to
+    hear about again). Whether or not facts are switched on, and with or without a running core. True if there
+    was a file and it is gone. Never raises."""
+    try:
+        import pilot_facts as pf
+        path = Path(pilot_dir) / "tree" / pf.STATE_NAME
+        lock = getattr(core, "_facts_lock", None) or threading.Lock()
+        gone = False
+        with lock:                              # not in the middle of a count being written
+            for p in (path, path.with_name(path.name + ".tmp")):
+                try:
+                    p.unlink()
+                    gone = True
+                except FileNotFoundError:
+                    pass
+        return gone
+    except Exception:
+        log.exception("fact lines: the kept things could not be deleted")
+        return False
+
+
 def _capture(core) -> list:
     """Replace the gate with a recorder: the specs the core WOULD consider, in order."""
     got: list = []

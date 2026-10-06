@@ -42,7 +42,7 @@ if str(CORE) not in sys.path:
     sys.path.insert(0, str(CORE))
 
 import settings as st                          # noqa: E402
-from companion_core import CompanionCore, find_game_log   # noqa: E402
+from companion_core import CompanionCore, find_game_log, forget_pilot_facts   # noqa: E402
 from activity_mode import os_idle_seconds, DEFAULT_AFK_MINUTES   # noqa: E402
 from speech import Speech, PRIORITY_EVENT      # noqa: E402
 from sidecar import Sidecar, health            # noqa: E402
@@ -86,13 +86,17 @@ NOT_KEPT_NOTICE = "Conversations are not being kept."
 
 
 def forget_conversations(core, pilot_dir) -> int:
-    """Delete the conversation log and its summaries for this pilot, whether or not they are being kept right now.
+    """Delete the conversation log and its summaries for this pilot, whether or not they are being kept right now,
+    and with them the things that were counted from what the pilot said (their ship, kit, haunts and plans).
     Returns how many log lines there were."""
     import tree_memory
     tree = getattr(core, "tree", None) if core is not None else None
     if tree is None:
         tree = tree_memory.open_tree(pilot_dir)
-    return tree.clear()
+    try:
+        return tree.clear()
+    finally:
+        forget_pilot_facts(core, pilot_dir)      # also when the log could not be cleared; it never raises
 
 
 # What the window says while the companions are disabled (J 2026-10-05: "a disable companions checkbox which keeps
@@ -466,7 +470,8 @@ class _SuitBody:
         self._kept_lbl.setWordWrap(True)
         forget = QPushButton("Forget conversations")
         forget.setStyleSheet(_btn_ss())
-        forget.setToolTip("Delete everything kept of your conversations with Elah and Montaigne from this PC")
+        forget.setToolTip("Delete everything kept of your conversations with Elah and Montaigne from this PC, "
+                          "and what they noted from them about your ship, your kit, your haunts and your plans")
         forget.clicked.connect(self._forget_conversations)
         conv.addWidget(self._remember)
         conv.addWidget(self._kept_lbl, 1)
@@ -1213,7 +1218,8 @@ class _SuitBody:
         from PySide6.QtWidgets import QMessageBox
         if QMessageBox.question(
                 self, "Forget conversations",
-                "Delete everything kept of your conversations with Elah and Montaigne from this PC?\n"
+                "Delete everything kept of your conversations with Elah and Montaigne from this PC, and what "
+                "they noted from them about your ship, your kit, your haunts and your plans?\n"
                 "This cannot be undone. (An exported memory file is not touched.)") != QMessageBox.Yes:
             return
         n = forget_conversations(getattr(self, "core", None), self._tree_dir())

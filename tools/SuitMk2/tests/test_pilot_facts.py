@@ -729,10 +729,23 @@ def test_if_the_state_cannot_be_written_nothing_is_handed_out(tmp_path, monkeypa
     assert facts.next_fact() is None
 
 
-def test_nothing_else_in_the_suit_calls_this_module():
+def test_who_in_the_suit_calls_this_module():
+    """Until 2026-10-05 this test said NOTHING in the Suit calls it. J then decided the companions may bring up
+    the thing unasked, behind a setting that is off: the core counts what a sentence names and asks for a fact
+    (companion_core.py), fact_lines.py checks a thing against the name data before wording it, and the window
+    names only the core's forget_pilot_facts, for the "Forget conversations" button. Nothing else, and nothing
+    but the core reaches the store."""
     core = Path(pf.__file__).resolve().parent
-    callers = []
+    callers, store_users = [], []
     for p in list(core.rglob("*.py")) + list((core.parent / "ui").rglob("*.py")):
-        if p.name != "pilot_facts.py" and "pilot_facts" in p.read_text(encoding="utf-8", errors="replace"):
+        src = p.read_text(encoding="utf-8", errors="replace")
+        if p.name != "pilot_facts.py" and "pilot_facts" in src:
             callers.append(p.name)
-    assert callers == []
+        if p.name != "pilot_facts.py" and ("PilotFacts(" in src or "open_facts(" in src or ".next_fact(" in src):
+            store_users.append(p.name)
+    assert sorted(callers) == ["companion_core.py", "fact_lines.py", "suit_window.py"]
+    assert store_users == ["companion_core.py"]
+    win = (core.parent / "ui" / "suit_window.py").read_text(encoding="utf-8")
+    assert win.count("pilot_facts") == 2 and win.count("forget_pilot_facts") == 2     # its import and its one call
+    import settings
+    assert settings.DEFAULTS["fact_banter"] is False

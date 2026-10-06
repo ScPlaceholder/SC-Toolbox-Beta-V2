@@ -1,0 +1,240 @@
+{
+ "_about": "What Elah and Montaigne may say, unasked, about a THING the pilot has: the ship they fly, their kit, a place they go, something they want or plan, something they like or dislike, the work they do. Edit the wording freely: every line here is said word for word, and a change is picked up the next time a line is chosen (no restart). Keep it valid JSON. {thing} is replaced by the name as the game data spells it (Cutlass Black, Grim HEX, mining); each line must have it exactly once. Under each relation the lines are grouped by what kind of thing it is, because the grammar differs: a ship, gun, armor or item takes 'the', a place, commodity, faction or maker does not, an activity is a plain lower-case word (it is given a capital when it opens the line). A group's key is the kinds it serves, separated by spaces. Add or remove lines as you like, but leave at least two in a group so the same one is not said twice running. If this file cannot be read, no such line is said at all.",
+ "_note": "PROPOSALS, 2026-10-05. Every line in this file was written as a proposal for J to edit. J has NOT approved them yet. Change this note when he has. The feature is off until he has heard it (settings: fact_banter).",
+ "_rules": "What a line here must keep to, whoever writes it. It is a small, light remark or question about the thing. It says nothing the fact does not support: a 'wants' or 'plans' line never talks as if the pilot has the thing, a 'goes_to' line never says why they go there, a 'dislikes' line never makes fun of the pilot. It never says or hints 'you told me', 'I remember you said', and never quotes. It never says that something is missing or has not happened. It is never a show of how much the companion remembers, and never a favour the pilot would owe for. Elah: one short sentence, no exclamation mark, no feeling of her own named. Montaigne: at most two sentences. Code checks every filled line against the chat gate and the attachment gate before it is said, and a line that fails is not said.",
+ "lines": {
+  "elah": {
+   "flies": {
+    "ship": [
+     "Still in the {thing}?",
+     "The {thing} again today?",
+     "How is the {thing} flying?",
+     "The {thing} suits you.",
+     "Taking the {thing} out?"
+    ]
+   },
+   "owns": {
+    "ship": [
+     "How is the {thing} holding up?",
+     "Is the {thing} getting much use?",
+     "Is the {thing} earning its hangar space?",
+     "What is the {thing} for, these days?"
+    ],
+    "gun armor item": [
+     "How is the {thing} holding up?",
+     "Is the {thing} getting much use?",
+     "Is the {thing} earning its place?",
+     "Still happy with the {thing}?"
+    ]
+   },
+   "uses": {
+    "gun armor item": [
+     "The {thing} again?",
+     "Still the {thing}?",
+     "How is the {thing} treating you?",
+     "You and the {thing}, then."
+    ]
+   },
+   "wants": {
+    "ship": [
+     "The {thing}, one day.",
+     "Still eyeing the {thing}?",
+     "Any closer to the {thing}?",
+     "What would you do first with the {thing}?"
+    ],
+    "gun armor item": [
+     "The {thing}, one day.",
+     "Still eyeing the {thing}?",
+     "Any closer to the {thing}?",
+     "Is the {thing} still on the list?"
+    ]
+   },
+   "plans": {
+    "ship gun armor item": [
+     "Is the {thing} still the plan?",
+     "How is the {thing} plan coming along?",
+     "The {thing} still next?",
+     "Any movement on the {thing}?"
+    ],
+    "activity": [
+     "Still planning on {thing}?",
+     "Still thinking about {thing}?",
+     "{thing} soon, then?",
+     "Any closer to {thing}?"
+    ]
+   },
+   "likes": {
+    "ship gun armor item": [
+     "You do like the {thing}.",
+     "Still fond of the {thing}?",
+     "What is it about the {thing}?",
+     "You and the {thing}, then."
+    ],
+    "place commodity faction maker": [
+     "You do like {thing}.",
+     "Still fond of {thing}?",
+     "What is it about {thing}?",
+     "You and {thing}, then."
+    ],
+    "activity": [
+     "You do like {thing}.",
+     "Still enjoying {thing}?",
+     "What is it about {thing}?",
+     "You and {thing}, then."
+    ]
+   },
+   "dislikes": {
+    "ship gun armor item": [
+     "Not a {thing} sort, are you.",
+     "The {thing} still not winning you over?",
+     "What would fix the {thing}, for you?",
+     "The {thing} is not for everyone."
+    ],
+    "place commodity faction maker": [
+     "Not a {thing} sort, are you.",
+     "{thing} still not winning you over?",
+     "What would fix {thing}, for you?",
+     "Not everyone takes to {thing}."
+    ],
+    "activity": [
+     "Not one for {thing}, are you.",
+     "{thing} still not winning you over?",
+     "What would fix {thing}, for you?",
+     "Not everyone takes to {thing}."
+    ]
+   },
+   "goes_to": {
+    "place": [
+     "{thing} again soon?",
+     "Back to {thing} later?",
+     "How is {thing} these days?",
+     "Is {thing} on the list today?"
+    ]
+   },
+   "does": {
+    "activity": [
+     "More {thing} today?",
+     "Any good {thing} lately?",
+     "Still keeping up the {thing}?",
+     "{thing} later?"
+    ]
+   }
+  },
+  "montaigne": {
+   "flies": {
+    "ship": [
+     "Still the {thing}, pilot? A ship one keeps flying says something for it.",
+     "How does the {thing} sit with you these days?",
+     "The {thing} again, I take it. A familiar ship is half the journey.",
+     "Tell me, pilot, what keeps you in the {thing}?"
+    ]
+   },
+   "owns": {
+    "ship": [
+     "How fares the {thing}, pilot?",
+     "Does the {thing} see much use?",
+     "I wonder what the {thing} is for, in your scheme of things.",
+     "The {thing} is yours to do with as you like. What is it to be?"
+    ],
+    "gun armor item": [
+     "How fares the {thing}, pilot?",
+     "Does the {thing} see much use?",
+     "I wonder what the {thing} is for, in your scheme of things.",
+     "Is the {thing} all you hoped of it?"
+    ]
+   },
+   "uses": {
+    "gun armor item": [
+     "The {thing} again, I take it. One trusts what one knows.",
+     "How does the {thing} serve you, pilot?",
+     "Still the {thing}? Habit is a second nature, they say.",
+     "Tell me, what is it you find in the {thing}?"
+    ]
+   },
+   "wants": {
+    "ship gun armor item": [
+     "Is the {thing} still in your thoughts, pilot?",
+     "The {thing}, one day. Wanting is half the pleasure, I have found.",
+     "What would you do with the {thing}, I wonder, on the day it came?",
+     "Are you any nearer the {thing}?"
+    ]
+   },
+   "plans": {
+    "ship gun armor item": [
+     "Is the {thing} still the plan, pilot?",
+     "How goes the road to the {thing}?",
+     "The {thing} is still ahead of you, I take it. A plan is a pleasant thing to carry.",
+     "Tell me how the {thing} is coming along."
+    ],
+    "activity": [
+     "Are you still planning on {thing}, pilot?",
+     "Do you still mean to try {thing}? I should like to hear how it goes.",
+     "How near is {thing}, do you think?",
+     "Is there {thing} ahead of you still, pilot?"
+    ]
+   },
+   "likes": {
+    "ship gun armor item": [
+     "You are fond of the {thing}, I think. What is it that pleases you in it?",
+     "What is it about the {thing}, pilot?",
+     "The {thing} seems to agree with you.",
+     "Are you still fond of the {thing}?"
+    ],
+    "place": [
+     "You are fond of {thing}, I think. What is it that pleases you there?",
+     "What is it about {thing}, pilot?",
+     "{thing} seems to agree with you.",
+     "Tell me about {thing}. I know such places by report and nothing else."
+    ],
+    "commodity faction maker": [
+     "You are fond of {thing}, I think. What is the appeal?",
+     "What is it about {thing}, pilot?",
+     "You and {thing} seem to get along.",
+     "Are you still fond of {thing}?"
+    ],
+    "activity": [
+     "You are fond of {thing}, I think. What is the appeal?",
+     "What is it about {thing}, pilot?",
+     "You and {thing} seem to get along.",
+     "Are you still enjoying {thing}?"
+    ]
+   },
+   "dislikes": {
+    "ship gun armor item": [
+     "The {thing} is not to your taste, I gather. What would mend it?",
+     "You have little love for the {thing}, I think. Tastes are not to be argued with.",
+     "What is it in the {thing} that sits ill with you, pilot?",
+     "Is the {thing} still out of favour?"
+    ],
+    "place commodity faction maker": [
+     "You do not care for {thing}, I gather. What would mend it?",
+     "You have little love for {thing}, I think. Tastes are not to be argued with.",
+     "What is it in {thing} that sits ill with you, pilot?",
+     "Has your mind changed at all about {thing}?"
+    ],
+    "activity": [
+     "You do not care for {thing}, I gather. What would mend it?",
+     "You have little love for {thing}, I think. Tastes are not to be argued with.",
+     "What is it in {thing} that sits ill with you, pilot?",
+     "Has your mind changed at all about {thing}?"
+    ]
+   },
+   "goes_to": {
+    "place": [
+     "{thing} again before long, pilot?",
+     "How do you find {thing} these days?",
+     "Tell me about {thing}. I know such places by report and nothing else.",
+     "Is {thing} on your road today?"
+    ]
+   },
+   "does": {
+    "activity": [
+     "More {thing} today, pilot?",
+     "Any good {thing} of late?",
+     "Tell me about {thing}. I know such work by report and nothing else.",
+     "Do you mean to keep at the {thing}?"
+    ]
+   }
+  }
+ }
+}
