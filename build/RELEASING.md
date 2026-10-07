@@ -134,3 +134,14 @@ Each of these cost a full run. Check them before the next release.
   Mining Signals keeps its settings between updates (`mining_shared/paths.py`). On the test PC this
   removed the user's settings. Copy that folder somewhere before any install test on a PC with a
   broken or removed install.
+- **Test the upgrade, not only the fresh install.** Install an older release first (an old
+  `SC_Toolbox_Setup_<ver>.exe` from `build/Releases` will do), then run the new installer over it.
+  That is what every existing user does, and on 3.0.0 it failed every time until it was tried: the
+  installer measured the install folder for its progress bar while Setup.exe was trying to rename
+  that folder aside. Put a marked `mining_signals\config.json` in the old install and check it is
+  unchanged afterwards. Setup.exe and the uninstaller both clear `mining_signals\`; the installer
+  copies it to `SC_Toolbox_userdata_backup` beside the install folder and puts it back.
+- **When an install fails, read the Setup log.** The installer passes `--log` and writes
+  `%TEMP%\SC_Toolbox_setup_<ver>.log`; the failure screen shows its last error line and the path.
+- **A failed upgrade can leave `SC_Toolbox_<random letters>` folders in `%LOCALAPPDATA%`.** They are
+  Setup.exe's rollback copies of the previous install, each the size of a full install.
