@@ -87,6 +87,32 @@ def test_the_players_voices_folder_is_beside_the_settings_file(settings_dir):
     assert not st.player_voices_dir().exists()                 # asking where it is does not create it
 
 
+# ── the Assistant, when it speaks as a companion ────────────────────────────────────────────────────────────────
+
+def test_the_assistant_looks_for_the_choice_where_the_suit_keeps_it():
+    """shared/character_voice.py cannot import this tool's settings, so it repeats the path and the key."""
+    from shared import character_voice as cv
+    assert cv.SUIT_SETTINGS == st.PATH
+    assert tuple(cv.CUSTOM_KEY.format(speaker=who) for who in ("elah", "montaigne")) == KEYS
+    assert all(k in st.DEFAULTS for k in KEYS)
+
+
+def test_a_choice_the_suit_saves_is_the_one_the_assistant_reads(settings_dir, tmp_path, monkeypatch):
+    from shared import character_voice as cv
+    monkeypatch.setattr(cv, "SUIT_SETTINGS", st.PATH)          # the test's own settings file, as for the Suit
+    voice = str(sp.write_fake_voice(tmp_path / "mine", "deep"))
+    assert cv.custom_voice_file("montaigne") == ""
+    s = st.load()
+    s["voice_file_montaigne"] = voice
+    st.save(s)
+    assert cv.custom_voice_file("montaigne") == voice and cv.custom_voice_file("elah") == ""
+    # the two checks agree on what the Suit window would report as unusable
+    for bad in (str(tmp_path / "mine" / "gone.onnx"), str(sp.write_fake_voice(tmp_path / "mine", "bare", meta=None))):
+        s["voice_file_montaigne"] = bad
+        st.save(s)
+        assert sp.check_voice_file(bad)[0] is False and cv.custom_voice_file("montaigne") == ""
+
+
 # ── the window ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 class _Voices:

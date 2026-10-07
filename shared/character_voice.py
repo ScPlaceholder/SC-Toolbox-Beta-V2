@@ -9,15 +9,22 @@ allow players to pick." So the choice is one shared setting (``tool_voice`` in
 
 The voice is read on EVERY line, so changing it in the launcher's Settings applies without restarting a tool.
 
-Voices, in order: SuitMk2's trained elah.onnx / montaigne.onnx (they ship in tools/SuitMk2/voices), else the
+Voices, in order: the voice file the player chose for that companion in the Suit Mk2 window, if there is one
+and it loads; SuitMk2's trained elah.onnx / montaigne.onnx (they ship in tools/SuitMk2/voices); else the
 stock Piper voices they were fine-tuned from (fetched once into ~/.cache/piper, as SuitMk2 does), else the
 Windows voice. A failure never silences a tool: any error on the Piper path falls through to Windows speech.
+The player's file is looked up on every line too, so a new choice in the Suit Mk2 window applies here without a
+restart. The Suit Mk2 window is where a file that cannot be used is reported; here it is logged and passed over.
+
+The Windows voice is the one Windows uses by default unless a mouth is given another (CharacterMouth.windows_voice,
+the name of an installed voice; the Assistant's Settings lists them with installed_windows_voices()).
 It lives in shared/ on purpose - the Starmap and Assistant must not import from another tool's folder
 (that is how the DPS Calculator lost its scunpacked adapter in 2.4.0).
 """
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import subprocess
@@ -48,6 +55,12 @@ DELIVERY = {"elah": {"length_scale": 0.95, "noise_scale": 0.6, "noise_w_scale": 
 _ROOT = Path(__file__).resolve().parent.parent
 VOICES_DIR = _ROOT / "tools" / "SuitMk2" / "voices"
 _SAPI_RATE, _SAPI_VOLUME, _SAPI_TIMEOUT = 2, 90, 30
+
+# Where SuitMk2 keeps the player's choice of a voice file of their own, one key per companion (its voice picker).
+# Read here, never written. This module does not import from a tool's folder (see above), so the path and the key
+# are repeated from tools/SuitMk2/core/settings.py; tools/SuitMk2/tests/test_custom_voice.py holds them equal.
+SUIT_SETTINGS = Path.home() / ".sctoolbox" / "suitmk2" / "settings.json"
+CUSTOM_KEY = "voice_file_{speaker}"
 
 
 # -- who they are ------------------------------------------------------------------------------------------------
@@ -145,18 +158,51 @@ def _stock_path(speaker: str, cache: Path) -> Path:
     return onnx
 
 
+def custom_voice_file(speaker: str) -> str:
+    """The voice file the player chose for this companion in the Suit Mk2 window, or "" for the built-in voice.
+    "" too when nothing is chosen, when there is no settings file, and when the file or the .onnx.json beside
+    it is not there: the short form of SuitMk2's speech.check_voice_file, which is what tells the player."""
+    try:
+        chosen = json.loads(SUIT_SETTINGS.read_text(encoding="utf-8")).get(CUSTOM_KEY.format(speaker=speaker))
+    except (OSError, ValueError, AttributeError):       # no file, not JSON, not a JSON object: nothing is chosen
+        return ""
+    if not isinstance(chosen, str) or not chosen.strip():
+        return ""
+    path = Path(chosen.strip())
+    if path.is_file() and Path(str(path) + ".json").is_file():
+        return str(path)
+    log.debug("character_voice: %s's chosen voice %s cannot be used; the built-in voice speaks", speaker, path)
+    return ""
+
+
+def _load_piper(path):
+    from piper import PiperVoice  # type: ignore
+    return PiperVoice.load(str(path))
+
+
 def _piper_voice(speaker: str):
+    custom = custom_voice_file(speaker)
     with _voices_lock:
-        if speaker not in _voices:
-            from piper import PiperVoice  # type: ignore
-            trained = VOICES_DIR / f"{speaker}.onnx"
-            if trained.exists() and trained.with_suffix(".onnx.json").exists():
-                path = trained
-            else:
-                path = _stock_path(speaker, Path.home() / ".cache" / "piper")
-            _voices[speaker] = PiperVoice.load(str(path))
-            log.info("character_voice: %s = %s", speaker, path.name)
-        return _voices[speaker]
+        held = _voices.get(speaker)
+        if held is None or held[0] != custom:           # nothing loaded yet, or the player's choice has changed
+            voice = None
+            if custom:
+                try:
+                    voice = _load_piper(custom)
+                    log.info("character_voice: %s = %s (the player's own)", speaker, Path(custom).name)
+                except Exception:
+                    log.exception("character_voice: %s could not be loaded; %s keeps the built-in voice",
+                                  custom, speaker)
+            if voice is None:
+                trained = VOICES_DIR / f"{speaker}.onnx"
+                if trained.exists() and trained.with_suffix(".onnx.json").exists():
+                    path = trained
+                else:
+                    path = _stock_path(speaker, Path.home() / ".cache" / "piper")
+                voice = _load_piper(path)
+                log.info("character_voice: %s = %s", speaker, path.name)
+            held = _voices[speaker] = (custom, voice)   # kept with the choice it answers, so a failed file is
+        return held[1]                                  # tried once and not again on every line
 
 
 def synthesize(text: str, speaker: str):
@@ -184,12 +230,69 @@ def _ps_quote(text: str) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
+# -- the Windows voice -------------------------------------------------------------------------------------------
+_LIST_VOICES = ("Add-Type -AssemblyName System.Speech; "
+                "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                "$s.GetInstalledVoices() | Where-Object { $_.Enabled } | ForEach-Object { $_.VoiceInfo.Name }; "
+                "$s.Dispose()")
+
+
+def clean_voice_name(name) -> str:
+    """The name of a Windows voice as it may be put in the speech command: one line of printable text, or ""."""
+    name = str(name or "").strip()
+    return name if name and len(name) <= 200 and all(ch.isprintable() for ch in name) else ""
+
+
+def _powershell(cmd: str, timeout: float) -> str:
+    done = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+                          capture_output=True, text=True, errors="replace", timeout=timeout,
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return done.stdout
+
+
+def installed_windows_voices(run=None, timeout: float = 15.0) -> list:
+    """The names of the Windows voices installed on this PC, in the order Windows gives them. [] when they
+    cannot be listed, which is logged. Nothing is spoken. run(command) -> the text it printed stands in for
+    PowerShell in the tests."""
+    if run is None:
+        if sys.platform != "win32":
+            return []
+
+        def run(cmd):
+            return _powershell(cmd, timeout)
+    try:
+        printed = run(_LIST_VOICES)
+    except Exception:
+        log.exception("character_voice: the Windows voices could not be listed")
+        return []
+    names = []
+    for row in str(printed or "").splitlines():
+        name = clean_voice_name(row)
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def sapi_command(text: str, voice: str = "") -> str:
+    """The PowerShell that speaks one line with the Windows voice. voice: the name of an installed Windows voice,
+    or "" for the one Windows uses by default. A name Windows does not have is not an error: the line is spoken
+    with the default voice."""
+    voice = clean_voice_name(voice)
+    pick = f"try {{ $s.SelectVoice({_ps_quote(voice)}) }} catch {{ }}; " if voice else ""
+    return ("Add-Type -AssemblyName System.Speech; "
+            "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            + pick +
+            f"$s.Rate = {_SAPI_RATE}; $s.Volume = {_SAPI_VOLUME}; "
+            f"$s.Speak({_ps_quote(text)}); $s.Dispose()")
+
+
 # -- the speak queue ---------------------------------------------------------------------------------------------
 class CharacterMouth:
     """Drop-in for the Starmap / Assistant SAPI Mouth: one queue, lines never overlap."""
 
     def __init__(self, volume: float = 0.9) -> None:
         self.volume = volume
+        self.windows_voice = ""                     # which Windows voice; "" = the one Windows uses by default
         self._q: "Queue[Optional[str]]" = Queue()
         self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
@@ -251,10 +354,7 @@ class CharacterMouth:
     def _sapi(self, text: str) -> None:
         if sys.platform != "win32":
             return
-        cmd = ("Add-Type -AssemblyName System.Speech; "
-               "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-               f"$s.Rate = {_SAPI_RATE}; $s.Volume = {_SAPI_VOLUME}; "
-               f"$s.Speak({_ps_quote(text)}); $s.Dispose()")
+        cmd = sapi_command(text, self.windows_voice)
         try:
             with self._lock:
                 self._proc = subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
