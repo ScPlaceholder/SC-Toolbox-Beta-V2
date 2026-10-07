@@ -79,6 +79,12 @@ def hook(event, args):
     elif event in ("os.startfile", "os.system"):
         OUT["refused"].append(event)
         raise PermissionError("staging check: refused")
+# The first call to platform.system() makes Python ask Windows for its version (the sounddevice package
+# calls it when it is imported). Python asks WMI first and, when that query fails or times out, runs the
+# "ver" command instead. Ask once here, before the hook below is installed: the answer is kept for the
+# rest of the run, so Python's own lookup is never counted as the tool starting another program.
+import platform
+platform.uname()
 sys.addaudithook(hook)
 
 # Nothing reaches the desktop: no key or click is sent, no global listener is installed, no microphone or
