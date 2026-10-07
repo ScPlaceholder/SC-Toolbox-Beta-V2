@@ -53,8 +53,9 @@ QUESTIONS ABOUT THE PLACE (Elah has knowledge of the Galactapedia and Montaigne 
 his brochures and dev history to call on). "where are we", "what is this place", "what's that", "what does
 that big tower do" and "wow look at that" are all questions about where the pilot is standing (topics `location`
 and `place_about`). Their answer carries, besides the place's name and body, ONE retrieved fact as a KNOWN claim:
-lore for Elah, brochure copy or a dev-history fact for Montaigne (place_knowledge.py; ask again and the next fact
-comes). The Suit cannot see the screen on this path, so "that tower" points at nothing it can identify: the spec
+lore or a sentence of the place's Galactapedia article for Elah (the article sentences are a local file,
+data/galactapedia_pack.json; nothing is fetched), brochure copy or a dev-history fact for Montaigne
+(place_knowledge.py; ask again and the next fact comes). The Suit cannot see the screen on this path, so "that tower" points at nothing it can identify: the spec
 says so (pilot.referent = unknown), the stance tells the character to say so, and the gate refuses a line that
 says anything else about the tower. A sentence that points at something also marks the spec for ONE look at the
 screen (place.look): CompanionCore._look_for asks the eyes and, when they report something fit to say,
@@ -572,7 +573,8 @@ def place_spec(route_result: Route, state: dict, variant: int = 0, fact: Optiona
         location.name / location.body / location.type   OBSERVED, when the log has named the place
         location.log_label                              OBSERVED, when the name is only the log's code
         location.departed_from                          OBSERVED, after leaving: the place is then NOT where we are
-        topic.name / topic.fact                         KNOWN: the retrieved fact (lore, brochure or dev history)
+        topic.name / topic.fact                         KNOWN: the retrieved fact (lore, a Galactapedia sentence,
+                                                        brochure or dev history)
         pilot.asked_about / pilot.referent              what the pilot pointed at; the referent is always UNKNOWN
     A fact is only ever attached to a place the pilot is AT. Never to one they have left, or to no place at all."""
     addressee, intent, slots = route_result

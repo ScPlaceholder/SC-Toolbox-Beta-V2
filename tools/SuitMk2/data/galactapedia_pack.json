@@ -1,0 +1,595 @@
+{
+ "version": 1,
+ "compiled": "2026-10-07",
+ "about": "Sentences from the Star Citizen Galactapedia for the places and companies in topics_lore.json, keyed by topics_lore node id. Built by tools/build_galactapedia_pack.py; do not edit by hand. text is what a companion says, excerpt is the article's own sentence, source is the article.",
+ "credit": "The Galactapedia is the work of Cloud Imperium Games and its text is theirs. SC Toolbox is an unofficial fan project, not affiliated with the Cloud Imperium group of companies. Each excerpt is a sentence of the article named beside it, with a link to the full article on robertsspaceindustries.com.",
+ "fetched_from": "https://api.star-citizen.wiki/api/v2/galactapedia/<article id>",
+ "entries": {
+  "stanton": [
+   {
+    "text": "The Stanton system is a planetary system in the United Empire of Earth, discovered in SEY 2851 by navjumper Toshi Aaron.",
+    "excerpt": "The Stanton system is a planetary system in the United Empire of Earth (UEE), discovered in SEY 2851 by navjumper Toshi Aaron.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX3lKBA3dq-stanton-system",
+    "article": "Stanton System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Stanton",
+     "United Empire of Earth",
+     "SEY",
+     "Toshi Aaron"
+    ]
+   },
+   {
+    "text": "In essence, the Stanton system is an enormous business park.",
+    "excerpt": "In essence, the Stanton system is an enormous business park.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX3lKBA3dq-stanton-system",
+    "article": "Stanton System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Stanton"
+    ]
+   },
+   {
+    "text": "Nearly everyone in Stanton works for one of the four corporations, or for companies that lease land or office space from them.",
+    "excerpt": "Nearly everyone in Stanton works for one of the four corporations, or for companies that lease land or office space from them.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX3lKBA3dq-stanton-system",
+    "article": "Stanton System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Stanton"
+    ]
+   }
+  ],
+  "crusader": [
+   {
+    "text": "Rare among gas giants, Crusader's upper atmosphere is breathable by Humans and supports an active indigenous biosphere.",
+    "excerpt": "Rare among gas giants, Crusader's upper atmosphere is breathable by Humans and supports an active indigenous biosphere.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VarZxj1Qav-crusader-stanton-ii",
+    "article": "Crusader (Stanton II)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Crusader",
+     "Humans"
+    ]
+   }
+  ],
+  "orison": [
+   {
+    "text": "The Cloudview platforms contain residences, shops, places to eat and drink, a Crusader Industries Showroom, Orison General Hospital, the Crusader Visitor's Center, and other amenities.",
+    "excerpt": "The Cloudview platforms contain residences, shops, places to eat and drink, a Crusader Industries Showroom, Orison General Hospital, the Crusader Visitor's Center, and other amenities.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/V7dgN8Pkrm-orison",
+    "article": "Orison",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Cloudview",
+     "Crusader Industries Showroom",
+     "Orison General Hospital",
+     "Crusader Visitor's Center"
+    ]
+   },
+   {
+    "text": "Orison enjoys a steady stream of tourists to the Stanton system, drawn to Crusader for its scenic aspects and unique ecosystem.",
+    "excerpt": "Orison enjoys a steady stream of tourists to the Stanton system, drawn to Crusader for its scenic aspects and unique ecosystem.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/V7dgN8Pkrm-orison",
+    "article": "Orison",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Orison",
+     "Stanton",
+     "Crusader"
+    ]
+   }
+  ],
+  "stormwal": [
+   {
+    "text": "The stormwal is a warm-blooded vertebrate indigenous to Crusader, United Empire of Earth.",
+    "excerpt": "The stormwal is a warm-blooded vertebrate indigenous to Crusader (Stanton II), United Empire of Earth (UEE).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX34BjN2NK-stormwal",
+    "article": "Stormwal",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Crusader",
+     "United Empire of Earth"
+    ]
+   },
+   {
+    "text": "The stormwal is the largest known animal with the ability to fly.",
+    "excerpt": "The stormwal is the largest known animal with the ability to fly.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX34BjN2NK-stormwal",
+    "article": "Stormwal",
+    "retrieved": "2026-10-07",
+    "names": []
+   },
+   {
+    "text": "Electricity is vital to a stormwal's life cycle.",
+    "excerpt": "Electricity is vital to a stormwal's life cycle.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX34BjN2NK-stormwal",
+    "article": "Stormwal",
+    "retrieved": "2026-10-07",
+    "names": []
+   }
+  ],
+  "crusader_industries": [
+   {
+    "text": "Crusader Industries is a spacecraft and spacecraft component manufacturer located in the United Empire of Earth.",
+    "excerpt": "Crusader Industries is a spacecraft and spacecraft component manufacturer located in the United Empire of Earth (UEE).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0OaBkLLG1N-crusader-industries",
+    "article": "Crusader Industries",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Crusader Industries",
+     "United Empire of Earth"
+    ]
+   }
+  ],
+  "cellin": [
+   {
+    "text": "Cellin is a volcanically active moon thronged with geysers that orbits Crusader, and is the planet's closest natural satellite.",
+    "excerpt": "Cellin is a volcanically active moon thronged with geysers that orbits Crusader (Stanton II), and is the planet's closest natural satellite.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/Rw1Z9yz1jJ-cellin-stanton-2a",
+    "article": "Cellin (Stanton 2a)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Cellin",
+     "Crusader"
+    ]
+   },
+   {
+    "text": "In spite of the toxic air, many residences and outposts have been established on Cellin since Phillip Xu constructed the first permanent homestead in 2906.",
+    "excerpt": "In spite of the toxic air, many residences and outposts have been established on Cellin since Phillip Xu constructed the first permanent homestead in 2906.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/Rw1Z9yz1jJ-cellin-stanton-2a",
+    "article": "Cellin (Stanton 2a)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Cellin",
+     "Phillip Xu"
+    ]
+   }
+  ],
+  "daymar": [
+   {
+    "text": "In 2862, the Javelin-class destroyer UEES Flyssa crashed on Daymar after an illegal mining spacecraft it was pursuing unexpectedly exploded.",
+    "excerpt": "In 2862, the Javelin-class destroyer UEES Flyssa crashed on Daymar after an illegal mining spacecraft it was pursuing unexpectedly exploded.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VpMGDvX48N-daymar-stanton-2b",
+    "article": "Daymar (Stanton 2b)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Javelin-class",
+     "UEES Flyssa",
+     "Daymar"
+    ]
+   }
+  ],
+  "yela": [
+   {
+    "text": "There are no bodies of liquid water on Yela's surface, nor is there any rainfall, but snow showers, fog, and windstorms can arise when the weather conditions are correct.",
+    "excerpt": "There are no bodies of liquid water on Yela's surface, nor is there any rainfall, but snow showers, fog, and windstorms can arise when the weather conditions are correct.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bo1xJPgMNL-yela-stanton-2c",
+    "article": "Yela (Stanton 2c)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Yela"
+    ]
+   },
+   {
+    "text": "Discovered by navjumper Toshi Aaron alongside the rest of the Stanton system in 2851, Yela was briefly the sole property of the United Empire of Earth.",
+    "excerpt": "Discovered by navjumper Toshi Aaron alongside the rest of the Stanton system in 2851, Yela was briefly the sole property of the United Empire of Earth (UEE).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bo1xJPgMNL-yela-stanton-2c",
+    "article": "Yela (Stanton 2c)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Toshi Aaron",
+     "Stanton",
+     "Yela",
+     "United Empire of Earth"
+    ]
+   },
+   {
+    "text": "In spite of the inhospitable environment, some Humans have made Yela their home.",
+    "excerpt": "In spite of the inhospitable environment, some Humans have made Yela their home.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bo1xJPgMNL-yela-stanton-2c",
+    "article": "Yela (Stanton 2c)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Humans",
+     "Yela"
+    ]
+   }
+  ],
+  "grim_hex": [
+   {
+    "text": "The first recorded usage of the nickname Grim HEX was from a police interrogation of a local criminal in 2938.",
+    "excerpt": "The first recorded usage of the nickname Grim HEX was from a police interrogation of a local criminal in 2938.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0jGGDvYm93-green-imperial-housing-exchange-grim-hex",
+    "article": "Green Imperial Housing Exchange (Grim HEX)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Grim HEX"
+    ]
+   }
+  ],
+  "nine_tails": [
+   {
+    "text": "Nine Tails is a criminal organization based in the Stanton system.",
+    "excerpt": "Nine Tails is a criminal organization based in the Stanton system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0Gxpleqwqo-nine-tails",
+    "article": "Nine Tails",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Nine Tails",
+     "Stanton"
+    ]
+   },
+   {
+    "text": "Authorities hoped that internal divisions might have destroyed the gang from the inside out, but in 2943, Nine Tails abruptly reappeared and took over Grim HEX in the Stanton system.",
+    "excerpt": "Authorities hoped that internal divisions might have destroyed the gang from the inside out, but in 2943, Nine Tails abruptly reappeared and took over Grim HEX in the Stanton system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0Gxpleqwqo-nine-tails",
+    "article": "Nine Tails",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Nine Tails",
+     "Grim HEX",
+     "Stanton"
+    ]
+   }
+  ],
+  "hurston": [
+   {
+    "text": "Hurston is a hot, arid planet that orbits closest to the sun in the Stanton system.",
+    "excerpt": "Hurston is a hot, arid planet that orbits closest to the sun in the Stanton system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0Qlx4dQnxL-hurston-stanton-i",
+    "article": "Hurston (Stanton I)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Hurston",
+     "Stanton"
+    ]
+   }
+  ],
+  "lorville": [
+   {
+    "text": "Lorville is a city on Hurston, home to the headquarters of Hurston Dynamics, the Central Headquarters and Shared Services Center.",
+    "excerpt": "Lorville is a city on Hurston (Stanton I), home to the headquarters of Hurston Dynamics, the Central Headquarters and Shared Services Center (or Central Tower).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/Rw1ZlJNE36-lorville",
+    "article": "Lorville",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Lorville",
+     "Hurston",
+     "Hurston Dynamics",
+     "Central Headquarters",
+     "Shared Services Center"
+    ]
+   },
+   {
+    "text": "The air quality of Lorville is generally poor due to decades of unrestricted pollution.",
+    "excerpt": "The air quality of Lorville is generally poor due to decades of unrestricted pollution.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/Rw1ZlJNE36-lorville",
+    "article": "Lorville",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Lorville"
+    ]
+   }
+  ],
+  "hurston_dynamics": [
+   {
+    "text": "Hurston Dynamics is a Human weapons manufacturer and materials processor based on Hurston.",
+    "excerpt": "Hurston Dynamics is a Human weapons manufacturer and materials processor based on Hurston (Stanton I).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RxNxAZpWlQ-hurston-dynamics",
+    "article": "Hurston Dynamics",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Hurston Dynamics",
+     "Human",
+     "Hurston"
+    ]
+   }
+  ],
+  "arial": [
+   {
+    "text": "Colonies of the invasive slime-mold prota have been found on Arial's surface.",
+    "excerpt": "Colonies of the invasive slime-mold prota have been found on Arial's surface.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VlMNJMYzy4-arial-stanton-1a",
+    "article": "Arial (Stanton 1a)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Arial"
+    ]
+   }
+  ],
+  "magda": [
+   {
+    "text": "Enormous areas of blue-green dirt on Magda's surface are said to resemble oceans when the moon is viewed from orbit.",
+    "excerpt": "Enormous areas of blue-green dirt on Magda's surface are said to resemble oceans when the moon is viewed from orbit.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0qanJYxAG7-magda-stanton-1c",
+    "article": "Magda (Stanton 1c)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Magda"
+    ]
+   }
+  ],
+  "microtech": [
+   {
+    "text": "microTech is the fourth and farthest planet from the sun in the Stanton system, United Empire of Earth.",
+    "excerpt": "microTech (Stanton IV) is the fourth and farthest planet from the sun in the Stanton system, United Empire of Earth (UEE).",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VYL46xl5Z1-microtech-stanton-iv",
+    "article": "microTech (Stanton IV)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "microTech",
+     "Stanton",
+     "United Empire of Earth"
+    ]
+   },
+   {
+    "text": "Located at the outer edge of the system's habitable zone, microTech is mostly ice, with some cold-to-temperate areas of tundra.",
+    "excerpt": "Located at the outer edge of the system's habitable zone, microTech is mostly ice, with some cold-to-temperate areas of tundra.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VYL46xl5Z1-microtech-stanton-iv",
+    "article": "microTech (Stanton IV)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "microTech"
+    ]
+   },
+   {
+    "text": "Most of microTech is covered in mountains and ice sheets and subject to strong blizzards and ice storms.",
+    "excerpt": "Most of microTech is covered in mountains and ice sheets and subject to strong blizzards and ice storms.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/VYL46xl5Z1-microtech-stanton-iv",
+    "article": "microTech (Stanton IV)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "microTech"
+    ]
+   }
+  ],
+  "microtech_corp": [
+   {
+    "text": "microTech is a manufacturer of a variety of electronics, digital displays, software, and computers, including the mobiGlas wearable computer.",
+    "excerpt": "microTech is a manufacturer of a variety of electronics, digital displays, software, and computers, including the mobiGlas wearable computer.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bE3rBB4j7J-microtech",
+    "article": "microTech (Company)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "microTech",
+     "mobiGlas"
+    ]
+   }
+  ],
+  "calliope": [
+   {
+    "text": "Shubin Interstellar operates a number of processing facilities on Calliope.",
+    "excerpt": "Shubin Interstellar operates a number of processing facilities on Calliope.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/Rz2PaqwwPM-calliope-stanton-4a",
+    "article": "Calliope (Stanton 4a)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Shubin Interstellar",
+     "Calliope"
+    ]
+   }
+  ],
+  "euterpe": [
+   {
+    "text": "Geological evidence suggests that Euterpe was once temperate.",
+    "excerpt": "Geological evidence suggests that Euterpe was once temperate.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/02kBNLWB33-euterpe-stanton-4c",
+    "article": "Euterpe (Stanton 4c)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Euterpe"
+    ]
+   }
+  ],
+  "arccorp": [
+   {
+    "text": "ArcCorp is the most populous planet in the Stanton system.",
+    "excerpt": "ArcCorp is the most populous planet in the Stanton system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bBzpNY6ANd-arccorp-stanton-iii",
+    "article": "ArcCorp (Stanton III)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "ArcCorp",
+     "Stanton"
+    ]
+   }
+  ],
+  "area18": [
+   {
+    "text": "As one of the zones on ArcCorp cleared for interplanetary commerce, Area18 is heavily trafficked by offworld traders and visitors.",
+    "excerpt": "As one of the zones on ArcCorp cleared for interplanetary commerce, Area18 is heavily trafficked by offworld traders and visitors.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/bEz3N7zL66-area18",
+    "article": "Area18",
+    "retrieved": "2026-10-07",
+    "names": [
+     "ArcCorp",
+     "Area18"
+    ]
+   }
+  ],
+  "arccorp_corp": [
+   {
+    "text": "ArcCorp is a Human business conglomerate that oversees a diverse set of industries, including manufacturing, mining, terraforming, and space exploration.",
+    "excerpt": "ArcCorp is a Human business conglomerate that oversees a diverse set of industries, including manufacturing, mining, terraforming, and space exploration.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0dQ47zYd6O-arccorp",
+    "article": "ArcCorp (Company)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "ArcCorp",
+     "Human"
+    ]
+   }
+  ],
+  "lyria": [
+   {
+    "text": "Water ice geysers and cryo-volcanoes force water vapor into Lyria's oxygen and ammonia atmosphere when they erupt.",
+    "excerpt": "Water ice geysers and cryo-volcanoes force water vapor into Lyria's oxygen and ammonia atmosphere when they erupt.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RvlgwoxzpY-lyria-stanton-3a",
+    "article": "Lyria (Stanton 3a)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Lyria"
+    ]
+   }
+  ],
+  "pyro": [
+   {
+    "text": "Pyro became a haven for outlaws by the early 2600s.",
+    "excerpt": "Pyro became a haven for outlaws by the early 2600s.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0ODxJM917N-pyro-system",
+    "article": "Pyro System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Pyro"
+    ]
+   },
+   {
+    "text": "Pyro, the system's star, is roughly 11.3 billion years old.",
+    "excerpt": "Pyro, the system's star, is roughly 11.3 billion years old.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0ODxJM917N-pyro-system",
+    "article": "Pyro System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Pyro"
+    ]
+   },
+   {
+    "text": "The gas giant Pyro V has six true moons.",
+    "excerpt": "The gas giant Pyro V has six true moons.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0ODxJM917N-pyro-system",
+    "article": "Pyro System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Pyro V"
+    ]
+   }
+  ],
+  "ruin_station": [
+   {
+    "text": "Today, Ruin Station is Pyro's main hub of drug manufacture, blackmarket sales, and other criminal enterprises, and has been the site of many major power struggles between rival gangs.",
+    "excerpt": "Today, Ruin Station is Pyro's main hub of drug manufacture, blackmarket sales, and other criminal enterprises, and has been the site of many major power struggles between rival gangs.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RX3AzPdnw8-ruin-station",
+    "article": "Ruin Station",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Ruin Station",
+     "Pyro"
+    ]
+   }
+  ],
+  "pyro_i": [
+   {
+    "text": "Pyro I is the first planet from the sun of the Pyro system.",
+    "excerpt": "Pyro I is the first planet from the sun of the Pyro system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RMNjxnZp3n-pyro-i",
+    "article": "Pyro I",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Pyro I",
+     "Pyro"
+    ]
+   }
+  ],
+  "monox": [
+   {
+    "text": "Monox is the second planet from the sun of the Pyro system.",
+    "excerpt": "Monox (Pyro II) is the second planet from the sun of the Pyro system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0jGdgLEjqJ-monox-pyro-ii",
+    "article": "Monox (Pyro II)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Monox",
+     "Pyro"
+    ]
+   }
+  ],
+  "bloom": [
+   {
+    "text": "Bloom is the third planet from the sun of the Pyro system.",
+    "excerpt": "Bloom (Pyro III) is the third planet from the sun of the Pyro system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0KxjqgQdNY-bloom-pyro-iii",
+    "article": "Bloom (Pyro III)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Bloom",
+     "Pyro"
+    ]
+   }
+  ],
+  "pyro_v": [
+   {
+    "text": "Residents of and travelers through the Pyro system are known to harvest hydrogen from Pyro V's green and yellow atmosphere.",
+    "excerpt": "Residents of and travelers through the Pyro system are known to harvest hydrogen from Pyro V's green and yellow atmosphere.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RAXv9Yeqay-pyro-v",
+    "article": "Pyro V",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Pyro",
+     "Pyro V"
+    ]
+   }
+  ],
+  "terminus": [
+   {
+    "text": "Terminus is the outermost world of the Pyro system.",
+    "excerpt": "Terminus (Pyro VI) is the outermost world of the Pyro system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/RAXv9kpk5m-terminus-pyro-vi",
+    "article": "Terminus (Pyro VI)",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Terminus",
+     "Pyro"
+    ]
+   }
+  ],
+  "nyx": [
+   {
+    "text": "Nyx is an unclaimed planetary system situated at the border of a dark nebula.",
+    "excerpt": "Nyx is an unclaimed planetary system situated at the border of a dark nebula.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0jGxP6kpG3-nyx-system",
+    "article": "Nyx System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Nyx"
+    ]
+   },
+   {
+    "text": "Starting in 2954, Nyx I has been undergoing terraformation using new experimental technology created by Genesis Terraforming.",
+    "excerpt": "Starting in 2954, Nyx I has been undergoing terraformation using new experimental technology created by Genesis Terraforming.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0jGxP6kpG3-nyx-system",
+    "article": "Nyx System",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Nyx I",
+     "Genesis Terraforming"
+    ]
+   }
+  ],
+  "levski": [
+   {
+    "text": "Levski is a permanent, independent settlement located on Delamar in the Nyx system.",
+    "excerpt": "Levski is a permanent, independent settlement located on Delamar in the Nyx system.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0dXQqBMAOp-levski",
+    "article": "Levski",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Levski",
+     "Delamar",
+     "Nyx"
+    ]
+   },
+   {
+    "text": "Pirates, smugglers, and other outlaws have been known to frequent Levski as well, in spite of opposition from the People's Alliance.",
+    "excerpt": "Pirates, smugglers, and other outlaws have been known to frequent Levski as well, in spite of opposition from the People's Alliance.",
+    "source": "https://robertsspaceindustries.com/galactapedia/article/0dXQqBMAOp-levski",
+    "article": "Levski",
+    "retrieved": "2026-10-07",
+    "names": [
+     "Levski",
+     "People's Alliance"
+    ]
+   }
+  ]
+ }
+}

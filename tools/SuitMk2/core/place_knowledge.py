@@ -9,8 +9,12 @@ Three things live here:
 
   1. SOURCES. Who draws on what:
          Elah        lore (data/topics_lore.json: sourced lore and in-game facts), then what the catalogue says
-                     the place has (its amenities). GALACTAPEDIA IS NOT HERE YET: galactapedia_source() is the
-                     seam, registered for Elah and returning nothing. Nothing in this module fetches anything.
+                     the place has (its amenities), and the Galactapedia (data/galactapedia_pack.json through
+                     galactapedia_source(): a sentence or two from the article about a place, each with the
+                     sentence it was taken from and a link to the article). The pack is a local file built
+                     offline by tools/build_galactapedia_pack.py; it covers the places and companies of
+                     topics_lore.json that have an article, not the whole Galactapedia. A missing or unreadable
+                     pack is a source with nothing to say. Nothing in this module fetches anything.
          Montaigne   his brochures (data/brochures.jsonl, data/brochures/), then the dev-history pack
                      (data/dev_facts_pack.json through dev_facts.py).
      Every source reads the topic graph the core has ALREADY loaded (TopicGraph: the same nodes the topic walker
@@ -41,6 +45,7 @@ Selftest: python place_knowledge.py --selftest
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -142,12 +147,144 @@ def lore_source(q: Query) -> list[Fact]:
             + q.facts_of(body, LORE_STATUSES, "lore", amenities=False))
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# The Galactapedia pack (data/galactapedia_pack.json, built offline by tools/build_galactapedia_pack.py)
+# ---------------------------------------------------------------------------------------------------------------
+# {"entries": {<topics_lore node id>: [{"text", "excerpt", "source", "article", "retrieved", "names"}, ...]}}
+# `text` is what Elah says: one sentence of the article with its bracketed asides cut. `excerpt` is the sentence as
+# the article has it, and `source` the article on robertsspaceindustries.com. The text is Cloud Imperium's and this
+# is a fan project, so the pack keeps a sentence or two per fact and never an article.
+GALACTAPEDIA_PATH = HERE.parent / "data" / "galactapedia_pack.json"
+GALACTAPEDIA_URL = re.compile(r"^https://robertsspaceindustries\.com/galactapedia/article/[A-Za-z0-9]+-[A-Za-z0-9-]+$")
+GALACTAPEDIA_WORDS = (6, 32)             # of `text`: long enough to say something, short enough to say aloud
+GALACTAPEDIA_EXCERPT_CHARS = 400         # of `excerpt`: a sentence or two, never an article
+GALACTAPEDIA_MAX_FACTS = 4               # per node
+_G_TOKEN = re.compile(r"[A-Za-z0-9]+(?:['\u2019][A-Za-z]+)?")
+_G_NEGATION = {"not", "no", "never", "nor", "neither", "none", "without", "cannot"}
+# The same out-of-universe words topic_graph.py drops a lore fact for: a companion does not know she is in a game.
+_G_OUT_OF_UNIVERSE = re.compile(r"\b(alpha|beta|patch|developers?|CIG|Cloud Imperium|in the game|in-game|pledge|"
+                                r"backers?|players?|concept|wiki)\b", re.I)
+
+
+def _g_tokens(s: str) -> list[str]:
+    return [t.replace("\u2019", "'") for t in _G_TOKEN.findall(str(s or ""))]
+
+
+def galactapedia_problems(entry: dict, node: Optional[str] = None, node_ids=None) -> list[str]:
+    """Why this pack entry must not be said ([] = fine). The build uses it to refuse an entry, the selftest to
+    re-check the pack that ships, and galactapedia_pack() to drop a bad entry when the file is read.
+
+    THE RULE: `text` is its `excerpt` with words left out and nothing else. Every word of the text, numbers and
+    names included, must be in the excerpt, spelled and capitalised the same, IN THE SAME ORDER. So a number, a
+    name or any other word the article does not have at that point is refused, and so is the article's own words
+    put in another order ("Hurston owns Lorville" from "Lorville ... Hurston"). A text that leaves out one of the
+    excerpt's negations is refused too.
+    WHAT IT CANNOT CATCH: leaving out an ordinary word can still change what a sentence means. The build only
+    ever leaves out bracketed asides; a hand-edited pack is held to this rule and no more.
+    node / node_ids: when given, the entry's node must be one topics_lore.json has."""
+    if not isinstance(entry, dict):
+        return ["not an entry"]
+    text, ex = entry.get("text"), entry.get("excerpt")
+    if not isinstance(text, str) or not text.strip():
+        return ["no text"]
+    if not isinstance(ex, str) or not ex.strip():
+        return ["no source excerpt"]
+    probs = []
+    if node_ids is not None and node not in node_ids:
+        probs.append(f"node {node!r} is not in topics_lore.json")
+    if not GALACTAPEDIA_URL.match(str(entry.get("source") or "")):
+        probs.append("source is not a Galactapedia article on robertsspaceindustries.com")
+    if not str(entry.get("article") or "").strip():
+        probs.append("no article title")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(entry.get("retrieved") or "")):
+        probs.append("no retrieved date")
+    if len(ex) > GALACTAPEDIA_EXCERPT_CHARS:
+        probs.append(f"excerpt is {len(ex)} characters: more than a sentence or two")
+    n = len(text.split())
+    if not GALACTAPEDIA_WORDS[0] <= n <= GALACTAPEDIA_WORDS[1]:
+        probs.append(f"length {n} words")
+    if re.search(r'["\u201c\u201d]', text):
+        probs.append("quotation marks")                    # the gate refuses a line with one, so it could never be said
+    if re.search(r"\d,\d", text):
+        probs.append("a number written with a comma")       # the gate reads 2,438 as a number the claims do not have
+    if re.search(r"https?://|\[|\]|\*", text + " " + ex):
+        probs.append("markup or a link in the text")
+    if _G_OUT_OF_UNIVERSE.search(text):
+        probs.append("out-of-universe wording")
+    want, have, at = _g_tokens(text), _g_tokens(ex), 0
+    missing = []
+    for w in want:
+        try:
+            at = have.index(w, at) + 1
+        except ValueError:
+            missing.append(w)
+    if missing:
+        probs.append(f"words not in the excerpt, or not in its order {missing}")
+    low_text, low_ex = [w.lower() for w in want], [w.lower() for w in have]
+    dropped = [w for w in _G_NEGATION if low_text.count(w) != low_ex.count(w)]
+    dropped += ["n't"] if sum(w.endswith("n't") for w in low_text) != sum(w.endswith("n't") for w in low_ex) else []
+    if dropped:
+        probs.append(f"a negation of the excerpt is missing {sorted(dropped)}")
+    names = entry.get("names")
+    if not isinstance(names, list) or any(not isinstance(x, str) or x not in text for x in names):
+        probs.append("names that the text does not use")
+    return probs
+
+
+_GALACTAPEDIA: dict[str, dict] = {}          # path -> {node id: [entry, ...]}; each file is read once
+
+
+def galactapedia_pack(path: Optional[Path] = None) -> dict:
+    """{node id: [entry, ...]} from the pack file, read ONCE and on first use, never at import. An entry that
+    fails galactapedia_problems() is left out. A missing file, a file that is not JSON, or one of another shape
+    is an empty pack: never an error, and nothing is fetched to replace it."""
+    p = Path(path) if path is not None else GALACTAPEDIA_PATH
+    key = str(p)
+    if key not in _GALACTAPEDIA:
+        found: dict = {}
+        try:
+            for nid, entries in json.loads(p.read_text(encoding="utf-8"))["entries"].items():
+                good = [dict(e, index=i) for i, e in enumerate(entries[:GALACTAPEDIA_MAX_FACTS])
+                        if not galactapedia_problems(e)]
+                if good:
+                    found[str(nid)] = good
+        except Exception:
+            found = {}
+        _GALACTAPEDIA[key] = found
+    return _GALACTAPEDIA[key]
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", str(text).lower()))
+
+
 def galactapedia_source(q: Query) -> list[Fact]:
-    """THE SEAM for Elah's Galactapedia. There is no Galactapedia data in the toolbox, so this
-    returns nothing, and nothing here fetches any. When a file exists, return its entries for q.location, q.body
-    and q.named_nodes() in the Fact shape, with kind "lore" and status "lore", and each entry's own `source`. The
-    gate and answer_line() need nothing else: they work from the claims."""
-    return []
+    """Elah: what the Galactapedia pack has on the site, then on the things named in the sentence, then on the
+    body it stands on (the same nodes, in the same order, as lore_source). Each fact carries its own article as
+    `source`. Read from the local pack only; with no pack this returns nothing, as it did before there was one.
+
+    NEVER THE SAME FACT TWICE: an entry that says, word for word, what a lore fact of one of these nodes already
+    says is left out here, so it cannot come round again as a second source's fact. (PlaceKnowledge.facts drops
+    exact repeats across sources as well; this also holds when the source is used on its own, and it ignores
+    capitals and punctuation.) Two differently worded sentences about the same thing are NOT recognised as one:
+    the build leaves out an article sentence that shares most of its words with a lore fact, and that is all."""
+    pack = galactapedia_pack()
+    if not pack or q.graph is None:
+        return []
+    site, body, named = q.site_nodes(), q.body_nodes(), q.named_nodes()
+    nids = list(dict.fromkeys(site + [n for n in named if n not in site] + body))
+    said = {_plain(f["text"]) for f in q.facts_of(nids, LORE_STATUSES, "lore")}
+    out = []
+    for nid in nids:
+        for e in pack.get(nid, ()):
+            key = _plain(e["text"])
+            if key in said:
+                continue
+            said.add(key)
+            out.append({"text": e["text"], "names": list(e.get("names") or []), "source": e["source"],
+                        "status": "lore", "node": nid, "fact": e["index"], "title": q.graph.nodes[nid]["title"],
+                        "kind": "lore", "article": e.get("article", "")})
+    return out
 
 
 def brochure_source(q: Query) -> list[Fact]:
@@ -183,7 +320,15 @@ def dev_history_source(q: Query) -> list[Fact]:
     return out
 
 
-# Who draws on what. A new source (the Galactapedia, when there is one) is one more function in the list.
+# Who draws on what. A new source is one more function in the list.
+#
+# ELAH'S ORDER: the lore first, the Galactapedia second. PlaceKnowledge.facts() lets the first source lead two facts
+# at a time and gives every later source one turn in three, so she answers lore, lore, Galactapedia, lore, lore,
+# Galactapedia: the article is reached on the third ask and keeps coming after that. The lore leads because its facts
+# were written short to be said aloud and include what is physically AT a site (the in-game facts, which a question
+# about a thing there is answered from first); a Galactapedia sentence is an encyclopedia's, longer, and about
+# history. Putting it first would also have made her first answer at most places a different sentence from the
+# one she gave before the pack existed.
 SOURCES: dict[str, list[Callable[[Query], list[Fact]]]] = {
     "elah": [lore_source, galactapedia_source],
     "montaigne": [brochure_source, dev_history_source],
@@ -517,9 +662,11 @@ def answer_line(spec: dict, variant: int = 0) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# Selftest (the graph and the pack as they ship; no model)
+# Selftest (the graph and the packs as they ship; no model)
 # ---------------------------------------------------------------------------------------------------------------
 def _selftest() -> int:
+    global GALACTAPEDIA_PATH
+    import tempfile
     from topic_graph import TopicGraph
     import dev_facts as devf
     results = []
@@ -543,8 +690,99 @@ def _selftest() -> int:
     case("Ruptura PAF-III is not answered from PAF-I's or PAF-II's brochure",
          "brochure_ruptura_paf_i" not in r and "brochure_ruptura_paf_ii" not in r and "hathor" in r, r)
     case("an unknown place has no facts", pk.facts("elah", {"location": "Nowhere Much"}) == [])
-    case("the Galactapedia seam is registered for Elah and empty",
-         galactapedia_source in SOURCES["elah"] and galactapedia_source(Query(g, at)) == [])
+    # -- the Galactapedia ----------------------------------------------------------------------------------------
+    case("the Galactapedia is one of Elah's sources and none of Montaigne's",
+         galactapedia_source in SOURCES["elah"] and galactapedia_source not in SOURCES["montaigne"])
+    shipped_path = GALACTAPEDIA_PATH
+    url = "https://robertsspaceindustries.com/galactapedia/article/Rw1ZlJNE36-lorville"
+    good = {"text": "Lorville is a city on Hurston.", "excerpt": "Lorville is a city on Hurston (Stanton I).",
+            "source": url, "article": "Lorville", "retrieved": "2026-10-07", "names": ["Lorville", "Hurston"]}
+    lorville = {"location": "Lorville", "location_body": "Hurston"}
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            def use(name, content):
+                global GALACTAPEDIA_PATH
+                GALACTAPEDIA_PATH = Path(tmp) / name
+                if content is not None:
+                    GALACTAPEDIA_PATH.write_text(content if isinstance(content, str) else json.dumps(content),
+                                                 encoding="utf-8")
+            use("one.json", {"entries": {"lorville": [good]}})
+            got = galactapedia_source(Query(g, lorville))
+            case("with a pack, a place that has an entry gets its fact, in the Fact shape, with the article as source",
+                 len(got) == 1 and {k: got[0][k] for k in ("text", "names", "source", "status", "node", "fact",
+                                                           "title", "kind")} ==
+                 {"text": good["text"], "names": ["Lorville", "Hurston"], "source": url, "status": "lore",
+                  "node": "lorville", "fact": 0, "title": "Lorville", "kind": "lore"}, got)
+            case("...and a place with no entry gets nothing", galactapedia_source(Query(g, at)) == [])
+            case("...and a thing named in the sentence gets its entry too",
+                 [f["node"] for f in galactapedia_source(Query(g, at, "tell me about Lorville"))] == ["lorville"])
+            use("missing.json", None)
+            case("a missing pack file is an empty source", galactapedia_source(Query(g, lorville)) == [])
+            broken = {"not json": "{ this is not json", "a list": [good], "no entries": {"version": 1},
+                      "entries is a list": {"entries": [good]}, "a node's facts are not a list": {"entries": {"lorville": 7}},
+                      "an entry is not a dict": {"entries": {"lorville": ["Lorville is a city."]}},
+                      "empty file": ""}
+            raised, nonempty = [], []
+            for i, (what, content) in enumerate(broken.items()):
+                use(f"broken{i}.json", content)
+                try:
+                    if galactapedia_source(Query(g, lorville)) != []:
+                        nonempty.append(what)
+                except Exception as ex:                    # noqa: BLE001
+                    raised.append((what, repr(ex)))
+            case("a malformed pack is an empty source and never raises", not raised and not nonempty,
+                 (raised, nonempty))
+            bad_number = dict(good, text="Lorville is a city of 4 gates on Hurston.")
+            use("mixed.json", {"entries": {"lorville": [bad_number, dict(good)]}})
+            got = galactapedia_source(Query(g, lorville))
+            case("an entry that fails the check is never said, and the one beside it still is",
+                 [(f["text"], f["fact"]) for f in got] == [(good["text"], 1)], got)
+            a_lore_fact = g.nodes["lorville"]["facts"][0]["text"]
+            use("repeat.json", {"entries": {"lorville": [
+                dict(good, text=a_lore_fact.upper().rstrip("."), excerpt=a_lore_fact.upper(), names=[]), dict(good)]}})
+            got = galactapedia_source(Query(g, lorville))
+            case("a pack entry that repeats a lore fact of the place is not said again",
+                 [f["text"] for f in got] == [good["text"]], got)
+    finally:
+        GALACTAPEDIA_PATH = shipped_path
+    for what, change, why in (
+            ("a number", {"text": "Lorville is a city of 4 gates on Hurston."}, "words not in the excerpt"),
+            ("a name", {"text": "Lorville is a city on Hurston Prime."}, "words not in the excerpt"),
+            ("a word", {"text": "Lorville is a polluted city on Hurston."}, "words not in the excerpt"),
+            ("the excerpt's words in another order", {"text": "Hurston is a city on Lorville."}, "not in its order"),
+            ("a dropped negation", {"text": "Lorville is a city on Hurston.",
+                                    "excerpt": "Lorville is not a city on Hurston."}, "negation"),
+            ("a source that is not the Galactapedia", {"source": "https://starcitizen.tools/Lorville"}, "source"),
+            ("a source on another site made to look like it",
+             {"source": "https://robertsspaceindustries.com.example.org/galactapedia/article/Rw1ZlJNE36-lorville"}, "source"),
+            ("a whole article for an excerpt", {"excerpt": good["excerpt"] + " More of the article." * 30}, "excerpt is"),
+            ("a quotation mark", {"text": 'Lorville is a "city" on Hurston.'}, "quotation"),
+            ("a name the text does not use", {"names": ["Lorville", "Teasa"]}, "names")):
+        probs = galactapedia_problems(dict(good, **change))
+        case(f"the check refuses {what}", any(why in p for p in probs), probs)
+    case("the check passes an entry that only leaves a bracketed aside out", galactapedia_problems(good) == [])
+    case("the check refuses a node topics_lore does not have",
+         galactapedia_problems(good, "lorvile", set(g.nodes)) and not galactapedia_problems(good, "lorville", set(g.nodes)))
+    try:
+        shipped = json.loads(GALACTAPEDIA_PATH.read_text(encoding="utf-8"))["entries"]
+    except Exception as ex:                                # noqa: BLE001
+        shipped = {}
+        case("the pack that ships can be read", False, repr(ex))
+    lore_ids = {n["id"] for n in json.loads((HERE.parent / "data" / "topics_lore.json").read_text(encoding="utf-8"))["nodes"]}
+    bad = [(nid, i, p) for nid, entries in shipped.items() for i, e in enumerate(entries)
+           for p in galactapedia_problems(e, nid, lore_ids)]
+    n_shipped = sum(len(v) for v in shipped.values())
+    case(f"every entry of the pack that ships passes the check ({n_shipped} facts, {len(shipped)} places)",
+         shipped and not bad, bad[:3])
+    case("the pack that ships holds sentences, not articles (at most 4 a place, under 100 KB)",
+         shipped and all(1 <= len(v) <= GALACTAPEDIA_MAX_FACTS for v in shipped.values())
+         and GALACTAPEDIA_PATH.stat().st_size < 100_000)
+    case("every place the pack has is read back whole (nothing is dropped on load)",
+         {k: len(v) for k, v in galactapedia_pack().items()} == {k: len(v) for k, v in shipped.items()})
+    e = pk.facts("elah", lorville)
+    case("Elah at Lorville: two lore facts lead, the Galactapedia is third, and nothing is said twice",
+         len(e) >= 3 and [GALACTAPEDIA_URL.match(f["source"]) is not None for f in e[:3]] == [False, False, True]
+         and len({_plain(f["text"]) for f in e}) == len(e), [f["source"] for f in e[:3]])
     # Every wording of the answer, for every kind of place answer, passes the gate it is held to.
     import conversation as conv
     states = {"known": dict(at, location_type="outpost", location_named=True),
@@ -563,6 +801,21 @@ def _selftest() -> int:
                     if fails:
                         bad.append((who, sname, utt, v, fails, spec["fixed_text"]))
     case("every wording of every kind of place answer passes the gate (192 lines)", not bad, bad[:2])
+    unsayable = []
+    for nid, entries in galactapedia_pack().items():
+        if nid not in g.nodes:
+            unsayable.append((nid, "not a node of the graph", ""))
+            continue
+        title = g.nodes[nid]["title"]
+        for entry in entries:
+            fact = {"text": entry["text"], "names": entry["names"], "source": entry["source"], "status": "lore",
+                    "node": nid, "fact": entry["index"], "title": title, "kind": "lore"}
+            spec = conv.place_spec(conv.route("what is this place"), {"location": title, "location_named": True}, 0, fact)
+            fails = conv.ground_direct(spec, spec["fixed_text"])
+            if fails or entry["text"] not in spec["fixed_text"]:
+                unsayable.append((nid, fails, spec["fixed_text"]))
+    case("every fact of the Galactapedia pack that ships can be said: its answer passes the gate", not unsayable,
+         unsayable[:2])
     for name, ok, detail in results:
         print(f"  {'PASS' if ok else 'FAIL'}  {name}" + (f"   <{detail[:200]}>" if not ok else ""))
     bad = sum(not ok for _, ok, _ in results)

@@ -11,7 +11,10 @@ Game.log lines. Nothing needs a model: an answer about a place is built from its
 """
 from __future__ import annotations
 
+import importlib.util
+import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -242,16 +245,284 @@ def test_elah_never_says_a_dev_fact_or_brochure_copy(knowledge):
         assert (spec["place"]["knowledge"] or {}).get("kind") in ("lore", "amenity")
 
 
-def test_the_galactapedia_seam_takes_a_source_and_ships_empty(knowledge):
-    assert pk.galactapedia_source in pk.SOURCES["elah"]
-    assert pk.galactapedia_source(pk.Query(knowledge.graph, VIVERE)) == []
-
-    def a_future_galactapedia(q):
-        return [{"text": "Vivere is a test entry.", "names": ["Vivere"], "source": "galactapedia:test",
+def test_a_new_source_is_one_more_function_in_the_list(knowledge):
+    def another_source(q):
+        return [{"text": "Vivere is a test entry.", "names": ["Vivere"], "source": "test:source",
                  "status": "lore", "node": "g:vivere", "fact": 0, "title": "Vivere OLP", "kind": "lore"}]
-    k = pk.PlaceKnowledge(knowledge.graph, None, {"elah": [a_future_galactapedia]})
+    k = pk.PlaceKnowledge(knowledge.graph, None, {"elah": [another_source]})
     spec = ask(k, WHAT_PLACE, VIVERE)
     assert fact_of(spec) == "Vivere is a test entry." and conv.ground_direct(spec, said(spec)) == []
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# (a2) the Galactapedia: a local pack of sentences from the articles, each with its source
+# ---------------------------------------------------------------------------------------------------------------
+RSI_LORVILLE = "https://robertsspaceindustries.com/galactapedia/article/Rw1ZlJNE36-lorville"
+G_ENTRY = {"text": "Lorville is a city on Hurston.", "excerpt": "Lorville is a city on Hurston (Stanton I).",
+           "source": RSI_LORVILLE, "article": "Lorville", "retrieved": "2026-10-07", "names": ["Lorville", "Hurston"]}
+
+
+@pytest.fixture
+def pack_file(tmp_path, monkeypatch):
+    """Point the Galactapedia source at a pack of the test's own, in a temp folder: pack_file(content) -> path.
+    content None = no file at all; a str is written as it is; anything else as JSON."""
+    count = []
+
+    def use(content):
+        p = tmp_path / f"pack{len(count)}.json"              # a new name each time: a pack file is read once
+        count.append(p)
+        if content is not None:
+            p.write_text(content if isinstance(content, str) else json.dumps(content), encoding="utf-8")
+        monkeypatch.setattr(pk, "GALACTAPEDIA_PATH", p)
+        return p
+    return use
+
+
+def test_the_galactapedia_is_elahs_and_the_shipped_pack_passes_its_own_check():
+    assert pk.galactapedia_source in pk.SOURCES["elah"] and pk.galactapedia_source not in pk.SOURCES["montaigne"]
+    data = Path(pk.__file__).resolve().parent.parent / "data"
+    assert pk.GALACTAPEDIA_PATH == data / "galactapedia_pack.json"
+    entries = json.loads(pk.GALACTAPEDIA_PATH.read_text(encoding="utf-8"))["entries"]
+    node_ids = {n["id"] for n in json.loads((data / "topics_lore.json").read_text(encoding="utf-8"))["nodes"]}
+    assert len(entries) >= 25                                  # the build found an article for more than this
+    for nid, facts in entries.items():
+        assert 1 <= len(facts) <= pk.GALACTAPEDIA_MAX_FACTS, nid
+        for e in facts:
+            assert pk.galactapedia_problems(e, nid, node_ids) == [], (nid, e["text"])
+            assert e["source"].startswith("https://robertsspaceindustries.com/galactapedia/article/")
+            assert len(e["excerpt"]) <= pk.GALACTAPEDIA_EXCERPT_CHARS       # a sentence or two, never an article
+    assert pk.GALACTAPEDIA_PATH.stat().st_size < 100_000
+    # ...and all of it is read back: nothing that ships is dropped when the file is loaded
+    assert {k: len(v) for k, v in pk.galactapedia_pack().items()} == {k: len(v) for k, v in entries.items()}
+
+
+def test_elah_answers_about_lorville_from_the_galactapedia_on_the_third_ask(knowledge):
+    """The shipped pack on the question path. Lore leads two at a time; the Galactapedia has every third turn."""
+    lane = conv.ConversationLane(knowledge)
+    specs = [ask(knowledge, WHAT_PLACE, LORVILLE, lane) for _ in range(3)]
+    sources = [s["place"]["knowledge"]["source"] for s in specs]
+    assert [bool(pk.GALACTAPEDIA_URL.match(s)) for s in sources] == [False, False, True]
+    spec = specs[2]
+    line = said(spec)
+    assert sources[2] == RSI_LORVILLE and spec["speaker"] == "elah" and spec["place"]["knowledge"]["kind"] == "lore"
+    shipped = [e["text"] for e in pk.galactapedia_pack()["lorville"]]
+    assert fact_of(spec) in shipped
+    assert line == "Lorville, on Hurston. " + fact_of(spec)       # the third ask's wording of where we are
+    assert pk.place_problems(spec, line) == [] and conv.ground_direct(spec, line) == []
+    assert len({fact_of(s) for s in specs}) == 3               # three asks, three different facts
+
+
+def test_every_shipped_galactapedia_fact_can_be_said(knowledge):
+    for nid, entries in pk.galactapedia_pack().items():
+        title = knowledge.graph.nodes[nid]["title"]
+        for e in entries:
+            fact = {"text": e["text"], "names": e["names"], "source": e["source"], "status": "lore", "node": nid,
+                    "fact": e["index"], "title": title, "kind": "lore"}
+            spec = conv.place_spec(conv.route(WHAT_PLACE), {"location": title, "location_named": True}, 0, fact)
+            assert e["text"] in said(spec) and conv.ground_direct(spec, said(spec)) == [], (nid, said(spec))
+
+
+def test_a_pack_gives_a_place_its_facts_and_a_place_without_an_entry_nothing(knowledge, pack_file):
+    pack_file({"entries": {"lorville": [G_ENTRY]}})
+    got = pk.galactapedia_source(pk.Query(knowledge.graph, LORVILLE))
+    assert [{k: f[k] for k in ("text", "names", "source", "status", "node", "fact", "title", "kind")} for f in got] == [
+        {"text": "Lorville is a city on Hurston.", "names": ["Lorville", "Hurston"], "source": RSI_LORVILLE,
+         "status": "lore", "node": "lorville", "fact": 0, "title": "Lorville", "kind": "lore"}]
+    assert pk.galactapedia_source(pk.Query(knowledge.graph, VIVERE)) == []
+    # named in the sentence, from somewhere else
+    named = pk.galactapedia_source(pk.Query(knowledge.graph, VIVERE, "tell me about Lorville"))
+    assert [f["node"] for f in named] == ["lorville"]
+    # and the answer it makes is one the gate lets through
+    k = pk.PlaceKnowledge(knowledge.graph, None, {"elah": [pk.galactapedia_source]})
+    spec = ask(k, WHAT_PLACE, LORVILLE)
+    assert said(spec) == "This is Lorville, on Hurston. Lorville is a city on Hurston."
+    assert spec["place"]["knowledge"]["source"] == RSI_LORVILLE and conv.ground_direct(spec, said(spec)) == []
+
+
+@pytest.mark.parametrize("content", [
+    None,                                                       # no file
+    "", "{ this is not json", "[]",
+    {"version": 1},                                             # no entries
+    {"entries": [G_ENTRY]}, {"entries": {"lorville": 7}}, {"entries": {"lorville": ["Lorville is a city."]}},
+    {"entries": {"lorville": [{"text": 5, "excerpt": None}]}},
+], ids=["missing", "empty", "not json", "a list", "no entries", "entries a list", "facts not a list",
+        "entry not a dict", "wrong types"])
+def test_a_missing_or_malformed_pack_is_an_empty_source_and_never_an_error(knowledge, pack_file, content):
+    pack_file(content)
+    assert pk.galactapedia_source(pk.Query(knowledge.graph, LORVILLE)) == []
+    # the question is still answered, from the lore, exactly as it was before there was a pack
+    spec = ask(knowledge, WHAT_PLACE, LORVILLE)
+    assert spec["place"]["knowledge"]["source"].startswith("https://starcitizen.tools/")
+    assert conv.ground_direct(spec, said(spec)) == []
+
+
+def test_a_pack_entry_that_fails_the_check_is_never_said(knowledge, pack_file):
+    invented = dict(G_ENTRY, text="Lorville is a city of 4 gates on Hurston.")
+    pack_file({"entries": {"lorville": [invented, G_ENTRY]}})
+    got = pk.galactapedia_source(pk.Query(knowledge.graph, LORVILLE))
+    assert [(f["text"], f["fact"]) for f in got] == [("Lorville is a city on Hurston.", 1)]
+
+
+def test_the_galactapedia_does_not_repeat_a_lore_fact(knowledge, pack_file):
+    lore = pk.lore_source(pk.Query(knowledge.graph, LORVILLE))[0]["text"]
+    again = dict(G_ENTRY, text=lore.upper().rstrip("."), excerpt=lore.upper(), names=[])
+    assert pk.galactapedia_problems(again) == []                # refused for being a repeat, not for being bad
+    pack_file({"entries": {"lorville": [again, G_ENTRY]}})
+    got = pk.galactapedia_source(pk.Query(knowledge.graph, LORVILLE))
+    assert [f["text"] for f in got] == ["Lorville is a city on Hurston."]
+    texts = [pk._plain(f["text"]) for f in knowledge.facts("elah", LORVILLE)]
+    assert len(texts) == len(set(texts))
+
+
+@pytest.mark.parametrize("change, why", [
+    ({"text": "Lorville is a city of 4 gates on Hurston."}, "words not in the excerpt"),          # a number
+    ({"text": "Lorville is a city on Hurston Prime."}, "words not in the excerpt"),               # a name
+    ({"text": "Lorville is a polluted city on Hurston."}, "words not in the excerpt"),            # a content word
+    ({"text": "Hurston is a city on Lorville."}, "not in its order"),                             # turned round
+    ({"excerpt": "Lorville is not a city on Hurston."}, "negation"),
+    ({"source": "https://starcitizen.tools/Lorville"}, "source is not a Galactapedia article"),
+    ({"source": "https://robertsspaceindustries.com.example.org/galactapedia/article/Rw1ZlJNE36-lorville"},
+     "source is not a Galactapedia article"),
+    ({"source": ""}, "source is not a Galactapedia article"),
+    ({"excerpt": G_ENTRY["excerpt"] + " More of the article." * 30}, "more than a sentence or two"),
+    ({"text": 'Lorville is a "city" on Hurston.'}, "quotation marks"),
+    ({"text": "Lorville is a city."}, "length"),
+    ({"names": ["Lorville", "Teasa"]}, "names that the text does not use"),
+    ({"retrieved": "yesterday"}, "no retrieved date"),
+    ({"article": ""}, "no article title"),
+])
+def test_the_pack_check_refuses_what_the_article_does_not_say(change, why):
+    assert pk.galactapedia_problems(G_ENTRY) == []
+    probs = pk.galactapedia_problems(dict(G_ENTRY, **change))
+    assert any(why in p for p in probs), probs
+
+
+def test_the_pack_check_refuses_a_node_the_lore_does_not_have():
+    assert pk.galactapedia_problems(G_ENTRY, "lorville", {"lorville"}) == []
+    assert pk.galactapedia_problems(G_ENTRY, "lorvile", {"lorville"}) == ["node 'lorvile' is not in topics_lore.json"]
+
+
+# -- the offline build tool (tools/build_galactapedia_pack.py), with no network ------------------------------------
+@pytest.fixture(scope="module")
+def builder():
+    path = Path(pk.__file__).resolve().parents[3] / "tools" / "build_galactapedia_pack.py"
+    spec = importlib.util.spec_from_file_location("build_galactapedia_pack", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _no_network(monkeypatch, builder):
+    def refuse(*a, **k):
+        raise AssertionError("the build tool went to the network")
+    monkeypatch.setattr(builder.urllib.request, "urlopen", refuse)
+    monkeypatch.setattr(builder.time, "sleep", lambda s: None)
+
+
+ARTICLE = {"fetched": "2026-10-07", "url": "test", "data": {
+    "title": "Testville", "rsi_url": "/galactapedia/article/Abc123-testville", "translations": {"en_EN": (
+        "# TESTVILLE\n\n"
+        "Testville is a city on [Hurston (Stanton I)](https://robertsspaceindustries.com/galactapedia/article/x-y) "
+        "that was built by **Gavin E. Hurston** in 2912 for the workers. "
+        "It has forty gates and a very long wall around all of them. "
+        "The mayor called Testville \"the jewel of the dust\" in a speech to the workers there. "
+        "Many traders visit Testville for the weekly market in the old square.\n\n"
+        "## History\n\n"
+        "Testville is a city on Hurston that was built in 2912 for the workers of the company. "
+        "Nobody knows who first settled the valley, or why they chose it over the coast.")}}}
+
+
+def test_the_builder_takes_whole_sentences_and_leaves_out_what_cannot_stand_alone(builder):
+    node = {"id": "testville", "title": "Testville", "facts": [
+        {"text": "Traders visit the weekly market in the old square of Testville."}]}
+    log = []
+    taken = builder.pick(node, ARTICLE, log.append)
+    assert [e["text"] for e in taken] == [
+        "Testville is a city on Hurston that was built by Gavin E. Hurston in 2912 for the workers."]
+    e = taken[0]
+    # the excerpt is the article's sentence with only its link and emphasis marks gone; the text only loses the aside
+    assert e["excerpt"] == ("Testville is a city on Hurston (Stanton I) that was built by Gavin E. Hurston in 2912 "
+                            "for the workers.")
+    assert e["source"] == "https://robertsspaceindustries.com/galactapedia/article/Abc123-testville"
+    assert e["article"] == "Testville" and e["retrieved"] == "2026-10-07"
+    assert e["names"] == ["Testville", "Hurston", "Gavin E. Hurston"]
+    assert pk.galactapedia_problems(e) == []
+    why = " | ".join(log)
+    assert "points back at the sentence before it" in why           # "It has forty gates ..."
+    assert "quotation marks" in why                                 # the mayor's speech
+    assert "says what a lore fact of this node already says" in why   # the weekly market
+    assert "says what a sentence already taken says" in why         # the History section's repeat
+    assert "does not name its subject" in why                       # "Nobody knows who ..."
+
+
+def test_the_builder_reads_its_cache_and_offline_never_touches_the_network(builder, tmp_path, monkeypatch):
+    _no_network(monkeypatch, builder)
+    fetcher = builder.Fetcher(tmp_path, offline=True, log=lambda s: None)
+    assert fetcher.article("Abc123") is None                        # not cached, offline: skipped, not fetched
+    (tmp_path / "article_Abc123.json").write_text(json.dumps(ARTICLE), encoding="utf-8")
+    assert fetcher.article("Abc123") == ARTICLE
+    assert builder.Fetcher(tmp_path, offline=False, log=lambda s: None).article("Abc123") == ARTICLE   # cached: no request
+
+
+def test_the_builder_fetches_one_article_politely_and_caches_it(builder, tmp_path, monkeypatch):
+    seen, slept = [], []
+
+    class _Reply:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"data": ARTICLE["data"]}).encode("utf-8")
+
+    def fake_urlopen(req, timeout=None):
+        seen.append((req.full_url, req.get_header("User-agent"), timeout))
+        return _Reply()
+    monkeypatch.setattr(builder.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(builder.time, "sleep", slept.append)
+    fetcher = builder.Fetcher(tmp_path, log=lambda s: None)
+    rec = fetcher.article("Abc123")
+    assert rec["data"]["title"] == "Testville" and re.fullmatch(r"\d{4}-\d{2}-\d{2}", rec["fetched"])
+    assert seen == [("https://api.star-citizen.wiki/api/v2/galactapedia/Abc123", builder.USER_AGENT, builder.TIMEOUT_S)]
+    assert "SC-Toolbox" in builder.USER_AGENT and "http" in builder.USER_AGENT        # says who is asking
+    assert (tmp_path / "article_Abc123.json").exists()
+    fetcher.article("Abc123")
+    assert len(seen) == 1                                           # the second ask is answered from the cache
+    fetcher.article("Def456")
+    assert len(seen) == 2 and slept and 0 < slept[-1] <= builder.PAUSE_S   # a pause before the next request
+
+
+def test_the_build_skips_what_it_cannot_read_and_refuses_the_wrong_article(builder, tmp_path, monkeypatch):
+    _no_network(monkeypatch, builder)
+    log = []
+    fetcher = builder.Fetcher(tmp_path, offline=True, log=log.append)
+    pack = builder.build(fetcher, log.append)                       # nothing cached, offline: an empty pack, no error
+    assert pack["entries"] == {} and builder.check(pack) == ["the pack has no entries"]
+    # The id written down for Lorville now answers with another article: not used, and the log says so.
+    (tmp_path / f"article_{builder.ARTICLES['lorville'][0]}.json").write_text(json.dumps(ARTICLE), encoding="utf-8")
+    del log[:]
+    pack = builder.build(fetcher, log.append)
+    assert pack["entries"] == {}
+    assert any(line.startswith("lorville: NO ENTRY") and "'Testville', not 'Lorville'" in line for line in log)
+    # A lore node nobody has decided about stops the build.
+    monkeypatch.setattr(builder, "NO_ARTICLE", {k: v for k, v in builder.NO_ARTICLE.items() if k != "orbituary"})
+    with pytest.raises(SystemExit, match="orbituary"):
+        builder.build(fetcher, log.append)
+
+
+def test_the_builder_has_decided_about_every_lore_node_and_writes_outside_the_repository(builder):
+    ids = {n["id"] for n in builder.load_nodes()}
+    assert ids == set(builder.ARTICLES) | set(builder.NO_ARTICLE)
+    assert not set(builder.ARTICLES) & set(builder.NO_ARTICLE)
+    assert builder.PROJECT_ROOT not in builder.CACHE_DIR.resolve().parents
+    shipped = json.loads(pk.GALACTAPEDIA_PATH.read_text(encoding="utf-8"))
+    assert builder.check(shipped) == []
+    assert set(shipped["entries"]) <= set(builder.ARTICLES)
+    for nid, facts in shipped["entries"].items():                   # each fact is from the article written down for it
+        assert all(f["source"].startswith(f"{builder.RSI}/galactapedia/article/{builder.ARTICLES[nid][0]}-")
+                   and f["article"] == builder.ARTICLES[nid][1] for f in facts), nid
 
 
 def test_nothing_on_this_path_fetches_anything():
