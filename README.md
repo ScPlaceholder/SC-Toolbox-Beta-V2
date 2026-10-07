@@ -198,6 +198,8 @@ Default hotkeys are a modifier plus a number (Dev History's Shift+H is the one e
 
 Everything the companions do runs on your PC unless you choose otherwise. The two "otherwise" options are yours to turn on with your own key: pointing the Assistant at an OpenAI-compatible or Anthropic endpoint, and wording the companions' lines with the Claude API.
 
+**Your own voices.** On the Suit Mk2 tab, under the volume sliders, "Elah voice" and "Montaigne voice" each offer Built-in, every voice file you have put in `%USERPROFILE%\.sctoolbox\suitmk2\voices` (make the folder if it is not there), and Browse… to pick a file from anywhere. A voice file must be a Piper `.onnx` with its `.onnx.json` beside it. The choice is used from the next line, with no restart, and Test voices lets you hear it. If a file cannot be used, that companion keeps its built-in voice and the tab says which file and what was wrong. The Assistant uses the same file when it speaks as Elah or Montaigne. When it speaks with the Windows voice instead, its Settings… has a "Windows voice" list of the voices installed on your PC.
+
 ---
 
 ## Features
