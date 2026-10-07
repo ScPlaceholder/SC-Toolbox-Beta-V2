@@ -160,7 +160,7 @@ public static class InstallPaths
     /// Returns null when <paramref name="target"/> is a safe place for a
     /// fresh install, otherwise a message to show the user.
     /// </summary>
-    public static string? Validate(string target, ValidationContext ctx)
+    public static string? Validate(string target, ValidationContext ctx, bool ownedRoot = false)
     {
         string full;
         try
@@ -192,7 +192,14 @@ public static class InstallPaths
 
         // Velopack cleans the install directory before extracting, so a
         // folder that already holds someone's files must never be the target.
-        if (ctx.DirectoryExists(full) && ctx.DirectoryHasEntries(full) && !ctx.LooksLikeVelopackRoot(full))
+        //
+        // ownedRoot is the default %LOCALAPPDATA%\SC_Toolbox: that folder is
+        // the Toolbox's by name, and whatever is in it is what an earlier
+        // install or a failed uninstall left. It must not be refused, or a
+        // half-cleared leftover (no Update.exe, no packages folder, so it no
+        // longer looks like a Velopack root) locks the user out of the
+        // default folder for good.
+        if (!ownedRoot && ctx.DirectoryExists(full) && ctx.DirectoryHasEntries(full) && !ctx.LooksLikeVelopackRoot(full))
             return $"{full} already contains other files. Setup clears its install folder, "
                  + "so choose an empty folder or a new one.";
 

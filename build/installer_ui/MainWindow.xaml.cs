@@ -148,7 +148,8 @@ public partial class MainWindow : Window
         // existing install is updated in place and needs no check here.
         if (!_hasExistingInstall)
         {
-            var problem = InstallPaths.Validate(_installRoot, InstallPaths.SystemContext());
+            var problem = InstallPaths.Validate(_installRoot, InstallPaths.SystemContext(),
+                                                ownedRoot: InstallPaths.SamePath(_installRoot, _defaultRoot));
             if (problem != null)
             {
                 MessageBox.Show(this, problem, "Choose a different install folder",
@@ -547,6 +548,14 @@ public partial class MainWindow : Window
 
         // No manifest. This is leftover state from a failed uninstall.
         // Best-effort recursive delete; per-file errors are non-fatal.
+        //
+        // Read-only files come first. Neither Directory.Delete nor
+        // File.Delete removes a read-only file, and neither does Velopack's
+        // uninstaller. 2.2.15 and older shipped a .git folder inside Mining
+        // Signals, and git marks its pack files read-only, so after an
+        // uninstall those files stayed behind, this wipe skipped them, and
+        // Setup.exe then exited 1 on the folder it could not clear.
+        ClearReadOnlyFlags(installRoot);
         try
         {
             Directory.Delete(installRoot, recursive: true);
@@ -569,6 +578,65 @@ public partial class MainWindow : Window
             }
             catch { /* nothing more we can do without admin */ }
         }
+    }
+
+    /// <summary>
+    /// After the wipe: the deepest entry still inside a leftover install
+    /// root, or null when there is nothing to report. Null for a healthy
+    /// install (sq.version present) and for any folder the wipe leaves
+    /// alone, so this only speaks when a delete was tried and refused.
+    /// </summary>
+    internal static string? FirstUndeletedLeftover(string installRoot, bool isDefaultRoot)
+    {
+        try
+        {
+            if (!Directory.Exists(installRoot)) return null;
+            if (File.Exists(Path.Combine(installRoot, "current", "sq.version"))) return null;
+            if (!isDefaultRoot && !InstallPaths.LooksLikeVelopackRoot(installRoot)) return null;
+
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+            };
+            string? deepest = null;
+            foreach (var entry in Directory.EnumerateFileSystemEntries(installRoot, "*", options))
+            {
+                if (deepest == null || entry.Length > deepest.Length) deepest = entry;
+            }
+            return deepest;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Remove the read-only flag from every file and folder under
+    /// <paramref name="root"/>, so the deletes that follow can succeed.
+    /// Per-entry failures are skipped: this is best effort, like the wipe.
+    /// </summary>
+    internal static void ClearReadOnlyFlags(string root)
+    {
+        try
+        {
+            var options = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                AttributesToSkip = FileAttributes.ReparsePoint,
+            };
+            foreach (var entry in Directory.EnumerateFileSystemEntries(root, "*", options))
+            {
+                try
+                {
+                    var attrs = File.GetAttributes(entry);
+                    if ((attrs & FileAttributes.ReadOnly) != 0)
+                        File.SetAttributes(entry, attrs & ~FileAttributes.ReadOnly);
+                }
+                catch { /* skip */ }
+            }
+        }
+        catch { /* nothing to clear, or the folder went away */ }
     }
 
     /// <summary>
@@ -683,14 +751,43 @@ public partial class MainWindow : Window
         // for context — without this, Setup.exe fails because it can't
         // overwrite files held by lingering processes from the previous
         // install.
-        CleanupOrphanedInstallProcesses(_installRoot);
+        // Both of these walk the disk and can take a minute on a large
+        // leftover folder, so they run off the window's thread: run here
+        // directly, Windows marks the installer "Not Responding" until
+        // they finish.
+        StatusDetail.Text = "Clearing files left by an earlier install…";
+        var wipeRoot = _installRoot;
+        var wipeIsDefault = InstallPaths.SamePath(_installRoot, _defaultRoot);
+        string? stuck = null;
+        await Task.Run(() =>
+        {
+            CleanupOrphanedInstallProcesses(wipeRoot);
+            WipeStaleInstallRoot(wipeRoot, wipeIsDefault);
+            stuck = FirstUndeletedLeftover(wipeRoot, wipeIsDefault);
+        });
+
+        // Something from an earlier install is still there after the wipe,
+        // which means Windows would not let it go: a program has a file in
+        // it open, or is sitting in one of its folders (a terminal, an
+        // Explorer window, an editor). Setup.exe would exit 1 on it with no
+        // explanation, so stop here and name the folder.
+        if (stuck != null)
+        {
+            StatusTitle.Text = "Close the program using the install folder";
+            StatusDetail.Text =
+                "A file or folder left by an earlier install is in use and could not be removed:\n"
+              + stuck + "\n"
+              + "Close any program, terminal or Explorer window that has it open, then run this installer again.";
+            CancelButton.Content = "Close";
+            return;
+        }
 
         // Wipe leftover state from a failed previous uninstall — only if
         // the dir lacks a valid sq.version manifest, so we never eat a
         // healthy install. Order matters: must run after the process
         // sweep above so Update.exe has released its file locks before
         // we try to delete it.
-        WipeStaleInstallRoot(_installRoot, InstallPaths.SamePath(_installRoot, _defaultRoot));
+        // (the wipe itself now runs in the Task.Run above, after the sweep)
 
         // Ensure the Microsoft Visual C++ Runtime is present before we
         // run Velopack's Setup.exe.  Mining Signals' OCR pipeline links
