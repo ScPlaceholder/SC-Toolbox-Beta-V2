@@ -36,7 +36,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
+    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -106,10 +106,23 @@ class _AskWorker(QThread):
             self.failed.emit(str(exc))
 
 
-class _SettingsDialog(QDialog):
-    """LLM endpoint editor — the plug-in point, in GUI form."""
+#: The first row of the Windows voice list: no voice is named, so Windows uses its own default.
+WINDOWS_VOICE_DEFAULT = "Windows default"
+#: After the name of a saved voice that Windows no longer lists. It is kept, and the default voice speaks.
+WINDOWS_VOICE_MISSING = " (not on this PC)"
+WINDOWS_VOICE_TIP = ("Which of the Windows voices installed on this PC speaks.\n"
+                     "It is heard when Tool voice, in the launcher's Settings, is set to Windows voice,\n"
+                     "and whenever Elah's or Montaigne's own voice cannot be used.")
 
-    def __init__(self, cfg: LLMConfig, parent=None) -> None:
+
+class _SettingsDialog(QDialog):
+    """LLM endpoint editor — the plug-in point, in GUI form. It also has the choice of Windows voice.
+
+    windows_voice: the saved choice ("" = Windows default). list_voices() -> the names of the installed voices;
+    it is asked on a thread of its own, because asking Windows takes a second or two, and the list fills in when
+    the answer is there. Until then the list has the default and the saved choice."""
+
+    def __init__(self, cfg: LLMConfig, parent=None, windows_voice: str = "", list_voices=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("LLM Settings")
         self.setMinimumWidth(460)
@@ -131,11 +144,64 @@ class _SettingsDialog(QDialog):
         lay.addRow("Max tokens", self.max_tokens)
         lay.addRow("Mode (router | router+llm | llm)", self.mode)
 
+        self.windows_voice = QComboBox()
+        self.windows_voice.setToolTip(WINDOWS_VOICE_TIP)
+        self._saved_voice = str(windows_voice or "").strip()
+        self._fill_windows_voices(None)
+        lay.addRow("Windows voice", self.windows_voice)
+        self._voices_found: Optional[list] = None       # set by the thread; the list is touched only by the poll
+        self._voice_poll = QTimer(self)
+        self._voice_poll.setInterval(150)
+        self._voice_poll.timeout.connect(self._poll_windows_voices)
+        self._voice_thread = threading.Thread(target=self._find_windows_voices, args=(list_voices,),
+                                              name="assistant_windows_voices", daemon=True)
+        self._voice_thread.start()
+        self._voice_poll.start()
+
         btns = QDialogButtonBox(QDialogButtonBox.Save |
                                 QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         lay.addRow(btns)
+
+    # ── the Windows voice ─────────────────────────────────────────────────
+    def _find_windows_voices(self, list_voices) -> None:
+        """On its own thread: ask which Windows voices are installed. Never raises; no list is an empty list."""
+        try:
+            if list_voices is None:
+                from shared.character_voice import installed_windows_voices as list_voices
+            self._voices_found = [str(n) for n in list_voices()]
+        except Exception:
+            log.exception("assistant settings: the Windows voices could not be listed")
+            self._voices_found = []
+
+    def _poll_windows_voices(self) -> None:
+        if self._voices_found is None:
+            return
+        self._voice_poll.stop()
+        self._fill_windows_voices(self._voices_found)
+
+    def _fill_windows_voices(self, names: Optional[list]) -> None:
+        """Windows default, then the installed voices. names=None: they are not known yet. What is chosen stays
+        chosen: the row picked in this dialog, or else the saved one, which is listed even when Windows no
+        longer has it, so that opening the dialog and saving never changes the choice by itself. It is marked
+        as not on this PC only when Windows did list its voices; an empty list says nothing either way."""
+        box = self.windows_voice
+        chosen = str(box.currentData() or "") if box.count() else self._saved_voice
+        box.blockSignals(True)
+        box.clear()
+        box.addItem(WINDOWS_VOICE_DEFAULT, "")
+        for name in names or []:
+            if name and box.findData(name) < 0:
+                box.addItem(name, name)
+        if chosen and box.findData(chosen) < 0:
+            box.addItem(chosen + (WINDOWS_VOICE_MISSING if names else ""), chosen)
+        box.setCurrentIndex(max(0, box.findData(chosen)))
+        box.blockSignals(False)
+
+    def result_windows_voice(self) -> str:
+        """The chosen Windows voice by name, or "" for Windows default."""
+        return str(self.windows_voice.currentData() or "")
 
     def result_config(self) -> LLMConfig:
         self.cfg.provider = self.provider.text().strip() or "openai"
@@ -203,6 +269,7 @@ class _AssistantBody:
             self._mouth = CharacterMouth()
         except Exception:
             self._mouth = Mouth()
+        self._apply_windows_voice()
         self._make_ears()
 
         # ── listener penguin ─────────────────────────────────────────────
@@ -813,13 +880,22 @@ class _AssistantBody:
 
     # ── settings ─────────────────────────────────────────────────────────
     def _edit_settings(self) -> None:
-        dlg = _SettingsDialog(LLMConfig.load(), self)
+        dlg = _SettingsDialog(LLMConfig.load(), self, windows_voice=self._state.get("windows_voice", ""))
         if dlg.exec() == QDialog.Accepted:
+            self._state["windows_voice"] = dlg.result_windows_voice()
+            self._apply_windows_voice()
+            self._save_state()
             cfg = dlg.result_config()
             cfg.save()
             self._agent.configure(cfg)
             self._set_status(f"LLM set — {cfg.mode} / {cfg.provider} / {cfg.model}")
             self._check_model()
+
+    def _apply_windows_voice(self) -> None:
+        """Tell the mouth which Windows voice to use: the saved name, or "" for Windows default. A state file
+        from before this choice existed has no name, which is Windows default, as it always was."""
+        name = self._state.get("windows_voice")
+        self._mouth.windows_voice = name.strip() if isinstance(name, str) else ""
 
     # ── state ────────────────────────────────────────────────────────────
     def _load_state(self) -> dict:
