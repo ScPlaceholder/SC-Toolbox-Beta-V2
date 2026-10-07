@@ -41,3 +41,26 @@ def test_apply_zip_rejects_an_installer(tmp_path):
     exe.write_bytes(b"MZ" + b"\x00" * 1000)
     with pytest.raises(Exception, match="not a zip"):
         AU.apply_zip(str(exe), root=str(tmp_path / "root"))
+
+
+def test_the_installer_is_not_started_inside_the_install_folder(monkeypatch, tmp_path):
+    """The Toolbox's working folder is the install folder. An installer that inherits it cannot
+    rename that folder, and every in-app update from 3.0.0 failed with "Failed to remove existing
+    application directory". The installer must be started somewhere else."""
+    import subprocess
+    import tempfile
+    seen = {}
+
+    def fake_popen(args, **kw):
+        seen["args"], seen["kw"] = args, kw
+
+    install = tmp_path / "SC_Toolbox" / "current"
+    install.mkdir(parents=True)
+    monkeypatch.chdir(install)
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    AU.run_installer(str(tmp_path / "setup.exe"))
+    cwd = seen["kw"].get("cwd")
+    assert cwd, "no working folder given: the installer would inherit the install folder"
+    assert os.path.normcase(os.path.abspath(cwd)) == os.path.normcase(os.path.abspath(tempfile.gettempdir()))
+    assert not os.path.normcase(os.path.abspath(cwd)).startswith(os.path.normcase(str(install.parent)))
+

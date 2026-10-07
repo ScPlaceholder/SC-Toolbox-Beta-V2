@@ -67,10 +67,16 @@ def run_installer(path: str) -> None:
     The caller must quit the launcher right after, so the installer can replace
     its files. The installer's own wizard is shown (no silent flags)."""
     import subprocess
+    import tempfile
     flags = 0
     if os.name == "nt":
         flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-    subprocess.Popen([path], creationflags=flags, close_fds=True)
+    # cwd: the installer must NOT inherit ours. Ours is the install folder, and Windows refuses to
+    # rename a folder that is a running process's working folder, which is the first thing the
+    # installer does. Until 3.0.1 this passed no cwd and every in-app update failed with "Failed to
+    # remove existing application directory". The installer also moves itself out now; this is the
+    # second lock on the same door.
+    subprocess.Popen([path], creationflags=flags, close_fds=True, cwd=tempfile.gettempdir())
 
 
 def download(url: str, on_progress, cancel: threading.Event, suffix: str = ".zip") -> str:
