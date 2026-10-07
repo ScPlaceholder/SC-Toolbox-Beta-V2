@@ -838,7 +838,14 @@ if exist "%PADDLE_PY%" (
     rem fails on the embeddable Python with no Rust toolchain. Wheel-only
     rem resolution falls back to python-bidi==0.6.7 (cp313 wheel exists).
     echo  [*] Installing paddlepaddle==3.0.0, paddleocr, numpy, Pillow...
-    "%PADDLE_PY%" -m pip install --only-binary=:all: paddlepaddle==3.0.0 paddleocr numpy Pillow --no-warn-script-location --quiet
+    rem -c pins EVERY package to the version 3.0.0 shipped (build\paddle_sidecar_constraints.txt).
+    rem Without it pip takes whatever is newest that day: shapely moved 2.1.2 to 2.2.0 between two
+    rem builds one day apart, unasked, and its new folder broke the small update package.
+    if not exist "%BUILD%paddle_sidecar_constraints.txt" (
+        echo  [!] build\paddle_sidecar_constraints.txt is missing. Refusing to install the sidecar unpinned.
+        goto :fail
+    )
+    "%PADDLE_PY%" -m pip install --only-binary=:all: -c "%BUILD%paddle_sidecar_constraints.txt" paddlepaddle==3.0.0 paddleocr numpy Pillow --no-warn-script-location --quiet
     if !errorlevel! neq 0 (
         echo  [!] Paddle sidecar dependency install failed.
         goto :fail
