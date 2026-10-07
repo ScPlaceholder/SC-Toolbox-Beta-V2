@@ -45,7 +45,7 @@ if str(CORE) not in sys.path:
 import settings as st                          # noqa: E402
 from companion_core import CompanionCore, find_game_log, forget_pilot_facts   # noqa: E402
 from activity_mode import os_idle_seconds, DEFAULT_AFK_MINUTES   # noqa: E402
-from speech import Speech, PRIORITY_EVENT      # noqa: E402
+from speech import Speech, PRIORITY_EVENT, check_voice_file, list_voice_files      # noqa: E402
 from sidecar import Sidecar, health            # noqa: E402
 from conversation import ConversationLane, lane_state_from_core, without_departed   # noqa: E402
 from voice_in.ears import EarsController      # noqa: E402
@@ -146,6 +146,15 @@ class _NoSpeech:
     def voice_source(self, who) -> str:
         return "off"
 
+    def set_custom_voice(self, who, path) -> None:
+        pass
+
+    def reload(self) -> None:
+        pass
+
+    def voice_problem(self, who) -> str:
+        return ""
+
     def pending(self) -> int:
         return 0
 
@@ -179,7 +188,21 @@ class _Slider(QSlider):
             e.ignore()
 
 
+class _VoiceBox(QComboBox):
+    """A drop-down the mouse wheel never changes. A wheel passing over the window must not swap a companion's
+    voice, or land on Browse and open a file dialog (the same accident _Slider is there for)."""
+
+    def wheelEvent(self, e):
+        e.ignore()
+
+
 ACCENT = "#7fd1b9"
+
+# The voice picker (one drop-down per companion). Built-in first, Browse last, the player's own voices between.
+VOICE_NAMES = {"elah": "Elah", "montaigne": "Montaigne"}
+VOICE_BUILT_IN = "Built-in"
+VOICE_BROWSE = "Browse…"
+_BROWSE = "<browse>"                             # the Browse row's data; never a path
 
 
 def _btn_ss(checked_color: str = ACCENT) -> str:
@@ -441,6 +464,34 @@ class _SuitBody:
             self._vol_lbl[who] = pct
         lay.addLayout(vol)
 
+        # A voice of the player's own, per character (settings "voice_file_<who>"). Built-in is the default.
+        # Choosing one saves it and applies it at once. A file that cannot be used is never silence: that
+        # character keeps speaking with the built-in voice and the note under the row says which file and why.
+        voices = QHBoxLayout()
+        self._voice_box, self._voice_checked = {}, {}
+        for who, name in VOICE_NAMES.items():
+            lbl = QLabel(f"{name} voice")
+            lbl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
+            voices.addWidget(lbl)
+            box = _VoiceBox()
+            box.setToolTip(f"Built-in is {name}'s own voice.\n"
+                           "To use another voice, choose Browse… and pick a Piper voice file: a .onnx with its "
+                           ".onnx.json beside it.\nVoice files put in this folder are listed here:\n"
+                           f"{st.player_voices_dir()}\n"
+                           "Test voices lets you hear the result. If a file was fixed, choose it again.")
+            box.activated.connect(lambda index, w=who: self._pick_voice(w, index))
+            voices.addWidget(box, 1)
+            self._voice_box[who] = box
+            self._voice_checked[who] = self._check_voice(self._voice_file(who))
+            self._fill_voices(who)
+        lay.addLayout(voices)
+        self._voice_note = QLabel("")
+        self._voice_note.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
+        self._voice_note.setWordWrap(True)
+        self._voice_note.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        lay.addWidget(self._voice_note)
+        self._show_voice_note()
+
         # Portable memory: everything Elah and Montaigne remember about this pilot, as one tamper-checked zip.
         mem = QHBoxLayout()
         exp = QPushButton("Export memory")
@@ -651,7 +702,8 @@ class _SuitBody:
                 ducker = voice_fx.DuckingMonitor(duck_scale=float(self.s.get("duck_scale", 0.8))).start()
             except Exception:
                 log.exception("ducking unavailable; voices never wait for the game")
-        speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker)
+        speech = Speech(Path(self.s["voices_dir"]), volume=float(self.s["volume"]), ducker=ducker,
+                        custom_voices={who: self._voice_file(who) for who in VOICE_NAMES})
         for who in ("elah", "montaigne"):
             speech.set_level(who, float(self.s.get(f"volume_{who}", 1.5)))
         # J 2026-10-04: "make sure that suitmk2 only have the AI's talk while it is launched". The launcher
@@ -1090,6 +1142,7 @@ class _SuitBody:
 
     # -- UI ---------------------------------------------------------------------------------------------------------
     def _refresh(self) -> None:
+        self._show_voice_note()
         if not self._companions_on():
             for v in self._rows.values():
                 v.setText("off")
@@ -1103,7 +1156,8 @@ class _SuitBody:
             self._rows["Model service"].setText(self.sidecar.status + extra)
         for spk, key in (("elah", "Elah voice"), ("montaigne", "Montaigne voice")):
             trained = (Path(self.s["voices_dir"]) / f"{spk}.onnx").exists()
-            self._rows[key].setText(f"{'trained' if trained else 'stock'} | loaded: {self.speech.voice_source(spk)}")
+            kind = "custom" if self._voice_file(spk) else ("trained" if trained else "stock")
+            self._rows[key].setText(f"{kind} | loaded: {self.speech.voice_source(spk)}")
         if c:
             s = c.stats
             self._rows["Heard / spoken"].setText(f"{s['events']} events, {s['spoken']} spoken, "
@@ -1591,6 +1645,77 @@ class _SuitBody:
         st.save(self.s)
         self._vol_lbl[who].setText(f"{v}%")
         self.speech.set_level(who, v / 100.0)
+
+    # -- a voice of the player's own ---------------------------------------------------------------------------------
+    def _voice_file(self, who: str) -> str:
+        """The voice file chosen for this character, or "" for the built-in voice."""
+        chosen = self.s.get(f"voice_file_{who}")
+        return chosen.strip() if isinstance(chosen, str) else ""
+
+    @staticmethod
+    def _check_voice(path: str) -> str:
+        """"" for the built-in voice or a file that can be tried; otherwise what is wrong with the file."""
+        return "" if not path else check_voice_file(path)[1]
+
+    def _fill_voices(self, who: str) -> None:
+        """Built-in, each voice in the player's voices folder, the chosen file if it is somewhere else, Browse."""
+        box, chosen = self._voice_box[who], self._voice_file(who)
+        box.blockSignals(True)
+        box.clear()
+        box.addItem(VOICE_BUILT_IN, "")
+        for p in list_voice_files(st.player_voices_dir()):
+            box.addItem(p.stem, str(p))
+        if chosen and box.findData(chosen) < 0:
+            box.addItem(Path(chosen).name, chosen)
+        box.addItem(VOICE_BROWSE, _BROWSE)
+        box.setCurrentIndex(max(0, box.findData(chosen)))
+        box.blockSignals(False)
+
+    def _pick_voice(self, who: str, index: int) -> None:
+        """A row of the drop-down was chosen by the player."""
+        data = self._voice_box[who].itemData(index)
+        if data == _BROWSE:
+            from PySide6.QtWidgets import QFileDialog
+            folder = st.player_voices_dir()
+            path, _ = QFileDialog.getOpenFileName(self, f"Choose a voice for {VOICE_NAMES[who]}",
+                                                  str(folder if folder.is_dir() else Path.home()),
+                                                  "Piper voice (*.onnx)")
+            if not path:
+                self._fill_voices(who)           # cancelled: the drop-down goes back to what is chosen
+                return
+            data = str(Path(path))
+        self._set_voice_file(who, str(data or ""))
+
+    def _set_voice_file(self, who: str, path: str) -> None:
+        """Save the choice and apply it now: the voices are loaded again, so the next line uses it. A file that
+        cannot be used is still saved as the choice; the character speaks with the built-in voice and the note
+        says why, the same as when a chosen file goes missing later."""
+        self.s[f"voice_file_{who}"] = path
+        st.save(self.s)
+        self._voice_checked[who] = self._check_voice(path)
+        speech = self.speech
+        if callable(getattr(speech, "set_custom_voice", None)) and callable(getattr(speech, "reload", None)):
+            speech.set_custom_voice(who, path)
+            speech.reload()
+            if not isinstance(speech, _NoSpeech):
+                threading.Thread(target=speech.preload, name="suitmk2_voice_preload", daemon=True).start()
+        self._fill_voices(who)
+        self._show_voice_note()
+
+    def _show_voice_note(self) -> None:
+        """Say, for each character whose chosen file is not the voice in use, that it is on the built-in voice
+        and why. The voices say why once they have tried to load the file; until then, the check of the file."""
+        problem = getattr(self.speech, "voice_problem", None)
+        said = []
+        for who, name in VOICE_NAMES.items():
+            if not self._voice_file(who):
+                continue
+            why = (problem(who) if callable(problem) else "") or self._voice_checked.get(who, "")
+            if why:
+                said.append(f"{name} is using the built-in voice: {why}.")
+        text = "\n".join(said)
+        if self._voice_note.text() != text:
+            self._voice_note.setText(text)
 
     def _show_picture(self, act: str) -> None:
         never = self._pic_never[act].isChecked()
