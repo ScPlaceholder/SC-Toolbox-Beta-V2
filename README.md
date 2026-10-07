@@ -531,6 +531,12 @@ All of those systems still have to ship as one Windows application, update witho
 
 **Release check.** Publishing is a separate, manual step. Before it, a read-only check confirms the version is the same everywhere, the update feed lists it, the full package matches its hash in the feed, and the installer was built after the payload it embeds. It exists because two earlier releases were published with the installer but without the feed, and existing users silently stopped receiving updates.
 
+### Two rules that hold everywhere
+
+**No autonomous closed loop between game observation and game control.** The Toolbox watches the game through its log, the screen and the game's audio, and almost nothing it does goes back the other way. The one thing that sends input to the game is the route-setting macro, and it acts only on a spoken or typed yes, and only with positions the player calibrated. Nothing the tools observe can trigger an action in the game by itself.
+
+**Tools do not inherit each other's authority.** Every tool runs as its own process with its own job. When one tool uses another, it gets that tool's answers and nothing more: the Assistant can ask Trade Hub's engine for a route, but it cannot act through it, and anything that acts still has to pass its own confirmation.
+
 ---
 
 Star Citizen®, Roberts Space Industries® and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC. This is an unofficial Star Citizen fan site, not affiliated with the Cloud Imperium group of companies. All content on this site not authored by its host or users are property of their respective owners.
