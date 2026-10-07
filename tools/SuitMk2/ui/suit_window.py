@@ -28,9 +28,9 @@ from pathlib import Path
 from threading import Event
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton, QSlider,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton,
+                               QScrollArea, QSlider, QVBoxLayout, QWidget)
 
 from shared import ptt_keys
 from shared.mic_floor import FLOOR, OneMicMixin
@@ -196,6 +196,42 @@ class _VoiceBox(QComboBox):
         e.ignore()
 
 
+class _Box(QComboBox):
+    """Every other drop-down on the dashboard. The dashboard scrolls now, so a wheel turning over one of these must
+    scroll the dashboard, not change the setting under the pointer."""
+
+    def wheelEvent(self, e):
+        e.ignore()
+
+
+class _FitScroll(QScrollArea):
+    """The scrolling area the dashboard's controls sit in.
+
+    Until 3.0.1 the controls were laid straight into the window. They need about 900 px of height and the window
+    opens at 740, so Qt squeezed every row: the status lines at the top were crushed to slivers, and adding one more
+    row (the voice pickers) crushed them to nothing. Here the rows keep their own height and the area scrolls when
+    the window is shorter than they are.
+
+    sizeHint is the content's own: a plain QScrollArea caps its hint at a few hundred pixels, which would leave the
+    controls scrolling inside a small box in a tall window while the log below took all the room."""
+
+    def sizeHint(self):
+        w = self.widget()
+        return w.sizeHint() if w is not None else super().sizeHint()
+
+    def minimumSizeHint(self):
+        return QSize(0, 160)
+
+    def resizeEvent(self, e):
+        # Up and down the rows scroll. Side to side they must still fit the window, as they did before there was
+        # a scrolling area: without this the rows take their full preferred width and the right-hand end of each
+        # (the "never" boxes, Resume, Montaigne's volume) is cut off with no way to reach it.
+        super().resizeEvent(e)
+        w = self.widget()
+        if w is not None:
+            w.setFixedWidth(self.viewport().width())
+
+
 ACCENT = "#7fd1b9"
 
 # The voice picker (one drop-down per companion). Built-in first, Browse last, the player's own voices between.
@@ -252,7 +288,12 @@ class _SuitBody:
             self.content_layout.addWidget(tb)
 
         body = QWidget(self)
-        lay = QVBoxLayout(body)
+        outer = QVBoxLayout(body)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        controls = QWidget()
+        controls.setObjectName("suitControls")
+        lay = QVBoxLayout(controls)             # every control row below goes in here, and it scrolls (_FitScroll)
         lay.setContentsMargins(12, 8, 12, 10)
         lay.setSpacing(8)
 
@@ -317,7 +358,7 @@ class _SuitBody:
         pl = QLabel("Presence")
         pl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
         ctl.addWidget(pl)
-        self._presence = QComboBox()
+        self._presence = _Box()
         self._presence.addItems(["off", "occasional", "present", "curious"])
         self._presence.setCurrentText(self.s["presence"])
         self._presence.setToolTip("How often the local eyes look at the game (only while Star Citizen is focused). "
@@ -333,7 +374,7 @@ class _SuitBody:
         self._talk.clicked.connect(self._set_talk_key)
         ctl.addWidget(self._talk)
         # J 2026-09-26: ears are always on; the player picks how the mic listens.
-        self._talk_mode = QComboBox()
+        self._talk_mode = _Box()
         self._talk_mode.addItem("Push-to-talk", "push")
         self._talk_mode.addItem("Always on", "always")
         self._talk_mode.setCurrentIndex(1 if self.s.get("talk_mode") == "always" else 0)
@@ -557,7 +598,7 @@ class _SuitBody:
         rl = QLabel("Speaker models in VRAM")
         rl.setStyleSheet(f"color: {P.fg_dim}; font-size: 9pt;")
         res.addWidget(rl)
-        self._residency = QComboBox()
+        self._residency = _Box()
         self._residency.addItem("One at a time (frees ~1.8 GB)", "evict")
         self._residency.addItem("Keep both warm (needs ~3.7 GB)", "both")
         cur = str(self.s.get("speaker_residency", "evict")).strip().lower()
@@ -583,7 +624,7 @@ class _SuitBody:
                                  "worded by the local model chosen here, then cut and checked before it is spoken.\n"
                                  "Questions the Suit can answer from what it knows are answered as before.")
         self._chat_on.toggled.connect(self._set_chat)
-        self._chat_model = QComboBox()
+        self._chat_model = _Box()
         self._chat_model.setToolTip("The models Ollama has on this PC. A model is only accepted if it fits in the "
                                     "video memory and system memory that are free right now.")
         self._chat_model.activated.connect(self._pick_chat_model)     # a pick by hand, not a refill of the list
@@ -623,7 +664,7 @@ class _SuitBody:
         self._api_on.setChecked(self.s.get("backend") == "api")
         self._api_on.setToolTip("Better wording and more variety, billed to YOUR Anthropic account. If the API "
                                 "fails, the local models take over. Facts are checked the same way either way.")
-        self._api_model = QComboBox()
+        self._api_model = _Box()
         for label, mid in API_MODELS:
             self._api_model.addItem(label, mid)
         i = self._api_model.findData(self.s.get("api_model") or API_MODELS[0][1])
@@ -654,7 +695,20 @@ class _SuitBody:
         self._recent.setStyleSheet(f"QListWidget {{ background: {P.bg_primary}; color: {P.fg}; border: 1px solid "
                                    f"{P.border}; font-family: Consolas; font-size: 9pt; }}")
         self._recent.setWordWrap(True)
-        lay.addWidget(self._recent, 1)
+        self._scroll = _FitScroll()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet("QScrollArea { background: transparent; } "
+                                   "QWidget#suitControls { background: transparent; }")
+        self._scroll.viewport().setAutoFillBackground(False)
+        self._scroll.setWidget(controls)
+        outer.addWidget(self._scroll, 0)        # takes the height its rows need, and no more
+        log_box = QVBoxLayout()
+        log_box.setContentsMargins(12, 4, 12, 10)
+        self._recent.setMinimumHeight(72)
+        log_box.addWidget(self._recent)
+        outer.addLayout(log_box, 1)             # the log gets whatever height is left over
         self.content_layout.addWidget(body, 1)
 
         # Direct conversation: push-to-talk -> local Whisper -> ConversationLane -> core.answer()
