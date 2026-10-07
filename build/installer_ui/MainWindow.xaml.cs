@@ -744,7 +744,109 @@ public partial class MainWindow : Window
         }
     }
 
+    // What the tools keep in the install root, outside current\, so that
+    // it survives updates: Mining Signals settings (scan and HUD regions,
+    // ship loadouts), its collected digit samples and its online-learned
+    // model. An update leaves these alone. A fresh Setup run clears the
+    // whole root, and so does the leftover wipe below, which is how a
+    // reinstall over a broken install lost a user's settings.
+    private static readonly string[] UserDataEntries =
+    {
+        "mining_signals",
+        "digit_reservoir",
+        "model_cnn_online.onnx",
+    };
+
+    internal static string UserDataBackupDir(string installRoot) =>
+        installRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + "_userdata_backup";
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var f in Directory.EnumerateFiles(from))
+        {
+            try { File.Copy(f, Path.Combine(to, Path.GetFileName(f)), overwrite: true); } catch { /* skip */ }
+        }
+        foreach (var d in Directory.EnumerateDirectories(from))
+        {
+            try { CopyTree(d, Path.Combine(to, Path.GetFileName(d))); } catch { /* skip */ }
+        }
+    }
+
+    /// <summary>
+    /// Copy each user-data entry that exists in the install root to the
+    /// backup folder beside it. An entry that is not in the root is left
+    /// as it is in the backup, so a copy saved by an earlier, failed run
+    /// is never replaced by nothing. The backup folder is kept afterwards.
+    /// </summary>
+    internal static void SetAsideUserData(string installRoot)
+    {
+        try
+        {
+            if (!Directory.Exists(installRoot)) return;
+            var keep = UserDataBackupDir(installRoot);
+            foreach (var name in UserDataEntries)
+            {
+                var src = Path.Combine(installRoot, name);
+                var dst = Path.Combine(keep, name);
+                try
+                {
+                    if (Directory.Exists(src)) CopyTree(src, dst);
+                    else if (File.Exists(src))
+                    {
+                        Directory.CreateDirectory(keep);
+                        File.Copy(src, dst, overwrite: true);
+                    }
+                }
+                catch { /* best effort, entry by entry */ }
+            }
+        }
+        catch { /* never block an install on the backup */ }
+    }
+
+    /// <summary>
+    /// Put back any user-data entry that is in the backup and missing from
+    /// the install root. Only once an install is in place (sq.version
+    /// exists): restoring into a root that is still empty would make the
+    /// next attempt see a folder with other files in it.
+    /// </summary>
+    internal static void RestoreUserData(string installRoot)
+    {
+        try
+        {
+            if (!File.Exists(Path.Combine(installRoot, "current", "sq.version"))) return;
+            var keep = UserDataBackupDir(installRoot);
+            if (!Directory.Exists(keep)) return;
+            foreach (var name in UserDataEntries)
+            {
+                var src = Path.Combine(keep, name);
+                var dst = Path.Combine(installRoot, name);
+                try
+                {
+                    if (Directory.Exists(src) && !Directory.Exists(dst)) CopyTree(src, dst);
+                    else if (File.Exists(src) && !File.Exists(dst)) File.Copy(src, dst);
+                }
+                catch { /* best effort */ }
+            }
+        }
+        catch { /* the backup folder still holds the data */ }
+    }
+
     private async Task StartInstallAsync()
+    {
+        var root = _installRoot;
+        await Task.Run(() => SetAsideUserData(root));
+        try
+        {
+            await StartInstallCoreAsync();
+        }
+        finally
+        {
+            await Task.Run(() => RestoreUserData(root));
+        }
+    }
+
+    private async Task StartInstallCoreAsync()
     {
         // Sweep zombie launcher / Update.exe processes that might be
         // holding the install dir locked. See CleanupOrphanedInstallProcesses
