@@ -17,8 +17,9 @@ Rules carried from the rest of the tool:
   * Child processes are started with STARTUPINFO(SW_HIDE), NEVER CREATE_NO_WINDOW (segfaults PySide6 on py3.14;
     process_manager.py:28-38).
   * `ollama serve` we started is ours to stop (stop_if_ours); an Ollama that was already running is never touched.
-  * install() refuses to run an installer whose Authenticode signature is not Valid. It is IMPLEMENTED but no test runs
-    it for real: the selftest mocks the download and every subprocess.
+  * install() refuses to run an installer whose Authenticode signature is not Valid. The signature check itself is run
+    for real by the selftest, on a signed Windows file. The download and the installer run are still mocked there:
+    no test installs Ollama.
 """
 from __future__ import annotations
 
@@ -220,15 +221,25 @@ class OllamaManager:
 
     def signature_ok(self, exe: Path) -> tuple:
         """(ok, signer). Authenticode via PowerShell: Status must be Valid and the signer must name Ollama."""
-        ps = ("$s = Get-AuthenticodeSignature -LiteralPath $args[0]; "
+        # The path goes in through the environment. Until 3.0.1 it was passed as an argument after
+        # -Command and read as $args[0]. PowerShell does not fill $args for -Command, so the path
+        # was always empty, the check errored, and every valid installer was rejected: the built-in
+        # install failed for everyone who did not already have Ollama. The selftest answered for
+        # PowerShell with a canned "Valid", so it never saw this.
+        ps = ("$s = Get-AuthenticodeSignature -LiteralPath $env:SUITMK2_SIG_PATH; "
               "Write-Output ($s.Status.ToString() + '|' + $s.SignerCertificate.Subject)")
         try:
-            r = self._run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps, str(exe)],
-                          capture_output=True, text=True, timeout=60, startupinfo=_hidden_startupinfo())
+            r = self._run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                          capture_output=True, text=True, timeout=300, startupinfo=_hidden_startupinfo(),
+                          env=dict(os.environ, SUITMK2_SIG_PATH=str(exe)))
         except Exception as e:
             return False, f"signature check failed: {e}"
         status, _, subject = (r.stdout or "").strip().partition("|")
-        return status == "Valid" and EXPECTED_SIGNER.lower() in subject.lower(), subject or status
+        # A rejection always says why. An empty reason used to reach the screen as "rejected ()".
+        why = subject or status or ("the check gave no answer (rc=%s): %s"
+                                    % (getattr(r, "returncode", "?"),
+                                       (getattr(r, "stderr", "") or "").strip()[:160] or "no error text"))
+        return status == "Valid" and EXPECTED_SIGNER.lower() in subject.lower(), why
 
     def install(self, progress: Optional[Progress] = None, cancel: Optional[threading.Event] = None,
                 workdir: Optional[Path] = None, wait_s: float = 120.0) -> Status:
@@ -245,7 +256,11 @@ class OllamaManager:
             raise OllamaError(f"installer signature rejected ({signer})")
         if progress:
             progress("install", 0, 1, "Installing the local brain")
-        r = self._run([str(exe), *INSTALLER_ARGS], startupinfo=_hidden_startupinfo(), timeout=900)
+        try:
+            r = self._run([str(exe), *INSTALLER_ARGS], startupinfo=_hidden_startupinfo(), timeout=900)
+        except subprocess.TimeoutExpired:
+            exe.unlink(missing_ok=True)
+            raise OllamaError("installer did not finish in 15 minutes")
         exe.unlink(missing_ok=True)
         if getattr(r, "returncode", 1) != 0:
             raise OllamaError(f"installer exited rc={r.returncode}")
@@ -558,6 +573,79 @@ def _selftest() -> int:
         case("install: bad signature refused", False)
     except OllamaError as e:
         case("install: bad signature refused", "signature" in str(e) and len(ran) == 1)
+
+    # 7b. a check that gives no answer is refused, and the refusal says why
+    def silent_run(args, **kw):
+        ran.append(args)
+
+        class R: stdout = ""; stderr = "boom: cannot bind"; returncode = 1
+        return R()
+    m5b = OllamaManager(dead, exe_candidates=[], which=lambda _: None, run=silent_run, urlopen=fake_urlopen)
+    try:
+        m5b.install(workdir=td / "dl2b", wait_s=1)
+        case("install: no answer from the check is refused, with the reason", False)
+    except OllamaError as e:
+        case("install: no answer from the check is refused, with the reason",
+             "boom" in str(e) and "()" not in str(e))
+
+    # 7b2. the right signer is not enough: a status other than Valid is refused
+    def tampered_run(args, **kw):
+        ran.append(args)
+
+        class R: stdout = "HashMismatch|CN=Ollama Inc., O=Ollama Inc., C=CA"; stderr = ""; returncode = 0
+        return R()
+    m5c = OllamaManager(dead, exe_candidates=[], which=lambda _: None, run=tampered_run, urlopen=fake_urlopen)
+    try:
+        m5c.install(workdir=td / "dl2c", wait_s=1)
+        case("install: Ollama's name on a file that fails its hash is refused", False)
+    except OllamaError as e:
+        case("install: Ollama's name on a file that fails its hash is refused", "signature" in str(e))
+
+    # 7b3. an installer that never returns is reported like any other install failure
+    def hung_run(args, **kw):
+        if args[0] == "powershell":
+            class R: stdout = "Valid|CN=Ollama Inc., O=Ollama Inc., C=CA"; stderr = ""; returncode = 0
+            return R()
+        raise subprocess.TimeoutExpired(args, kw.get("timeout", 900))
+    m5d = OllamaManager(dead, exe_candidates=[], which=lambda _: None, run=hung_run, urlopen=fake_urlopen)
+    try:
+        m5d.install(workdir=td / "dl2d", wait_s=1)
+        case("install: a hung installer is an OllamaError and its file is removed", False)
+    except OllamaError as e:
+        case("install: a hung installer is an OllamaError and its file is removed",
+             "did not finish" in str(e) and not (td / "dl2d" / "OllamaSetup.exe").exists())
+    except Exception as e:
+        case("install: a hung installer is an OllamaError and its file is removed", False)
+
+    # 7c. THE REAL CHECK, no stand-in for PowerShell. This is the test 3.0.0 did not have. Windows'
+    #     own powershell.exe is signed by Microsoft, so the check must read it as Valid and name the
+    #     signer. Also from a folder with a space and an apostrophe in its name, and an unsigned
+    #     file must be refused. Needs no network.
+    if os.name == "nt":
+        global EXPECTED_SIGNER
+        real = OllamaManager(dead, exe_candidates=[], which=lambda _: None)
+        signed = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        keep = EXPECTED_SIGNER
+        try:
+            EXPECTED_SIGNER = "Microsoft"
+            ok, signer = real.signature_ok(signed)
+            case("real signature check: a signed Windows file is Valid and names its signer",
+                 ok and "Microsoft" in signer)
+            odd = td / "it's a folder"
+            odd.mkdir(exist_ok=True)
+            shutil.copy2(signed, odd / "copy of ps.exe")
+            ok2, signer2 = real.signature_ok(odd / "copy of ps.exe")
+            case("real signature check: a path with a space and an apostrophe is read",
+                 "Microsoft" in signer2 or ok2)
+            ok3, why3 = real.signature_ok(fake_exe)
+            case("real signature check: an unsigned file is refused, with a reason", (not ok3) and bool(why3))
+            EXPECTED_SIGNER = "Ollama"
+            ok4, _ = real.signature_ok(signed)
+            case("real signature check: a valid file from the wrong signer is refused", not ok4)
+        finally:
+            EXPECTED_SIGNER = keep
+    else:
+        print("  SKIP  real signature check (Windows only)")
 
     # 8. install(): truncated download detected
     m6 = OllamaManager(dead, exe_candidates=[], which=lambda _: None, run=fake_run,

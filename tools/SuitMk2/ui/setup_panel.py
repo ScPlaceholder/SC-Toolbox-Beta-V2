@@ -361,8 +361,7 @@ class SetupPanel(QFrame):
             self.bar.setVisible(False)
             self.button.setEnabled(True)
             self.button.setText("Try again")
-            self.status_lbl.setText("Setup stopped." if self._error == "cancelled"
-                                    else "Setup did not finish. Nothing is lost; try again to resume.")
+            self.status_lbl.setText(failure_text(self._error))
             self.detail.setText("" if self._error == "cancelled" else self._error)
             self.adv_info.setText(self.adv_info.text() + f"\nlast error: {self._error}")
             self.failed.emit(self._error)
@@ -381,6 +380,19 @@ class SetupPanel(QFrame):
 
 
 # ---- selftest: offscreen Qt against the fake runtime -------------------------------------------------------------
+def failure_text(error: str) -> str:
+    """The line shown when setup stops. When the part that failed is installing the local runtime
+    itself, say what the player can do about it: until 3.0.1 that case said "try again to resume",
+    and trying again downloaded 1.6 GB and failed the same way."""
+    if error == "cancelled":
+        return "Setup stopped."
+    e = str(error or "")
+    if e.startswith("OllamaError: installer") or e.startswith("OllamaError: download"):
+        return ("The local brain could not be installed automatically. "
+                "Install Ollama from ollama.com, then press Try again.")
+    return "Setup did not finish. Nothing is lost; try again to resume."
+
+
 def _selftest() -> int:
     import os
     import shutil
@@ -422,6 +434,12 @@ def _selftest() -> int:
     case("MODELS_MISSING: panel visible, button enabled", pump(lambda: panel.button.isEnabled())
          and panel.isVisible())
     visible_text = panel.status_lbl.text() + panel.detail.text() + panel.button.text()
+    case("failure text: a failed runtime install tells the player what to do",
+         "ollama.com" in failure_text("OllamaError: installer signature rejected (x)")
+         and "ollama.com" in failure_text("OllamaError: download truncated: 1 of 2 bytes")
+         and "ollama.com" in failure_text("OllamaError: installer exited rc=1"))
+    case("failure text: other failures still say resume, and cancel says stopped",
+         "resume" in failure_text("ProvisionError: boom") and failure_text("cancelled") == "Setup stopped.")
     case("no runtime jargon outside Advanced", not any(w in visible_text.lower()
                                                        for w in ("ollama", "gguf", "pull", "model")))
     panel.button.click()
