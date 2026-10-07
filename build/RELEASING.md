@@ -106,3 +106,31 @@ The custom installer (commit a9e1f66) has an **Install to** row with a Browse bu
 as `InstallLocation`, a later update in place at a custom folder, the shortcut and Launch from a
 custom folder, and the window's look. It can't be tested on J's main PC as-is, because an existing
 2.2.15 install there takes priority. Use a machine without SC Toolbox installed.
+
+## What stopped the 3.0.0 build and install test (2026-10-06)
+
+Each of these cost a full run. Check them before the next release.
+
+- **A test pack of the same version blocks the real pack.** `vpk pack` refuses with "There is a
+  release in channel win which is equal or greater to the current version" when `build/Releases`
+  already holds that version. Before re-packing, move the `SC_Toolbox-<version>-*.nupkg`,
+  `SC_Toolbox-win-Setup.exe` and `SC_Toolbox-win-Portable.zip` out of `build/Releases`, and remove
+  that version's entries from `releases.win.json` and its line from `RELEASES`.
+- **A file that held bytes in the last release and is empty now breaks the delta.** The build runs
+  `build/fix_emptied_files.py` before `vpk pack` for this. It handles Python source and stops the
+  build for any other kind of file.
+- **Paths over 254 characters.** The staging loops use robocopy and leave `.claude`, `.git` and the
+  Python caches out. xcopy gave up on such paths and left folders half copied.
+- **Run the installer on a real PC before publishing.** The first 3.0.0 install test failed with
+  "Setup.exe exited with code 1" on a PC where 2.2.15 had been uninstalled:
+  - 2.2.15 and older shipped a `.git` folder inside Mining Signals. Its pack files are read-only,
+    so the uninstaller left them and the installer's leftover wipe could not remove them. The wipe
+    now clears the read-only flag first.
+  - After one failed attempt the default folder no longer looked like an install and was refused
+    as "contains other files". The default folder is no longer refused.
+  - A leftover that a running program holds open (a terminal or editor sitting in the folder) still
+    stops the install. The installer now names the folder and asks the user to close the program.
+- **The leftover wipe deletes the whole install root, including `mining_signals\`**, which is where
+  Mining Signals keeps its settings between updates (`mining_shared/paths.py`). On the test PC this
+  removed the user's settings. Copy that folder somewhere before any install test on a PC with a
+  broken or removed install.
