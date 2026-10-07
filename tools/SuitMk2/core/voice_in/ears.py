@@ -15,6 +15,7 @@ model, which can take a while — the status signal says so).
 """
 from __future__ import annotations
 
+import os
 import logging
 import threading
 import time
@@ -42,6 +43,34 @@ _WHISPER_PROMPT = (
     "Toggle the grocery list. Stop listening. Help. "
     "Best trade route for my Caterpillar. Open the Trade Hub.")
 
+def _whisper_cpu_threads() -> int:
+    """How many CPU threads to give ctranslate2. It is NOT the default, and that
+    is the whole point.
+
+    faster-whisper's cpu_threads defaults to 0, which ctranslate2 documents as
+    "4 by default" -- four threads, whatever the machine. Measured 2026-09-27 on
+    a 20-core / 28-thread i7-14700F, small.en int8, 28 SC command utterances,
+    3 repeats, two independent passes:
+
+        4 threads (today)            1.938 / 1.834 s per utterance
+        16 threads + no timestamps   1.507 / 1.395   ->  -22.3% and -23.9%
+
+    Two passes because this machine drifts: one repeated config moved 26% over an
+    evening, so a single ordering cannot separate "faster config" from "ran at a
+    quieter moment". The RATIO replicated across passes; the absolute number did
+    not, so only the ratio is claimed here.
+
+    Capped at 16 rather than the core count because more was not better --
+    20 threads measured WORSE than 16 and 28 was no better than 4. Past the
+    P-core threads the work spreads onto E-cores and the slowest thread sets the
+    pace. min(16, cpu_count) also leaves a 4-core laptop at 4.
+
+    Accuracy cost: none that reaches a command. Raising 4 -> 16 changed the
+    transcript on 2 of 28 clips, both already-wrong ship names ("Orison" ->
+    "Orazon"), and all 14 command phrases stayed exact at both settings.
+    """
+    return max(4, min(16, os.cpu_count() or 4))
+
 
 class EarsController(QObject):
     listeningChanged = Signal(bool)
@@ -65,6 +94,14 @@ class EarsController(QObject):
         self._started = 0.0
         self._recording = False
         self._model = None
+        # Whisper loads once per process (~2.1s measured 2026-09-26: 0.25s import +
+        # 1.81s small.en int8, warm cache -- a cold first run also downloads ~250MB).
+        # It used to load on the FIRST utterance, so the wait landed mid-sentence.
+        # The lock matters because arm() now preloads on a worker while _transcribe
+        # may call _get_model on its own thread: without it both see None and build
+        # two models.
+        self._model_lock = threading.Lock()
+        self._preload = None
         self._lock = threading.Lock()
 
         self._tick = QTimer(self)
@@ -89,7 +126,12 @@ class EarsController(QObject):
 
     def set_model(self, name: str) -> None:
         self._model_name = name or "small.en"
-        self._model = None                       # force reload at next use
+        self._model = None
+        # Drop the preload handle too, or _preload_model() sees a finished thread,
+        # believes a preload is already in flight, and never loads the NEW model
+        # ahead of time. Clearing _model alone would silently disable the preload
+        # for the rest of the session the first time the player switches models.
+        self._preload = None                       # force reload at next use
 
     def armed(self) -> bool:
         return self._armed
@@ -106,6 +148,9 @@ class EarsController(QObject):
         if missing:
             self.needsInstall.emit(missing)
             return False
+        # After the deps check (faster_whisper must be importable) and before any
+        # mode branch, so every path gets the head start -- not just always-on.
+        self._preload_model()
         if self._mode == "always":
             # no key: the mic stays open and each silence-gapped utterance is transcribed
             self._armed = True
@@ -268,24 +313,53 @@ class EarsController(QObject):
         threading.Thread(target=self._transcribe, args=(pcm,),
                          daemon=True, name="WhisperTranscribe").start()
 
+    def _preload_model(self) -> None:
+        """Load whisper off the hot path, so the first utterance does not pay for it.
+
+        Deliberately fire-and-forget: a preload that fails must NOT stop the ears
+        arming, because _get_model() will simply load it later the old way. The only
+        thing lost is the head start, and the warning says so rather than failing.
+        """
+        if self._model is not None or self._preload is not None:
+            return
+
+        def _work():
+            try:
+                self._get_model()
+            except Exception as exc:
+                _log.warning("ears: whisper preload failed (%s: %s); the first "
+                             "utterance will load it instead", type(exc).__name__, exc)
+
+        self._preload = threading.Thread(target=_work, daemon=True,
+                                         name="WhisperPreload")
+        self._preload.start()
+
     def _get_model(self):
-        if self._model is None:
-            from faster_whisper import WhisperModel
-            self.statusChanged.emit("loading whisper model '%s' (first run downloads it)..."
-                                    % self._model_name)
-            self._model = WhisperModel(self._model_name, device="cpu",
-                                       compute_type="int8")
-        return self._model
+        with self._model_lock:
+            if self._model is None:
+                from faster_whisper import WhisperModel
+                self.statusChanged.emit("loading whisper model '%s' (first run downloads it)..."
+                                        % self._model_name)
+                self._model = WhisperModel(self._model_name, device="cpu",
+                                           compute_type="int8",
+                                           cpu_threads=_whisper_cpu_threads())
+            return self._model
 
     def _transcribe(self, pcm) -> None:
         try:
             model = self._get_model()
+            # without_timestamps=True: the segment timestamps are decoded
+            # tokens and nothing here reads them -- the caller joins
+            # s.text and throws the rest away. Measured 2026-09-27:
+            # -17% per utterance, transcript moved on 1 of 28 clips
+            # (a capitalisation).
             # vad_filter: the gate above opens on LOUDNESS, so an engine, gunfire or music
             # reaches Whisper too, and Whisper invents words for noise (an engine hum came back as
             # 'Subs by www.zeoranger.com'). Silero VAD drops the non-speech first. Measured 2026-10-02:
             # 8 of 8 spoken commands unchanged, the hum's invented line gone. Synthetic clips, not a game.
             segments, _info = model.transcribe(pcm, language="en", beam_size=5,
                                               initial_prompt=_WHISPER_PROMPT,
+                                              without_timestamps=True,
                                               vad_filter=True)
             text = " ".join(s.text for s in segments).strip()
             if text:

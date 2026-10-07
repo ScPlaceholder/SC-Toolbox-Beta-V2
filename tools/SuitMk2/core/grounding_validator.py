@@ -119,8 +119,10 @@ YOUR_NAME = re.compile(r"\byour (?:own )?name\b")
 
 
 # DEV-HISTORY ASIDES (dev_facts.py, J 2026-09-25). A real-world fact about how the game was made is only ever said as
-# its own aside, with its date, and never as something a character remembers. Enforced here, not only in the template,
-# so a model that rephrases one later is held to the same rules as the numbers above.
+# its own aside, carrying its provenance, and never as something a character remembers. Enforced here, not only in the
+# template, so a model that rephrases one later is held to the same rules as the numbers above.
+# ⚠ "carrying its provenance" replaced "with its date" on 2026-09-27: the date must be ON THE SPEC, not IN THE MOUTH.
+#   J: "we want to entertain the users not annoy them" — the player can look the fact up in the dev fact finder.
 DEV_FACT_FRAME = "fun fact from the dev history"
 DEV_FACT_MEMORY = re.compile(r"\b(?:i|we)\s+(?:(?:still|clearly|vividly|distinctly)\s+)?(?:remember|recall|recollect)\b"
                              r"|\bi was there\b|\bmy memory\b|\bback when (?:i|we)\b"
@@ -222,9 +224,28 @@ def ground(spec: dict, text: str) -> list[str]:
             fails.append("dev fact not framed as an aside")
         if DEV_FACT_MEMORY.search(low):
             fails.append("dev fact claimed as memory")
-        dates = [str(c["value"]).lower() for c in spec["claims"] if c.get("predicate") == "devfact.date_spoken"]
-        if not dates or not any(d in low for d in dates):
+        # ⛔ THIS USED TO REQUIRE THE DATE IN THE SPOKEN TEXT. Changed 2026-09-27 (J).
+        #   The old rule — `any(d in low for d in dates)` — forced every aside to recite its
+        #   publication date to the pilot, which is what made Montaigne sound like a
+        #   bibliography instead of a ship.
+        #   ★ The point of the rule was TRACEABILITY, not recitation: a listener must be able
+        #     to check he did not invent it. That is served by the provenance travelling with
+        #     the spec (and, J's point, by the in-game dev fact finder the player can search).
+        #     It was never served by the words leaving his mouth.
+        #   ⇒ So the requirement MOVES rather than disappears, and lands STRICTER: the spec must
+        #     carry a date AND a source excerpt, not merely a date. A fact whose provenance is
+        #     absent is still refused — it just is not refused for failing to say it out loud.
+        #   ⚠ Everything that made this gate bite is untouched: numbers and names are still
+        #     checked against the excerpt, so a rephrase that invents a year is still caught by
+        #     the number gate rather than by this line.
+        dates = [str(c["value"]).strip() for c in spec["claims"]
+                 if c.get("predicate") in ("devfact.date", "devfact.date_spoken")]
+        excerpts = [str(c["value"]).strip() for c in spec["claims"]
+                    if c.get("predicate") == "devfact.excerpt"]
+        if not any(dates):
             fails.append("dev fact without its date")
+        if not any(excerpts):
+            fails.append("dev fact without its source excerpt")
         if URL_SPOKEN.search(low):
             fails.append("dev fact speaks a URL")
     # The pilot's name is never in a spec, so "your name is ..." is always invented.

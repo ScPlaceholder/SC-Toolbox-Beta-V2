@@ -405,7 +405,25 @@ def fact_spec(entry: dict, frame: str = FRAME, scenario: str = SCENARIO) -> Opti
         return None
     kind = "video" if entry.get("k") == "v" else "comm-link"
     src_text = f"{entry['excerpt']} {entry.get('title', '')}"
-    body = f"in a {kind} from {date}, {_lower_first(fact, src_text, entry.get('topics') or ())}."
+    # ★ THE CITATION LEFT THE SPOKEN LINE, 2026-09-27 (J). It used to read
+    #   "in a {kind} from {date}, the Prospector carries 32 SCU of ore." — the source
+    #   announced before the fact, every time.
+    #   J's reasoning, and it is better than the one I offered: "the reason to only have
+    #   the fun fact is to keep them fun. Players can put his fun facts into the dev fact
+    #   finder and see the full story. We want to entertain the users not annoy them."
+    #   ⇒ The audit trail is served by a USER-FACING tool, not only by my log, so a pilot
+    #     who wants the provenance can get it on demand. Reciting a publication date into a
+    #     cockpit served nobody and was the lore break J flagged on 09-25 ("Montaigne may
+    #     insist on his sources — technically right in the real world, hallucinating in the
+    #     lore"). I half-built that fix then: stopped him claiming to REMEMBER, left the
+    #     citation welded to the front.
+    #   ⚠ NOTHING IS LOST FROM THE RECORD. date, title, excerpt and url still go out in
+    #     `claims` and `source` below, unchanged, and fact_problems() still refuses any entry
+    #     without a usable date. The guarantee moved from the SENTENCE to the ENTRY; it did
+    #     not weaken. grounding_validator enforces that half — see "dev fact without its
+    #     provenance" there.
+    #   The frame ends in a colon, so a lower-cased first word is still correct English.
+    body = f"{_lower_first(fact, src_text, entry.get('topics') or ())}."
     text = f"{RESUME_LEAD if scenario == RESUME_SCENARIO else frame} {body}"
     n = len(text.split())
     claims = [{"id": "C1", "predicate": "devfact.date", "value": str(entry.get("date", ""))},
@@ -886,10 +904,25 @@ def _selftest(game_log: Optional[str]) -> int:
 
     # -- the aside itself ---------------------------------------------------------------------------------------
     a = fact_spec(FIXTURE_FACTS[0])
-    case("aside is framed, dated, one sentence, and says the FACT (not the title)",
-         bool(a) and a["fixed_text"].startswith(FRAME_KEY) and "27 April 2016" in a["fixed_text"]
+    case("aside is framed, one sentence, and says the FACT (not the title)",
+         bool(a) and a["fixed_text"].startswith(FRAME_KEY)
          and a["fixed_text"].rstrip(".").count(".") == 0 and "32 SCU" in a["fixed_text"]
          and "Q&A" not in a["fixed_text"])
+    # 2026-09-27: the citation left the MOUTH and stayed in the RECORD. Both halves are pinned
+    # here, because dropping only the first assertion would let the provenance vanish silently —
+    # the aside would still sound right and become unauditable.
+    case("aside does NOT recite the date or the source kind (J: keep them fun)",
+         bool(a) and "27 April 2016" not in a["fixed_text"]
+         and "in a video from" not in a["fixed_text"] and "comm-link from" not in a["fixed_text"])
+    case("...but the spec still CARRIES date, title, excerpt and url for the fact finder",
+         bool(a) and a["date_spoken"] == "27 April 2016"
+         and any(c["predicate"] == "devfact.date" and c["value"] for c in a["claims"])
+         and any(c["predicate"] == "devfact.excerpt" and c["value"] for c in a["claims"])
+         and a["source"].get("title_raw") and a["source"].get("date"))
+    case("gate: a dev fact whose spec has lost its excerpt is REFUSED",
+         bool(a) and any("excerpt" in f for f in ground(
+             dict(a, claims=[c for c in a["claims"] if c["predicate"] != "devfact.excerpt"]),
+             a["fixed_text"])))
     case("aside passes the real grounding gate", bool(a) and not ground(a, a["fixed_text"]))
     case("aside speaker is Montaigne, never Elah", bool(a) and a["speaker"] == "montaigne")
     case("aside carries no URL in its text", bool(a) and "http" not in a["fixed_text"])
@@ -930,13 +963,23 @@ def _selftest(game_log: Optional[str]) -> int:
         a, FRAME + " I remember, in a video from 27 April 2016, the Prospector carried 32 SCU of ore.")))
     case("gate: a rephrase without the aside frame is refused", any("frame" in f for f in ground(
         a, "In a video from 27 April 2016, the Prospector carries 32 SCU of ore in its side pods, pilot.")))
-    case("gate: a rephrase without the date is refused", any("date" in f for f in ground(
-        a, FRAME + " in an old video, the Prospector carries 32 SCU of ore in its side pods, pilot, truly.")))
+    # RETIRED 2026-09-27: a rephrase omitting the date is now FINE — that is the point of the change.
+    # What replaced it is the spec-level guard, asserted above and again here from the other side:
+    # strip the date off the CLAIMS and the gate must still refuse.
+    case("gate: a rephrase that drops the spoken date is now ALLOWED (it is not recited any more)",
+         not any("date" in f for f in ground(
+             a, FRAME + " the Prospector carries 32 SCU of ore in its side pods.")))
+    case("gate: a dev fact whose spec has lost its DATE is refused",
+         any("date" in f for f in ground(
+             dict(a, claims=[c for c in a["claims"]
+                             if c["predicate"] not in ("devfact.date", "devfact.date_spoken")]),
+             a["fixed_text"])))
     case("gate: a rephrase speaking the URL is refused", any("URL" in f for f in ground(
         a, FRAME + " in a video from 27 April 2016 on youtube.com, the Prospector carries 32 SCU.")))
     r = resume_spec(a)
-    case("resume keeps the frame, the fact and the date and passes the gate",
-         r["fixed_text"].startswith("Since you are still among the living") and "27 April 2016" in r["fixed_text"]
+    case("resume keeps the frame and the fact, does NOT recite the date, and passes the gate",
+         r["fixed_text"].startswith("Since you are still among the living")
+         and "27 April 2016" not in r["fixed_text"]
          and a["body"] in r["fixed_text"] and not ground(r, r["fixed_text"]))
 
     # -- THE REAL PACK (data/dev_facts_pack.json) --------------------------------------------------------------------
@@ -1157,8 +1200,9 @@ def _selftest(game_log: Optional[str]) -> int:
         case("dev_facts ON: asides appear in the replay", len(facts) >= 1)
         case("rate cap: never more than 2 in any rolling hour",
              all(sum(1 for u in times if 0 <= u - t < 3600) <= 2 for t in times))
-        case("every aside framed as an aside, with its date, by Montaigne",
-             all(s["fixed_text"].startswith(FRAME_KEY) and s["date_spoken"] in s["fixed_text"]
+        case("every aside framed as an aside, by Montaigne, CARRYING a date it does not recite",
+             all(s["fixed_text"].startswith(FRAME_KEY) and s["date_spoken"]
+                 and s["date_spoken"] not in s["fixed_text"]
                  and s["speaker"] == "montaigne" for _, s in facts))
         case("no dev fact is ever attributed to Elah", all(x[1] == "montaigne" for x in sp.said if _is_dev(x[3])))
         calls = [(i, x) for i, x in enumerate(sp.said) if x[3] in ELAH_CALLOUTS]

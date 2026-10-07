@@ -14,9 +14,14 @@ double-clicking a row opens the source, and how the search actually matches.
 
 Strings read out of the source:
   dev_history_window.py  the search placeholder, "Open source ↗", "Retry",
-                         the Date / Type / Title columns, the VIDEO and
-                         COMM-LINK type labels, the status-line formats
-  core/engine.py         INDEX_SIZE_HINT = "~3.5 MB", the weekly index age
+                         "Full text", the SEARCH / MONTHLY REPORTS / DEV
+                         TRACKER tabs, "Refresh", "Load older",
+                         the Date / Type / Title columns, the VIDEO,
+                         COMM-LINK and DEV POST type labels, the
+                         Month / Series / Title report columns, "Open on
+                         RSI ↗", the status-line formats
+  core/engine.py         INDEX_SIZE_HINT = "a few MB"; the index age
+                         (sc_dev_history.INDEX_MAX_AGE_S, 12 hours)
   dev_history_app.py     hotkey_text = "Shift+H"
 """
 from __future__ import annotations
@@ -65,9 +70,10 @@ def _html(body: str) -> str:
 _TAB_SEARCHING = _html(f"""
 {_h3("Find out when CIG said it", _C_START)}
 <p>Somebody insists a feature was promised, or cancelled, or reworked. This
-searches the <b>transcripts of CIG's development videos</b> and the
-<b>RSI comm-links</b> and shows you where it was actually said &mdash; with a
-link to the original.</p>
+searches the <b>transcripts of CIG's development videos</b>, the
+<b>RSI comm-links</b> (every Monthly Report, in full) and <b>CIG developer
+posts from the Spectrum Devtracker</b>, and shows you where it was actually
+said &mdash; with a link to the original.</p>
 
 {_h4("Just type", _C_START)}
 <p>The box at the top is the whole interface. Type a subject the way you would
@@ -81,10 +87,39 @@ them, and the status line tells you how many of your terms each hit
 matched.</p>
 
 {_h4("The results list", _C_START)}
-<p>Three columns: <b>Date</b>, <b>Type</b> and <b>Title</b>. Type is either
-<b>VIDEO</b> (a dev video transcript) or <b>COMM-LINK</b> (an RSI post). Hover
-a title that is cut off to see it in full, and drag the divider between the
-list and the panel to give either side more room.</p>
+{_h4("Search by phrase", _C_START)}
+<p>Tick <b>Phrase</b> next to the search box and type what you are looking
+for as a sentence: <span style="{_ACC}">Kraken land on planets</span>. It
+finds records that mention <em>all</em> of it in any wording (land, landed,
+landing; planet, planetside, surface, moon&hellip;), then checks the texts and
+moves the ones that say it <b>together</b> to the top, marked
+<b>&#9670;</b>. The panel shows the passage where it is said.</p>
+<p><b>Every</b> match is listed, best first; the status line says how many.
+Long lists fill in as you scroll, so even thousands of results open
+instantly.</p>
+<p>Three columns: <b>Date</b>, <b>Type</b> and <b>Title</b>. Type is
+<b>VIDEO</b> (a dev video transcript), <b>COMM-LINK</b> (an RSI article) or
+<b>DEV POST</b> (a CIG developer on Spectrum; the title starts with who
+posted). Hover a title that is cut off to see it in full, and drag the
+divider between the list and the panel to give either side more room.</p>
+
+{_h4("Monthly Reports tab", _C_START)}
+<p>The <b>MONTHLY REPORTS</b> tab at the top lists every Star Citizen,
+Squadron 42 and Studio monthly report, newest first. Filter by series, year
+or title, and click one: you get a <b>SUMMARY</b> (the report's opening plus
+one line per team) and the <b>FULL TEXT</b> below it. <b>Download all</b>
+fetches every report once (a few minutes) so they read instantly and are
+searchable word for word in the Search tab.</p>
+
+{_h4("Dev Tracker tab", _C_START)}
+<p>The <b>DEV TRACKER</b> tab lists what CIG developers posted on Spectrum,
+newest first. Filter by dev, by forum or by words in the thread. Click a post
+to read it in full; <b>Refresh</b> pulls the newest posts, <b>Load older</b>
+goes one page further back, and <b>Load full history</b> fetches everything
+back to Spectrum's launch in February 2017 (about 16,000 posts, several
+minutes; press it again to pause, it resumes where it stopped). Posts in
+login-only forums (Focus Testing and the like) show only the public
+preview.</p>
 """)
 
 _TAB_READING = _html(f"""
@@ -93,7 +128,13 @@ _TAB_READING = _html(f"""
 {_h4("Click a row", _C_READ)}
 <p>The panel on the right shows why it matched. For a <b>video</b> you get
 <b>MATCHING EXCERPTS</b> &mdash; the actual transcript lines, with your words
-highlighted. For a <b>comm-link</b> you get its <b>SUMMARY</b>.</p>
+highlighted. <b>Comm-links</b> show a <b>SUMMARY</b> of what the article
+actually says (built from its text, not RSI's one-line teaser) and the
+matching passages; press <b>Full text</b> to read the whole thing.</p>
+<p>If the archive has not reached an article yet, the tool fetches that one
+article from robertsspaceindustries.com when you click it and says so. That
+needs a connection; set <span style="{_ACC}">"live_rsi": false</span> in
+settings.json to turn it off.</p>
 <p>If the excerpts are empty, the match came from the title or the metadata
 rather than anything said out loud. The panel says so instead of leaving you
 guessing.</p>
@@ -115,11 +156,13 @@ _TAB_TIPS = _html(f"""
 {_h3("Good to know", _C_TIPS)}
 
 {_h4("The first run downloads once, then works offline", _C_TIPS)}
-<p>The search index is about <b>3.5 MB</b>, fetched from GitHub the first time
+<p>The search index is <b>a few MB</b>, fetched from GitHub the first time
 you open the tool. A banner tells you it is happening. After that,
 <b>searching needs no connection at all</b> &mdash; the index lives on your
-disk and is only re-checked about once a week.</p>
-<p>Individual video transcripts are fetched <b>when you select a result</b>,
+disk. The archive picks up new comm-links and dev posts every day; the tool
+checks for that at most twice a day, and when nothing changed the check
+downloads nothing.</p>
+<p>Transcripts, articles and reports are fetched <b>when you select a result</b>,
 so that part does want a connection. If one cannot be fetched, the tool says
 so and the <b>Open source &#8599;</b> link still works.</p>
 

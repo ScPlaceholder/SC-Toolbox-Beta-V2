@@ -8,7 +8,7 @@ name clash with ``settings.json``.
 The file is never written automatically — defaults apply when it is absent.  Edit
 it by hand to point the tool at a different branch of the corpus repo:
 
-    {"ref": "main", "max_results": 50, "excerpts": 3}
+    {"ref": "corpus", "page_size": 200, "excerpts": 3, "live_rsi": true}
 """
 from __future__ import annotations
 
@@ -26,8 +26,13 @@ _DEFAULTS: dict[str, Any] = {
     # Git ref of ScPlaceholder/sc-dev-history to stream from.  The corpus lives
     # on the "corpus" branch until its PR merges into main.
     "ref": "corpus",
-    "max_results": 50,   # rows shown in the results list
+    # Rows added per scroll step in the result lists (every match is always listed). Stored as "page_size": the old
+    # "max_results" key (default 50) was written into every settings.json, so it is no longer read.
+    "page_size": 200,
     "excerpts": 3,       # matching transcript excerpts shown per result
+    # Fetch what the archive does not have yet (an article, the latest Devtracker posts, a
+    # dev post's text) straight from robertsspaceindustries.com, one request per click.
+    "live_rsi": True,
 }
 
 
@@ -59,12 +64,16 @@ def load_settings() -> dict:
     s.update(_read_json(_SETTINGS_PATH))
     ref = str(s.get("ref") or "").strip()
     s["ref"] = ref or _DEFAULTS["ref"]
-    s["max_results"] = _clamp_int(s.get("max_results"), _DEFAULTS["max_results"], 1, 500)
+    s.pop("max_results", None)
+    s["page_size"] = _clamp_int(s.get("page_size"), _DEFAULTS["page_size"], 10, 2000)
+    s["max_results"] = s["page_size"]           # the name the window uses
     s["excerpts"] = _clamp_int(s.get("excerpts"), _DEFAULTS["excerpts"], 1, 10)
+    s["live_rsi"] = s.get("live_rsi") is not False
     return s
 
 
 def save_settings(s: dict) -> None:
+    s = {k: v for k, v in s.items() if k != "max_results"}     # derived from page_size on load
     try:
         os.makedirs(_DIR, exist_ok=True)
         tmp = _SETTINGS_PATH + ".tmp"
