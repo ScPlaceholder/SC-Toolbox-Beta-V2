@@ -42,6 +42,10 @@ ALLOWED_SUFFIXES = {".py", ".json", ".png", ".xz"}
 HOME_PATH = re.compile(rb"[A-Za-z]:[\\/]+Users[\\/]")
 # A developer's working folders and note links. The shipped files were cleaned of them; this keeps them out.
 DEV_NOTE = re.compile(rb"elah-audio|BrAi|_forJ|\[\[[a-z0-9]+(?:-[a-z0-9]+)+\]\]")
+# The game's archive, by name or by the tool that opens it. A shipped file says what a table is, not where a name in
+# it was read from. "p4k" also covers "Data.p4k" and "unp4k". The word "unpack" is not on the list: here it is what
+# Pico does with its own outfit packs.
+GAME_ARCHIVE = re.compile(rb"(?i)p4k")
 SLIDER = re.compile(r"self\.size\.setRange\(\s*\d+\s*,\s*(\d+)\s*\)")
 
 PROBE = r'''
@@ -147,6 +151,11 @@ def main() -> int:
                 note = DEV_NOTE.search(data)
                 if note:
                     bad("%s holds a developer's working note (%s)" % (rel, note.group(0).decode("ascii", "replace")))
+                archive = GAME_ARCHIVE.search(data)
+                if archive:
+                    line = data.count(b"\n", 0, archive.start()) + 1
+                    bad("%s line %d names the game's archive (%s)"
+                        % (rel, line, archive.group(0).decode("ascii", "replace")))
     for d in ("tests", "pico/tests", "out_placed", "pico/clips", "pico/rigdata"):
         if (tool / d).exists():
             bad("%s/ is staged; it is not used at run time" % d)

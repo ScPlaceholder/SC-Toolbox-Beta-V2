@@ -217,8 +217,8 @@ HOTDOG_BY_KIND: Mapping[str, int] = {"": 1, "breakfast": 2, "chili": 3, "cruiser
 _HOTDOG = re.compile(r"food_hotdog_\d+(?:_([a-z]+))?_[a-z]$")
 
 
-# The 43 other foods with Pico art, keyed by the
-# game's entity name (from Data.p4k, the same Food_<kind>_<nn>_<variant>_a shape the log hands us). Held in
+# The 43 other foods with Pico art, keyed by the game's own name for the item, lower-cased, as it appears in the
+# game log (the Food_<kind>_<nn>_<variant>_a shape). Held in
 # the same hands-together pose as the hot dogs. A food with no entry here still falls back to a hot dog.
 FOOD_HOLD = "weapon_reload_happy_held"
 FOOD_BY_ENTITY: Mapping[str, str] = {
