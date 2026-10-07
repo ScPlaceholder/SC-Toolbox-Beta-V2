@@ -1,7 +1,5 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 # Moved from skills/Everything_Finder/everything_finder/shopping_list.py to shared/shopping/ and extended on
-# 2026-10-04, when the three shopping lists became one (subagent of session 47adec0d).
+# 2026-10-04, when the three shopping lists became one.
 """The shared shopping list: items AND commodities, one list, one route.
 
 Pure data layer (no Qt). Two parts:

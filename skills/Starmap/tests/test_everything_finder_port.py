@@ -1,5 +1,3 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 """The features ported INTO this Star Map from the other two copies (2026-10-03).
 
 The Everything Finder's Star Map tab is this tool, so it must carry the union

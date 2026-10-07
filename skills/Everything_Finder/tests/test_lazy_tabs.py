@@ -1,5 +1,3 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 """Lazy tabs: a tool is built the first time its tab is selected, never before.
 
 J's requirement: opening the Everything Finder must cost about what opening ONE

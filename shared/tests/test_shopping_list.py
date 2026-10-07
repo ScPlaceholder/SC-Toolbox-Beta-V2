@@ -1,5 +1,3 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 # Moved with the code from skills/Everything_Finder/tests/ to shared/tests/ on 2026-10-04.
 """The shared shopping list: both kinds addable, one route, Trade Hub's math.
 

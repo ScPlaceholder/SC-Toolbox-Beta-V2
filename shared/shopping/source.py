@@ -1,7 +1,5 @@
-# Everything Finder -- agent "everything-finder" (claude-opus-5-5 subagent; no runtime agent id exposed)
-# written 2026-10-03T21:47-0400, parent: session:7bee459a
 # Moved from skills/Everything_Finder/everything_finder/shopping_source.py to shared/shopping/ and extended on
-# 2026-10-04, when the three shopping lists became one (subagent of session 47adec0d).
+# 2026-10-04, when the three shopping lists became one.
 """Where the shopping list gets its data, preferring what an open tab already has.
 
 * Items: Item Finder's ``DataService``. If the Item Finder tab is open, its
