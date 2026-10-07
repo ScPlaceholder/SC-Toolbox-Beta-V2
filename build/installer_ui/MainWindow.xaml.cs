@@ -611,6 +611,85 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// True once Setup.exe's log shows it has finished renaming the old
+    /// install folder aside: the "Renaming existing directory" line is
+    /// there and something other than a retry has been logged after it.
+    /// False while the log is missing or unreadable; the caller also
+    /// stops waiting after 30 seconds, long after Setup's own retries end.
+    /// </summary>
+    internal static bool SetupPastRename(string logPath)
+    {
+        try
+        {
+            if (!File.Exists(logPath)) return false;
+            using var fs = new FileStream(logPath, FileMode.Open, FileAccess.Read,
+                                          FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(fs);
+            bool seen = false;
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (!seen)
+                {
+                    if (line.Contains("Renaming existing directory")) seen = true;
+                }
+                else if (!line.Contains("Retrying operation") && line.Trim().Length > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// True when Setup.exe's log contains <paramref name="text"/>. Read
+    /// with sharing so it works while Setup.exe is still writing.
+    /// </summary>
+    internal static bool SetupLogHas(string logPath, string text)
+    {
+        try
+        {
+            if (!File.Exists(logPath)) return false;
+            using var fs = new FileStream(logPath, FileMode.Open, FileAccess.Read,
+                                          FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(fs);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (line.Contains(text)) return true;
+            }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// The last error line Setup.exe wrote to its log, as a line to append
+    /// to the failure message, or "" when there is none to show.
+    /// </summary>
+    internal static string LastSetupError(string logPath)
+    {
+        try
+        {
+            if (!File.Exists(logPath)) return "";
+            string? last = null;
+            foreach (var line in File.ReadLines(logPath))
+            {
+                if (line.Contains("[ERROR]") || line.Contains("[FATAL]") || line.Contains("Error:"))
+                    last = line;
+            }
+            if (last == null) return "";
+            var cut = last.LastIndexOf("] ", StringComparison.Ordinal);
+            var text = (cut >= 0 ? last[(cut + 2)..] : last).Trim();
+            if (text.Length > 300) text = text[..300] + "…";
+            return "\n" + text;
+        }
+        catch { return ""; }
+    }
+
+    /// <summary>
     /// Remove the read-only flag from every file and folder under
     /// <paramref name="root"/>, so the deletes that follow can succeed.
     /// Per-entry failures are skipped: this is best effort, like the wipe.
@@ -953,6 +1032,11 @@ public partial class MainWindow : Window
         //
         // --silent tells Velopack to install without UI, so its modal
         // never opens and we drive the experience entirely from our UI.
+        // Setup.exe says why it failed only in its log, so always give it one.
+        // A fresh file per run: the failure message below quotes its last error.
+        var setupLog = Path.Combine(Path.GetTempPath(), $"SC_Toolbox_setup_{INSTALLER_VERSION}.log");
+        try { File.Delete(setupLog); } catch { /* an old log only adds lines */ }
+
         Process? proc = null;
         try
         {
@@ -968,6 +1052,8 @@ public partial class MainWindow : Window
             // quotes each item, so spaces and trailing backslashes are safe.
             foreach (var a in InstallPaths.SetupArguments(_installRoot, _defaultRoot))
                 psi.ArgumentList.Add(a);
+            psi.ArgumentList.Add("--log");
+            psi.ArgumentList.Add(setupLog);
             proc = Process.Start(psi);
         }
         catch (Exception ex)
@@ -1002,7 +1088,20 @@ public partial class MainWindow : Window
         // immediately on a re-install. Velopack typically deletes the
         // old current\ before re-extracting, so size dips below baseline
         // briefly — we floor at 0 so it doesn't look weird.
-        long baselineSize = SafeDirectorySize(installDir);
+        //
+        // UPGRADES: Setup.exe begins by renaming the whole existing install
+        // folder aside (its rollback copy). Windows refuses that rename
+        // while anything has a folder inside it open, and walking the tree
+        // to measure it does exactly that. Measured here every 500 ms, the
+        // walk held it for the whole five seconds Setup retries, and Setup
+        // gave up with "Failed to remove existing application directory":
+        // every install over an existing version failed. So when an
+        // install is already there, nothing below touches the folder until
+        // Setup's log shows the rename is behind it. After the rename the
+        // folder starts empty, so the baseline is zero.
+        bool upgrading = existing != null;
+        bool pastRename = !upgrading;
+        long baselineSize = upgrading ? 0 : SafeDirectorySize(installDir);
 
         var sw = Stopwatch.StartNew();
         long lastSize = -1;
@@ -1021,7 +1120,9 @@ public partial class MainWindow : Window
         {
             // Total bytes under the install dir. Skip permission errors
             // gracefully — they're transient when files are mid-write.
-            long size = SafeDirectorySize(installDir);
+            if (!pastRename)
+                pastRename = SetupPastRename(setupLog) || sw.Elapsed.TotalSeconds > 30;
+            long size = pastRename ? SafeDirectorySize(installDir) : 0;
 
             // Subtract baseline so a re-install over an existing copy
             // starts at 0, not 95. Floor at 0 — Velopack briefly nukes
@@ -1053,6 +1154,15 @@ public partial class MainWindow : Window
             {
                 lastSize = size;
                 lastGrowth = DateTime.UtcNow;
+            }
+            else if (SetupLogHas(setupLog, "Installation completed successfully"))
+            {
+                // Not a stall. On an upgrade Setup.exe finishes the install
+                // and then deletes its rollback copy of the previous
+                // version, which took about a minute here. The new folder
+                // does not change size during that, and this used to end
+                // a successful upgrade on "Installer appears stalled".
+                StatusDetail.Text = "Removing the previous version…";
             }
             else if ((DateTime.UtcNow - lastGrowth).TotalSeconds > STALL_DETECT_SECONDS && size > 0)
             {
@@ -1096,7 +1206,9 @@ public partial class MainWindow : Window
             if (landed != INSTALLER_VERSION)
             {
                 StatusTitle.Text = "Installation failed";
-                StatusDetail.Text = $"Setup.exe exited with code {proc.ExitCode}.";
+                StatusDetail.Text = $"Setup.exe exited with code {proc.ExitCode}."
+                                  + LastSetupError(setupLog)
+                                  + $"\nLog: {setupLog}";
                 CancelButton.Content = "Close";
                 return;
             }
