@@ -145,3 +145,31 @@ Each of these cost a full run. Check them before the next release.
   `%TEMP%\SC_Toolbox_setup_<ver>.log`; the failure screen shows its last error line and the path.
 - **A failed upgrade can leave `SC_Toolbox_<random letters>` folders in `%LOCALAPPDATA%`.** They are
   Setup.exe's rollback copies of the previous install, each the size of a full install.
+
+## Small updates fail when a release adds a folder (found 2026-10-07)
+
+Velopack 0.0.1298, the version 3.0.0 ships, cannot apply a delta package that adds a file in a
+folder the installed version does not have. `Update.exe patch` stops with "The system cannot find
+the path specified. (os error 3)" at the first such file. A new file in an existing folder is fine.
+
+How it was checked: a four-file test app, packed twice with `vpk`, the second version adding one
+file in an existing folder and one in a new folder, then
+`Update.exe patch --old <1.0.0-full> --delta <1.0.1-delta> --output <file>`.
+
+| Updater that applies the delta | Result |
+|---|---|
+| 0.0.1298 (inside every 3.0.0 install) | fails, whichever `vpk` packed the delta |
+| 1.2.161 | rebuilds the full package, whichever `vpk` packed the delta |
+| 0.0.1298, same delta without the new folder | rebuilds the full package, contents identical |
+
+The real 3.0.0 delta fails the same way, at `av-19.0.1.dist-info`.
+
+What follows from it:
+
+- The updater inside the installed copy applies the delta. So the first update after 3.0.0 is a
+  full download (about 1.8 GB) if it adds any folder, whatever is changed in the build.
+- Moving the launcher's `Velopack` package and the `vpk` tool to 1.2.161 or later in that update
+  fixes the ones after it. That move was not tried on the Toolbox itself, only on the test app.
+- Not observed: the in-app updater falling back to the full package after a failed delta. It is
+  documented to; nobody has watched it do so here.
+
