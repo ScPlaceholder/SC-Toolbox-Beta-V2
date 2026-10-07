@@ -18,6 +18,8 @@
 ### If you are on 3.0.0
 
 - Download `SC_Toolbox_Setup_3.0.1.exe` below and run it over your install. Your settings are kept.
+- Or press **NEW v3.0.1** in the launcher, then **Update Now**. That button failed for everyone on 3.0.0 ("Failed to remove existing application directory") until the installer on this page was replaced on 7 October at 18:50 UTC. If it failed for you, press it again.
+- If an install still stops with that message, another program has a folder inside the Toolbox open (a terminal, an editor, a file window). Close it and run the installer again.
 - Already installed Ollama yourself to get around the bug? Nothing more to do.
 
 ### Also in this release
