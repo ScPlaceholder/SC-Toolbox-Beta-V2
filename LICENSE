@@ -1,0 +1,60 @@
+SC Toolbox licence
+
+This file has two parts. Part 1 is the MIT License and covers the original
+work in this repository. Part 2 says what Part 1 does not cover, because it
+is not ours to license.
+
+
+PART 1. MIT License (the Toolbox's own code and documentation)
+
+Copyright (c) 2026 ScPlaceholder and the SC Toolbox contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+PART 2. Star Citizen fan content (not covered by Part 1)
+
+Star Citizen(R), Roberts Space Industries(R) and Cloud Imperium(R) are
+registered trademarks of Cloud Imperium Rights LLC. This is an unofficial
+Star Citizen fan project, not affiliated with the Cloud Imperium group of
+companies. All content in this repository not authored by its host or users
+is property of its respective owners.
+
+The MIT License in Part 1 does not grant any right to the following, and
+nothing in this repository should be read as granting one:
+
+1. Star Citizen names, logos, ship and manufacturer names and designs, lore,
+   game data, screenshots and other game content. These belong to Cloud
+   Imperium Rights LLC and Cloud Imperium Rights Ltd. They appear here as
+   fan content, and any use of them is subject to Cloud Imperium's own terms
+   for fan-made work.
+
+2. Pico. Pico the penguin is a Star Citizen character. The Pico artwork,
+   outfits and props in this repository are fan art of that character. You
+   may use the code that draws and animates them under Part 1. The character
+   is not ours to give away.
+
+3. Third-party software, models, fonts and voices included in or downloaded
+   by the Toolbox. Each stays under its own licence.
+
+If you fork or redistribute this project, keep it a fan project: keep the
+notice above, do not present it as official or endorsed, and follow Cloud
+Imperium's current rules for fan-made work, including their rules on charging
+money for anything that uses their content. Part 1 allows selling the code;
+it cannot allow selling theirs.

@@ -82,8 +82,8 @@ Without the package:
   it the package is built and SuitMk2 has no sound classifier. `tools/SuitMk2/models/yamnet/SOURCE.json` names where the
   model came from; fetching it from there was not checked.
 
-The props, outfits, voices and characters are the original project's work. This repository has
-no licence file at its top level. Ask the owner before you pass them on.
+The props, outfits, voices and characters are the original project's work, and Pico is a Star
+Citizen character. `LICENSE` says what the MIT part covers and what it does not.
 
 ## Build the installer
 
