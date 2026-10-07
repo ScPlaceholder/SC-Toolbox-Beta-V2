@@ -263,9 +263,14 @@ xcopy "%ROOT%\ui\*.py" "%STAGE%\ui\" /s /i /q >nul
 :: skills/ — copy each skill, then prune non-runtime files
 echo  [*] Staging skills...
 set "COPY_FAILED="
+rem Leftover dev files never ship, whatever folder they sit in: checkpoint copies of a file
+rem [a name with .bak in it, or ending .orig, or with .elah_ in it], prompts and findings notes
+rem written while fixing something, generated reports, and backups of a data file.
+rem build\check_leftovers_stage.py [Step 7e] fails the build if one is staged anyway.
+set "LEFTOVERS=*.bak* *.orig *.elah_* *_PROMPT.md *_findings.md *_report.txt *_backup.json"
 for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Loadout Mission_Database Mouse_Blocker Trade_Hub) do (
     if exist "%ROOT%\skills\%%S" (
-        robocopy "%ROOT%\skills\%%S" "%STAGE%\skills\%%S" /E /XD .claude .git __pycache__ .pytest_cache /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+        robocopy "%ROOT%\skills\%%S" "%STAGE%\skills\%%S" /E /XD .claude .git __pycache__ .pytest_cache /XF %LEFTOVERS% /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
         if errorlevel 8 set "COPY_FAILED=!COPY_FAILED! skills\%%S"
 
         rem Remove cache files
@@ -303,6 +308,16 @@ for %%S in (Cargo_loader Craft_Database DPS_Calculator Market_Finder Mining_Load
         del /q "%STAGE%\skills\%%S\generate_layout.py" 2>nul
         del /q "%STAGE%\skills\%%S\cargo_grid_editor.html" 2>nul
         del /q "%STAGE%\skills\%%S\requirements.txt" 2>nul
+        rem Dev tools kept beside the DPS Calculator, and the files they write: slot counts compared
+        rem with another site, a cache refresher, a before-and-after baseline. Nothing the calculator
+        rem runs imports or reads any of them. Named one by one because no pattern picks them out.
+        del /q "%STAGE%\skills\%%S\audit_slot_extractor.py" 2>nul
+        del /q "%STAGE%\skills\%%S\erkul_config_diff.py" 2>nul
+        del /q "%STAGE%\skills\%%S\erkul_full_slots.py" 2>nul
+        del /q "%STAGE%\skills\%%S\erkul_truth_parity.py" 2>nul
+        del /q "%STAGE%\skills\%%S\refresh_erkul_cache.py" 2>nul
+        del /q "%STAGE%\skills\%%S\dps_blast_radius.py" 2>nul
+        del /q "%STAGE%\skills\%%S\blast_baseline.json" 2>nul
         rem pytest coverage data — contains absolute source paths.
         del /q "%STAGE%\skills\%%S\.coverage" 2>nul
     )
@@ -324,7 +339,7 @@ echo  [*] Staging tools...
 ::  and printed 'The system cannot find the drive specified.' in the 2.4.0 build log.)
 for %%T in (Battle_Buddy Mining_Signals PlayTime_Calculator SuitMk2 Dev_History) do (
     if exist "%ROOT%\tools\%%T" (
-        robocopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T" /E /XD .claude .git __pycache__ .pytest_cache /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+        robocopy "%ROOT%\tools\%%T" "%STAGE%\tools\%%T" /E /XD .claude .git __pycache__ .pytest_cache /XF %LEFTOVERS% /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
         if errorlevel 8 set "COPY_FAILED=!COPY_FAILED! tools\%%T"
         del /q "%STAGE%\tools\%%T\.*_cache*.json" 2>nul
         del /q "%STAGE%\tools\%%T\*.log" 2>nul
@@ -1156,6 +1171,15 @@ if !errorlevel!==0 (
 ::
 :: Self-discovers any new skill that ships a skill.json — no edits to
 :: this script needed when a new tool is added.
+:: Leftover dev files: none of the patterns or names the staging loops drop may be anywhere in
+:: the stage. See build\check_leftovers_stage.py.
+echo  [*] Checking the stage for leftover dev files...
+"%STAGE%\python\python.exe" "%BUILD%check_leftovers_stage.py" "%STAGE%"
+if !errorlevel! neq 0 (
+    echo  [FAIL] Leftover dev files are staged - see the lines above.
+    set "VALIDATION_OK=0"
+)
+
 echo  [*] Running staging import smoke test...
 "%STAGE%\python\python.exe" "%BUILD%staging_import_test.py" "%STAGE%"
 if !errorlevel! neq 0 (
