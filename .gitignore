@@ -124,3 +124,6 @@ tools/Pico/out_placed/
 # Pico outfit packs: 12-18 MB each, over the 5 MB a file this repository takes. packs.json IS tracked.
 # The build copies or downloads the default pack and checks it against packs.json.
 tools/Pico/packs/*.tar.xz
+
+# Files build/assets_from_release.py takes out of a release package (large binaries, never in git)
+build/release_assets/
