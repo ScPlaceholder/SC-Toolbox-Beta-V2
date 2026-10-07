@@ -127,3 +127,6 @@ tools/Pico/packs/*.tar.xz
 
 # Files build/assets_from_release.py takes out of a release package (large binaries, never in git)
 build/release_assets/
+
+# The installer that dotnet publish writes (about 2 GB)
+build/installer_ui/publish/
