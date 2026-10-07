@@ -13,6 +13,11 @@ Rules:
   * Voices: <voices_dir>/elah.onnx and montaigne.onnx (fine-tuned) when present, else the stock Piper base voices
     they were fine-tuned from (lessac / alan), fetched once into ~/.cache/piper like Mining_Signals does. Swapping a
     trained voice in is dropping a file in; reload() picks it up.
+  * A VOICE OF THE PLAYER'S OWN. custom_voices={speaker: path of a Piper .onnx} (the window's voice picker) is
+    tried first for that speaker. A file that is missing, has no .onnx.json beside it, or will not load never
+    costs a line: the speaker uses the voice above, and voice_problem(speaker) says in plain words which file
+    and what was wrong. The character (voice_fx), the delivery and the level are applied to it as to any voice.
+    set_custom_voice() then reload() applies a new choice without a restart.
   * mute() stops the current line and clears the queue.
   * ANSWERS. A line said with addressed=True is an answer to something the pilot asked with the
     talk key. While muted, such a line is still spoken if allow_addressed(True) was called; every other line is
@@ -34,6 +39,7 @@ from __future__ import annotations
 import heapq
 import io
 import itertools
+import json
 import logging
 import threading
 import time
@@ -144,19 +150,69 @@ def _stock_path(speaker: str, cache: Path) -> Path:
     return onnx
 
 
+# What Piper reads from a voice's .onnx.json when it loads the voice. A file without these is not one.
+_VOICE_JSON_NEEDS = ("audio", "espeak", "num_symbols", "num_speakers", "phoneme_id_map")
+
+
+def check_voice_file(path) -> tuple:
+    """Can this file be tried as a voice? (True, "") or (False, why), the why in plain words that name the file.
+    It looks at the file and reads the small .onnx.json beside it, and nothing else: no audio, no model, no Qt.
+    A file that passes can still fail to load (a .onnx that is not a voice); Speech catches that and says so in
+    the same way. shared/character_voice.py has a shorter copy of this for the Assistant."""
+    text = str(path or "").strip()
+    if not text:
+        return False, "no file was chosen"
+    p = Path(text)
+    if not p.is_file():
+        return False, f"{p} was not found"
+    if p.suffix.lower() != ".onnx":
+        return False, f"{p.name} is not a Piper voice file (.onnx)"
+    meta = Path(str(p) + ".json")
+    try:
+        if p.stat().st_size == 0:
+            return False, f"{p.name} is an empty file"
+        if not meta.is_file():
+            return False, f"{meta.name} was not found beside {p.name}"
+        data = json.loads(meta.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return False, f"{meta.name} could not be read ({type(e).__name__})"
+    if (not isinstance(data, dict) or any(k not in data for k in _VOICE_JSON_NEEDS)
+            or not isinstance(data["audio"], dict) or "sample_rate" not in data["audio"]
+            or not isinstance(data["espeak"], dict) or "voice" not in data["espeak"]):
+        return False, f"{meta.name} is not the settings file of a Piper voice"
+    return True, ""
+
+
+def list_voice_files(folder) -> list:
+    """The voice files in a folder that pass check_voice_file, by name. A folder that is not there has none."""
+    try:
+        found = sorted(Path(folder).glob("*.onnx"), key=lambda p: p.name.lower())
+    except OSError as e:
+        log.warning("speech: the voices folder %s could not be read: %s", folder, e)
+        return []
+    return [p for p in found if check_voice_file(p)[0]]
+
+
 class Speech:
     def __init__(self, voices_dir: Path, cache_dir: Optional[Path] = None, volume: float = 0.9,
                  synth: Optional[Callable[[str, str], tuple]] = None,
                  play: Optional[Callable[[object, int], None]] = None,
                  now: Callable[[], float] = time.time,
-                 fx_presets: Optional[dict] = None, ducker=None):
+                 fx_presets: Optional[dict] = None, ducker=None,
+                 custom_voices: Optional[dict] = None, load: Optional[Callable[[str], object]] = None):
         """synth/play are injectable for tests: synth(text, speaker) -> (float32 audio, sr); play(audio, sr).
         fx_presets: {speaker: voice_fx preset}; default FX_PRESET. ducker: a started voice_fx.DuckingMonitor, or
-        None to never wait/duck (tests, or no pycaw)."""
+        None to never wait/duck (tests, or no pycaw). custom_voices: {speaker: path of the player's own voice
+        file, or ""}. load: load(path) -> a Piper voice; the tests' stand-in for loading a model."""
         self.voices_dir, self.cache = Path(voices_dir), cache_dir or (Path.home() / ".cache" / "piper")
         self.volume, self.now = volume, now
         self._voices: dict[str, object] = {}
         self._voice_src: dict[str, str] = {}
+        self.custom_voices: dict[str, str] = {k: str(v or "").strip() for k, v in (custom_voices or {}).items()}
+        self._problems: dict[str, str] = {}                 # speaker -> why its custom voice is not in use
+        self._load = load or self._piper_load
+        self._voice_lock = threading.Lock()                 # one load at a time: preload() and a line both ask
+        self._voice_gen = 0                                 # goes up at reload(); see _voice
         self._synth = synth or self._piper_synth
         self._play = play or self._sd_play
         self._q: list[_Item] = []
@@ -180,8 +236,17 @@ class Speech:
 
     # -- voices -------------------------------------------------------------------------------------------------
     def voice_source(self, speaker: str) -> str:
-        """'trained' / 'stock' / 'not loaded' (for the status window)."""
+        """'custom' / 'trained' / 'stock' / 'not loaded' (for the status window)."""
         return self._voice_src.get(speaker, "not loaded")
+
+    def set_custom_voice(self, speaker: str, path) -> None:
+        """The player's own voice file for a speaker, or "" for the built-in voice. reload() applies it."""
+        self.custom_voices[speaker] = str(path or "").strip()
+
+    def voice_problem(self, speaker: str) -> str:
+        """"" while the speaker has the voice that was asked for. Otherwise why its custom voice is not the one
+        in use, in plain words that name the file; the speaker is then on its built-in voice."""
+        return self._problems.get(speaker, "")
 
     def preload(self) -> None:
         """Load both voices now (on the speech thread's behalf, from any thread) so the dashboard shows them loaded
@@ -193,21 +258,54 @@ class Speech:
                 log.warning("speech: preload %s failed: %s", spk, e)
 
     def reload(self) -> None:
+        self._voice_gen += 1
         self._voices.clear()
         self._voice_src.clear()
+        self._problems.clear()
+
+    @staticmethod
+    def _piper_load(path: str):
+        from piper import PiperVoice  # type: ignore
+        return PiperVoice.load(str(path))
 
     def _voice(self, speaker: str):
-        if speaker not in self._voices:
-            from piper import PiperVoice  # type: ignore
-            trained = self.voices_dir / f"{speaker}.onnx"
-            if trained.exists() and trained.with_suffix(".onnx.json").exists():
-                path, src = trained, "trained"
-            else:
-                path, src = _stock_path(speaker, self.cache), "stock"
-            self._voices[speaker] = PiperVoice.load(str(path))
-            self._voice_src[speaker] = src
-            log.info("speech: %s voice = %s (%s)", speaker, path.name, src)
-        return self._voices[speaker]
+        with self._voice_lock:
+            while True:
+                voice = self._voices.get(speaker)
+                if voice is not None:
+                    return voice
+                gen = self._voice_gen
+                voice, src, name, problem = self._open_voice(speaker)
+                if gen != self._voice_gen:                  # reload() ran while this loaded: the choice may have
+                    continue                                # changed, so what was loaded is not kept
+                self._voices[speaker], self._voice_src[speaker] = voice, src
+                if problem:
+                    self._problems[speaker] = problem
+                else:
+                    self._problems.pop(speaker, None)
+                log.info("speech: %s voice = %s (%s)", speaker, name, src)
+                return voice
+
+    def _open_voice(self, speaker: str):
+        """(voice, 'custom' | 'trained' | 'stock', file name, problem). The player's own file first, when one is
+        chosen. If it cannot be used the built-in voice is loaded in its place and `problem` says why; a custom
+        voice is never allowed to cost the speaker its voice."""
+        custom, problem = self.custom_voices.get(speaker, ""), ""
+        if custom:
+            ok, problem = check_voice_file(custom)
+            if ok:
+                try:
+                    return self._load(custom), "custom", Path(custom).name, ""
+                except Exception as e:
+                    problem = f"{Path(custom).name} could not be loaded as a voice"
+                    log.warning("speech: %s could not be loaded: %s: %s", custom, type(e).__name__, e)
+            log.warning("speech: %s is on its built-in voice: %s", speaker, problem)
+        trained = self.voices_dir / f"{speaker}.onnx"
+        if trained.exists() and trained.with_suffix(".onnx.json").exists():
+            path, src = trained, "trained"
+        else:
+            path, src = _stock_path(speaker, self.cache), "stock"
+        return self._load(str(path)), src, path.name, problem
 
     def _piper_synth(self, text: str, speaker: str):
         import numpy as np
@@ -473,11 +571,155 @@ class Speech:
         self.mute(True)
 
 
+VOICE_JSON_EXAMPLE = {"audio": {"sample_rate": 16000}, "espeak": {"voice": "en-us"}, "num_symbols": 256,
+                      "num_speakers": 1, "phoneme_id_map": {"_": [0]}}
+
+
+def write_fake_voice(folder: Path, name: str, meta=VOICE_JSON_EXAMPLE, body: bytes = b"not a real model") -> Path:
+    """For the tests: <folder>/<name>.onnx with `body` in it and, unless meta is None, its .onnx.json (a dict is
+    written as JSON, a str as it is). Nothing here is a model; the tests give Speech a load() of their own."""
+    folder.mkdir(parents=True, exist_ok=True)
+    onnx = folder / f"{name}.onnx"
+    onnx.write_bytes(body)
+    if meta is not None:
+        Path(str(onnx) + ".json").write_text(meta if isinstance(meta, str) else json.dumps(meta), encoding="utf-8")
+    return onnx
+
+
+def _selftest_voices(case, tmp: Path) -> None:
+    """The player's own voice file: the check, the fallback and what is said about it. Everything is under `tmp`;
+    no model is loaded, nothing is downloaded and nothing is played."""
+    global voice_fx
+    builtin, mine, cache = tmp / "builtin", tmp / "mine", tmp / "cache"
+    for spk in STOCK:                                       # the voices that ship, so nothing is ever fetched
+        write_fake_voice(builtin, spk)
+    good = write_fake_voice(mine, "my_voice")
+    no_json = write_fake_voice(mine, "no_json", meta=None)
+    bad_json = write_fake_voice(mine, "bad_json", meta="{ this is not json")
+    other_json = write_fake_voice(mine, "other_json", meta={"name": "something else"})
+    empty = write_fake_voice(mine, "empty", body=b"")
+    wont_load = write_fake_voice(mine, "wont_load")
+    not_onnx = mine / "song.mp3"
+    not_onnx.write_bytes(b"x")
+    gone = mine / "gone.onnx"
+
+    case("check: a .onnx with its .onnx.json beside it passes", check_voice_file(good) == (True, ""))
+    why = {p.name: check_voice_file(p) for p in (gone, no_json, bad_json, other_json, empty, not_onnx)}
+    case("check: every unusable file is refused", all(ok is False for ok, _ in why.values()))
+    case("check: a missing file is named in full", why["gone.onnx"][1] == f"{gone} was not found")
+    case("check: a missing .onnx.json is named",
+         why["no_json.onnx"][1] == "no_json.onnx.json was not found beside no_json.onnx")
+    case("check: an unreadable .onnx.json is named", why["bad_json.onnx"][1].startswith("bad_json.onnx.json could not"))
+    case("check: a .json that is not a voice's is named",
+         why["other_json.onnx"][1] == "other_json.onnx.json is not the settings file of a Piper voice")
+    case("check: an empty file and a file that is not .onnx are named",
+         why["empty.onnx"][1] == "empty.onnx is an empty file" and "song.mp3 is not" in why["song.mp3"][1])
+    case("check: no choice is not a voice, and never an error", check_voice_file("") == (False, "no file was chosen")
+         and check_voice_file(None)[0] is False)
+    case("the folder lists only the voices that pass, by name",
+         [p.name for p in list_voice_files(mine)] == ["my_voice.onnx", "wont_load.onnx"]
+         and list_voice_files(tmp / "no such folder") == [])
+
+    loaded, played, fx = [], [], []
+
+    class FakeVoice:
+        def __init__(self, path):
+            self.path = str(path)
+
+        def synthesize_wav(self, text, wf, syn_config=None):
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(b"\x00\x10" * 160)
+
+    def fake_load(path):
+        loaded.append(str(path))
+        if Path(path).name == "wont_load.onnx":
+            raise RuntimeError("not a model")
+        return FakeVoice(path)
+
+    class FakeFx:                                           # stands where voice_fx stands: records, changes nothing
+        @staticmethod
+        def apply(audio, sr, speaker, preset):
+            fx.append((speaker, preset))
+            return audio
+
+        @staticmethod
+        def _limit(y, sr):
+            return y
+
+    def line(s, speaker):
+        """Say one line and wait for it; True when it was played (so the speaker was not silent)."""
+        n = len(played)
+        s.say("hello", speaker, PRIORITY_EVENT)
+        for _ in range(100):
+            if len(played) > n:
+                return True
+            time.sleep(0.02)
+        return False
+
+    def make(**custom):
+        return Speech(builtin, cache_dir=cache, play=lambda audio, sr: played.append((len(audio), sr)),
+                      load=fake_load, custom_voices=custom)
+
+    real_fx, voice_fx = voice_fx, FakeFx
+    made = []
+    try:
+        s = make()
+        made.append(s)
+        case("default: with no custom voice the built-in voice speaks",
+             line(s, "elah") and s.voice_source("elah") == "trained" and s.voice_problem("elah") == ""
+             and loaded == [str(builtin / "elah.onnx")])
+
+        del loaded[:], fx[:]
+        s = make(elah=str(good))
+        made.append(s)
+        case("a valid custom file is the voice that is loaded and speaks",
+             line(s, "elah") and loaded == [str(good)] and s.voice_source("elah") == "custom"
+             and s.voice_problem("elah") == "" and played[-1] == (160, 16000))
+        case("the other speaker keeps its built-in voice",
+             line(s, "montaigne") and s.voice_source("montaigne") == "trained"
+             and loaded == [str(good), str(builtin / "montaigne.onnx")])
+        case("the character is applied to a custom voice exactly as to a built-in one",
+             fx == [("elah", "default"), ("montaigne", "default")])
+
+        for bad, said in ((gone, f"{gone} was not found"),
+                          (no_json, "no_json.onnx.json was not found beside no_json.onnx"),
+                          (wont_load, "wont_load.onnx could not be loaded as a voice")):
+            del loaded[:]
+            s = make(elah=str(bad))
+            made.append(s)
+            case(f"{bad.name}: the line is still spoken, with the built-in voice, and the reason is given",
+                 line(s, "elah") and s.voice_source("elah") == "trained" and s.voice_problem("elah") == said
+                 and loaded[-1] == str(builtin / "elah.onnx"))
+
+        del loaded[:]
+        s.set_custom_voice("elah", str(good))               # s is on its built-in voice (wont_load); change it
+        case("a new choice is not used before reload()", line(s, "elah") and s.voice_source("elah") == "trained")
+        s.reload()
+        case("reload() applies a new choice without a restart",
+             s.voice_source("elah") == "not loaded" and s.voice_problem("elah") == "" and line(s, "elah")
+             and s.voice_source("elah") == "custom"
+             and s.voice_problem("elah") == "" and loaded == [str(good)])
+        s.set_custom_voice("elah", "")
+        s.reload()
+        case("choosing the built-in voice again goes back to it",
+             line(s, "elah") and s.voice_source("elah") == "trained" and s.voice_problem("elah") == "")
+    finally:
+        voice_fx = real_fx
+        for s in made:
+            s.close()
+
+
 def _selftest() -> int:
+    import tempfile
     results = []
 
     def case(name, cond):
         results.append((name, bool(cond)))
+
+    with tempfile.TemporaryDirectory(prefix="suitmk2_speech_selftest_") as tmp:
+        _selftest_voices(case, Path(tmp))
 
     played, clock = [], [0.0]
     gate = threading.Event()

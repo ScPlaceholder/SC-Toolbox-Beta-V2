@@ -82,6 +82,12 @@ DEFAULTS = {
     "adapters_dir": "",
     # Voices ship inside the tool (build_installer copies elah/montaigne.onnx here); stock Piper voices otherwise.
     "voices_dir": str(Path(__file__).resolve().parent.parent / "voices"),
+    # A voice of the player's own, one per companion (the window's voice picker). "" = the built-in voice.
+    # Otherwise the full path of a Piper voice file: a .onnx with its .onnx.json beside it. A file that has gone or
+    # will not load is never silence: that companion speaks with the built-in voice and the window says which file
+    # and what was wrong (speech.check_voice_file). The picker lists the voices in player_voices_dir() below.
+    "voice_file_elah": "",
+    "voice_file_montaigne": "",
     "pilot_id": "pilot",
     "talk_key": None,                 # push-to-talk binding (InputBinding dict), set from the window; load()
                                       # gives DEFAULT_TALK_KEY to a settings file that has none
@@ -168,6 +174,11 @@ def chat_on(s: dict) -> bool:
     return s.get("chat") is True and bool(str(s.get("chat_model") or "").strip())
 
 
+def player_voices_dir() -> Path:
+    """Where a player keeps voice files of their own: voices/ beside settings.json. Nothing here creates it."""
+    return DIR / "voices"
+
+
 def load() -> dict:
     s = dict(DEFAULTS)
     try:
@@ -179,6 +190,9 @@ def load() -> dict:
         s["talk_key"] = dict(DEFAULT_TALK_KEY)
     if not chat_on(s):
         s["chat"] = False                         # chat with no chat model named is off, and the file is told so
+    for who in ("elah", "montaigne"):             # anything that is not a path written as text: the built-in voice
+        chosen = s.get(f"voice_file_{who}")
+        s[f"voice_file_{who}"] = chosen.strip() if isinstance(chosen, str) else ""
     _clean_eyes(s)
     try:
         s["chat_thread_exchanges"] = max(1, int(s.get("chat_thread_exchanges")))
