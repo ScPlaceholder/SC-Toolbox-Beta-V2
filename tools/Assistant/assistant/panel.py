@@ -31,6 +31,7 @@ import json
 import logging
 import os
 import re
+import threading
 from typing import Optional
 
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
@@ -46,7 +47,7 @@ from shared.qt.base_window import SCWindow
 from shared.qt.title_bar import SCTitleBar
 
 from .agent import AssistantAgent
-from .config import LLMConfig
+from .config import LLMConfig, model_note
 from .set_route import gate as route_gate
 from .set_route import phrases as route_phrases
 from .tools import ToolContext
@@ -371,6 +372,8 @@ class _AssistantBody:
             f"color: {P.energy_cyan}; font-family: Consolas; font-size: 8pt; "
             f"background: transparent; padding: 4px 12px;")
         self.content_layout.addWidget(self._lbl_status)
+        self._ready_text = "ready"              # what the status line goes back to after a turn
+        self._check_model()
 
         geom = self._state.get("geom")
         if self._owns_window and geom and len(geom) == 4:
@@ -611,7 +614,10 @@ class _AssistantBody:
     def _on_reply(self, reply: str) -> None:
         self._lbl_reply.setText("AI: " + reply)
         self._lbl_reply.setToolTip(reply)
-        self._set_status("ready")
+        ready = getattr(self, "_ready_text", "ready")
+        self._set_status(ready)
+        if ready != "ready":                    # still without its model a moment ago: it may be here by now
+            self._check_model()
         if getattr(self, "_ptt_turn", False):
             self._ptt_turn = False
             self.pttState.emit("reply", reply)
@@ -786,6 +792,25 @@ class _AssistantBody:
             self._lbl_mic.setText(self._ptt_clash)
             self._lbl_mic.setVisible(bool(self._ptt_clash))
 
+    def _check_model(self) -> None:
+        """Say so, in the status line, when the Assistant is answering without its small local model
+        (config.model_note: not on this PC yet, or the service is not running). One short request off
+        the GUI thread; the line is set through statusRequested, which is safe from a thread."""
+        cfg = LLMConfig.load()
+
+        def work():
+            try:
+                note = model_note(cfg)
+            except Exception:                    # a check that cannot run says nothing
+                return
+            self._ready_text = note or "ready"
+            if note:
+                try:
+                    self.statusRequested.emit(note)
+                except RuntimeError:             # the window closed meanwhile
+                    pass
+        threading.Thread(target=work, name="assistant_model_check", daemon=True).start()
+
     # ── settings ─────────────────────────────────────────────────────────
     def _edit_settings(self) -> None:
         dlg = _SettingsDialog(LLMConfig.load(), self)
@@ -794,6 +819,7 @@ class _AssistantBody:
             cfg.save()
             self._agent.configure(cfg)
             self._set_status(f"LLM set — {cfg.mode} / {cfg.provider} / {cfg.model}")
+            self._check_model()
 
     # ── state ────────────────────────────────────────────────────────────
     def _load_state(self) -> dict:

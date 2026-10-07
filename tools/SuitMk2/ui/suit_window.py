@@ -25,6 +25,7 @@ import os
 import sys
 import threading
 from pathlib import Path
+from threading import Event
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -63,6 +64,21 @@ try:                                            # first-run "Set up Elah and Mon
 except Exception:                               # pragma: no cover - a broken panel must not take the window down
     log.exception("setup panel unavailable; the window runs without first-run setup")
     SetupPanel, MODEL_PREFIXES = None, ("suitmk2-", "realizer-")
+try:                                            # the pop-up that offers Gemma for talking; optional, never fatal
+    from ui import chat_offer                   # noqa: E402
+except Exception:                               # pragma: no cover
+    log.exception("the Gemma pop-up is unavailable; the window runs without it")
+    chat_offer = None
+
+
+def _assistant_tag() -> Optional[str]:
+    """The Toolbox Assistant's small model, when the first-run setup should fetch it too (model_provision)."""
+    try:
+        import model_provision
+        return model_provision.assistant_tag_wanted()
+    except Exception:
+        log.exception("could not tell which model the Assistant wants; the setup fetches none for it")
+        return None
 
 
 class _Ears(OneMicMixin, EarsController):
@@ -226,10 +242,13 @@ class _SuitBody:
         if SetupPanel is not None:
             try:
                 self.setup = SetupPanel(self, auto_check=False, ready_prefixes=MODEL_PREFIXES,
-                                        auto_start=bool(self.s.get("auto_setup", False)))
+                                        auto_start=bool(self.s.get("auto_setup", False)),
+                                        assistant_tag=_assistant_tag(),
+                                        ask_chat=self._ask_chat if chat_offer is not None else None)
                 self.setup.setVisible(False)
                 self.setup.vision_chk.setChecked(bool(self.s.get("vision_glance")))
                 self.setup.ready.connect(self._on_models_ready)
+                self.setup.chat_fetched.connect(self._gemma_fetched)
                 lay.addWidget(self.setup)
             except Exception:
                 log.exception("setup panel failed to build; continuing without it")
@@ -524,10 +543,21 @@ class _SuitBody:
         self._chat_status = QLabel("")
         self._chat_status.setStyleSheet(f"color: {P.yellow}; font-size: 9pt;")
         self._chat_status.setWordWrap(True)
+        # Gemma, the one model measured for talking: get it, use it, or remove it. Hidden until Ollama has
+        # answered. Getting it asks first (ui/chat_offer.py, default no) and never ticks the checkbox.
+        self._gemma_btn = QPushButton(chat_models.GET_BUTTON)
+        self._gemma_btn.setStyleSheet(_btn_ss())
+        self._gemma_btn.setToolTip("Gemma is the heavier model for talking back and forth with Elah and Montaigne. "
+                                   "Their normal comments work without it.")
+        self._gemma_btn.setVisible(False)
+        self._gemma_btn.clicked.connect(self._gemma_clicked)
+        self._gemma_cancel = None               # an Event while a download started here is running
+        self._gemma_pct = 0
         chat.addWidget(self._chat_on, 0, 0)
         chat.addWidget(self._chat_model, 0, 1)
         chat.addWidget(relist, 0, 2)
-        chat.addWidget(self._chat_status, 1, 0, 1, 3)
+        chat.addWidget(self._gemma_btn, 0, 3)
+        chat.addWidget(self._chat_status, 1, 0, 1, 4)
         chat.setColumnStretch(1, 1)
         lay.addLayout(chat)
         self._chat_models = None                # what Ollama listed; None = not asked yet, or it did not answer
@@ -822,6 +852,7 @@ class _SuitBody:
         if asked:
             self._chat_status.setText(chat_models.NONE_FOUND if not models else
                                       (chat_models.why_chat_cannot_be_on(self.s, models) if self.s.get("chat") else ""))
+        self._show_gemma_btn(models)
 
     def _pick_chat_model(self, index: int) -> None:
         """A model was picked. Read what memory is free (about a quarter of a second, off the GUI thread), then
@@ -880,6 +911,154 @@ class _SuitBody:
         st.save(self.s)
         self._attach_talker()
         self._chat_status.setText("")
+
+    # -- free talk: Gemma, the offered chat model -------------------------------------------------------------------
+    def _ask_chat(self, offer) -> bool:
+        """Show the pop-up. Anything that goes wrong is a no: nothing downloads without a yes."""
+        try:
+            return chat_offer is not None and chat_offer.ask(self, offer) is True
+        except Exception:
+            log.exception("the Gemma pop-up could not be shown; nothing is downloaded")
+            return False
+
+    def _gemma_chosen(self) -> bool:
+        return str(self.s.get("chat_model") or "").strip().lower() in (chat_models.OFFER, chat_models.OFFER + ":latest")
+
+    def _show_gemma_btn(self, models: Optional[list]) -> None:
+        """What the button offers: stop a running download, get Gemma, use it, or remove it. Hidden while Ollama
+        has not answered (there is then nothing it could do)."""
+        b = self._gemma_btn
+        if self._gemma_cancel is not None:
+            b.setText(chat_models.STOP_BUTTON)
+            b.setVisible(True)
+            return
+        if models is None or chat_offer is None:
+            b.setVisible(False)
+            return
+        here = chat_models.is_installed(chat_models.OFFER, models)
+        b.setText(chat_models.REMOVE_BUTTON if here and self._gemma_chosen() else
+                  chat_models.USE_BUTTON if here else chat_models.GET_BUTTON)
+        b.setVisible(True)
+
+    def _when(self, attr: str, then) -> None:
+        """Wait, on the GUI thread, for a worker to leave a tuple in self.<attr>, then call then(*tuple)."""
+        got = getattr(self, attr, None)
+        if got is None:
+            QTimer.singleShot(120, lambda: self._when(attr, then))
+            return
+        setattr(self, attr, None)
+        then(*got)
+
+    def _gemma_probe_start(self, name: str, then) -> None:
+        """Read what Ollama has and what memory is free, off the GUI thread, then call then(models, free)."""
+        self._gemma_probe = None
+
+        def work():
+            models = free = None
+            try:
+                models = chat_models.installed()
+                free = hardware_guard.read_free_memory()
+            except Exception:
+                log.exception("could not read the installed models or the free memory")
+            self._gemma_probe = (models, free)
+        threading.Thread(target=work, name=name, daemon=True).start()
+        self._when("_gemma_probe", then)
+
+    def _gemma_clicked(self) -> None:
+        if self._gemma_cancel is not None:               # a download is running: the button stops it
+            self._gemma_cancel.set()
+            self._chat_status.setText("Stopping the download...")
+            return
+        self._chat_status.setText("checking this PC...")
+        self._gemma_probe_start("suitmk2_gemma_probe", self._gemma_decide)
+
+    def _gemma_decide(self, models, free) -> None:
+        """The button was pressed and the PC has been read. Remove it (after a question), or ask whether to get or
+        use it. A no leaves everything as it was."""
+        self._fill_chat_models(models)
+        if chat_models.is_installed(chat_models.OFFER, models) and self._gemma_chosen():
+            self._gemma_remove_ask()
+            return
+        offer = chat_models.offer(models, free)
+        if not self._ask_chat(offer):
+            return
+        if offer.kind == "select":                       # already on this PC: nothing is downloaded
+            self._gemma_take(models, free)
+        elif offer.kind == "download":
+            self._gemma_fetch()
+
+    def _gemma_fetch(self) -> None:
+        """Download it (chat_models.fetch: the setup's own pull), off the GUI thread, with the percentage shown."""
+        self._gemma_cancel = cancel = Event()
+        self._gemma_pct, self._gemma_done = 0, None
+        self._show_gemma_btn(self._chat_models)
+
+        def progress(stage, done, total, msg):
+            self._gemma_pct = int(100 * done / total) if total else 0
+
+        def work():
+            self._gemma_done = chat_models.fetch(progress=progress, cancel=cancel)
+        threading.Thread(target=work, name="suitmk2_gemma_fetch", daemon=True).start()
+        self._gemma_tick()
+
+    def _gemma_tick(self) -> None:
+        got = getattr(self, "_gemma_done", None)
+        if got is None:
+            self._chat_status.setText(f"{chat_models.FETCH_LABEL}: {self._gemma_pct}%")
+            QTimer.singleShot(200, self._gemma_tick)
+            return
+        self._gemma_done = None
+        self._gemma_fetched(*got)
+
+    def _gemma_fetched(self, ok: bool, said: str) -> None:
+        """A download the player said yes to has ended (started here, or by the first-run setup). Failed or
+        stopped: say the sentence and change nothing. Here: read the PC again and choose it (_gemma_take)."""
+        self._gemma_cancel = None
+        if not ok:
+            self._show_gemma_btn(self._chat_models)
+            self._chat_status.setText(said)
+            return
+        self._chat_status.setText("Gemma is here. Checking that it fits...")
+        self._gemma_probe_start("suitmk2_gemma_take", self._gemma_take)
+
+    def _gemma_take(self, models, free) -> None:
+        """Choose Gemma as the chat model if it fits (the same check as a pick in the drop-down) and save that.
+        The free-talk checkbox is not touched: talking starts only when the player ticks it."""
+        ok, said = chat_models.take(self.s, models, free)
+        if ok:
+            st.save(self.s)
+            self._attach_talker()
+        self._fill_chat_models(models)
+        self._chat_status.setText(said)
+
+    def _gemma_remove_ask(self) -> None:
+        try:                                             # default no; anything that goes wrong is a no
+            if chat_offer.confirm(self, chat_models.REMOVE_TITLE, chat_models.remove_question(),
+                                  chat_models.REMOVE_YES) is not True:
+                return
+        except Exception:
+            log.exception("the remove question could not be shown; nothing is removed")
+            return
+        self._chat_status.setText("Removing Gemma...")
+        self._gemma_gone = None
+
+        def work():
+            self._gemma_gone = chat_models.remove({})    # the settings are changed on the GUI thread, below
+        threading.Thread(target=work, name="suitmk2_gemma_remove", daemon=True).start()
+        self._when("_gemma_gone", self._gemma_removed)
+
+    def _gemma_removed(self, ok: bool, said: str) -> None:
+        if ok:
+            if self._gemma_chosen():
+                chat_models.choose(self.s, "", None, None)       # no model: free talk is off with it
+                st.save(self.s)
+            self._chat_on.blockSignals(True)
+            self._chat_on.setChecked(st.chat_on(self.s))
+            self._chat_on.blockSignals(False)
+            self._attach_talker()
+            self._fill_chat_models([m for m in self._chat_models or []
+                                    if m["name"].lower() not in (chat_models.OFFER, chat_models.OFFER + ":latest")])
+        self._chat_status.setText(said)
 
     def _maybe_check_setup(self) -> None:
         """GUI thread, once: after the sidecar had its chance to wake the runtime, ask the panel whether a complete

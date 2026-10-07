@@ -54,6 +54,13 @@ from ollama_manager import DEFAULT_URL, OllamaManager, default_url  # noqa: E402
 
 BASE_TAG = "qwen2.5:1.5b"                 # Qwen2.5-1.5B-Instruct Q4_K_M, 986 MB (verified via /api/show)
 VISION_TAG = "gemma3:4b"
+# The Toolbox Assistant's own small model (tools/Assistant/assistant/config.py, LLMConfig.model). The Assistant is a
+# tab of the same window and nothing else fetches this for it, so the one setup click does. The size is the sum of
+# the layers in the registry manifest (read 2026-10-06): 397,821,319 bytes.
+ASSISTANT_TAG = "qwen2.5:0.5b"
+ASSISTANT_BYTES = 397_821_319
+ASSISTANT_LABEL = "Downloading the Assistant's brain"
+ASSISTANT_CONFIG = Path.home() / ".sctoolbox" / "assistant_llm.json"
 SPEAKERS = ("elah", "montaigne")
 MODEL_PREFIX = "suitmk2-"
 MODELS_DIR = HERE.parent / "models"
@@ -83,6 +90,27 @@ class CreateError(ProvisionError):
 
 class Cancelled(ProvisionError):
     pass
+
+
+def assistant_tag_wanted(path: Optional[Path | str] = None) -> Optional[str]:
+    """The model the Toolbox Assistant would ask this PC's runtime for, or None when it would not ask it for
+    ASSISTANT_TAG: its settings file says router only, another service, or another model (then it is the player's
+    own choice and nothing is fetched for it). No settings file is the Assistant's defaults, which is ASSISTANT_TAG.
+    Reads one small file and never raises."""
+    try:
+        cfg = json.loads(Path(path or ASSISTANT_CONFIG).read_text(encoding="utf-8"))
+    except Exception:
+        return ASSISTANT_TAG
+    if not isinstance(cfg, dict):
+        return ASSISTANT_TAG
+    if str(cfg.get("mode") or "").strip().lower() == "router":
+        return None
+    if str(cfg.get("provider") or "openai").strip().lower() != "openai":
+        return None
+    host = urllib.parse.urlsplit(str(cfg.get("base_url") or DEFAULT_URL))
+    if (host.hostname or "").lower() not in ("127.0.0.1", "localhost") or (host.port or 0) != 11434:
+        return None
+    return ASSISTANT_TAG if str(cfg.get("model") or ASSISTANT_TAG).strip().lower() == ASSISTANT_TAG else None
 
 
 def model_name(speaker: str, prefix: str = MODEL_PREFIX) -> str:
@@ -351,20 +379,33 @@ class Provisioner:
             raise CreateError(f"{name}: created, but it does not point at the expected weights")
         return "created"
 
-    def run(self, include_vision: bool = False) -> dict:
+    def run(self, include_vision: bool = False, assistant_tag: Optional[str] = None) -> dict:
+        """assistant_tag: also fetch the Toolbox Assistant's small model, after the characters and in the same bar.
+        That one download failing does NOT fail the run: the characters are already in place, so the answer carries
+        out["assistant"] = "failed" and out["assistant_error"], and the caller says so. Cancelled still stops."""
         out: dict = {}
         n = len(self.speakers)
         base_share = 0.3 if include_vision else 0.4
         vision_share = 0.2 if include_vision else 0.0
+        assistant_share = 0.1 if assistant_tag else 0.0
         self._slice(0.0, base_share)
         out["base"] = self.pull(self.base_tag, "Downloading the brain")
         self._check_cancel()
         base_digest, base_path = self.locate_base()
-        per = (1.0 - base_share - vision_share) / max(n, 1)
+        per = (1.0 - base_share - vision_share - assistant_share) / max(n, 1)
         for i, spk in enumerate(self.speakers):
             self._check_cancel()
             out[spk] = self.provision_speaker(spk, base_digest, base_path, base_share + i * per,
                                               base_share + (i + 1) * per)
+        if assistant_tag:
+            self._slice(1.0 - vision_share - assistant_share, 1.0 - vision_share)
+            try:
+                out["assistant"] = self.pull(assistant_tag, ASSISTANT_LABEL)
+            except Cancelled:
+                raise
+            except Exception as e:                    # the companions are set up; this one download is not theirs
+                out["assistant"], out["assistant_error"] = "failed", f"{type(e).__name__}: {e}"
+                self.log.append(f"assistant model not fetched: {type(e).__name__}: {e}")
         if include_vision:
             self._slice(1.0 - vision_share, 1.0)
             out["vision"] = self.pull(VISION_TAG, "Downloading the eyes")
@@ -399,8 +440,9 @@ class SetupJob:
 
     def __init__(self, progress: Optional[Progress] = None, *, include_vision: bool = False,
                  allow_install: bool = True, manager: Optional[OllamaManager] = None,
-                 provisioner_kw: Optional[dict] = None):
+                 provisioner_kw: Optional[dict] = None, assistant_tag: Optional[str] = None):
         self.mgr = manager or OllamaManager()
+        self.assistant_tag = assistant_tag
         self._progress, self.include_vision, self.allow_install = progress, include_vision, allow_install
         self.cancel = threading.Event()
         self.provisioner_kw = provisioner_kw or {}
@@ -449,7 +491,7 @@ class SetupJob:
         p = Provisioner(self.mgr.url, progress=lambda *x: (setattr(self, "overall", a + (1 - a) * p.overall),
                                                              self._cb(*x)),
                         cancel=self.cancel, **self.provisioner_kw)
-        out.update(p.run(include_vision=self.include_vision))
+        out.update(p.run(include_vision=self.include_vision, assistant_tag=self.assistant_tag))
         self.overall = 1.0
         return out
 

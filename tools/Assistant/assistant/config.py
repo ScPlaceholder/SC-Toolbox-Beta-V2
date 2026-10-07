@@ -23,13 +23,22 @@ reachable the Assistant answers in router mode by itself.
 Defaults point at a local Ollama — works offline, nothing leaves the
 machine. Edit the JSON (or the Settings dialog in the panel) to point
 at any other server.
+
+Nothing in the Assistant downloads that model. The first-run setup on the
+Suit Mk2 tab fetches it with the companions' own (tools/SuitMk2/core/
+model_provision.py, ASSISTANT_TAG). Until it is on the PC the Assistant
+answers in router mode, and model_note() below is the sentence the panel
+shows so that this is said and not silent.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, asdict
+from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
 
@@ -108,3 +117,50 @@ class LLMConfig:
     def ready(self) -> bool:
         """True when the config can at least be attempted."""
         return bool(self.base_url and self.model)
+
+
+# ── is the local model there ──────────────────────────────────────────────
+NOTE_MISSING = ("ready — simpler mode: the Assistant's small brain ({model}) is not on this PC yet. "
+                "The setup on the Suit Mk2 tab fetches it.")
+NOTE_UNREACHABLE = ("ready — simpler mode: the local model service is not running, so answers "
+                    "are not rephrased. The setup on the Suit Mk2 tab starts it.")
+
+
+def _ollama_tags(root: str, timeout: float) -> Optional[dict]:
+    try:
+        with urllib.request.urlopen(root + "/api/tags", timeout=timeout) as r:
+            return json.loads(r.read() or b"{}")
+    except Exception:
+        return None
+
+
+def local_model_state(cfg: "LLMConfig", get: Optional[Callable] = None, timeout: float = 1.5) -> str:
+    """"" when there is nothing to say, "missing" when the local Ollama answers and does not have
+    cfg.model, "unreachable" when it does not answer.
+
+    Only asked when the config is the kind the defaults are: an OpenAI-compatible service on this
+    PC at Ollama's port, in a mode that uses a model. Any other service is the player's own setup
+    and is not second-guessed here. One short request; never raises. get(root, timeout) -> dict
+    or None stands in for the request in tests."""
+    if str(cfg.mode or "").strip().lower() == "router" or not cfg.ready():
+        return ""
+    if str(cfg.provider or "").strip().lower() != "openai":
+        return ""
+    u = urllib.parse.urlsplit(str(cfg.base_url))
+    if (u.hostname or "").lower() not in ("127.0.0.1", "localhost") or u.port != 11434:
+        return ""
+    tags = (get or _ollama_tags)("http://127.0.0.1:11434", timeout)
+    if not isinstance(tags, dict):
+        return "unreachable"
+    want = str(cfg.model).strip().lower()
+    names = {str(m.get("name") or m.get("model") or "").lower()
+             for m in tags.get("models") or [] if isinstance(m, dict)}
+    return "" if want in names or want + ":latest" in names else "missing"
+
+
+def model_note(cfg: "LLMConfig", get: Optional[Callable] = None) -> str:
+    """The sentence for the panel's status line, or "" when the model is there (or is not ours to check)."""
+    state = local_model_state(cfg, get)
+    if state == "missing":
+        return NOTE_MISSING.format(model=cfg.model)
+    return NOTE_UNREACHABLE if state == "unreachable" else ""

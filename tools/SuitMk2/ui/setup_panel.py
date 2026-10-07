@@ -13,6 +13,18 @@ WHAT COUNTS AS "SET UP": the runtime answers AND, for at least one prefix in `re
 exist (<prefix>elah and <prefix>montaigne). Default ready_prefixes = (the provisioner's prefix,); the window passes
 pair_realizer.MODEL_PREFIXES, so a dev machine with the realizer-* set is "set up" and never provisions suitmk2-*.
 auto_start=True (settings "auto_setup") starts the job without the click, once per panel, only when not set up.
+
+THE ASSISTANT'S SMALL BRAIN. With assistant_tag given (the window passes model_provision.assistant_tag_wanted()),
+the same click also fetches the Toolbox Assistant's own small model, in the same bar. That download failing does not
+fail the setup: the characters are in place, the panel says one plain sentence and stays, with a button for that
+one download. The same happens on a PC where the characters were set up before this existed: `ready` is emitted
+as always, and the panel stays visible only to offer the missing download. It never provisions anything else then.
+
+GEMMA, FOR TALKING. With ask_chat given, a click on the setup button first reads what is installed and what memory
+is free (off the GUI thread) and hands ask_chat(offer) the question worded by chat_models.offer(); the window shows
+it as a pop-up whose default is no. Only a yes downloads anything: after the setup itself has finished, through
+chat_models.fetch, and chat_fetched(ok, sentence) says how it went. A failed or stopped download there is not a
+failed setup. With no click (auto_start) nobody is asked and nothing extra is downloaded.
 """
 from __future__ import annotations
 
@@ -20,7 +32,7 @@ import sys
 import threading
 import traceback
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QToolButton,
@@ -30,6 +42,8 @@ CORE = Path(__file__).resolve().parent.parent / "core"
 if str(CORE) not in sys.path:
     sys.path.insert(0, str(CORE))
 
+import chat_models                                    # noqa: E402
+import hardware_guard                                 # noqa: E402
 import model_provision as mp                          # noqa: E402
 import ollama_manager as om                           # noqa: E402
 
@@ -40,7 +54,18 @@ except Exception:                                     # standalone / tests
         fg, fg_dim, bg_input, border, bg_deepest, red = "#ddd", "#999", "#222", "#444", "#111", "#e55"
 
 ACCENT = "#7fd1b9"
-BUTTON_TEXT = "Set up Elah and Montaigne (about 1.9 GB)"      # J approved this wording 2026-09-23
+# The wording was approved on 2026-09-23 as "(about 1.9 GB)". The same click now also fetches the Toolbox
+# Assistant's small brain (model_provision.ASSISTANT_BYTES, 0.4 GB), so the stated total is 0.4 GB more.
+BUTTON_TEXT = "Set up Elah and Montaigne (about 2.3 GB)"
+ASSISTANT_SIZE = f"{mp.ASSISTANT_BYTES / 1e9:.1f} GB"
+ASSISTANT_BUTTON = f"Get the Assistant's brain (about {ASSISTANT_SIZE})"
+ASSISTANT_NEEDED = ("Elah and Montaigne are ready. One thing is missing: the Toolbox Assistant's own small brain "
+                    f"(about {ASSISTANT_SIZE}). Until it is here the Assistant answers in its simpler mode.")
+ASSISTANT_FAILED = ("The Toolbox Assistant's small brain could not be fetched. Elah and Montaigne are set up and work "
+                    "without it; the Assistant answers in its simpler mode until it is fetched. Press the button to "
+                    "try again.")
+ASSISTANT_BUSY = "Fetching the Assistant's brain..."
+CHAT_BUSY = "Elah and Montaigne are set up. Now downloading Gemma, for talking..."
 
 
 def complete_set(models: set, prefixes, speakers=mp.SPEAKERS) -> Optional[str]:
@@ -54,11 +79,25 @@ def complete_set(models: set, prefixes, speakers=mp.SPEAKERS) -> Optional[str]:
 class SetupPanel(QFrame):
     ready = Signal()
     failed = Signal(str)
+    assistant_failed = Signal(str)          # the plain sentence; the characters are set up all the same
+    chat_fetched = Signal(bool, str)        # the Gemma download the player said yes to: (it is here, what to say)
 
     def __init__(self, parent: Optional[QWidget] = None, *, manager: Optional[om.OllamaManager] = None,
                  provisioner_kw: Optional[dict] = None, auto_check: bool = True,
-                 ready_prefixes: Optional[tuple] = None, auto_start: bool = False):
+                 ready_prefixes: Optional[tuple] = None, auto_start: bool = False,
+                 assistant_tag: Optional[str] = None, ask_chat: Optional[Callable] = None):
         super().__init__(parent)
+        self.assistant_tag = assistant_tag or None
+        self.assistant_only = False             # the characters exist; the button fetches the Assistant's brain only
+        self.ask_chat = ask_chat
+        self.chat_wanted = False                # NO until the player says yes in the pop-up
+        self.chat_result: Optional[tuple] = None
+        self._assistant_error: Optional[str] = None
+        self._assistant_note = ""
+        self._cancel = threading.Event()
+        self._side_on = False                   # a download outside the setup job is running; _side is its progress
+        self._side = (0.0, "")
+        self._probe: Optional[tuple] = None
         self.mgr = manager or om.OllamaManager()
         self.provisioner_kw = provisioner_kw or {}
         own = self.provisioner_kw.get("prefix", mp.MODEL_PREFIX)
@@ -89,7 +128,7 @@ class SetupPanel(QFrame):
         self.button.setStyleSheet(f"QPushButton {{ background: {ACCENT}; color: {P.bg_deepest}; border-radius: 4px;"
                                   f" padding: 6px 14px; font-weight: bold; }}"
                                   f"QPushButton:disabled {{ background: {P.bg_input}; color: {P.fg_dim}; }}")
-        self.button.clicked.connect(self.start)
+        self.button.clicked.connect(self._clicked)
         row.addWidget(self.button)
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setVisible(False)
@@ -159,11 +198,27 @@ class SetupPanel(QFrame):
                               + (f"\nin use: {self.ready_prefix}elah / {self.ready_prefix}montaigne"
                                  if self.ready_prefix else ""))
         if self.ready_prefix is not None:
+            if self._assistant_missing(st):         # the characters are ready; only the Assistant's brain is not
+                self.assistant_only = True
+                self.status_lbl.setText(self._assistant_note or ASSISTANT_NEEDED)
+                self._assistant_note = ""
+                self.button.setText(ASSISTANT_BUTTON)
+                self.button.setEnabled(True)
+                self.setVisible(True)
+                self.ready.emit()
+                if self.auto_start and not self._auto_started:
+                    self._auto_started = True
+                    self.start()
+                return
+            self.assistant_only = False
             self.status_lbl.setText("Voices and brain are ready.")
             self.button.setEnabled(False)
             self.setVisible(False)
             self.ready.emit()
             return
+        if self.assistant_only:
+            self.assistant_only = False
+            self.button.setText(BUTTON_TEXT)
         self.setVisible(True)
         self.button.setEnabled(True)
         self.status_lbl.setText({
@@ -176,22 +231,91 @@ class SetupPanel(QFrame):
             self._auto_started = True
             self.start()
 
+    def _assistant_missing(self, st: om.Status) -> bool:
+        tag = self.assistant_tag
+        return bool(tag) and st.state in (om.READY, om.MODELS_MISSING) and not (
+            tag in st.models or f"{tag}:latest" in st.models)
+
     # -- the button ------------------------------------------------------------------------------------------------
+    def _clicked(self) -> None:
+        """The button. A full setup first asks about Gemma (once: a yes is kept for "Try again"); the reads the
+        question needs take up to a second and a half, so they are made off the GUI thread."""
+        if self.ask_chat is None or self.assistant_only or self.chat_wanted:
+            self.start()
+            return
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self.button.setEnabled(False)
+        self._probe = None
+
+        def work():
+            models = free = None
+            try:
+                models = chat_models.installed(self.mgr.url)
+                free = hardware_guard.read_free_memory()
+            except Exception:
+                traceback.print_exc()
+            self._probe = (models, free)
+        threading.Thread(target=work, name="suitmk2_setup_chat_probe", daemon=True).start()
+        self._poll_probe()
+
+    def _poll_probe(self) -> None:
+        if self._probe is None:
+            QTimer.singleShot(100, self._poll_probe)
+            return
+        (models, free), self._probe = self._probe, None
+        self._ask_then_start(models, free)
+
+    def _ask_then_start(self, models, free) -> None:
+        """GUI thread. Ask; anything but a clear yes is no. Then the setup starts either way."""
+        try:
+            self.chat_wanted = self.ask_chat(chat_models.offer(models, free, setup=True)) is True
+        except Exception:
+            traceback.print_exc()
+            self.chat_wanted = False
+        self.start()
+
+    def _side_progress(self, stage: str, done: int, total: int, msg: str) -> None:
+        self._side = ((done / total) if total else 0.0, msg)        # two plain values; the widgets are set in _poll
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
-        self._result = self._error = None
-        self.job = mp.SetupJob(include_vision=self.vision_chk.isChecked(), allow_install=self.install_chk.isChecked(),
-                               manager=self.mgr, provisioner_kw=self.provisioner_kw)
+        self._result = self._error = self._assistant_error = self.chat_result = None
+        self._side_on, self._side = False, (0.0, "")
+        only = self.assistant_only
+        chat = self.chat_wanted and not only
+        if only:
+            self._cancel = threading.Event()
+        else:
+            self.job = mp.SetupJob(include_vision=self.vision_chk.isChecked(),
+                                   allow_install=self.install_chk.isChecked(), manager=self.mgr,
+                                   provisioner_kw=self.provisioner_kw, assistant_tag=self.assistant_tag)
+            self._cancel = self.job.cancel
+        cancel = self._cancel
         self.button.setEnabled(False)
         self.cancel_btn.setVisible(True)
         self.bar.setVisible(True)
         self.bar.setValue(0)
-        self.status_lbl.setText("Setting up Elah and Montaigne...")
+        self.status_lbl.setText(ASSISTANT_BUSY if only else "Setting up Elah and Montaigne...")
 
         def work():
             try:
-                self._result = self.job.run()
+                if only:
+                    self._side_on = True
+                    try:
+                        mp.Provisioner(self.mgr.url, progress=self._side_progress, cancel=cancel).pull(
+                            self.assistant_tag, mp.ASSISTANT_LABEL)
+                    except mp.Cancelled:
+                        raise
+                    except Exception as e:
+                        self._assistant_error = f"{type(e).__name__}: {e}"
+                else:
+                    self._result = self.job.run()
+                    self._assistant_error = self._result.get("assistant_error")
+                if chat:                                # only after a yes, and only once the setup itself is done
+                    self._side, self._side_on = (0.0, chat_models.FETCH_LABEL), True
+                    self.chat_result = chat_models.fetch(self.mgr.url, progress=self._side_progress, cancel=cancel)
             except mp.Cancelled:
                 self._error = "cancelled"
             except Exception as e:
@@ -202,8 +326,8 @@ class SetupPanel(QFrame):
         self._timer.start(150)
 
     def cancel(self) -> None:
-        if self.job is not None:
-            self.job.cancel.set()
+        if self.job is not None or self.assistant_only:
+            self._cancel.set()
             self.detail.setText("Stopping after the current step...")
 
     def _poll(self) -> None:
@@ -217,7 +341,14 @@ class SetupPanel(QFrame):
                 self.status_lbl.setText("Could not check the setup.")
                 self.detail.setText(self._error)
             return
-        if self.job is not None:
+        if self._side_on:                              # the Assistant's brain alone, or Gemma after the setup
+            frac, msg = self._side
+            self.bar.setValue(int(min(1.0, frac) * 1000))
+            if msg:
+                self.detail.setText(msg)
+            if not self.assistant_only:
+                self.status_lbl.setText(CHAT_BUSY)
+        elif self.job is not None:
             self.bar.setValue(int(self.job.overall * 1000))
             if self.job.message:
                 self.detail.setText(self.job.message)
@@ -238,6 +369,14 @@ class SetupPanel(QFrame):
             return
         self.bar.setValue(1000)
         self.detail.setText("")
+        if self._assistant_error:                      # not a failed setup: the characters are in place
+            self.bar.setVisible(False)
+            self.detail.setText(self._assistant_error)
+            self._assistant_note = ASSISTANT_FAILED    # shown by the re-probe below, which keeps the panel up
+            self.assistant_failed.emit(ASSISTANT_FAILED)
+        if self.chat_result is not None:
+            self.chat_wanted = False
+            self.chat_fetched.emit(bool(self.chat_result[0]), str(self.chat_result[1]))
         self.check()                                   # re-probe: READY hides the panel and emits ready
 
 

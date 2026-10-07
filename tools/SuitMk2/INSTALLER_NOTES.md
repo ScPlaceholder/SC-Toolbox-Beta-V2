@@ -24,7 +24,7 @@ stages the Piper voices from `SUITMK2_VOICES_SRC`.
 ## What the installer does NOT need to do
 
 The installer doesn't install Ollama, pull any model or create any Ollama model. All of that happens inside the tool
-on first run, behind one "Set up Elah and Montaigne (about 1.9 GB)" click (or with no click if `auto_setup` is
+on first run, behind one "Set up Elah and Montaigne (about 2.3 GB)" click (or with no click if `auto_setup` is
 turned on in `~/.sctoolbox/suitmk2/settings.json`). The player never touches Ollama.
 
 The earlier draft patch for this (`core/build_installer_models.patch`, 2026-09-23 19:36) staged only the two deltas

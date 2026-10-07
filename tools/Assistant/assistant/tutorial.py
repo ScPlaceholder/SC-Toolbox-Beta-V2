@@ -17,7 +17,7 @@ tests/test_tutorial.py checks each one is still there:
                                      volume sliders, Export / Import memory, the
                                      tick boxes, Speaker models in VRAM, Use Claude
                                      for lines, the status rows
-  tools/SuitMk2/ui/setup_panel.py    Set up Elah and Montaigne (about 1.9 GB)
+  tools/SuitMk2/ui/setup_panel.py    Set up Elah and Montaigne (about 2.3 GB)
   tools/SuitMk2/core/pacing.py       silent ... very chatty
 
 WHAT THE SUIT MK2 TABS WERE WRITTEN AGAINST: tools/SuitMk2 at commit 596bff8
@@ -219,7 +219,7 @@ you.</p>
 
 {h4("The first time", _C_SUIT)}
 <p>The companions run on your own PC. If they are not installed yet, the tab
-shows <b>Set up Elah and Montaigne (about 1.9 GB)</b>. Press it and wait for
+shows <b>Set up Elah and Montaigne (about 2.3 GB)</b>. Press it and wait for
 the download.</p>
 
 {h4("When they speak", _C_SUIT)}

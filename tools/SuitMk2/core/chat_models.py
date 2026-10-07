@@ -18,11 +18,20 @@ So this module does three things, none of which loads a model or asks one anythi
 
 Only gemma3:4b has been measured with the prompt chat_talker sends. Every other
 model is listed and marked untested, not hidden.
+
+THE OFFER (the last part of this file). Free talk needs a heavier model than the two speakers' own line models, and
+nothing downloads it unless the player says yes. offer() words the question for the pop-up (ui/chat_offer.py) from
+what is installed and what memory is free; fetch() downloads it through the same pull the first-run setup uses;
+take() chooses it as the chat model through choose() above, so the fit check is the same one; remove() deletes it.
+None of them turns free talk on: that stays the checkbox.
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
+import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -165,3 +174,156 @@ class UseCheck:
             answer = (False, f"the fit check could not run ({type(e).__name__})")
         self._kept = (t, answer)
         return answer
+
+
+# ---- the offer: Gemma, for talking with the companions ---------------------------------------------------------------
+OFFER = TESTED[0]                       # the one model measured with the prompt in use
+OFFER_NAME = "Gemma"
+# The download: the sum of the layers in the registry manifest for gemma3:4b (read 2026-10-06), which is also the
+# size Ollama lists once it is installed. 3.3 GB as a download is quoted; the setup panel says the same figure.
+OFFER_DOWNLOAD_BYTES = 3_338_801_804
+OFFER_TITLE = "Talk with Elah and Montaigne?"
+NOT_NOW = "Not now"
+CLOSE = "Close"
+FETCH_LABEL = "Downloading Gemma"
+SWITCH_LABEL = "Free talk (chat model)"            # the checkbox in the Suit Mk2 tab; ui/suit_window.py uses this
+GET_BUTTON = "Get Gemma for talking..."
+USE_BUTTON = "Use Gemma for talking..."
+REMOVE_BUTTON = "Remove Gemma..."
+STOP_BUTTON = "Stop the download"
+REMOVE_TITLE = "Remove Gemma?"
+REMOVE_YES = "Remove Gemma"
+
+
+def download_text() -> str:
+    """"3.3 GB": the download as the player is told it."""
+    return f"{OFFER_DOWNLOAD_BYTES / 1e9:.1f} GB"
+
+
+def serves_eyes() -> bool:
+    """The optional closer look at the screen uses this same model, so it is one download for both."""
+    try:
+        import model_provision as mp
+        return mp.VISION_TAG == OFFER
+    except Exception:
+        return False
+
+
+@dataclass
+class Offer:
+    """What the pop-up shows. kind: "download" (not on this PC; yes downloads it), "select" (already here; yes only
+    chooses it), "tight" (this PC has no room for it now: nothing is offered), "unreachable" (Ollama does not
+    answer, so nothing can be downloaded from here). yes is the label of the yes button, "" when there is none."""
+    kind: str
+    headline: str
+    body: str
+    yes: str = ""
+    no: str = NOT_NOW
+
+    @property
+    def text(self) -> str:
+        return self.headline + "\n\n" + self.body
+
+
+def _memory_lines() -> tuple:
+    need = hg.need_bytes(OFFER_DOWNLOAD_BYTES)
+    reserve = hg.VRAM_RESERVE_GB * hg.GB
+    return hg._gb(need), hg._gb(reserve), hg._gb(need + reserve)
+
+
+def offer(models: Optional[list], free: Optional[hg.FreeMemory], setup: bool = False) -> Offer:
+    """The question, worded from what is installed (models: installed(), None = Ollama did not answer) and what
+    memory is free. setup=True is the first-run button: Ollama may not be installed yet, and the setup itself
+    installs it, so "does not answer" is not a reason to withhold the offer there. Pure: asks nothing."""
+    need, reserve, both = _memory_lines()
+    here = is_installed(OFFER, models)
+    size = size_of(OFFER, models) if here else None
+    ok, why = hg.fits(size or OFFER_DOWNLOAD_BYTES, free)
+    without = "Elah and Montaigne's normal comments work without it."
+    if not ok:
+        return Offer("tight", f"{OFFER_NAME} is not offered on this PC right now",
+                     f"Talking back and forth with Elah and Montaigne needs a heavier model, {OFFER_NAME} ({OFFER}), "
+                     f"and right now this PC does not have the room for it: {why}\n\n"
+                     f"Nothing was downloaded and nothing was changed. {without}\n\n"
+                     "You can try again later from the Suit Mk2 tab, with more memory free (for example with the "
+                     "game closed).", no=CLOSE)
+    if models is None and not setup:
+        return Offer("unreachable", f"{OFFER_NAME} cannot be set up right now",
+                     f"Ollama is not running, so {OFFER_NAME} can be neither checked nor downloaded. Nothing was "
+                     f"changed. {without}\n\nRun the setup at the top of the Suit Mk2 tab, or start Ollama, and "
+                     "try again.", no=CLOSE)
+    memory = (f"Video memory: about {need} while it is in use. The Suit only uses it when about {both} is free, "
+              f"so that {reserve} stays free for the game, and it stands down by itself when the PC is busy.")
+    later = "You can add it later from the Suit Mk2 tab, and remove it again there."
+    if here:
+        return Offer("select", f"{OFFER_NAME} is already on this PC",
+                     f"{OFFER_NAME} ({OFFER}) is the heavier model that lets you talk back and forth with Elah and "
+                     "Montaigne. It is already on this PC, so there is nothing to download.\n\n"
+                     f"It is only worth using if you plan to talk with the companions. {without}\n\n"
+                     f"{memory}\n\nChoose it as the model for talking? You can change this later in the Suit Mk2 "
+                     "tab.", yes=f"Use {OFFER_NAME} for talking")
+    one = (" It is one download that serves both: the same model also gives the companions their optional closer "
+           "look at the screen.") if serves_eyes() else ""
+    return Offer("download", f"Also get {OFFER_NAME}, for talking with the companions?",
+                 f"{without} Nothing more is needed for those.\n\n"
+                 f"Talking back and forth with them needs a heavier model, {OFFER_NAME} ({OFFER}). It is only worth "
+                 "getting if you plan to talk with the companions.\n\n"
+                 f"Download: about {download_text()}.{one}\n"
+                 f"{memory}\n\n{later}",
+                 yes=f"Download {OFFER_NAME} (about {download_text()})")
+
+
+def fetch(url: Optional[str] = None, progress: Optional[Callable] = None, cancel=None) -> tuple:
+    """Download the offered model through the pull the first-run setup uses (model_provision.Provisioner.pull:
+    streamed progress, and Ollama resumes a partial download itself). (True, "pulled" | "present") or
+    (False, one plain sentence). Changes no setting and never raises."""
+    try:
+        import model_provision as mp
+    except Exception as e:
+        return False, f"{OFFER_NAME} could not be downloaded: the downloader did not load ({type(e).__name__})."
+    try:
+        return True, mp.Provisioner(url, progress=progress, cancel=cancel).pull(OFFER, FETCH_LABEL)
+    except mp.Cancelled:
+        return False, (f"The {OFFER_NAME} download was stopped. Nothing was changed; starting it again carries on "
+                       "from where it stopped.")
+    except Exception as e:
+        reason = " ".join(str(e).split())[:160] or type(e).__name__
+        return False, (f"{OFFER_NAME} could not be downloaded ({reason}). Nothing was changed, and Elah and "
+                       "Montaigne's normal comments work without it. You can try again from the Suit Mk2 tab.")
+
+
+def take(s: dict, models: Optional[list], free: Optional[hg.FreeMemory]) -> tuple:
+    """Choose the offered model as the chat model, through choose() and so through the same fit check. (ok, what
+    the window says). s["chat"] is NOT touched: free talk stays whatever the checkbox was. The caller saves s."""
+    ok, why = choose(s, OFFER, models, free)
+    if not ok:
+        return False, f"{OFFER_NAME} is on this PC but was not chosen for talking. {why}"
+    if s.get("chat") is True:
+        return True, f"{OFFER_NAME} is now the model for talking, and free talk is on."
+    return True, (f"{OFFER_NAME} is chosen for talking. Free talk is still off: tick \"{SWITCH_LABEL}\" to start "
+                  "talking.")
+
+
+def remove_question() -> str:
+    eyes = (" The companions' optional closer look at the screen uses the same model and stops working too."
+            if serves_eyes() else "")
+    return (f"This deletes {OFFER_NAME} ({OFFER}) from this PC and frees about {download_text()} of disk. Free talk "
+            f"is switched off.{eyes}\n\nElah and Montaigne's normal comments are not affected. You can download it "
+            "again later.")
+
+
+def remove(s: dict, url: Optional[str] = None, timeout: float = 30.0) -> tuple:
+    """Delete the offered model from Ollama. (ok, sentence). On success the choice is cleared if it was this model
+    (and free talk with it: there is nothing left to talk with). The caller saves s. Never raises."""
+    base = (url or _manager(None).url).rstrip("/")
+    req = urllib.request.Request(base + "/api/delete", data=json.dumps({"model": OFFER}).encode(), method="DELETE",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout):
+            pass
+    except Exception as e:
+        reason = " ".join(str(e).split())[:160] or type(e).__name__
+        return False, f"{OFFER_NAME} could not be removed ({reason}). Nothing was changed."
+    if str(s.get("chat_model") or "").strip().lower() in (OFFER, OFFER + ":latest"):
+        choose(s, "", None, None)
+    return True, f"{OFFER_NAME} was removed from this PC. Free talk is off."
