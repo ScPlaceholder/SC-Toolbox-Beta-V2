@@ -2976,15 +2976,27 @@ def _build_manual_override_label_rows(
     """
     from .sc_ocr import calibration as _cal_local
     out: dict[str, tuple[int, int, int]] = {}
+    # The boxes are saved in raw HUD-capture pixels (the region's own
+    # w x h), but this frame has been resized to the reader's working
+    # size. Scale them here, at apply time. At 5120x2160 the region was
+    # 436x322 and the frame 907x670, so unscaled boxes landed about
+    # 2.08x too close to the top-left (Swill's 5K2K report, 7.1).
+    try:
+        _rw = int(region.get("w") or 0)
+        _rh = int(region.get("h") or 0)
+    except (TypeError, ValueError, AttributeError):
+        _rw = _rh = 0
+    _sx = (img_w / _rw) if _rw > 0 else 1.0
+    _sy = (img_h / _rh) if _rh > 0 else 1.0
     for _field in ("_mineral_row", "mass", "resistance", "instability"):
         box = _cal_local.get_manual_override_box(region, _field)
         if box is None:
             continue
         try:
-            _x = max(0, int(box["x"]))
-            _y = max(0, int(box["y"]))
-            _w = max(1, int(box["w"]))
-            _h = max(1, int(box["h"]))
+            _x = max(0, int(round(int(box["x"]) * _sx)))
+            _y = max(0, int(round(int(box["y"]) * _sy)))
+            _w = max(1, int(round(int(box["w"]) * _sx)))
+            _h = max(1, int(round(int(box["h"]) * _sy)))
         except (KeyError, TypeError, ValueError):
             continue
         y_s = min(img_h, _y)
@@ -3095,6 +3107,52 @@ def _refine_value_band_to_ink(
         return y1, y2
 
 
+def _manual_override_rows(img: Image.Image, region: Optional[dict] = None):
+    """The user's manual-override rows for ``region``, or None when the
+    override is off for it (or cannot be read).
+
+    The single place the override decision is made. ``_find_label_rows``
+    calls this FIRST, before pose-hold and before every auto-detect path:
+    when the user has switched the override on, their boxes are the
+    answer and nothing else may pre-empt them (Swill's 5K2K report, 7.2:
+    EARLY-DIRECT used to return before the override was ever checked).
+    """
+    if region is None:
+        region = _get_current_region()
+    if region is None:
+        return None
+    try:
+        from .sc_ocr import calibration as _cal_mo
+        if not _cal_mo.get_manual_override_mode(region):
+            return None
+        log.info("hud: manual override mode active — bypassing auto-detect")
+        manual_rows = _build_manual_override_label_rows(
+            region, img.width, img.height,
+        )
+    except Exception as _mo_exc:
+        log.debug("manual override lookup failed: %s", _mo_exc)
+        return None
+    # Telemetry: push the user's boxes into the debug overlay so the live
+    # viewer shows them just like any other detection path.
+    try:
+        from .sc_ocr import debug_overlay as _dbg
+        _mineral = manual_rows.get("_mineral_row")
+        if _mineral:
+            _dbg.set_panel_finder(
+                top_y=None,
+                mineral_y_top=_mineral[0],
+                mineral_y_bot=_mineral[1],
+                mineral_center=(_mineral[0] + _mineral[1]) // 2,
+                pitch=None,
+                bot_line_y=None,
+                source="manual_override",
+                title_box=_get_cached_title_box(),
+            )
+    except _OVERLAY_PUSH_ERRORS as exc:
+        log.debug("debug-overlay push failed (manual_override): %r", exc)
+    return manual_rows
+
+
 def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
     """Pose-hold wrapper around the full row detection.
 
@@ -3107,6 +3165,10 @@ def _find_label_rows(img: Image.Image) -> dict[str, tuple[int, int, int]]:
     periodic forced re-verify falls through to ``_find_label_rows_impl``
     and re-fingerprints its result. ``SC_POSE_HOLD=0`` disables holding.
     """
+    # Manual override first: before pose-hold and before any auto-detect.
+    _mo_rows = _manual_override_rows(img)
+    if _mo_rows is not None:
+        return _mo_rows
     _pose_on = os.environ.get("SC_POSE_HOLD") != "0"
     if _pose_on:
         try:
@@ -4121,40 +4183,11 @@ def _find_label_rows_impl_body(img: Image.Image) -> dict[str, tuple[int, int, in
     # tuple shape so downstream OCR consumes them like any other source.
     _region = _get_current_region()
     if _region is not None:
-        try:
-            from .sc_ocr import calibration as _cal_mo
-            if _cal_mo.get_manual_override_mode(_region):
-                log.info(
-                    "hud: manual override mode active — bypassing auto-detect"
-                )
-                manual_rows = _build_manual_override_label_rows(
-                    _region, img.width, img.height,
-                )
-                # Telemetry: push the user's boxes into the debug overlay
-                # so the live viewer shows them just like any other
-                # detection path.
-                try:
-                    from .sc_ocr import debug_overlay as _dbg
-                    _mineral = manual_rows.get("_mineral_row")
-                    if _mineral:
-                        _dbg.set_panel_finder(
-                            top_y=None,
-                            mineral_y_top=_mineral[0],
-                            mineral_y_bot=_mineral[1],
-                            mineral_center=(_mineral[0] + _mineral[1]) // 2,
-                            pitch=None,
-                            bot_line_y=None,
-                            source="manual_override",
-                            title_box=_get_cached_title_box(),
-                        )
-                except _OVERLAY_PUSH_ERRORS as exc:
-                    log.debug(
-                        "debug-overlay push failed (manual_override): %r",
-                        exc,
-                    )
-                return manual_rows
-        except Exception as _mo_exc:
-            log.debug("manual override lookup failed: %s", _mo_exc)
+        # Normally answered already at the top of _find_label_rows; kept
+        # here so a direct call to this body still honours the override.
+        _mo_rows = _manual_override_rows(img, _region)
+        if _mo_rows is not None:
+            return _mo_rows
 
     # ── ZEROTH: persistent calibration ──
     # If the user has saved calibration for the current region, use it
