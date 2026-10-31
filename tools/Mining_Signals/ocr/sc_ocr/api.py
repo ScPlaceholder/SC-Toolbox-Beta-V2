@@ -7601,12 +7601,14 @@ def _perglyph_consensus_digits(field: str, value_crop) -> "Optional[str]":
         # identity GEOMETRY already proves, so the CRNN's '13' survived
         # into a structural reject (instability=None on a clean 1.43).
         # Apply the cascade's own rule: w < 0.55x median width -> '.'.
-        _dot_med = 0
+        # Narrow AND short (the cascade's _dot_label_from_box) — a
+        # width-only test turned a full-height leading '1' into '.' and
+        # overrode a correct CRNN mass read (14565 -> '.4565').
+        _dot_lbls: list = []
         if _boxes and len(_boxes) == len(_crops):
-            _bws = sorted(int(_b[2]) for _b in _boxes)
-            _dot_med = _bws[len(_bws) // 2]
-            for _di, _bx in enumerate(_boxes):
-                if _dot_med > 0 and int(_bx[2]) < 0.55 * _dot_med:
+            _dot_lbls = _dot_label_from_box(_boxes)
+            for _di, _dl in enumerate(_dot_lbls):
+                if _dl == ".":
                     if _di < len(_pri):
                         _pri[_di] = (".", 1.0)
                     if _di < len(_sec):
@@ -7660,10 +7662,8 @@ def _perglyph_consensus_digits(field: str, value_crop) -> "Optional[str]":
             if _rgb_crops:
                 _rres = _classify_crops_signal_rgb(_rgb_crops)
                 # same geometry dot override as the gray voters
-                for _di, _bx in enumerate(_boxes):
-                    if (_dot_med > 0
-                            and int(_bx[2]) < 0.55 * _dot_med
-                            and _di < len(_rres)):
+                for _di, _dl in enumerate(_dot_lbls):
+                    if _dl == "." and _di < len(_rres):
                         _rres[_di] = (".", 1.0)
                 _rd, _rm = _dc(_rres)
                 if _pd == _rd and _rm >= 0.85:
