@@ -561,6 +561,18 @@ class ManualOverrideDialog(QDialog):
                 "No region set — nothing to load.", 3000,
             )
             return
+        # Saved locks are in the reader's RESIZED frame space
+        # (calibration.json "image_size", e.g. 907x670); the draw canvas
+        # and $manual_overrides are raw HUD-capture pixels (region w x
+        # h, e.g. 436x322). Convert, or boxes saved from here get
+        # double-scaled by the apply-time scaling in onnx_hud_reader.
+        try:
+            _entry = calibration.load(self._region) or {}
+            _iw, _ih = (_entry.get("image_size") or [0, 0])[:2]
+            _fx = (int(self._region.get("w", 0)) / _iw) if _iw else 1.0
+            _fy = (int(self._region.get("h", 0)) / _ih) if _ih else 1.0
+        except Exception:
+            _fx = _fy = 1.0
         loaded = 0
         for field in OVERRIDE_FIELDS:
             try:
@@ -570,7 +582,12 @@ class ManualOverrideDialog(QDialog):
                 box = None
             if box is None:
                 continue
-            self._draw.set_box_for_field(field, box)
+            self._draw.set_box_for_field(field, {
+                "x": int(round(int(box["x"]) * _fx)),
+                "y": int(round(int(box["y"]) * _fy)),
+                "w": int(round(int(box["w"]) * _fx)),
+                "h": int(round(int(box["h"]) * _fy)),
+            })
             loaded += 1
         self._refresh_box_list()
         if loaded == 0:
